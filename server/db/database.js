@@ -195,6 +195,23 @@ async function initialize() {
     }
   } catch(e) { console.warn('Cleanup users:', e.message); }
 
+  // ── Ensure admin user exists (create if DB is fresh) ─────────────────────
+  try {
+    const bcrypt = require('bcryptjs');
+    const adminCheck = db.exec(`SELECT COUNT(*) FROM users WHERE email = 'neusser@phalanx.de'`);
+    const adminExists = adminCheck[0]?.values[0][0] || 0;
+    if (!adminExists) {
+      const hash = bcrypt.hashSync('Phalanx@2026!', 10);
+      db.run(
+        `INSERT INTO users (email, password_hash, role, first_name, last_name, company, position, phone, is_approved, is_active, created_at)
+         VALUES ('neusser@phalanx.de', ?, 'super_admin', 'Christian', 'Neusser', 'Phalanx GmbH', 'Geschäftsführer', '+49 9131 9206075', 1, 1, datetime('now'))`,
+        [hash]
+      );
+      saveDb();
+      console.log('👤 Admin-User angelegt: neusser@phalanx.de / Phalanx@2026!');
+    }
+  } catch(e) { console.warn('Admin-User-Init:', e.message); }
+
   // Ensure admin account is always active and approved
   try {
     db.run(`UPDATE users SET is_approved = 1, is_active = 1 WHERE email = 'neusser@phalanx.de'`);
