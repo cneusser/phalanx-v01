@@ -1,4 +1,4 @@
-# Phalanx M&A Plattform – V0.1
+# Phalanx M&A Plattform – V0.1 
 
 Ein sicherer Online-Marktplatz für Unternehmenstransaktionen.
 
