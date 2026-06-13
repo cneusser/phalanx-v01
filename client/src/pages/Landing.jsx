@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Lock, Users, FileText, ChevronRight, Building2, TrendingUp, Eye, Cpu } from 'lucide-react';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
+
+const API = import.meta.env.VITE_API_URL || '';
 
 const C = {
   navy:    '#1A4D8A',   // CapitalMatch dark blue
@@ -36,10 +38,11 @@ const FeatureCard = ({ icon: Icon, title, text }) => (
   </div>
 );
 
-const StatBox = ({ value, label }) => (
+const StatBox = ({ value, label, sublabel }) => (
   <div style={{ textAlign: 'center' }}>
-    <div style={{ fontSize: '2.2rem', fontWeight: 700, color: C.accent }}>{value}</div>
-    <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', marginTop: '0.25rem' }}>{label}</div>
+    <div style={{ fontSize: '2.2rem', fontWeight: 700, color: C.accent, lineHeight: 1 }}>{value}</div>
+    <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem', fontWeight: 600, marginTop: '0.3rem' }}>{label}</div>
+    {sublabel && <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.72rem', marginTop: '0.15rem' }}>{sublabel}</div>}
   </div>
 );
 
@@ -68,6 +71,18 @@ function ProjectAvatar({ name, color }) {
 }
 
 export default function Landing() {
+  const [platformStats, setPlatformStats] = useState(null);
+
+  useEffect(() => {
+    fetch(`${API}/api/projects/stats`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setPlatformStats(d.data); })
+      .catch(() => {/* silent fallback to defaults */});
+  }, []);
+
+  // Fallback values while loading or on error
+  const stats = platformStats || { ma: { active: 0 }, fundraising: { active: 0 }, investors: 0 };
+
   return (
     <div style={{ background: C.bg }}>
 
@@ -162,20 +177,36 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Stats bar ────────────────────────────────────────── */}
+      {/* ── Stats bar (dynamisch) ────────────────────────────── */}
       <section style={{
         background: C.navy,
         padding: '2.5rem 1.5rem',
         borderTop: `2px solid ${C.accent}`,
       }}>
         <div style={{
-          maxWidth: 900, margin: '0 auto',
+          maxWidth: 1000, margin: '0 auto',
           display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2rem',
         }}>
-          <StatBox value="8+" label="Aktive Mandate" />
-          <StatBox value="€ 2,2 Mio." label="Akt. Fundraising-Volumen" />
-          <StatBox value="50+" label="Qualifizierte Investoren" />
-          <StatBox value="100%" label="Vertraulichkeit" />
+          <StatBox
+            value={stats.ma.active > 0 ? `${stats.ma.active}` : '—'}
+            label="M&A-Mandate"
+            sublabel="Unternehmensverkauf"
+          />
+          <StatBox
+            value={stats.fundraising.active > 0 ? `${stats.fundraising.active}` : '—'}
+            label="Fundraising-Mandate"
+            sublabel="Seed · Angel · Series-A"
+          />
+          <StatBox
+            value={stats.investors > 0 ? `${stats.investors}+` : '—'}
+            label="Qualifizierte Investoren"
+            sublabel="geprüft & freigegeben"
+          />
+          <StatBox
+            value="100%"
+            label="Vertraulichkeit"
+            sublabel="NDA · DSGVO · EU-Hosting"
+          />
         </div>
       </section>
 

@@ -6,6 +6,25 @@ const router = express.Router();
 
 const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type';
 
+// ── GET /stats — Public platform statistics ───────────────────────────────
+router.get('/stats', (req, res) => {
+  const maActive    = db.prepare(`SELECT COUNT(*) as c FROM projects WHERE status='active' AND mandate_type='ma'`).get().c;
+  const maTotal     = db.prepare(`SELECT COUNT(*) as c FROM projects WHERE mandate_type='ma'`).get().c;
+  const fundActive  = db.prepare(`SELECT COUNT(*) as c FROM projects WHERE status='active' AND mandate_type='fundraising'`).get().c;
+  const fundTotal   = db.prepare(`SELECT COUNT(*) as c FROM projects WHERE mandate_type='fundraising'`).get().c;
+  const investors   = db.prepare(`SELECT COUNT(*) as c FROM users WHERE role='buyer' AND is_approved=1 AND is_active=1`).get().c;
+
+  res.json({
+    success: true,
+    data: {
+      ma:          { active: maActive,   total: maTotal },
+      fundraising: { active: fundActive, total: fundTotal },
+      investors,
+      total_active: maActive + fundActive,
+    },
+  });
+});
+
 // ── GET / — Public list (active projects only) ─────────────────────────────
 router.get('/', (req, res) => {
   const { industry, region, deal_type, search, mandate_type } = req.query;
