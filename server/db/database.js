@@ -149,6 +149,60 @@ async function initialize() {
   }
 
   saveDb();
+
+  // ── V0.2 Data Cleanup ─────────────────────────────────────────────────────
+  // Remove all legacy projects (keep only Scopo GmbH and ika ika GmbH)
+  // and all legacy users (keep only the admin neusser@phalanx.de).
+  // This runs on every server start so Railway's persistent DB is always clean.
+  try {
+    const oldProjects = db.exec(`
+      SELECT COUNT(*) as c FROM projects
+      WHERE codename NOT IN ('Scopo GmbH', 'ika ika GmbH')
+    `);
+    const oldCount = oldProjects[0]?.values[0][0] || 0;
+    if (oldCount > 0) {
+      // Delete dependent records first
+      db.run(`DELETE FROM nda_requests WHERE project_id IN (
+        SELECT id FROM projects WHERE codename NOT IN ('Scopo GmbH', 'ika ika GmbH')
+      )`);
+      db.run(`DELETE FROM documents WHERE project_id IN (
+        SELECT id FROM projects WHERE codename NOT IN ('Scopo GmbH', 'ika ika GmbH')
+      )`);
+      db.run(`DELETE FROM project_details WHERE project_id IN (
+        SELECT id FROM projects WHERE codename NOT IN ('Scopo GmbH', 'ika ika GmbH')
+      )`);
+      db.run(`DELETE FROM projects WHERE codename NOT IN ('Scopo GmbH', 'ika ika GmbH')`);
+      console.log(`🧹 ${oldCount} Altprojekte gelöscht (nur Scopo + ika ika behalten)`);
+      saveDb();
+    }
+  } catch(e) { console.warn('Cleanup projects:', e.message); }
+
+  try {
+    const oldUsers = db.exec(`
+      SELECT COUNT(*) as c FROM users WHERE email != 'neusser@phalanx.de'
+    `);
+    const oldUsersCount = oldUsers[0]?.values[0][0] || 0;
+    if (oldUsersCount > 0) {
+      db.run(`DELETE FROM buyer_profiles WHERE user_id IN (
+        SELECT id FROM users WHERE email != 'neusser@phalanx.de'
+      )`);
+      db.run(`DELETE FROM nda_requests WHERE user_id IN (
+        SELECT id FROM users WHERE email != 'neusser@phalanx.de'
+      )`);
+      db.run(`DELETE FROM users WHERE email != 'neusser@phalanx.de'`);
+      console.log(`🧹 ${oldUsersCount} Alt-User gelöscht (nur Admin behalten)`);
+      saveDb();
+    }
+  } catch(e) { console.warn('Cleanup users:', e.message); }
+
+  // Ensure admin account is always active and approved
+  try {
+    db.run(`UPDATE users SET is_approved = 1, is_active = 1 WHERE email = 'neusser@phalanx.de'`);
+    // Ensure both projects are active (visible)
+    db.run(`UPDATE projects SET status = 'active' WHERE codename IN ('Scopo GmbH', 'ika ika GmbH')`);
+    saveDb();
+  } catch(e) { /* silent */ }
+
   console.log('✅ Database initialized');
 }
 

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" width="320" height="160">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@800&amp;display=swap');
+      .logo-capital { font-family: 'Nunito', 'Nunito Sans', Arial Rounded MT Bold, Arial, sans-serif; font-weight: 800; font-size: 72px; fill: #29ABE2; letter-spacing: -1px; }
+      .logo-match   { font-family: 'Nunito', 'Nunito Sans', Arial Rounded MT Bold, Arial, sans-serif; font-weight: 800; font-size: 72px; fill: #1A4D8A; letter-spacing: -1px; }
+    </style>
+  </defs>
+  <text class="logo-capital" x="6" y="78">Capital</text>
+  <text class="logo-match"   x="6" y="152">Match</text>
+</svg>
