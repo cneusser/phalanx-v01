@@ -1,23 +1,29 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import CapitalMatchLogo from './components/CapitalMatchLogo';
 import Landing from './pages/Landing';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import Register from './pages/Register';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
+import SellerDashboard from './pages/SellerDashboard';
 import Datenschutz from './pages/Datenschutz';
 import Impressum from './pages/Impressum';
 import NotFound from './pages/NotFound';
-import PhalanxLogo from './components/PhalanxLogo';
 
-const C = { navy: '#14314F', steel: '#A5C8E4', lightBg: '#EDF4FA' };
+const C = { navy: '#1A4D8A', steel: '#29ABE2', lightBg: '#EBF7FC' };
 
-function ProtectedRoute({ children, adminOnly = false }) {
+// Routes that have their own footer
+const NO_FOOTER_PATHS = ['/'];
+
+function ProtectedRoute({ children, adminOnly = false, sellerOk = false }) {
   const { user, loading } = useAuth();
   if (loading) return <div style={{ padding: '3rem', textAlign: 'center', color: '#878787' }}>Laden...</div>;
   if (!user) return <Navigate to="/login" replace />;
@@ -26,16 +32,19 @@ function ProtectedRoute({ children, adminOnly = false }) {
 }
 
 function Footer() {
+  const location = useLocation();
+  if (NO_FOOTER_PATHS.includes(location.pathname)) return null;
+
   return (
-    <footer style={{ background: '#0d1f2f', color: 'rgba(255,255,255,0.55)', padding: '2rem 1.5rem', marginTop: '4rem' }}>
+    <footer style={{ background: '#0B1F3D', color: 'rgba(255,255,255,0.55)', padding: '1.75rem 1.5rem', marginTop: 'auto' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <PhalanxLogo size={28} showText={true} textSize={16} white={true} />
-        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem' }}>
+        <CapitalMatchLogo textSize={15} white={true} compact={true} />
+        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.78rem' }}>
           <Link to="/impressum" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>Impressum</Link>
           <Link to="/datenschutz" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>Datenschutz</Link>
-          <a href="mailto:info@phalanx.de" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>Kontakt</a>
+          <a href="mailto:neusser@phalanx.de" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>Kontakt</a>
         </div>
-        <div style={{ fontSize: '0.75rem' }}>© 2025 Phalanx GmbH</div>
+        <div style={{ fontSize: '0.72rem' }}>© 2026 Phalanx GmbH</div>
       </div>
     </footer>
   );
@@ -52,9 +61,12 @@ function AppRoutes() {
           <Route path="/projekte/:id" element={<ProjectDetail />} />
           <Route path="/registrieren" element={<Register />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/passwort-vergessen" element={<ForgotPassword />} />
+          <Route path="/passwort-reset" element={<ResetPassword />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
+          <Route path="/verkaeuferdashboard" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
           <Route path="/datenschutz" element={<Datenschutz />} />
           <Route path="/impressum" element={<Impressum />} />
           <Route path="*" element={<NotFound />} />

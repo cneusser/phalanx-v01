@@ -26,11 +26,16 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
+  // register now returns the raw server response.
+  // If data.pending === true, there is no token and the user is NOT logged in.
+  // Register.jsx detects this and shows a "pending approval" message.
   const register = async (formData) => {
     const data = await api.post('/auth/register', formData);
-    localStorage.setItem('phalanx_token', data.token);
-    setUser(data.user);
-    return data.user;
+    if (data.token) {
+      localStorage.setItem('phalanx_token', data.token);
+      setUser(data.user);
+    }
+    return data; // includes pending: true when awaiting admin approval
   };
 
   const logout = () => {
@@ -39,9 +44,10 @@ export function AuthProvider({ children }) {
   };
 
   const isAdmin = user && ['super_admin', 'advisor'].includes(user.role);
+  const isSeller = user && user.role === 'seller';
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, isAdmin }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, isAdmin, isSeller }}>
       {children}
     </AuthContext.Provider>
   );

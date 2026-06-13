@@ -138,6 +138,11 @@ async function initialize() {
     `ALTER TABLE project_details ADD COLUMN use_of_funds TEXT`,
     `ALTER TABLE project_details ADD COLUMN traction_highlights TEXT DEFAULT '[]'`,
     `ALTER TABLE project_details ADD COLUMN milestones TEXT`,
+    // V0.2 user approval workflow
+    `ALTER TABLE users ADD COLUMN is_approved INTEGER DEFAULT 0`,
+    // V0.2 password reset
+    `ALTER TABLE users ADD COLUMN reset_token TEXT`,
+    `ALTER TABLE users ADD COLUMN reset_token_expires DATETIME`,
   ];
   for (const m of migrations) {
     try { db.run(m); } catch(e) { /* column already exists – ignore */ }

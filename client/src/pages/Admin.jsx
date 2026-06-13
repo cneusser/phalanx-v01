@@ -146,6 +146,40 @@ export default function Admin() {
     setTimeout(() => setMsg({ text: '', type: 'success' }), 3500);
   };
 
+  async function approveUser(id) {
+    try {
+      await api.put(`/admin/users/${id}/approve`, {});
+      showMsg('Nutzer freigegeben ✓');
+      loadAll();
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
+  async function deactivateUser(id) {
+    if (!confirm('Nutzer wirklich deaktivieren?')) return;
+    try {
+      await api.put(`/admin/users/${id}/deactivate`, {});
+      showMsg('Nutzer deaktiviert');
+      loadAll();
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
+  async function publishProject(id) {
+    try {
+      await api.put(`/admin/projects/${id}/publish`, {});
+      showMsg('Projekt veröffentlicht ✓');
+      loadAll();
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
+  async function unpublishProject(id) {
+    if (!confirm('Projekt zurückziehen (Entwurf)?')) return;
+    try {
+      await api.put(`/admin/projects/${id}/unpublish`, {});
+      showMsg('Projekt zurückgezogen');
+      loadAll();
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
   async function approveNDA(id) {
     try {
       await api.put(`/admin/ndas/${id}/approve`, {});
@@ -267,7 +301,7 @@ export default function Admin() {
     overview: 'Übersicht',
     projects: 'Projekte',
     ndas:     'NDA-Anfragen',
-    users:    'Käufer',
+    users:    'Nutzer',
     activity: 'Aktivitätslog',
     audit:    'Audit-Trail',
   };
@@ -321,10 +355,27 @@ export default function Admin() {
       {/* KPIs */}
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-          <KPICard label="Aktive Projekte" value={stats.projects.active} sub={`${stats.projects.total} gesamt`} icon={Building2} />
-          <KPICard label="Registrierte Käufer" value={stats.users.total} sub={`+${stats.users.this_week} diese Woche`} icon={Users} color="#8b5cf6" />
+          <KPICard label="Aktive Projekte" value={stats.projects.active} sub={`${stats.projects.total} gesamt · ${stats.projects.draft} Entwurf`} icon={Building2} />
+          <KPICard label="Registrierte Nutzer" value={stats.users.total} sub={stats.users.pending > 0 ? `⚠️ ${stats.users.pending} ausstehend` : `+${stats.users.this_week} diese Woche`} icon={Users} color={stats.users.pending > 0 ? '#f59e0b' : '#8b5cf6'} />
           <KPICard label="NDA-Anfragen" value={stats.ndas.total} sub={`${stats.ndas.requested} offen`} icon={FileText} color="#f59e0b" />
           <KPICard label="Freigaben" value={stats.ndas.approved} sub={`${stats.ndas.signed} unterschrieben`} icon={CheckCircle} color="#10b981" />
+        </div>
+      )}
+
+      {/* Pending Users Alert */}
+      {stats && stats.users.pending > 0 && (
+        <div
+          onClick={() => setActiveTab('users')}
+          style={{
+            background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6,
+            padding: '0.75rem 1rem', marginBottom: '1.25rem', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '0.75rem',
+          }}
+        >
+          <span style={{ fontSize: '1.1rem' }}>⏳</span>
+          <span style={{ fontSize: '0.875rem', color: '#92400e', fontWeight: 600 }}>
+            {stats.users.pending} neue Registrierung{stats.users.pending > 1 ? 'en warten' : ' wartet'} auf Freigabe — jetzt prüfen →
+          </span>
         </div>
       )}
 
@@ -350,6 +401,7 @@ export default function Admin() {
 
       {/* Overview */}
       {activeTab === 'overview' && (
+        <>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
           <div style={{ background: C.card, borderRadius: 6, padding: '1.5rem', border: `1px solid ${C.border}` }}>
             <h3 style={{ fontWeight: 600, color: C.text, marginBottom: '1rem', fontSize: '0.95rem' }}>Projekt-Pipeline</h3>
@@ -393,6 +445,32 @@ export default function Admin() {
             )}
           </div>
         </div>
+
+        {/* Pending User Approvals */}
+        {users.filter(u => !u.is_approved).length > 0 && (
+          <div style={{ background: C.card, borderRadius: 6, padding: '1.5rem', border: `1px solid #fcd34d`, marginTop: '1.5rem' }}>
+            <h3 style={{ fontWeight: 600, color: '#92400e', marginBottom: '1rem', fontSize: '0.95rem' }}>
+              ⏳ Ausstehende Registrierungen ({users.filter(u => !u.is_approved).length})
+            </h3>
+            {users.filter(u => !u.is_approved).map(u => (
+              <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0', borderBottom: `1px solid ${C.border}` }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.85rem', color: C.text }}>{u.first_name} {u.last_name}</div>
+                  <div style={{ fontSize: '0.72rem', color: C.muted }}>{u.email} · {u.role === 'seller' ? 'Verkäufer' : 'Käufer'} · {new Date(u.created_at).toLocaleDateString('de-DE')}</div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button onClick={() => approveUser(u.id)} style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
+                    ✓ Freigeben
+                  </button>
+                  <button onClick={() => deactivateUser(u.id)} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                    Ablehnen
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        </>
       )}
 
       {/* Projects Tab */}
@@ -429,11 +507,20 @@ export default function Admin() {
                   </td>
                   <td style={{ padding: '0.75rem 1rem', color: '#555', textAlign: 'center', fontSize: '0.82rem' }}>{p.nda_count}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      {p.status !== 'active' ? (
+                        <button onClick={() => publishProject(p.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#d1fae5', color: '#065f46', border: 'none', padding: '0.3rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                          ✓ Veröffentlichen
+                        </button>
+                      ) : (
+                        <button onClick={() => unpublishProject(p.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#fef3c7', color: '#92400e', border: 'none', padding: '0.3rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                          ↩ Entwurf
+                        </button>
+                      )}
                       <Link to={`/projekte/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: C.bg, color: C.navy, padding: '0.3rem 0.6rem', borderRadius: 5, fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none', border: `1px solid ${C.border}` }}>
                         <Eye size={11} /> Ansehen
                       </Link>
-                      <button onClick={() => setEditProject({ ...p })} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#fef3c7', color: '#92400e', border: 'none', padding: '0.3rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                      <button onClick={() => setEditProject({ ...p })} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#e0e7ff', color: '#3730a3', border: 'none', padding: '0.3rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
                         <Edit2 size={11} /> Bearbeiten
                       </button>
                       <button onClick={() => { openUpload(p); loadProjectDocs(p.id); }} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#dcfce7', color: '#166534', border: 'none', padding: '0.3rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
@@ -521,27 +608,51 @@ export default function Admin() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr style={{ background: C.bg }}>
-                {['Name', 'Unternehmen', 'Käufertyp', 'NDAs', 'Freigaben', 'Registriert'].map(h => (
+                {['Name', 'Rolle', 'Status', 'NDAs', 'Registriert', 'Aktionen'].map(h => (
                   <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.75rem' }}>{h.toUpperCase()}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {users.map(u => (
-                <tr key={u.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                <tr key={u.id} style={{ borderBottom: `1px solid ${C.border}`, background: u.is_approved ? 'transparent' : '#fffbeb' }}>
                   <td style={{ padding: '0.75rem 1rem' }}>
                     <div style={{ fontWeight: 600, color: C.text, fontSize: '0.85rem' }}>{u.first_name} {u.last_name}</div>
                     <div style={{ color: C.muted, fontSize: '0.72rem' }}>{u.email}</div>
+                    {u.company && <div style={{ color: C.muted, fontSize: '0.7rem' }}>{u.company}</div>}
                   </td>
-                  <td style={{ padding: '0.75rem 1rem', color: '#555', fontSize: '0.82rem' }}>{u.company || '–'}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>
-                    <span style={{ background: C.bg, color: C.navy, padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.7rem', border: `1px solid ${C.border}` }}>
-                      {u.buyer_type === 'strategic' ? 'Strategisch' : u.buyer_type === 'financial' ? 'Finanziell' : u.buyer_type || '–'}
+                    <span style={{ background: u.role === 'seller' ? '#ede9fe' : C.bg, color: u.role === 'seller' ? '#5b21b6' : C.navy, padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.7rem', fontWeight: 700, border: `1px solid ${u.role === 'seller' ? '#ddd6fe' : C.border}` }}>
+                      {u.role === 'seller' ? 'Verkäufer' : u.role === 'buyer' ? 'Käufer' : u.role}
                     </span>
                   </td>
+                  <td style={{ padding: '0.75rem 1rem' }}>
+                    {u.is_approved ? (
+                      <span style={{ background: '#d1fae5', color: '#065f46', padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.7rem', fontWeight: 600 }}>✓ Freigegeben</span>
+                    ) : (
+                      <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.7rem', fontWeight: 600 }}>⏳ Ausstehend</span>
+                    )}
+                  </td>
                   <td style={{ padding: '0.75rem 1rem', color: '#555', textAlign: 'center' }}>{u.nda_count}</td>
-                  <td style={{ padding: '0.75rem 1rem', color: '#555', textAlign: 'center' }}>{u.approved_count}</td>
                   <td style={{ padding: '0.75rem 1rem', color: C.muted, fontSize: '0.78rem' }}>{new Date(u.created_at).toLocaleDateString('de-DE')}</td>
+                  <td style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                      {!u.is_approved && (
+                        <button onClick={() => approveUser(u.id)} style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
+                          ✓ Freigeben
+                        </button>
+                      )}
+                      {u.is_active ? (
+                        <button onClick={() => deactivateUser(u.id)} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                          Deaktivieren
+                        </button>
+                      ) : (
+                        <button onClick={() => approveUser(u.id)} style={{ background: '#dbeafe', color: '#1d4ed8', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                          Aktivieren
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -1,30 +1,34 @@
+// CapitalMatch – Admin-Route
 const express = require('express');
 const db = require('../db/database');
 const { authenticate, requireRole } = require('../middleware/auth');
 const router = express.Router();
 const isAdmin = [authenticate, requireRole('super_admin', 'advisor')];
 
+// ── Stats ─────────────────────────────────────────────────────────────────
 router.get('/stats', ...isAdmin, (req, res) => {
   const stats = {
     projects: {
-      total: db.prepare(`SELECT COUNT(*) as c FROM projects`).get().c,
+      total:  db.prepare(`SELECT COUNT(*) as c FROM projects`).get().c,
       active: db.prepare(`SELECT COUNT(*) as c FROM projects WHERE status='active'`).get().c,
-      draft: db.prepare(`SELECT COUNT(*) as c FROM projects WHERE status='draft'`).get().c,
+      draft:  db.prepare(`SELECT COUNT(*) as c FROM projects WHERE status='draft'`).get().c,
     },
     users: {
-      total: db.prepare(`SELECT COUNT(*) as c FROM users WHERE role='buyer'`).get().c,
-      this_week: db.prepare(`SELECT COUNT(*) as c FROM users WHERE role='buyer' AND created_at >= datetime('now','-7 days')`).get().c,
+      total:     db.prepare(`SELECT COUNT(*) as c FROM users WHERE role NOT IN ('super_admin','advisor')`).get().c,
+      pending:   db.prepare(`SELECT COUNT(*) as c FROM users WHERE role NOT IN ('super_admin','advisor') AND is_approved = 0`).get().c,
+      this_week: db.prepare(`SELECT COUNT(*) as c FROM users WHERE role NOT IN ('super_admin','advisor') AND created_at >= datetime('now','-7 days')`).get().c,
     },
     ndas: {
       requested: db.prepare(`SELECT COUNT(*) as c FROM nda_requests WHERE status='requested'`).get().c,
-      signed: db.prepare(`SELECT COUNT(*) as c FROM nda_requests WHERE status='signed'`).get().c,
-      approved: db.prepare(`SELECT COUNT(*) as c FROM nda_requests WHERE status='approved'`).get().c,
-      total: db.prepare(`SELECT COUNT(*) as c FROM nda_requests`).get().c,
+      signed:    db.prepare(`SELECT COUNT(*) as c FROM nda_requests WHERE status='signed'`).get().c,
+      approved:  db.prepare(`SELECT COUNT(*) as c FROM nda_requests WHERE status='approved'`).get().c,
+      total:     db.prepare(`SELECT COUNT(*) as c FROM nda_requests`).get().c,
     }
   };
   res.json({ success: true, data: stats });
 });
 
+// ── Projects ──────────────────────────────────────────────────────────────
 router.get('/projects', ...isAdmin, (req, res) => {
   const projects = db.prepare(`
     SELECT p.*, u.first_name || ' ' || u.last_name as created_by_name,
@@ -86,16 +90,58 @@ router.put('/projects/:id', ...isAdmin, (req, res) => {
   res.json({ success: true, data: { message: 'Aktualisiert' } });
 });
 
+// Publish project (set active)
+router.put('/projects/:id/publish', ...isAdmin, (req, res) => {
+  const project = db.prepare('SELECT id, codename FROM projects WHERE id = ?').get(req.params.id);
+  if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+  db.prepare(`UPDATE projects SET status = 'active', updated_at = datetime('now') WHERE id = ?`).run(req.params.id);
+  db.auditLog(req.user.id, 'PROJECT_PUBLISHED', 'project', req.params.id, project.codename, req.ip);
+  res.json({ success: true, data: { message: 'Projekt veröffentlicht' } });
+});
+
+// Unpublish project (set draft)
+router.put('/projects/:id/unpublish', ...isAdmin, (req, res) => {
+  const project = db.prepare('SELECT id, codename FROM projects WHERE id = ?').get(req.params.id);
+  if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+  db.prepare(`UPDATE projects SET status = 'draft', updated_at = datetime('now') WHERE id = ?`).run(req.params.id);
+  db.auditLog(req.user.id, 'PROJECT_UNPUBLISHED', 'project', req.params.id, project.codename, req.ip);
+  res.json({ success: true, data: { message: 'Projekt zurückgezogen (Entwurf)' } });
+});
+
+// ── Users ─────────────────────────────────────────────────────────────────
 router.get('/users', ...isAdmin, (req, res) => {
   const users = db.prepare(`
-    SELECT u.id, u.email, u.first_name, u.last_name, u.company, u.buyer_type, u.is_active, u.created_at,
+    SELECT u.id, u.email, u.first_name, u.last_name, u.company, u.role, u.buyer_type,
+      u.is_active, u.is_approved, u.created_at,
       (SELECT COUNT(*) FROM nda_requests nr WHERE nr.user_id = u.id) as nda_count,
       (SELECT COUNT(*) FROM nda_requests nr WHERE nr.user_id = u.id AND nr.status='approved') as approved_count
-    FROM users u WHERE u.role = 'buyer' ORDER BY u.created_at DESC
+    FROM users u
+    WHERE u.role NOT IN ('super_admin', 'advisor')
+    ORDER BY u.is_approved ASC, u.created_at DESC
   `).all();
   res.json({ success: true, data: users });
 });
 
+// Approve user
+router.put('/users/:id/approve', ...isAdmin, (req, res) => {
+  const user = db.prepare('SELECT id, email, first_name FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+  db.prepare('UPDATE users SET is_approved = 1, is_active = 1 WHERE id = ?').run(req.params.id);
+  db.auditLog(req.user.id, 'USER_APPROVED', 'user', user.id, user.email, req.ip);
+  console.log(`✅ User freigegeben: ${user.first_name} <${user.email}>`);
+  res.json({ success: true, data: { message: `${user.first_name} wurde freigegeben` } });
+});
+
+// Deactivate/reject user
+router.put('/users/:id/deactivate', ...isAdmin, (req, res) => {
+  const user = db.prepare('SELECT id, email FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+  db.prepare('UPDATE users SET is_active = 0, is_approved = 0 WHERE id = ?').run(req.params.id);
+  db.auditLog(req.user.id, 'USER_DEACTIVATED', 'user', user.id, user.email, req.ip);
+  res.json({ success: true, data: { message: 'Nutzer deaktiviert' } });
+});
+
+// ── NDAs ──────────────────────────────────────────────────────────────────
 router.get('/ndas', ...isAdmin, (req, res) => {
   const ndas = db.prepare(`
     SELECT nr.*, u.first_name || ' ' || u.last_name as user_name, u.email as user_email, u.company as user_company,
@@ -124,6 +170,7 @@ router.put('/ndas/:id/reject', ...isAdmin, (req, res) => {
   res.json({ success: true, data: { message: 'NDA abgelehnt' } });
 });
 
+// ── Activity + Audit ──────────────────────────────────────────────────────
 router.get('/activity', ...isAdmin, (req, res) => {
   const logs = db.prepare(`
     SELECT al.*, u.first_name || ' ' || u.last_name as user_name, u.email as user_email
@@ -138,10 +185,7 @@ router.get('/audit-logs', ...isAdmin, (req, res) => {
   const offset = (page - 1) * limit;
   const action = req.query.action || null;
 
-  let query = `
-    SELECT al.*, u.email, u.first_name, u.last_name
-    FROM audit_logs al LEFT JOIN users u ON al.user_id = u.id
-  `;
+  let query = `SELECT al.*, u.email, u.first_name, u.last_name FROM audit_logs al LEFT JOIN users u ON al.user_id = u.id`;
   let countQuery = `SELECT COUNT(*) as count FROM audit_logs al`;
   const params = [];
 
@@ -152,20 +196,11 @@ router.get('/audit-logs', ...isAdmin, (req, res) => {
   }
 
   query += ` ORDER BY al.created_at DESC LIMIT ? OFFSET ?`;
-
   const logs = db.prepare(query).all(...params, limit, offset);
   const totalRow = db.prepare(countQuery).get(...params);
   const total = totalRow ? totalRow.count : 0;
 
-  res.json({
-    success: true,
-    data: {
-      logs,
-      total,
-      page,
-      pages: Math.ceil(total / limit),
-    },
-  });
+  res.json({ success: true, data: { logs, total, page, pages: Math.ceil(total / limit) } });
 });
 
 module.exports = router;
