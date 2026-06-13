@@ -113,6 +113,36 @@ async function initialize() {
   `;
 
   db.run(schema);
+
+  // ── Migrations: add columns that may not exist in older DBs ────────────────
+  const migrations = [
+    `ALTER TABLE nda_requests ADD COLUMN consent_name TEXT`,
+    `ALTER TABLE nda_requests ADD COLUMN consent_ip TEXT`,
+    `ALTER TABLE nda_requests ADD COLUMN online_consent_at DATETIME`,
+    `ALTER TABLE nda_requests ADD COLUMN signed_pdf_path TEXT`,
+    `ALTER TABLE nda_requests ADD COLUMN rejected_at DATETIME`,
+    // V0.3 Marketplace: Startup / Fundraising fields
+    `ALTER TABLE projects ADD COLUMN stage TEXT`,
+    `ALTER TABLE projects ADD COLUMN investment_needed TEXT`,
+    `ALTER TABLE projects ADD COLUMN equity_stake TEXT`,
+    `ALTER TABLE projects ADD COLUMN post_money_valuation TEXT`,
+    `ALTER TABLE projects ADD COLUMN tam_band TEXT`,
+    `ALTER TABLE projects ADD COLUMN sector_emoji TEXT`,
+    `ALTER TABLE projects ADD COLUMN location_city TEXT`,
+    `ALTER TABLE projects ADD COLUMN mandate_type TEXT DEFAULT 'ma'`,
+    // V0.3 documents: file path on disk
+    `ALTER TABLE documents ADD COLUMN file_path TEXT`,
+    // V0.3 project_details extra fields
+    `ALTER TABLE project_details ADD COLUMN team_description TEXT`,
+    `ALTER TABLE project_details ADD COLUMN problem_solution TEXT`,
+    `ALTER TABLE project_details ADD COLUMN use_of_funds TEXT`,
+    `ALTER TABLE project_details ADD COLUMN traction_highlights TEXT DEFAULT '[]'`,
+    `ALTER TABLE project_details ADD COLUMN milestones TEXT`,
+  ];
+  for (const m of migrations) {
+    try { db.run(m); } catch(e) { /* column already exists – ignore */ }
+  }
+
   saveDb();
   console.log('✅ Database initialized');
 }

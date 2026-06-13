@@ -1,0 +1,12 @@
+{
+  "name": "phalanx-platform",
+  "version": "0.1.0",
+  "description": "Phalanx M&A Platform",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "cd client && npm ci && npm run build && cd ../server && npm ci",
+    "start": "NODE_ENV=production node server/index.js"
+  }
+}

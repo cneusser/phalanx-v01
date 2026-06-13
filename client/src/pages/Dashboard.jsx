@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User } from 'lucide-react';
 
-const C = { navy: '#1B3A5C', gold: '#C8A97E', bg: '#F5F3EF' };
+const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB', lightBg: '#EDF4FA', gray: '#878787' };
 
 const statusMap = {
   requested: { label: 'Angefordert', color: '#f59e0b', bg: '#fef3c7' },
@@ -50,7 +50,7 @@ export default function Dashboard() {
           { label: 'Freigeschaltet', value: approved, icon: CheckCircle, color: '#10b981' },
           { label: 'In Bearbeitung', value: pending, icon: Clock, color: '#f59e0b' },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 12, padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #e8e4dc', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div key={label} style={{ background: '#fff', borderRadius: 12, padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #dce8f2', display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ width: 44, height: 44, background: `${color}15`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Icon size={20} color={color} />
             </div>
@@ -64,7 +64,7 @@ export default function Dashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
         {/* NDA Status */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #e8e4dc' }}>
+        <div style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #dce8f2' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <h2 style={{ fontWeight: 600, color: C.navy, fontSize: '1rem' }}>Meine NDA-Anfragen</h2>
             <Link to="/projekte" style={{ fontSize: '0.8rem', color: C.navy, textDecoration: 'none' }}>+ Neue Anfrage</Link>
@@ -95,7 +95,7 @@ export default function Dashboard() {
         </div>
 
         {/* Matching Projects */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #e8e4dc' }}>
+        <div style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #dce8f2' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <h2 style={{ fontWeight: 600, color: C.navy, fontSize: '1rem' }}>Aktuelle Mandate</h2>
             <Link to="/projekte" style={{ fontSize: '0.8rem', color: C.navy, textDecoration: 'none' }}>Alle ansehen →</Link>

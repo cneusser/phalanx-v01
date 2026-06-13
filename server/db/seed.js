@@ -17,7 +17,7 @@ async function seed() {
   const ins = (email, pw, role, fn, ln, co, pos, bt, phone) =>
     prepare(`INSERT INTO users (email, password_hash, role, first_name, last_name, company, position, buyer_type, phone, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(email, hash(pw), role, fn, ln, co, pos, bt, phone);
 
-  const adminId = ins('admin@phalanx.de', 'Admin1234!', 'super_admin', 'Thomas', 'Weber', 'Phalanx GmbH', 'Geschäftsführer', null, '+49 89 123456').lastInsertRowid;
+  const adminId = ins('neusser@phalanx.de', 'Admin1234!', 'super_admin', 'Christian', 'Neusser', 'Phalanx GmbH', 'Geschäftsführer', null, '+49 9131 9206075').lastInsertRowid;
   ins('berater@phalanx.de', 'Berater1234!', 'advisor', 'Sophie', 'Richter', 'Phalanx GmbH', 'Senior Advisor', null, '+49 89 234567');
   const buyer1Id = ins('max.mueller@example.de', 'Buyer1234!', 'buyer', 'Max', 'Müller', 'Müller Holding GmbH', 'Geschäftsführer', 'strategic', '+49 170 1234567').lastInsertRowid;
   const buyer2Id = ins('petra.schreiber@example.de', 'Buyer1234!', 'buyer', 'Petra', 'Schreiber', 'PS Capital GmbH', 'Managing Partner', 'financial', '+49 160 7654321').lastInsertRowid;
@@ -34,9 +34,22 @@ async function seed() {
     JSON.stringify(['MBO', 'MBI', 'Buy-and-Build']), 'financial'
   );
 
-  // Projects
+  // Projects – klassisch M&A
   const insP = (c, i, r, rb, eb, dt, sd, hl) =>
-    prepare(`INSERT INTO projects (codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, datetime('now'))`).run(c, i, r, rb, eb, dt, sd, JSON.stringify(hl), adminId).lastInsertRowid;
+    prepare(`INSERT INTO projects (codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, mandate_type, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 'ma', ?, datetime('now'))`).run(c, i, r, rb, eb, dt, sd, JSON.stringify(hl), adminId).lastInsertRowid;
+
+  // Startup-Fundraising Mandate
+  const insStartup = (opts) => prepare(`
+    INSERT INTO projects (codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights,
+      stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type,
+      status, created_by, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'fundraising', 'active', ?, datetime('now'))
+  `).run(
+    opts.codename, opts.industry, opts.region, opts.revenue_band || '—', opts.ebitda_band || '—',
+    opts.deal_type, opts.short_description, JSON.stringify(opts.highlights),
+    opts.stage, opts.investment_needed, opts.equity_stake, opts.post_money_valuation,
+    opts.tam_band, opts.sector_emoji, opts.location_city, adminId
+  ).lastInsertRowid;
 
   const p1 = insP('Projekt Atlas', 'Maschinenbau', 'Bayern', '10–20 Mio. €', '1,5–3 Mio. €', 'Nachfolge',
     'Etablierter Sondermaschinen­hersteller mit über 40 Jahren Markterfahrung, stabiler Kundenbasis und starker Exportquote. Inhaber sucht geordnete Unternehmensnachfolge.',
@@ -62,6 +75,51 @@ async function seed() {
     'Regionaler Premiumhersteller von Bio-Lebensmitteln mit starker D2C-Komponente und wachsendem Retailgeschäft in Deutschland und Österreich.',
     ['Premium-Markenpositionierung im Bio-Segment', 'D2C-Kanal mit > 25.000 aktiven Abonnenten', 'Saisonale Skalierbarkeit, hohe Marge im Online-Segment', 'Ideal als Plattform für weitere Markenakquisitionen']);
 
+  // ── Startup-Fundraising Mandate ──────────────────────────────────────────
+  const ikaId = insStartup({
+    codename: 'ika ika GmbH',
+    industry: 'Food & Nutrition',
+    region: 'Bayern',
+    location_city: 'München',
+    deal_type: 'Seed-Finanzierung',
+    stage: 'Seed',
+    investment_needed: '€ 1,1 Mio.',
+    equity_stake: '~26 %',
+    post_money_valuation: '€ 3,5 Mio.',
+    tam_band: '€ 9,3 Mrd.',
+    sector_emoji: '🍲',
+    short_description: 'Bio-Kraftsuppen & Functional Food für Darmgesundheit — vom organisch validierten Proof-of-Market zur Love Brand. 958 Lifetime-Kunden ohne Paid Marketing, BIO-zertifiziert, 0g Zucker, 3 Jahre Haltbarkeit ohne Kühlkette.',
+    highlights: [
+      'Organisch validierter Markt: 958 Lifetime-Kunden, 283 aktiv – ohne Paid Marketing',
+      'Ø Bestellwert € 61 brutto, hohe Wiederkaufsrate & starke Shop-Conversion',
+      'Listungen REWE Start-up Lounge & Foodist; Markenbotschafter Jonas Deichmann',
+      'Klarer Pfad zur EBITDA-Profitabilität bis 2029 (Umsatzziel € 1,64 Mio.)',
+      'Vier diversifizierte Kanäle: D2C, Supplements, B2B-Sets, Bio-Handel',
+    ],
+  });
+
+  const scopoId = insStartup({
+    codename: 'Scopo GmbH',
+    industry: 'Industrial Tech / AI',
+    region: 'Bayern',
+    location_city: 'Erlangen / São Paulo',
+    deal_type: 'Angel-Runde',
+    stage: 'Angel Round',
+    investment_needed: '€ 1,1 Mio.',
+    equity_stake: '20 %',
+    post_money_valuation: '€ 5,5 Mio.',
+    tam_band: '€ 238 Mrd.',
+    sector_emoji: '🏭',
+    short_description: 'Agentic Factory OS — KI-Agenten verbinden Maschinendaten mit dem Erfahrungswissen der Bediener. Erste Pilot-Installation bei Hutchinson Brazil (Tier-1 Automotive) in Betrieb. 7 strukturelle USPs, kein Direktwettbewerber.',
+    highlights: [
+      'First Mover: einziger Anbieter, der KI-Agenten + Operator-Kontextwissen end-to-end kombiniert',
+      'Live-Pilot bei Hutchinson Brazil (Tier-1 Automotive) — 4 Maschinen in täglichem Betrieb',
+      'Hardware-Moat: proprietäre Kiosk- und Kamera-Hardware on-prem, DSGVO-konform',
+      'Gründerteam: 25+ Jahre Industrieautomation, mehrere erfolgreiche Exits',
+      'Fokussierte Angel-Runde: € 1,1 Mio. für 8+ Installationen & 12 Monate Runway',
+    ],
+  });
+
   // Project details
   prepare(`INSERT INTO project_details (project_id, full_description, revenue_actual, ebitda_actual, revenue_trend, employees, founding_year, growth_strategy, key_risks, asking_price_band) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     p1, 'Führender Hersteller von kundenspezifischen Sondermaschinen für die Automobilindustrie. Über 40 Jahre Erfahrung in der Entwicklung komplexer Automatisierungslösungen.',
@@ -75,6 +133,36 @@ async function seed() {
     7.2, 1.6, 'stark wachsend +25% p.a.', 42, 2015,
     'Expansion DACH+, Ausbau Partnervertriebsnetz, KI-Features',
     'Intensiver Wettbewerb, Abhängigkeit vom Gründerteam', '6–9x ARR'
+  );
+
+  // ── Startup Details (ika ika) ────────────────────────────────────────────
+  prepare(`INSERT INTO project_details (project_id, full_description, revenue_actual, ebitda_actual, revenue_trend, employees, founding_year, growth_strategy, key_risks, asking_price_band, team_description, problem_solution, use_of_funds, traction_highlights, milestones) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    ikaId,
+    'ika ika GmbH produziert Bio-Kraftsuppen und Kraftbrühen (6 Sorten, 2 Linien) und vertreibt sie über vier Kanäle: D2C-E-Commerce als validiertes Kerngeschäft, Functional-Food-Supplements (NEM), B2B-Geschenk-Sets und Bio-Handel. 100 % BIO-zertifiziert, 0g Zucker, Clean Label, 3 Jahre Haltbarkeit ohne Kühlkette.',
+    null, null, 'Aufbauphase', 3, 2022,
+    'Paid Marketing (Google/Meta), Team-Aufbau (COO), Working Capital, Einführung NEM-Produktlinie',
+    'Saisonalität (Winter-Schwerpunkt), Working Capital bei Wachstum, Abhängigkeit von Gründern',
+    '€ 3,5 Mio. Post-Money (Seed)',
+    'Martin Schumacher (Founder/CEO) & Katharina Schumacher (Co-Founder) — Branchenkenntnis Food & E-Commerce, organisches Community-Building.',
+    'Zeitarmut trifft Gesundheitsbewusstsein: Verbraucher wollen echte, nährstoffreiche Ernährung ohne Aufwand. ika ika liefert Clean-Label Bio-Kraftsuppen — fertig in Sekunden, 3 Jahre haltbar, kein Zucker.',
+    '45 % Paid Marketing & Growth · 25 % Working Capital · 20 % Team (COO) · 10 % NEM-Produktlinie',
+    JSON.stringify(['958 Lifetime-Kunden — 100 % organisch', '€ 61 Ø Bestellwert brutto', 'Listung REWE Start-up Lounge & Foodist', 'Markenbotschafter Jonas Deichmann', 'Pipeline B2B-Partner & Hebammen-Kanal']),
+    'Break-even bis 2029, Umsatzziel € 1,64 Mio.'
+  );
+
+  // ── Startup Details (Scopo) ──────────────────────────────────────────────
+  prepare(`INSERT INTO project_details (project_id, full_description, revenue_actual, ebitda_actual, revenue_trend, employees, founding_year, growth_strategy, key_risks, asking_price_band, team_description, problem_solution, use_of_funds, traction_highlights, milestones) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    scopoId,
+    'Scopo ist das erste Agentic Factory OS, das KI-Agenten mit dem Kontextwissen der Maschinenbediener zu einer 360°-Lösung verbindet. Software + proprietäre Hardware (Kiosk, Kamera) über fünf Produktsegmente: Konnektivität, AI-Communication, UNS/SCADA, AI-Agents, Cloud/Enterprise. On-prem, hybrid oder Cloud — DSGVO-konform.',
+    null, null, 'Aufbauphase / Pre-Revenue', 6, 2023,
+    '8+ Installationen, 4 technische FTEs, Pilot → recurring Revenue, IP-Anmeldung, Seed/Series-A vorbereiten',
+    'Technische Personalkapazität als aktueller Engpass, langer B2B-Sales-Zyklus',
+    '€ 5,5 Mio. Post-Money (Angel Round)',
+    'Björn Lindner (CEO/CTO): 25+ Jahre Machine Vision & Industrial Automation, Gründer Inlevel, GoalControl/DFL, APK AG/LyondellBasell (exits). Alessandra Lanza (COO/Legal): Corporate Law, B3 São Paulo, Director Scopo Brasil. Dr. Julia Fischer (AI Dev Lead): Ph.D. Computer Science, 25+ Jahre KI.',
+    'Maschinendaten ohne menschlichen Kontext erklären nur die Hälfte. Demographischer Wandel: erfahrene Bediener gehen, ihr Wissen geht mit. Scopo verbindet Maschinendaten in Echtzeit mit Bediener-Beobachtungen — KI-Agenten bewahren und übertragen Produktionswissen über Schichten hinweg.',
+    '45 % Team & technische FTEs · 30 % Pilot-Rollout (8+ Installationen) · 15 % Produkt & Hardware · 10 % Go-to-Market',
+    JSON.stringify(['Live-Pilot Hutchinson Brazil (Tier-1 Automotive) — 4 Maschinen in täglichem Betrieb', 'Pilot-Erweiterung + Extrusion Line verbally pre-agreed (schriftlich Juni 2026)', 'Pipeline: Hutchinson Europe (Polen & Spanien), Kosmetik/Food-Integrator, Spritzguss NRW', '51 Marktplayer analysiert — kein Direktwettbewerber mit End-to-End-Lösung']),
+    '12-Monats-Milestones: 8+ Installationen in Betrieb, 4 FTEs eingestellt, Pilots → recurring Revenue, IP-Anmeldung, Seed/Series-A positioniert'
   );
 
   // NDA requests
@@ -94,21 +182,45 @@ async function seed() {
   const insDoc = (pid, fn, ft, fs, al, desc) =>
     prepare(`INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(pid, fn, ft, fs, al, desc, adminId);
 
-  insDoc(p1, 'Teaser_Atlas.pdf', 'pdf', 512000, 'public', 'Anonymisierter Teaser');
-  insDoc(p1, 'Informationsmemorandum_Atlas.pdf', 'pdf', 4096000, 'nda', 'Informationsmemorandum (vertraulich)');
-  insDoc(p1, 'Jahresabschluss_2023_Atlas.pdf', 'pdf', 2048000, 'nda', 'Jahresabschluss 2023');
-  insDoc(p1, 'BWA_Q3_2024_Atlas.pdf', 'pdf', 1024000, 'approved', 'BWA Q3 2024');
-  insDoc(p2, 'Teaser_Merkur.pdf', 'pdf', 480000, 'public', 'Anonymisierter Teaser');
-  insDoc(p2, 'IM_Merkur_vertraulich.pdf', 'pdf', 3800000, 'nda', 'Informationsmemorandum');
+  insDoc(p1, 'Teaser_Atlas.pdf', 'application/pdf', 512000, 'public', 'Anonymisierter Teaser');
+  insDoc(p1, 'Informationsmemorandum_Atlas.pdf', 'application/pdf', 4096000, 'nda', 'Informationsmemorandum (vertraulich)');
+  insDoc(p1, 'Jahresabschluss_2023_Atlas.pdf', 'application/pdf', 2048000, 'nda', 'Jahresabschluss 2023');
+  insDoc(p1, 'BWA_Q3_2024_Atlas.pdf', 'application/pdf', 1024000, 'approved', 'BWA Q3 2024');
+  insDoc(p2, 'Teaser_Merkur.pdf', 'application/pdf', 480000, 'public', 'Anonymisierter Teaser');
+  insDoc(p2, 'IM_Merkur_vertraulich.pdf', 'application/pdf', 3800000, 'nda', 'Informationsmemorandum');
+
+  // ── Scopo GmbH — Dokumente ───────────────────────────────────
+  // Teaser: öffentlich für registrierte + freigegebene Nutzer (kein NDA)
+  // CIM:    NDA-geschützt
+  insDoc(scopoId, 'Scopo_Teaser_EN_v3.pptx',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    1024000, 'public',
+    'Investment Teaser Scopo GmbH (englisch) — zugänglich nach Registrierung und Admin-Freigabe');
+  insDoc(scopoId, 'Scopo_CIM_EN.pptx',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    5242880, 'nda',
+    'Confidential Information Memorandum (CIM) — nur nach NDA-Unterzeichnung');
+
+  // ── ika ika GmbH — Dokumente ─────────────────────────────────
+  insDoc(ikaId, 'ika_ika_Investment_Teaser_2026.pdf',
+    'application/pdf',
+    2097152, 'public',
+    'Investment Teaser ika ika GmbH 2026 — zugänglich nach Registrierung und Admin-Freigabe');
+  insDoc(ikaId, 'ika_ika_Pitchdeck_2026.pptx',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    8388608, 'nda',
+    'Pitchdeck & Detailunterlagen — nur nach NDA-Unterzeichnung');
 
   saveDb();
 
-  console.log('\n✅ Database seeded successfully!');
-  console.log('\nDemo-Zugänge:');
-  console.log('  Admin:   admin@phalanx.de    / Admin1234!');
-  console.log('  Berater: berater@phalanx.de  / Berater1234!');
-  console.log('  Käufer:  max.mueller@example.de / Buyer1234!');
-  console.log('  Käufer:  petra.schreiber@example.de / Buyer1234!');
+  console.log('\n✅ CapitalMatch Database seeded successfully!');
+  console.log('\nZugänge:');
+  console.log('  Admin:   neusser@phalanx.de         / Admin1234!');
+  console.log('  Berater: berater@phalanx.de          / Berater1234!');
+  console.log('  Käufer:  max.mueller@example.de      / Buyer1234!');
+  console.log('  Käufer:  petra.schreiber@example.de  / Buyer1234!');
+  console.log('\nProjekte: Scopo GmbH + ika ika GmbH (+ 6 M&A-Muster-Mandate)');
+  console.log('Dokumente: Teaser (public) + CIM/Pitchdeck (nda) für Scopo & ika ika');
 }
 
 seed().catch(err => { console.error('❌', err.message); process.exit(1); });

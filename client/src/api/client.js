@@ -21,11 +21,23 @@ async function request(method, path, body = null) {
   return data.data;
 }
 
+async function uploadFile(path, formData) {
+  const token = getToken();
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  // Note: do NOT set Content-Type – let the browser set it with the boundary
+  const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers, body: formData });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Upload fehlgeschlagen');
+  return data.data;
+}
+
 export const api = {
   get: (path) => request('GET', path),
   post: (path, body) => request('POST', path, body),
   put: (path, body) => request('PUT', path, body),
   delete: (path) => request('DELETE', path),
+  upload: uploadFile,
 };
 
 export { getToken };

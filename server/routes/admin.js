@@ -36,24 +36,52 @@ router.get('/projects', ...isAdmin, (req, res) => {
 });
 
 router.post('/projects', ...isAdmin, (req, res) => {
-  const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status } = req.body;
-  if (!codename || !industry || !region || !revenue_band || !ebitda_band || !deal_type || !short_description)
-    return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen' });
+  const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status,
+          mandate_type, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city } = req.body;
+  if (!codename || !industry || !region || !short_description)
+    return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen (codename, industry, region, short_description)' });
   const existing = db.prepare('SELECT id FROM projects WHERE codename = ?').get(codename);
-  if (existing) return res.status(409).json({ success: false, error: 'Codename bereits vergeben' });
+  if (existing) return res.status(409).json({ success: false, error: 'Name/Codename bereits vergeben' });
 
-  const result = db.prepare(`INSERT INTO projects (codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`)
-    .run(codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, JSON.stringify(highlights || []), status || 'draft', req.user.id);
+  const result = db.prepare(`
+    INSERT INTO projects (codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status,
+      mandate_type, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city,
+      created_by, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  `).run(
+    codename, industry, region, revenue_band || '—', ebitda_band || '—',
+    deal_type || '', short_description, JSON.stringify(highlights || []), status || 'draft',
+    mandate_type || 'ma', stage || null, investment_needed || null, equity_stake || null,
+    post_money_valuation || null, tam_band || null, sector_emoji || null, location_city || null,
+    req.user.id
+  );
   db.auditLog(req.user.id, 'CREATE_PROJECT', 'project', result.lastInsertRowid, codename, req.ip);
   res.status(201).json({ success: true, data: { id: result.lastInsertRowid } });
 });
 
 router.put('/projects/:id', ...isAdmin, (req, res) => {
-  const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status } = req.body;
+  const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status,
+          mandate_type, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city } = req.body;
   const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(req.params.id);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
-  db.prepare(`UPDATE projects SET codename=COALESCE(?,codename), industry=COALESCE(?,industry), region=COALESCE(?,region), revenue_band=COALESCE(?,revenue_band), ebitda_band=COALESCE(?,ebitda_band), deal_type=COALESCE(?,deal_type), short_description=COALESCE(?,short_description), highlights=COALESCE(?,highlights), status=COALESCE(?,status), updated_at=datetime('now') WHERE id=?`)
-    .run(codename||null, industry||null, region||null, revenue_band||null, ebitda_band||null, deal_type||null, short_description||null, highlights?JSON.stringify(highlights):null, status||null, req.params.id);
+  db.prepare(`
+    UPDATE projects SET
+      codename=COALESCE(?,codename), industry=COALESCE(?,industry), region=COALESCE(?,region),
+      revenue_band=COALESCE(?,revenue_band), ebitda_band=COALESCE(?,ebitda_band),
+      deal_type=COALESCE(?,deal_type), short_description=COALESCE(?,short_description),
+      highlights=COALESCE(?,highlights), status=COALESCE(?,status),
+      mandate_type=COALESCE(?,mandate_type), stage=COALESCE(?,stage),
+      investment_needed=COALESCE(?,investment_needed), equity_stake=COALESCE(?,equity_stake),
+      post_money_valuation=COALESCE(?,post_money_valuation), tam_band=COALESCE(?,tam_band),
+      sector_emoji=COALESCE(?,sector_emoji), location_city=COALESCE(?,location_city),
+      updated_at=datetime('now') WHERE id=?
+  `).run(
+    codename||null, industry||null, region||null, revenue_band||null, ebitda_band||null,
+    deal_type||null, short_description||null, highlights?JSON.stringify(highlights):null, status||null,
+    mandate_type||null, stage||null, investment_needed||null, equity_stake||null,
+    post_money_valuation||null, tam_band||null, sector_emoji||null, location_city||null,
+    req.params.id
+  );
   db.auditLog(req.user.id, 'UPDATE_PROJECT', 'project', req.params.id, null, req.ip);
   res.json({ success: true, data: { message: 'Aktualisiert' } });
 });
@@ -102,6 +130,42 @@ router.get('/activity', ...isAdmin, (req, res) => {
     FROM audit_logs al LEFT JOIN users u ON u.id = al.user_id ORDER BY al.created_at DESC LIMIT 50
   `).all();
   res.json({ success: true, data: logs });
+});
+
+router.get('/audit-logs', ...isAdmin, (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = 50;
+  const offset = (page - 1) * limit;
+  const action = req.query.action || null;
+
+  let query = `
+    SELECT al.*, u.email, u.first_name, u.last_name
+    FROM audit_logs al LEFT JOIN users u ON al.user_id = u.id
+  `;
+  let countQuery = `SELECT COUNT(*) as count FROM audit_logs al`;
+  const params = [];
+
+  if (action) {
+    query += ` WHERE al.action = ?`;
+    countQuery += ` WHERE al.action = ?`;
+    params.push(action);
+  }
+
+  query += ` ORDER BY al.created_at DESC LIMIT ? OFFSET ?`;
+
+  const logs = db.prepare(query).all(...params, limit, offset);
+  const totalRow = db.prepare(countQuery).get(...params);
+  const total = totalRow ? totalRow.count : 0;
+
+  res.json({
+    success: true,
+    data: {
+      logs,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+    },
+  });
 });
 
 module.exports = router;

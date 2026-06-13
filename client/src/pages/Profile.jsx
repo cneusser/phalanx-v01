@@ -3,7 +3,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Save, User } from 'lucide-react';
 
-const C = { navy: '#1B3A5C', gold: '#C8A97E', bg: '#F5F3EF' };
+const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB' };
 
 const INDUSTRIES = ['Maschinenbau', 'Software & IT', 'Healthcare & Medizintechnik', 'Automotive & Zulieferer', 'Business Services', 'Lebensmittel & Getränke', 'Chemie & Pharma', 'Baugewerbe', 'Handel & E-Commerce', 'Energie & Umwelt'];
 const REGIONS = ['Bayern', 'Baden-Württemberg', 'NRW', 'Hessen', 'Norddeutschland', 'Berlin / Brandenburg', 'Sachsen / Thüringen', 'Süddeutschland', 'DACH', 'DACH+'];
@@ -35,6 +35,8 @@ export default function Profile() {
   const [industries, setIndustries] = useState([]);
   const [regions, setRegions] = useState([]);
   const [dealTypes, setDealTypes] = useState([]);
+  const [revenueMin, setRevenueMin] = useState(0);
+  const [revenueMax, setRevenueMax] = useState(100);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -45,6 +47,8 @@ export default function Profile() {
       setIndustries(d.profile?.industries || []);
       setRegions(d.profile?.regions || []);
       setDealTypes(d.profile?.deal_types || []);
+      setRevenueMin(d.profile?.revenue_min ?? 0);
+      setRevenueMax(d.profile?.revenue_max ?? 100);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -52,7 +56,7 @@ export default function Profile() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put('/profile', { industries, regions, deal_types: dealTypes });
+      await api.put('/profile', { industries, regions, deal_types: dealTypes, revenue_min: revenueMin, revenue_max: revenueMax });
       setMsg('Profil gespeichert ✓');
       setTimeout(() => setMsg(''), 3000);
     } catch (err) { setMsg('Fehler: ' + err.message); }
@@ -76,7 +80,7 @@ export default function Profile() {
       {msg && <div style={{ background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.5rem', fontSize: '0.875rem', color: '#065f46' }}>{msg}</div>}
 
       <form onSubmit={save}>
-        <div style={{ background: '#fff', borderRadius: 12, padding: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #e8e4dc' }}>
+        <div style={{ background: '#fff', borderRadius: 12, padding: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #dce8f2' }}>
           <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '1.5rem', fontSize: '1rem' }}>Suchkriterien & Investment-Präferenzen</h2>
 
           <MultiSelect label="Branchen" options={INDUSTRIES} value={industries} onChange={setIndustries} />
@@ -86,11 +90,11 @@ export default function Profile() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Umsatz von (Mio. €)</label>
-              <input type="number" defaultValue={profile?.revenue_min || 0} style={{ width: '100%', padding: '0.6rem 0.8rem', border: '1px solid #ddd', borderRadius: 6, fontSize: '0.875rem', outline: 'none' }} />
+              <input type="number" value={revenueMin} onChange={e => setRevenueMin(Number(e.target.value))} min={0} style={{ width: '100%', padding: '0.6rem 0.8rem', border: '1px solid #ddd', borderRadius: 6, fontSize: '0.875rem', outline: 'none' }} />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Umsatz bis (Mio. €)</label>
-              <input type="number" defaultValue={profile?.revenue_max || 100} style={{ width: '100%', padding: '0.6rem 0.8rem', border: '1px solid #ddd', borderRadius: 6, fontSize: '0.875rem', outline: 'none' }} />
+              <input type="number" value={revenueMax} onChange={e => setRevenueMax(Number(e.target.value))} min={0} style={{ width: '100%', padding: '0.6rem 0.8rem', border: '1px solid #ddd', borderRadius: 6, fontSize: '0.875rem', outline: 'none' }} />
             </div>
           </div>
 
