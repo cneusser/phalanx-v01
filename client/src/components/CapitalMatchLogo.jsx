@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 // CapitalMatch brand colors
 export const CM = {
@@ -6,99 +6,116 @@ export const CM = {
   dark:  '#1A4D8A',  // "Match"   – deep navy
 };
 
-const LOGO_PNG = '/assets/capitalmatch-logo.png';
-
-const fontFamily = "'Nunito', 'Poppins', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
-
 /**
- * CapitalMatch Logo Component
+ * CapitalMatch Logo — inline SVG, no external image file needed.
  *
  * Props:
- *   height     – height of the logo image in px (default 52)
- *   textSize   – font size used in text-fallback / compact mode (default 22)
- *   white      – render in all-white text (for dark/coloured backgrounds)
- *   showClaim  – show "Kapital suchen. Partner finden." tagline (text mode only)
- *   compact    – single-line layout (Capital + Match side by side, always text)
+ *   height    – overall height of the SVG logo (default 56)
+ *   white     – render all white (for dark/coloured backgrounds)
+ *   compact   – single-line layout (Capital + Match side by side)
+ *   showClaim – show "Kapital suchen. Partner finden." tagline
  *
- * Behaviour:
- *   - Default (colored, stacked): renders PNG image from /assets/capitalmatch-logo.png
- *     → if the PNG is missing, falls back to styled two-line text
- *   - white=true: always uses styled text in white (PNG can't be recolored live)
- *   - compact=true: always uses single-line styled text
+ * Falls back gracefully to web-safe fonts if Nunito is not loaded.
  */
 export default function CapitalMatchLogo({
-  height    = 52,
-  size      = 40,   // legacy alias for height
-  textSize  = 22,
+  height    = 56,
+  size      = 40,   // legacy alias — ignored when height is set
+  textSize  = null, // legacy alias — maps to height/2.4 if provided
   white     = false,
-  showClaim = false,
   compact   = false,
+  showClaim = false,
 }) {
-  const [imgError, setImgError] = useState(false);
-  const logoHeight = height || size || 52;
+  const h = textSize ? textSize * 2.4 : height || size || 56;
+  const font = "'Nunito', 'Nunito Sans', 'Poppins', 'Segoe UI', Arial, sans-serif";
 
-  // ── Compact (single-line text, no image) ────────────────────────────────
+  const colorCapital = white ? 'rgba(255,255,255,0.92)' : CM.light;
+  const colorMatch   = white ? '#ffffff'                 : CM.dark;
+  const colorClaim   = white ? 'rgba(255,255,255,0.62)' : '#6b7280';
+
+  // ── Compact: horizontal one-liner (Navbar) ──────────────────────────────
   if (compact) {
-    const lightColor = white ? 'rgba(255,255,255,0.95)' : CM.light;
-    const darkColor  = white ? '#fff'                    : CM.dark;
+    const fs = h * 0.48;
+    const w  = fs * 6.4;
     return (
-      <div style={{ display: 'inline-flex', alignItems: 'baseline', userSelect: 'none', lineHeight: 1 }}>
-        <span style={{ fontFamily, fontWeight: 800, fontSize: textSize, color: lightColor, letterSpacing: '-0.02em' }}>
-          Capital
-        </span>
-        <span style={{ fontFamily, fontWeight: 800, fontSize: textSize, color: darkColor, letterSpacing: '-0.02em' }}>
-          Match
-        </span>
-      </div>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={w}
+        height={h}
+        viewBox={`0 0 ${w} ${h}`}
+        aria-label="CapitalMatch"
+        style={{ display: 'block', userSelect: 'none', overflow: 'visible' }}
+      >
+        <text
+          x="0"
+          y={h * 0.78}
+          fontFamily={font}
+          fontWeight="800"
+          fontSize={fs}
+          letterSpacing="-0.5"
+          fill={colorCapital}
+        >Capital</text>
+        <text
+          x={fs * 3.52}
+          y={h * 0.78}
+          fontFamily={font}
+          fontWeight="800"
+          fontSize={fs}
+          letterSpacing="-0.5"
+          fill={colorMatch}
+        >Match</text>
+      </svg>
     );
   }
 
-  // ── White mode (always text, two-line) ──────────────────────────────────
-  if (white) {
-    return (
-      <div style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.05, userSelect: 'none' }}>
-        <span style={{ fontFamily, fontWeight: 800, fontSize: textSize, color: 'rgba(255,255,255,0.95)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-          Capital
-        </span>
-        <span style={{ fontFamily, fontWeight: 800, fontSize: textSize, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-          Match
-        </span>
-        {showClaim && (
-          <span style={{ fontFamily, fontWeight: 400, fontSize: Math.round(textSize * 0.42), color: 'rgba(255,255,255,0.65)', letterSpacing: '0.04em', marginTop: '0.2em', whiteSpace: 'nowrap' }}>
-            Kapital suchen. Partner finden.
-          </span>
-        )}
-      </div>
-    );
-  }
+  // ── Stacked two-line (default — Login, Register, Footer) ────────────────
+  const fs    = h * 0.44;
+  const lineH = h * 0.48;
+  const svgW  = fs * 3.9;
+  const svgH  = showClaim ? h + lineH * 0.55 : h;
 
-  // ── Default: PNG image (with text fallback if PNG missing) ──────────────
-  if (!imgError) {
-    return (
-      <img
-        src={LOGO_PNG}
-        alt="CapitalMatch"
-        height={logoHeight}
-        style={{ display: 'block', objectFit: 'contain', userSelect: 'none' }}
-        onError={() => setImgError(true)}
-      />
-    );
-  }
-
-  // ── Fallback: styled two-line text (shown when PNG not found) ───────────
   return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.05, userSelect: 'none' }}>
-      <span style={{ fontFamily, fontWeight: 800, fontSize: textSize, color: CM.light, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-        Capital
-      </span>
-      <span style={{ fontFamily, fontWeight: 800, fontSize: textSize, color: CM.dark, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-        Match
-      </span>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={svgW}
+      height={svgH}
+      viewBox={`0 0 ${svgW} ${svgH}`}
+      aria-label="CapitalMatch"
+      style={{ display: 'block', userSelect: 'none', overflow: 'visible' }}
+    >
+      {/* "Capital" – sky blue, top line */}
+      <text
+        x="0"
+        y={lineH * 0.92}
+        fontFamily={font}
+        fontWeight="800"
+        fontSize={fs}
+        letterSpacing="-0.6"
+        fill={colorCapital}
+      >Capital</text>
+
+      {/* "Match" – navy, bottom line */}
+      <text
+        x="0"
+        y={lineH * 0.92 + lineH}
+        fontFamily={font}
+        fontWeight="800"
+        fontSize={fs}
+        letterSpacing="-0.6"
+        fill={colorMatch}
+      >Match</text>
+
+      {/* Optional tagline */}
       {showClaim && (
-        <span style={{ fontFamily, fontWeight: 400, fontSize: Math.round(textSize * 0.42), color: CM.dark, letterSpacing: '0.04em', marginTop: '0.2em', whiteSpace: 'nowrap' }}>
-          Kapital suchen. Partner finden.
-        </span>
+        <text
+          x="0"
+          y={lineH * 0.92 + lineH * 2 + fs * 0.15}
+          fontFamily={font}
+          fontWeight="400"
+          fontSize={fs * 0.38}
+          letterSpacing="0.5"
+          fill={colorClaim}
+        >Kapital suchen. Partner finden.</text>
       )}
-    </div>
+    </svg>
   );
 }
