@@ -225,6 +225,8 @@ export default function Projects() {
   const [error, setError] = useState('');
   const [ndaStatus, setNdaStatus] = useState({});
   const [ndaLoading, setNdaLoading] = useState({});
+  // Total counts are fetched once (no mandate_type filter) so buttons always show correct numbers
+  const [totalCounts, setTotalCounts] = useState({ all: null, ma: null, fundraising: null });
 
   useEffect(() => { loadProjects(); }, [sel]);
 
@@ -239,6 +241,13 @@ export default function Projects() {
       const data = await api.get(`/projects?${params.toString()}`);
       setProjects(data.projects);
       if (!sel.industry && !sel.region && !sel.deal_type) setFilters(data.filters);
+      // Capture global counts when loading unfiltered (no mandate_type)
+      if (!sel.mandate_type && !sel.industry && !sel.region && !sel.deal_type && !sel.search) {
+        const all = data.projects.length;
+        const ma = data.projects.filter(p => p.mandate_type !== 'fundraising').length;
+        const fundraising = data.projects.filter(p => p.mandate_type === 'fundraising').length;
+        setTotalCounts({ all, ma, fundraising });
+      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -292,12 +301,12 @@ export default function Projects() {
             Anonymisierte M&A-Transaktionen und Startup-Finanzierungen — strukturiert, vertraulich, professionell begleitet.
           </p>
 
-          {/* Filter-Buttons */}
+          {/* Filter-Buttons — always show global counts, not just filtered counts */}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {[
-              { key: '', label: `Alle (${projects.length || '…'})` },
-              { key: 'ma', label: `M&A (${maCount || '…'})` },
-              { key: 'fundraising', label: `Fundraising (${fundraisingCount || '…'})` },
+              { key: '', label: totalCounts.all === null ? 'Alle (…)' : `Alle (${totalCounts.all})` },
+              { key: 'ma', label: totalCounts.ma === null ? 'M&A (…)' : `M&A (${totalCounts.ma})` },
+              { key: 'fundraising', label: totalCounts.fundraising === null ? 'Fundraising (…)' : `Fundraising (${totalCounts.fundraising})` },
             ].map(({ key, label }) => (
               <button key={key} onClick={() => setSel(prev => ({ ...prev, mandate_type: key }))} style={{
                 padding: '0.4rem 1rem', borderRadius: 6, fontSize: '0.78rem', fontWeight: 600,

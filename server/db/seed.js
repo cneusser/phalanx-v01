@@ -63,9 +63,9 @@ async function seed() {
     ],
   });
 
-  // ── Scopo GmbH ───────────────────────────────────────────────────────────
+  // ── Nexora ───────────────────────────────────────────────────────────
   const scopoId = insStartup({
-    codename: 'Scopo GmbH',
+    codename: 'Nexora',
     industry: 'Industrial Tech / AI',
     region: 'Bayern',
     location_city: 'Erlangen / São Paulo',
@@ -119,11 +119,11 @@ async function seed() {
   const insDoc = (pid, fn, ft, fs, al, desc) =>
     prepare(`INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`).run(pid, fn, ft, fs, al, desc, adminId);
 
-  // Scopo GmbH — Teaser (public) + CIM (nda)
+  // Nexora — Teaser (public) + CIM (nda)
   insDoc(scopoId, 'Scopo_Teaser_EN_v3.pptx',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     1024000, 'public',
-    'Investment Teaser Scopo GmbH (englisch) — zugänglich nach Registrierung und Admin-Freigabe');
+    'Investment Teaser Nexora (englisch) — zugänglich nach Registrierung und Admin-Freigabe');
   insDoc(scopoId, 'Scopo_CIM_EN.pptx',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     5242880, 'nda',
@@ -145,7 +145,7 @@ async function seed() {
   console.log('\n📋 Zugangsdaten:');
   console.log('   Admin:  neusser@phalanx.de  /  Phalanx@2026!');
   console.log('\n📁 Aktive Mandate:');
-  console.log('   • Scopo GmbH     — Angel-Runde € 1,1 Mio.');
+  console.log('   • Nexora     — Angel-Runde € 1,1 Mio.');
   console.log('   • ika ika GmbH   — Seed-Finanzierung € 1,1 Mio.');
   console.log('\n💡 Neue User müssen vom Admin freigegeben werden (is_approved = 1)');
 }

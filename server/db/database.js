@@ -151,28 +151,35 @@ async function initialize() {
   saveDb();
 
   // ── V0.2 Data Cleanup ─────────────────────────────────────────────────────
-  // Remove all legacy projects (keep only Scopo GmbH and ika ika GmbH)
+  // Remove all legacy projects (keep only Nexora and ika ika GmbH)
   // and all legacy users (keep only the admin neusser@phalanx.de).
   // This runs on every server start so Railway's persistent DB is always clean.
+
+  // ── Rename migration: Scopo GmbH → Nexora ─────────────────────────────────
+  try {
+    db.run(`UPDATE projects SET codename = 'Nexora' WHERE codename = 'Scopo GmbH'`);
+    saveDb();
+  } catch(e) { /* silent */ }
+
   try {
     const oldProjects = db.exec(`
       SELECT COUNT(*) as c FROM projects
-      WHERE codename NOT IN ('Scopo GmbH', 'ika ika GmbH')
+      WHERE codename NOT IN ('Nexora', 'ika ika GmbH')
     `);
     const oldCount = oldProjects[0]?.values[0][0] || 0;
     if (oldCount > 0) {
       // Delete dependent records first
       db.run(`DELETE FROM nda_requests WHERE project_id IN (
-        SELECT id FROM projects WHERE codename NOT IN ('Scopo GmbH', 'ika ika GmbH')
+        SELECT id FROM projects WHERE codename NOT IN ('Nexora', 'ika ika GmbH')
       )`);
       db.run(`DELETE FROM documents WHERE project_id IN (
-        SELECT id FROM projects WHERE codename NOT IN ('Scopo GmbH', 'ika ika GmbH')
+        SELECT id FROM projects WHERE codename NOT IN ('Nexora', 'ika ika GmbH')
       )`);
       db.run(`DELETE FROM project_details WHERE project_id IN (
-        SELECT id FROM projects WHERE codename NOT IN ('Scopo GmbH', 'ika ika GmbH')
+        SELECT id FROM projects WHERE codename NOT IN ('Nexora', 'ika ika GmbH')
       )`);
-      db.run(`DELETE FROM projects WHERE codename NOT IN ('Scopo GmbH', 'ika ika GmbH')`);
-      console.log(`🧹 ${oldCount} Altprojekte gelöscht (nur Scopo + ika ika behalten)`);
+      db.run(`DELETE FROM projects WHERE codename NOT IN ('Nexora', 'ika ika GmbH')`);
+      console.log(`🧹 ${oldCount} Altprojekte gelöscht (nur Nexora + ika ika behalten)`);
       saveDb();
     }
   } catch(e) { console.warn('Cleanup projects:', e.message); }
@@ -216,7 +223,7 @@ async function initialize() {
   try {
     db.run(`UPDATE users SET is_approved = 1, is_active = 1 WHERE email = 'neusser@phalanx.de'`);
     // Ensure both projects are active (visible)
-    db.run(`UPDATE projects SET status = 'active' WHERE codename IN ('Scopo GmbH', 'ika ika GmbH')`);
+    db.run(`UPDATE projects SET status = 'active' WHERE codename IN ('Nexora', 'ika ika GmbH')`);
     saveDb();
   } catch(e) { /* silent */ }
 
