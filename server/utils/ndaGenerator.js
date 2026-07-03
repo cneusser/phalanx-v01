@@ -54,6 +54,7 @@ function generateNDA(opts) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
+      bufferPages: true, // nötig für korrekte Fußzeilen/Seitenzählung auf allen Seiten
       margins: { top: 65, bottom: 65, left: 72, right: 72 },
       info: {
         Title: `NDA – Projekt ${project.codename}`,
@@ -80,21 +81,24 @@ function generateNDA(opts) {
       doc.moveTo(72, y).lineTo(72 + w, y).strokeColor(color).lineWidth(0.8).stroke();
     };
 
+    // WICHTIG: x-Position immer auf 72 pinnen \u2014 pdfkit \u00fcbernimmt sonst die
+    // x-Position des zuletzt positionierten Texts (Parteien-Spalten), wodurch
+    // der gesamte Flie\u00dftext in der rechten Spaltenh\u00e4lfte landete.
     const section = (num, title) => {
       doc.moveDown(0.6);
       doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY)
-        .text(`${num}. ${title}`, { paragraphGap: 2 });
+        .text(`${num}. ${title}`, 72, doc.y, { width: PAGE_W, paragraphGap: 2 });
       doc.moveDown(0.2);
     };
 
     const body = (text) => {
       doc.font('Helvetica').fontSize(9).fillColor(BLACK)
-        .text(text, { align: 'justify', lineGap: 2.5 });
+        .text(text, 72, doc.y, { width: PAGE_W, align: 'justify', lineGap: 2.5 });
     };
 
     const bullet = (text) => {
       doc.font('Helvetica').fontSize(9).fillColor(BLACK)
-        .text(`\u2013  ${text}`, { indent: 12, lineGap: 2 });
+        .text(`\u2013  ${text}`, 84, doc.y, { width: PAGE_W - 12, lineGap: 2 });
     };
 
     // ─── HEADER ──────────────────────────────────────────────────────────────
@@ -118,13 +122,14 @@ function generateNDA(opts) {
     hline(doc.y);
     doc.moveDown(0.6);
 
-    // ─── STATUS BADGE (signed) ───────────────────────────────────────────────
+    // ─── STATUS BADGE (signed) — überlappungsfrei positioniert ──────────────
     if (signature) {
-      doc.rect(72, doc.y, PAGE_W, 22)
-        .fillAndStroke('#d1fae5', '#6ee7b7');
+      const badgeY = doc.y;
+      doc.rect(72, badgeY, PAGE_W, 24).fillAndStroke('#d1fae5', '#6ee7b7');
       doc.font('Helvetica-Bold').fontSize(9).fillColor('#065f46')
-        .text(`✓  Online unterzeichnet durch ${signature.name} (${signature.company}) am ${signedStr}`, 80, doc.y - 18, { lineBreak: false });
-      doc.moveDown(0.8);
+        .text(`Online unterzeichnet durch ${signature.name}${signature.company ? ' (' + signature.company + ')' : ''} am ${signedStr}`,
+          82, badgeY + 8, { width: PAGE_W - 20, lineBreak: false });
+      doc.y = badgeY + 24 + 12;
     }
 
     // ─── PARTIES ─────────────────────────────────────────────────────────────
@@ -166,7 +171,7 @@ function generateNDA(opts) {
     const rightBottom = doc.y;
     doc.y = Math.max(leftBottom, rightBottom) + 6;
     doc.font('Helvetica').fontSize(8.5).fillColor(GRAY)
-      .text('Der Interessent und der Transaktionsberater werden nachfolgend gemeinsam die "Vertragsparteien" genannt.');
+      .text('Der Interessent und der Transaktionsberater werden nachfolgend gemeinsam die "Vertragsparteien" genannt.', 72, doc.y, { width: PAGE_W });
 
     doc.moveDown(0.4);
     hline(doc.y);
@@ -218,14 +223,18 @@ function generateNDA(opts) {
 
     // Interessent signature (right)
     if (signature) {
-      // Signed box
-      doc.rect(sig2X - 8, sigStartY - 8, sigColW + 8, 95)
+      // Signed box — mit visueller Unterschrift (Schreibschrift-Stil)
+      doc.rect(sig2X - 8, sigStartY - 8, sigColW + 8, 120)
         .fillAndStroke('#f0fdf4', '#86efac');
       doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#065f46')
-        .text('✓ Online unterzeichnet', sig2X, sigStartY);
+        .text('Online unterzeichnet', sig2X, sigStartY);
       doc.font('Helvetica').fontSize(8.5).fillColor(GRAY)
         .text(`Datum: ${signedStr}`, sig2X, doc.y);
-      doc.moveDown(0.8);
+      doc.moveDown(0.4);
+      // Visuelle Unterschrift: Name in kursiver Serifenschrift über der Linie
+      doc.font('Times-Italic').fontSize(20).fillColor('#0f3d2e')
+        .text(signature.name, sig2X, doc.y, { width: sigColW });
+      doc.moveDown(0.15);
       hline(doc.y, '#16a34a', sigColW);
       doc.moveDown(0.3);
       doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY)
@@ -247,7 +256,7 @@ function generateNDA(opts) {
       if (buyer.company) doc.text(buyer.company, sig2X, doc.y, { width: sigColW });
     }
 
-    doc.y = sigStartY + 110;
+    doc.y = sigStartY + 130;
     doc.moveDown(1.5);
     hline(doc.y);
     doc.moveDown(0.8);
@@ -271,13 +280,18 @@ function generateNDA(opts) {
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(range.start + i);
+      // Unteren Seitenrand temporär aufheben, sonst legt pdfkit beim
+      // Schreiben in die Fußzeile automatisch neue (leere) Seiten an
+      const oldBottomMargin = doc.page.margins.bottom;
+      doc.page.margins.bottom = 0;
       const pageBottom = doc.page.height - 38;
       doc.rect(0, pageBottom, doc.page.width, 38).fill('#14314F');
       doc.font('Helvetica').fontSize(7.5).fillColor('rgba(255,255,255,0.6)')
         .text(
-          `Phalanx M&A Advisory GmbH  ·  Vertraulich  ·  Projekt: ${project.codename}  ·  Seite ${i + 1} von ${range.count}`,
-          72, pageBottom + 14, { width: PAGE_W, align: 'center' }
+          `${advisor.name}  ·  Vertraulich  ·  Projekt: ${project.codename}  ·  Seite ${i + 1} von ${range.count}`,
+          72, pageBottom + 14, { width: PAGE_W, align: 'center', lineBreak: false }
         );
+      doc.page.margins.bottom = oldBottomMargin;
     }
 
     doc.end();

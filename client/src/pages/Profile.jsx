@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Save, User } from 'lucide-react';
+import { Save, User, Download, AlertTriangle } from 'lucide-react';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB' };
 
 const INDUSTRIES = ['Maschinenbau', 'Software & IT', 'Healthcare & Medizintechnik', 'Automotive & Zulieferer', 'Business Services', 'Lebensmittel & Getränke', 'Chemie & Pharma', 'Baugewerbe', 'Handel & E-Commerce', 'Energie & Umwelt'];
 const REGIONS = ['Bayern', 'Baden-Württemberg', 'NRW', 'Hessen', 'Norddeutschland', 'Berlin / Brandenburg', 'Sachsen / Thüringen', 'Süddeutschland', 'DACH', 'DACH+'];
 const DEAL_TYPES = ['Nachfolge', 'MBO', 'MBI', 'Wachstumskapital', 'Buy-and-Build', 'Strategische Partnerschaft'];
+
+const INPUT = { width: '100%', padding: '0.6rem 0.8rem', border: '1px solid #ddd', borderRadius: 6, fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box' };
 
 const MultiSelect = ({ label, options, value = [], onChange }) => (
   <div style={{ marginBottom: '1.25rem' }}>
@@ -37,9 +39,14 @@ export default function Profile() {
   const [dealTypes, setDealTypes] = useState([]);
   const [revenueMin, setRevenueMin] = useState(0);
   const [revenueMax, setRevenueMax] = useState(100);
+  // Kontaktdaten + Pitchbook-Selbstdarstellung
+  const [contact, setContact] = useState({ first_name: '', last_name: '', company: '', position: '', phone: '', about: '', website: '', linkedin_url: '' });
+  const [missingFields, setMissingFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+
+  const isBuyer = user?.role === 'buyer';
 
   useEffect(() => {
     api.get('/profile').then(d => {
@@ -49,25 +56,54 @@ export default function Profile() {
       setDealTypes(d.profile?.deal_types || []);
       setRevenueMin(d.profile?.revenue_min ?? 0);
       setRevenueMax(d.profile?.revenue_max ?? 100);
+      setContact({
+        first_name: d.user?.first_name || '', last_name: d.user?.last_name || '',
+        company: d.user?.company || '', position: d.user?.position || '', phone: d.user?.phone || '',
+        about: d.user?.about || '', website: d.user?.website || '', linkedin_url: d.user?.linkedin_url || '',
+      });
+      setMissingFields(d.missing_fields || []);
     }).finally(() => setLoading(false));
   }, []);
+
+  const setC = (key) => (e) => setContact(prev => ({ ...prev, [key]: e.target.value }));
 
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put('/profile', { industries, regions, deal_types: dealTypes, revenue_min: revenueMin, revenue_max: revenueMax });
+      await api.put('/profile', {
+        ...contact,
+        industries, regions, deal_types: dealTypes, revenue_min: revenueMin, revenue_max: revenueMax,
+      });
+      const d = await api.get('/profile');
+      setMissingFields(d.missing_fields || []);
       setMsg('Profil gespeichert ✓');
       setTimeout(() => setMsg(''), 3000);
     } catch (err) { setMsg('Fehler: ' + err.message); }
     finally { setSaving(false); }
   };
 
+  // Eigenen Audit-Trail als CSV herunterladen (DSGVO-Transparenz)
+  const downloadActivity = () => {
+    const token = localStorage.getItem('phalanx_token');
+    fetch('/api/profile/activity/export', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.ok ? res.blob() : Promise.reject(new Error('Export fehlgeschlagen')))
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'CapitalMatch_Aktivitaeten.csv'; a.click();
+        URL.revokeObjectURL(url);
+      })
+      .catch(err => setMsg('Fehler: ' + err.message));
+  };
+
   if (loading) return <div style={{ padding: '3rem', textAlign: 'center', color: '#999' }}>Wird geladen...</div>;
+
+  const card = { background: '#fff', borderRadius: 12, padding: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #dce8f2', marginBottom: '1.5rem' };
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
         <div style={{ width: 52, height: 52, background: C.navy, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <User size={24} color="#fff" />
         </div>
@@ -77,32 +113,87 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* Vollständigkeits-Hinweis: Kontaktdaten sind Voraussetzung für den Prozess */}
+      {missingFields.length > 0 && (
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.9rem 1rem', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#92400e' }}>
+          <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <strong>Profil unvollständig.</strong> Bitte vervollständigen Sie Ihre Kontaktdaten — sie sind Voraussetzung,
+            um Mandate im Detail einzusehen, Interesse zu bekunden{user?.role === 'seller' ? ' bzw. Mandate anzulegen' : ''}.
+          </div>
+        </div>
+      )}
+
       {msg && <div style={{ background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.5rem', fontSize: '0.875rem', color: '#065f46' }}>{msg}</div>}
 
       <form onSubmit={save}>
-        <div style={{ background: '#fff', borderRadius: 12, padding: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #dce8f2' }}>
-          <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '1.5rem', fontSize: '1rem' }}>Suchkriterien & Investment-Präferenzen</h2>
+        {/* Kontaktdaten (Pflicht) */}
+        <div style={card}>
+          <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '1.5rem', fontSize: '1rem' }}>Kontaktdaten <span style={{ color: '#c00', fontWeight: 400, fontSize: '0.8rem' }}>(Pflicht für die Prozessteilnahme)</span></h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            {[['Vorname *', 'first_name'], ['Nachname *', 'last_name'], ['Unternehmen *', 'company'], ['Position *', 'position'], ['Telefon *', 'phone']].map(([label, key]) => (
+              <div key={key}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>{label}</label>
+                <input value={contact[key]} onChange={setC(key)} style={{ ...INPUT, borderColor: missingFields.includes(key) ? '#f59e0b' : '#ddd' }} />
+              </div>
+            ))}
+          </div>
+        </div>
 
-          <MultiSelect label="Branchen" options={INDUSTRIES} value={industries} onChange={setIndustries} />
-          <MultiSelect label="Regionen" options={REGIONS} value={regions} onChange={setRegions} />
-          <MultiSelect label="Deal-Typen" options={DEAL_TYPES} value={dealTypes} onChange={setDealTypes} />
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
+        {/* Pitchbook-Selbstdarstellung */}
+        <div style={card}>
+          <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '0.5rem', fontSize: '1rem' }}>Ihr Profil (Pitchbook)</h2>
+          <p style={{ color: '#888', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
+            Stellen Sie sich {isBuyer ? 'als Investor' : 'als Unternehmen'} vor — diese Angaben helfen bei der Einordnung Ihrer Anfragen im Prozess.
+          </p>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>
+              {isBuyer ? 'Über uns / Investment-Ansatz' : 'Über das Unternehmen'}
+            </label>
+            <textarea value={contact.about} onChange={setC('about')} rows={5} placeholder={isBuyer ? 'z. B. Fokus, Ticketgrößen, bisherige Beteiligungen, Wertbeitrag…' : 'z. B. Geschäftsmodell, Historie, Anlass der Transaktion…'} style={{ ...INPUT, resize: 'vertical' }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Umsatz von (Mio. €)</label>
-              <input type="number" value={revenueMin} onChange={e => setRevenueMin(Number(e.target.value))} min={0} style={{ width: '100%', padding: '0.6rem 0.8rem', border: '1px solid #ddd', borderRadius: 6, fontSize: '0.875rem', outline: 'none' }} />
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Website</label>
+              <input value={contact.website} onChange={setC('website')} placeholder="https://…" style={INPUT} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Umsatz bis (Mio. €)</label>
-              <input type="number" value={revenueMax} onChange={e => setRevenueMax(Number(e.target.value))} min={0} style={{ width: '100%', padding: '0.6rem 0.8rem', border: '1px solid #ddd', borderRadius: 6, fontSize: '0.875rem', outline: 'none' }} />
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>LinkedIn</label>
+              <input value={contact.linkedin_url} onChange={setC('linkedin_url')} placeholder="https://linkedin.com/…" style={INPUT} />
             </div>
           </div>
+        </div>
 
-          <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="submit" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: C.navy, color: '#fff', border: 'none', padding: '0.7rem 1.5rem', borderRadius: 8, cursor: 'pointer', fontWeight: 600, opacity: saving ? 0.7 : 1 }}>
-              <Save size={15} /> {saving ? 'Speichert...' : 'Profil speichern'}
-            </button>
+        {/* Suchkriterien (nur Investoren) */}
+        {isBuyer && (
+          <div style={card}>
+            <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '1.5rem', fontSize: '1rem' }}>Suchkriterien & Investment-Präferenzen</h2>
+
+            <MultiSelect label="Branchen" options={INDUSTRIES} value={industries} onChange={setIndustries} />
+            <MultiSelect label="Regionen" options={REGIONS} value={regions} onChange={setRegions} />
+            <MultiSelect label="Deal-Typen" options={DEAL_TYPES} value={dealTypes} onChange={setDealTypes} />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Umsatz von (Mio. €)</label>
+                <input type="number" value={revenueMin} onChange={e => setRevenueMin(Number(e.target.value))} min={0} style={INPUT} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Umsatz bis (Mio. €)</label>
+                <input type="number" value={revenueMax} onChange={e => setRevenueMax(Number(e.target.value))} min={0} style={INPUT} />
+              </div>
+            </div>
           </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+          {/* DSGVO-Transparenz: eigener Audit-Trail */}
+          <button type="button" onClick={downloadActivity} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fff', color: C.navy, border: '1px solid #dce8f2', padding: '0.7rem 1.25rem', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
+            <Download size={15} /> Meine Aktivitäten (CSV)
+          </button>
+          <button type="submit" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: C.navy, color: '#fff', border: 'none', padding: '0.7rem 1.5rem', borderRadius: 8, cursor: 'pointer', fontWeight: 600, opacity: saving ? 0.7 : 1 }}>
+            <Save size={15} /> {saving ? 'Speichert...' : 'Profil speichern'}
+          </button>
         </div>
       </form>
     </div>

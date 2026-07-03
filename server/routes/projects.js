@@ -5,6 +5,7 @@ const { authenticate, optionalAuth } = require('../middleware/auth');
 const wrap = require('../utils/asyncHandler');
 const { getStage } = require('../middleware/gates');
 const { stageAllows } = require('../utils/dealStateMachine');
+const { requireCompleteProfile } = require('../utils/profileCompleteness');
 const router = express.Router();
 
 const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type';
@@ -66,7 +67,8 @@ router.get('/my-projects', authenticate, wrap(async (req, res) => {
 }));
 
 // ── POST /my-project — Seller submits a new project (starts as draft) ─────
-router.post('/my-project', authenticate, wrap(async (req, res) => {
+// Setzt vollständiges Profil voraus (Kontaktdaten Pflicht vor Mandatsanlage)
+router.post('/my-project', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
   if (!['seller', 'super_admin', 'advisor'].includes(req.user.role)) {
     return res.status(403).json({ success: false, error: 'Nur Verkäufer können Projekte einreichen' });
   }
@@ -102,8 +104,8 @@ router.get('/:id/teaser', wrap(async (req, res) => {
   res.json({ success: true, data: { ...project, highlights: JSON.parse(project.highlights || '[]') } });
 }));
 
-// ── GET /:id — Full detail (requires auth + NDA approval) ─────────────────
-router.get('/:id', authenticate, wrap(async (req, res) => {
+// ── GET /:id — Full detail (requires auth + vollständiges Profil + NDA) ───
+router.get('/:id', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
   const project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
 
@@ -123,7 +125,7 @@ router.get('/:id', authenticate, wrap(async (req, res) => {
   }
 
   const details   = await db.get('SELECT * FROM project_details WHERE project_id = ?', [project.id]);
-  const documents = await db.all(`SELECT id, filename, file_type, file_size, access_level, description, created_at FROM documents WHERE project_id = ? ORDER BY access_level, created_at`, [project.id]);
+  const documents = await db.all(`SELECT id, filename, file_type, file_size, access_level, description, created_at, (file_path IS NOT NULL)::int AS has_file FROM documents WHERE project_id = ? ORDER BY access_level, created_at`, [project.id]);
   db.auditLog(req.user.id, 'VIEW_PROJECT', 'project', project.id, null, req.ip);
 
   res.json({ success: true, data: { ...project, highlights: JSON.parse(project.highlights || '[]'), details, documents, ndaStatus: isAdmin ? 'admin' : ndaStatus } });

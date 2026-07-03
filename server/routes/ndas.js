@@ -26,8 +26,10 @@ async function loadNdaTemplate() {
   };
 }
 
-// ─── NDA anfordern ───────────────────────────────────────────────────────────
-router.post('/', authenticate, wrap(async (req, res) => {
+const { requireCompleteProfile } = require('../utils/profileCompleteness');
+
+// ─── NDA anfordern (setzt vollständiges Profil voraus) ──────────────────────
+router.post('/', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
   const { project_id } = req.body;
   if (!project_id) return res.status(400).json({ success: false, error: 'project_id fehlt' });
   const project = await db.get(`SELECT id, codename FROM projects WHERE id = ? AND status = 'active'`, [project_id]);
@@ -191,7 +193,16 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
     db.auditLog(req.user.id, 'NDA_SIGNED_ONLINE', 'nda_request', nda.id,
       `Online §10 (${providerName}/FES): ${consent_name.trim()} | IP: ${consentIp} | PDF: ${pdfFilename} | SHA-256: ${auditRef.slice(0, 16)}…`, consentIp);
 
-    console.log(`[EMAIL MOCK] NDA für ${project.codename} online unterzeichnet von ${user.email} (${consent_name.trim()})`);
+    console.log(`NDA für ${project.codename} online unterzeichnet von ${user.email} (${consent_name.trim()})`);
+
+    // Investor informieren: Signatur bestätigt + IM freigeschaltet
+    const { sendProcessUpdateEmail } = require('../utils/email');
+    sendProcessUpdateEmail({
+      to: user.email, firstName: user.first_name,
+      title: `NDA unterzeichnet — Informationsmemorandum freigeschaltet (${project.codename})`,
+      message: `Ihre Vertraulichkeitsvereinbarung für <strong>${project.codename}</strong> wurde erfolgreich unterzeichnet. Das Informationsmemorandum und die Erstunterlagen sind ab sofort für Sie freigeschaltet. Nach der Datenraum-Freigabe durch unser Team erhalten Sie Zugriff auf die vollständigen Unterlagen.`,
+      ctaLabel: 'Unterlagen ansehen', ctaPath: `/projekte/${req.params.projectId}`,
+    }).catch(() => {});
 
     res.json({ success: true, data: { status: 'signed', pdf_filename: pdfFilename, audit_ref: auditRef } });
   } catch (e) {
@@ -223,6 +234,20 @@ router.put('/:projectId/send', authenticate, wrap(async (req, res) => {
   await db.run(`UPDATE nda_requests SET status='sent', sent_at=now() WHERE user_id=? AND project_id=?`, [targetUserId, req.params.projectId]);
   await setStage(targetUserId, req.params.projectId, 'nda_pending', req.user.id, req.ip);
   db.auditLog(req.user.id, 'NDA_SENT', 'nda_request', nda.id, null, req.ip);
+  // Investor informieren: NDA liegt zur Unterzeichnung bereit
+  {
+    const buyer = await db.get('SELECT email, first_name FROM users WHERE id = ?', [targetUserId]);
+    const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [req.params.projectId]);
+    if (buyer) {
+      const { sendProcessUpdateEmail } = require('../utils/email');
+      sendProcessUpdateEmail({
+        to: buyer.email, firstName: buyer.first_name,
+        title: `NDA bereit zur Unterzeichnung — ${proj ? proj.codename : 'Mandat'}`,
+        message: `Ihre Vertraulichkeitsvereinbarung für das Mandat <strong>${proj ? proj.codename : ''}</strong> liegt bereit und kann jetzt online unterzeichnet werden.`,
+        ctaLabel: 'NDA jetzt unterzeichnen', ctaPath: `/projekte/${req.params.projectId}`,
+      }).catch(() => {});
+    }
+  }
   res.json({ success: true, data: { status: 'sent' } });
 }));
 

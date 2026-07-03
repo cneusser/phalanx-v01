@@ -459,8 +459,36 @@ export default function ProjectDetail() {
             const a = document.createElement('a');
             a.href = url; a.download = doc.filename; a.click();
             URL.revokeObjectURL(url);
+          } else {
+            // Verständliches Feedback statt stillem Nichts
+            let msg = 'Download nicht möglich.';
+            try { const d = await res.json(); if (d.error) msg = d.error; } catch { /* ignore */ }
+            alert(`${msg}${res.status === 404 ? ' — Die Datei wurde noch nicht hochgeladen.' : ''}`);
           }
-        } catch { /* ignore */ }
+        } catch {
+          alert('Download fehlgeschlagen — bitte später erneut versuchen.');
+        }
+      };
+
+      // Download-Button: deaktiviert, wenn (noch) keine physische Datei hinterlegt ist
+      const DownloadButton = ({ doc }) => {
+        const fileMissing = doc.has_file === 0;
+        return (
+          <button
+            onClick={() => !fileMissing && downloadDoc(doc)}
+            disabled={fileMissing}
+            title={fileMissing ? 'Die Datei wird vom Berater in Kürze bereitgestellt' : 'Herunterladen'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.35rem',
+              background: fileMissing ? '#e2e8f0' : C.navy,
+              color: fileMissing ? '#94a3b8' : '#fff',
+              border: 'none', padding: '0.4rem 0.85rem', borderRadius: 6,
+              cursor: fileMissing ? 'not-allowed' : 'pointer', fontSize: '0.75rem', fontWeight: 600,
+            }}
+          >
+            <Download size={12} /> {fileMissing ? 'Folgt in Kürze' : 'Download'}
+          </button>
+        );
       };
 
       return (
@@ -487,12 +515,7 @@ export default function ProjectDetail() {
                       <div style={{ fontSize: '0.72rem', color: C.muted }}>{doc.filename}{doc.file_size ? ` · ${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : ''}</div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => downloadDoc(doc)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: C.navy, color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
-                  >
-                    <Download size={12} /> Download
-                  </button>
+                  <DownloadButton doc={doc} />
                 </div>
               ))
             )}
@@ -533,12 +556,7 @@ export default function ProjectDetail() {
                       <div style={{ fontSize: '0.72rem', color: C.muted }}>{doc.filename}{doc.file_size ? ` · ${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : ''}</div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => downloadDoc(doc)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: C.navy, color: '#fff', border: 'none', padding: '0.4rem 0.85rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
-                  >
-                    <Download size={12} /> Download
-                  </button>
+                  <DownloadButton doc={doc} />
                 </div>
               ))
             )}

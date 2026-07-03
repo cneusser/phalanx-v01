@@ -56,7 +56,7 @@ export default function Register() {
     setLoading(true);
     setError('');
     try {
-      const result = await register({ ...form, role: roleType });
+      const result = await register({ ...form, role: roleType, privacy_consent: agreed });
       if (result.pending) {
         setSuccess(true);
       }
@@ -220,7 +220,9 @@ export default function Register() {
             <label htmlFor="agree" style={{ fontSize: '0.8rem', color: C.gray, lineHeight: 1.5, cursor: 'pointer' }}>
               Ich akzeptiere die{' '}
               <Link to="/datenschutz" style={{ color: C.navy, fontWeight: 600 }}>Datenschutzhinweise</Link>{' '}
-              und stimme der Verarbeitung meiner Daten zu.
+              und willige ein, dass meine Angaben zur Verwaltung meines Zugangs gespeichert und für die
+              projektbezogene Ansprache (z.&nbsp;B. Informationen zu Mandaten und Prozessschritten) genutzt werden.
+              Die Einwilligung kann ich jederzeit mit Wirkung für die Zukunft widerrufen.
             </label>
           </div>
 

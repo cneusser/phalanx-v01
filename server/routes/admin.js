@@ -172,6 +172,9 @@ router.put('/users/:id/approve', ...isAdmin, wrap(async (req, res) => {
   await db.run('UPDATE users SET is_approved = 1, is_active = 1 WHERE id = ?', [req.params.id]);
   db.auditLog(req.user.id, 'USER_APPROVED', 'user', user.id, user.email, req.ip);
   console.log(`✅ User freigegeben: ${user.first_name} <${user.email}>`);
+  // Nutzer informieren: Zugang ist jetzt nutzbar
+  const { sendAccountApprovedEmail } = require('../utils/email');
+  sendAccountApprovedEmail({ to: user.email, firstName: user.first_name }).catch(() => {});
   res.json({ success: true, data: { message: `${user.first_name} wurde freigegeben` } });
 }));
 
@@ -182,6 +185,92 @@ router.put('/users/:id/deactivate', ...isAdmin, wrap(async (req, res) => {
   await db.run('UPDATE users SET is_active = 0, is_approved = 0 WHERE id = ?', [req.params.id]);
   db.auditLog(req.user.id, 'USER_DEACTIVATED', 'user', user.id, user.email, req.ip);
   res.json({ success: true, data: { message: 'Nutzer deaktiviert' } });
+}));
+
+// Nutzer-Detail (Pitchbook-Ansicht): Kontaktdaten, Selbstdarstellung,
+// Einwilligung, Interessen/NDAs, Suchprofil
+router.get('/users/:id', ...isAdmin, wrap(async (req, res) => {
+  const user = await db.get(`
+    SELECT id, email, role, first_name, last_name, company, position, buyer_type, phone,
+           about, website, linkedin_url, is_active, is_approved, privacy_consent_at, created_at
+    FROM users WHERE id = ?`, [req.params.id]);
+  if (!user) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+  const profile = await db.get('SELECT * FROM buyer_profiles WHERE user_id = ?', [req.params.id]);
+  const interests = await db.all(`
+    SELECT i.stage, i.requested_at, i.updated_at, p.codename
+    FROM interests i JOIN projects p ON p.id = i.project_id
+    WHERE i.buyer_id = ? ORDER BY i.updated_at DESC`, [req.params.id]);
+  const ndas = await db.all(`
+    SELECT nr.status, nr.requested_at, nr.signed_at, nr.approved_at, p.codename
+    FROM nda_requests nr JOIN projects p ON p.id = nr.project_id
+    WHERE nr.user_id = ? ORDER BY nr.requested_at DESC`, [req.params.id]);
+  res.json({
+    success: true,
+    data: {
+      user,
+      profile: profile ? { ...profile, industries: JSON.parse(profile.industries||'[]'), regions: JSON.parse(profile.regions||'[]'), deal_types: JSON.parse(profile.deal_types||'[]') } : null,
+      interests, ndas,
+    },
+  });
+}));
+
+// Audit-Trail eines Nutzers als CSV (transparent herunterladbar)
+router.get('/users/:id/audit-export', ...isAdmin, wrap(async (req, res) => {
+  const user = await db.get('SELECT id, email FROM users WHERE id = ?', [req.params.id]);
+  if (!user) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+  const audit = await db.all(
+    `SELECT created_at AS ts, action, resource_type AS resource, details, ip_address AS ip FROM audit_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 5000`,
+    [req.params.id]);
+  const activity = await db.all(
+    `SELECT ts, action, resource, NULL AS details, ip FROM activity_log WHERE actor_id = ? ORDER BY ts DESC LIMIT 5000`,
+    [req.params.id]);
+  const rows = [...audit, ...activity].sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = ['Zeitpunkt;Aktion;Ressource;Details;IP',
+    ...rows.map(r => [new Date(r.ts).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }), r.action, r.resource, r.details, r.ip].map(esc).join(';'))
+  ].join('\n');
+  db.auditLog(req.user.id, 'ADMIN_AUDIT_EXPORT', 'user', user.id, user.email, req.ip);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="AuditTrail_User${user.id}.csv"`);
+  res.send('﻿' + csv);
+}));
+
+// ── DSGVO-Löschung (dokumentierter Löschpfad) ─────────────────────────────
+// Löscht den Nutzer samt Profil/Interessen/NDA-Anfragen (FK-Kaskaden) und
+// signierten NDA-PDFs. Personenbezug in Logs wird entfernt (IP/Details);
+// dafür wird der Append-only-Trigger des activity_log innerhalb der
+// Transaktion kontrolliert ausgesetzt und die Löschung selbst protokolliert.
+router.delete('/users/:id', ...isAdmin, wrap(async (req, res) => {
+  const user = await db.get('SELECT id, email, role FROM users WHERE id = ?', [req.params.id]);
+  if (!user) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+  if (['super_admin', 'advisor'].includes(user.role)) {
+    return res.status(400).json({ success: false, error: 'Admin-Konten können nicht über diesen Weg gelöscht werden' });
+  }
+
+  // Signierte NDA-PDFs von der Platte entfernen
+  const fs = require('fs');
+  const path = require('path');
+  const { NDA_DIR } = require('../utils/ndaGenerator');
+  const pdfs = await db.all(`SELECT signed_pdf_path FROM nda_requests WHERE user_id = ? AND signed_pdf_path IS NOT NULL`, [user.id]);
+  for (const p of pdfs) {
+    try { fs.unlinkSync(path.join(NDA_DIR, p.signed_pdf_path)); } catch { /* Datei ggf. schon weg */ }
+  }
+
+  await db.knex.transaction(async (trx) => {
+    // Personenbezug in Audit-Logs entfernen (Aktionen bleiben pseudonymisiert erhalten)
+    await trx.raw(`UPDATE audit_logs SET details = '[DSGVO-gelöscht]', ip_address = NULL, user_id = NULL WHERE user_id = ?`, [user.id]);
+    // activity_log ist append-only — Trigger für den dokumentierten Löschpfad kontrolliert aussetzen
+    await trx.raw(`ALTER TABLE activity_log DISABLE TRIGGER trg_activity_log_append_only`);
+    await trx.raw(`UPDATE activity_log SET ip = NULL, actor_id = NULL WHERE actor_id = ?`, [user.id]);
+    await trx.raw(`ALTER TABLE activity_log ENABLE TRIGGER trg_activity_log_append_only`);
+    // ndas-Referenzen kappen (SET NULL via FK), dann Nutzer löschen (Kaskaden)
+    await trx.raw(`DELETE FROM users WHERE id = ?`, [user.id]);
+  });
+
+  db.auditLog(req.user.id, 'USER_GDPR_DELETED', 'user', req.params.id, `DSGVO-Löschung durchgeführt`, req.ip);
+  db.activityLog(req.user.id, 'USER_GDPR_DELETED', 'user', req.params.id, req.ip);
+  console.log(`🗑️  DSGVO-Löschung: User #${user.id} (${user.email}) durch Admin #${req.user.id}`);
+  res.json({ success: true, data: { message: 'Nutzer DSGVO-konform gelöscht (Daten entfernt, Vorgänge pseudonymisiert)' } });
 }));
 
 // ── NDAs ──────────────────────────────────────────────────────────────────
@@ -204,6 +293,20 @@ router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {
   // Zustandsautomat: Datenraum-Gate öffnen
   await setStage(nda.user_id, nda.project_id, 'dataroom_granted', req.user.id, req.ip);
   db.auditLog(req.user.id, 'NDA_APPROVED', 'nda_request', nda.id, null, req.ip);
+  // Investor informieren: Vollzugriff freigeschaltet
+  {
+    const buyer = await db.get('SELECT email, first_name FROM users WHERE id = ?', [nda.user_id]);
+    const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [nda.project_id]);
+    if (buyer) {
+      const { sendProcessUpdateEmail } = require('../utils/email');
+      sendProcessUpdateEmail({
+        to: buyer.email, firstName: buyer.first_name,
+        title: `Datenraum freigeschaltet — ${proj ? proj.codename : 'Mandat'}`,
+        message: `Ihr Zugang für das Mandat <strong>${proj ? proj.codename : ''}</strong> wurde vollständig freigegeben. Sie haben ab sofort Zugriff auf alle Detailinformationen und den Datenraum.`,
+        ctaLabel: 'Zum Mandat', ctaPath: `/projekte/${nda.project_id}`,
+      }).catch(() => {});
+    }
+  }
   res.json({ success: true, data: { message: 'NDA freigegeben' } });
 }));
 
@@ -214,6 +317,19 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
   // Zustandsautomat: Interesse ablehnen (terminal)
   await setStage(nda.user_id, nda.project_id, 'rejected', req.user.id, req.ip);
   db.auditLog(req.user.id, 'NDA_REJECTED', 'nda_request', nda.id, null, req.ip);
+  // Investor informieren
+  {
+    const buyer = await db.get('SELECT email, first_name FROM users WHERE id = ?', [nda.user_id]);
+    const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [nda.project_id]);
+    if (buyer) {
+      const { sendProcessUpdateEmail } = require('../utils/email');
+      sendProcessUpdateEmail({
+        to: buyer.email, firstName: buyer.first_name,
+        title: `Rückmeldung zu Ihrer Anfrage — ${proj ? proj.codename : 'Mandat'}`,
+        message: `Ihre Interessensbekundung für das Mandat <strong>${proj ? proj.codename : ''}</strong> konnte leider nicht freigegeben werden. Bei Rückfragen wenden Sie sich gern an unser Team.`,
+      }).catch(() => {});
+    }
+  }
   res.json({ success: true, data: { message: 'NDA abgelehnt' } });
 }));
 

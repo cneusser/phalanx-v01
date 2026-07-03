@@ -94,7 +94,41 @@ export default function Admin() {
   const [editProject, setEditProject] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
 
+  // Nutzerverwaltung: Suche + Detail-Modal (Pitchbook-Ansicht)
+  const [userSearch, setUserSearch] = useState('');
+  const [userDetail, setUserDetail] = useState(null);
+
   const [msg, setMsg] = useState({ text: '', type: 'success' });
+
+  async function openUserDetail(id) {
+    try {
+      const d = await api.get(`/admin/users/${id}`);
+      setUserDetail(d);
+    } catch (e) { showMsg(e.message, 'error'); }
+  }
+
+  function exportUserAudit(id) {
+    const token = localStorage.getItem('phalanx_token');
+    fetch(`/api/admin/users/${id}/audit-export`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.ok ? res.blob() : Promise.reject(new Error('Export fehlgeschlagen')))
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `AuditTrail_User${id}.csv`; a.click();
+        URL.revokeObjectURL(url);
+      })
+      .catch(e => showMsg(e.message, 'error'));
+  }
+
+  async function gdprDeleteUser(id, email) {
+    if (!confirm(`DSGVO-Löschung für ${email}?\n\nAlle personenbezogenen Daten, Interessen, NDA-Anfragen und signierten NDA-PDFs werden endgültig gelöscht. Vorgänge in den Protokollen werden pseudonymisiert.\n\nDies kann NICHT rückgängig gemacht werden.`)) return;
+    try {
+      await api.delete(`/admin/users/${id}`);
+      showMsg('Nutzer DSGVO-konform gelöscht ✓');
+      setUserDetail(null);
+      loadAll();
+    } catch (e) { showMsg(e.message, 'error'); }
+  }
 
   useEffect(() => { loadAll(); }, []);
 
@@ -605,6 +639,15 @@ export default function Admin() {
       {/* Users Tab */}
       {activeTab === 'users' && (
         <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+          {/* Nutzer-Suche */}
+          <div style={{ padding: '0.9rem 1rem', borderBottom: `1px solid ${C.border}`, background: C.bg }}>
+            <input
+              value={userSearch}
+              onChange={e => setUserSearch(e.target.value)}
+              placeholder="Suchen nach Name, E-Mail, Firma oder Rolle…"
+              style={{ width: '100%', maxWidth: 380, padding: '0.5rem 0.75rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.83rem', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr style={{ background: C.bg }}>
@@ -614,7 +657,11 @@ export default function Admin() {
               </tr>
             </thead>
             <tbody>
-              {users.map(u => (
+              {users.filter(u => {
+                if (!userSearch.trim()) return true;
+                const q = userSearch.toLowerCase();
+                return [u.first_name, u.last_name, u.email, u.company, u.role].filter(Boolean).some(v => String(v).toLowerCase().includes(q));
+              }).map(u => (
                 <tr key={u.id} style={{ borderBottom: `1px solid ${C.border}`, background: u.is_approved ? 'transparent' : '#fffbeb' }}>
                   <td style={{ padding: '0.75rem 1rem' }}>
                     <div style={{ fontWeight: 600, color: C.text, fontSize: '0.85rem' }}>{u.first_name} {u.last_name}</div>
@@ -636,7 +683,10 @@ export default function Admin() {
                   <td style={{ padding: '0.75rem 1rem', color: '#555', textAlign: 'center' }}>{u.nda_count}</td>
                   <td style={{ padding: '0.75rem 1rem', color: C.muted, fontSize: '0.78rem' }}>{new Date(u.created_at).toLocaleDateString('de-DE')}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <button onClick={() => openUserDetail(u.id)} style={{ background: C.bg, color: C.navy, border: `1px solid ${C.border}`, padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                        Details
+                      </button>
                       {!u.is_approved && (
                         <button onClick={() => approveUser(u.id)} style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
                           ✓ Freigeben
@@ -1034,6 +1084,77 @@ export default function Admin() {
                 Noch keine Dokumente für dieses Mandat.
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Nutzer-Detail-Modal (Pitchbook-Ansicht) */}
+      {userDetail && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div style={{ background: '#fff', borderRadius: 8, padding: '2rem', width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+              <div>
+                <h2 style={{ fontWeight: 700, color: C.text, margin: 0 }}>{userDetail.user.first_name} {userDetail.user.last_name}</h2>
+                <div style={{ color: C.muted, fontSize: '0.82rem' }}>
+                  {userDetail.user.role === 'seller' ? 'Verkäufer' : 'Investor'} · {userDetail.user.company || 'Ohne Firma'}{userDetail.user.position ? ` · ${userDetail.user.position}` : ''}
+                </div>
+              </div>
+              <button onClick={() => setUserDetail(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999' }}><X size={20} /></button>
+            </div>
+
+            {/* Kontaktdaten */}
+            <div style={{ background: C.bg, borderRadius: 6, padding: '1rem', border: `1px solid ${C.border}`, marginBottom: '1rem', fontSize: '0.83rem' }}>
+              <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.75rem', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>KONTAKTDATEN</div>
+              <div>E-Mail: <strong>{userDetail.user.email}</strong></div>
+              <div>Telefon: <strong>{userDetail.user.phone || '—'}</strong></div>
+              {userDetail.user.website && <div>Website: <a href={userDetail.user.website} target="_blank" rel="noreferrer" style={{ color: C.navy }}>{userDetail.user.website}</a></div>}
+              {userDetail.user.linkedin_url && <div>LinkedIn: <a href={userDetail.user.linkedin_url} target="_blank" rel="noreferrer" style={{ color: C.navy }}>{userDetail.user.linkedin_url}</a></div>}
+              <div style={{ marginTop: '0.4rem', color: C.muted, fontSize: '0.75rem' }}>
+                DSGVO-Einwilligung: {userDetail.user.privacy_consent_at ? new Date(userDetail.user.privacy_consent_at).toLocaleString('de-DE') : '—'} · Registriert: {new Date(userDetail.user.created_at).toLocaleDateString('de-DE')}
+              </div>
+            </div>
+
+            {/* Pitchbook-Selbstdarstellung */}
+            {userDetail.user.about && (
+              <div style={{ background: C.bg, borderRadius: 6, padding: '1rem', border: `1px solid ${C.border}`, marginBottom: '1rem', fontSize: '0.83rem' }}>
+                <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.75rem', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>PROFIL / SELBSTDARSTELLUNG</div>
+                <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{userDetail.user.about}</div>
+              </div>
+            )}
+
+            {/* Suchprofil (Investor) */}
+            {userDetail.profile && (
+              <div style={{ background: C.bg, borderRadius: 6, padding: '1rem', border: `1px solid ${C.border}`, marginBottom: '1rem', fontSize: '0.83rem' }}>
+                <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.75rem', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>INVESTMENT-SUCHPROFIL</div>
+                <div>Branchen: {userDetail.profile.industries.length ? userDetail.profile.industries.join(', ') : '—'}</div>
+                <div>Regionen: {userDetail.profile.regions.length ? userDetail.profile.regions.join(', ') : '—'}</div>
+                <div>Deal-Typen: {userDetail.profile.deal_types.length ? userDetail.profile.deal_types.join(', ') : '—'}</div>
+                {userDetail.profile.notes && <div style={{ marginTop: '0.3rem' }}>Notizen: {userDetail.profile.notes}</div>}
+              </div>
+            )}
+
+            {/* Prozess-Stand */}
+            <div style={{ background: C.bg, borderRadius: 6, padding: '1rem', border: `1px solid ${C.border}`, marginBottom: '1.25rem', fontSize: '0.83rem' }}>
+              <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.75rem', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>PROZESS-STAND</div>
+              {userDetail.interests.length === 0 ? (
+                <div style={{ color: C.muted }}>Noch keine Interessensbekundungen.</div>
+              ) : userDetail.interests.map((i, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: idx < userDetail.interests.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                  <span>{i.codename}</span>
+                  <span style={{ fontWeight: 600, color: C.navy }}>{i.stage}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Aktionen */}
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button onClick={() => exportUserAudit(userDetail.user.id)} style={{ flex: 1, minWidth: 180, padding: '0.65rem', border: `1px solid ${C.border}`, borderRadius: 6, background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', color: C.navy }}>
+                ⬇ Audit-Trail (CSV)
+              </button>
+              <button onClick={() => gdprDeleteUser(userDetail.user.id, userDetail.user.email)} style={{ flex: 1, minWidth: 180, padding: '0.65rem', border: '1px solid #fca5a5', borderRadius: 6, background: '#fee2e2', color: '#991b1b', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' }}>
+                🗑 DSGVO-Löschung
+              </button>
+            </div>
           </div>
         </div>
       )}

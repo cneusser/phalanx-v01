@@ -15,11 +15,14 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 // All new registrations require admin approval (is_approved = 0).
 // No token is returned — user sees a "pending" message.
 router.post('/register', wrap(async (req, res) => {
-  const { email, password, first_name, last_name, company, position, buyer_type, phone, role } = req.body;
+  const { email, password, first_name, last_name, company, position, buyer_type, phone, role, privacy_consent } = req.body;
   if (!email || !password || !first_name || !last_name)
     return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen (Vorname, Nachname, E-Mail, Passwort)' });
   if (password.length < 8)
     return res.status(400).json({ success: false, error: 'Passwort muss mindestens 8 Zeichen haben' });
+  // DSGVO: Einwilligung in Datenspeicherung und projektbezogene Ansprache ist Pflicht
+  if (!privacy_consent)
+    return res.status(400).json({ success: false, error: 'Bitte stimmen Sie der Datenschutzerklärung zu (Speicherung und projektbezogene Nutzung Ihrer Daten)' });
 
   const validRoles = ['buyer', 'seller'];
   const userRole = validRoles.includes(role) ? role : 'buyer';
@@ -29,8 +32,8 @@ router.post('/register', wrap(async (req, res) => {
 
   const password_hash = bcrypt.hashSync(password, 10);
   const userId = await db.insert(
-    `INSERT INTO users (email, password_hash, role, first_name, last_name, company, position, buyer_type, phone, is_approved, is_active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1)`,
+    `INSERT INTO users (email, password_hash, role, first_name, last_name, company, position, buyer_type, phone, is_approved, is_active, privacy_consent_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, now())`,
     [email.toLowerCase(), password_hash, userRole,
      first_name, last_name,
      company || null, position || null,
@@ -46,8 +49,9 @@ router.post('/register', wrap(async (req, res) => {
   db.auditLog(userId, 'REGISTER', 'user', userId, `role=${userRole}`, req.ip);
 
   console.log(`\n📬 Neue Registrierung: ${first_name} ${last_name} <${email}> (${userRole}) — wartet auf Freigabe`);
-  // Admin-Benachrichtigung (nur wenn SMTP konfiguriert, sonst Log)
-  const { sendRegistrationNotification } = require('../utils/email');
+  // Bestätigung an den Nutzer + Benachrichtigung an den Admin
+  const { sendRegistrationNotification, sendRegistrationConfirmationEmail } = require('../utils/email');
+  sendRegistrationConfirmationEmail({ to: email.toLowerCase(), firstName: first_name }).catch(() => {});
   sendRegistrationNotification({ firstName: first_name, lastName: last_name, email, company, role: userRole })
     .catch(() => {});
 

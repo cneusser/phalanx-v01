@@ -205,6 +205,35 @@ async function sendPasswordResetEmail({ to, firstName, resetUrl, expires }) {
   });
 }
 
+// Bestätigung an den Nutzer direkt nach der Registrierung
+async function sendRegistrationConfirmationEmail({ to, firstName }) {
+  return sendMail({
+    to,
+    subject: '[CapitalMatch] Ihre Registrierung ist eingegangen',
+    html: mailShell('Registrierung eingegangen', `
+      <p>Hallo ${firstName || ''},</p>
+      <p>vielen Dank für Ihre Registrierung auf der CapitalMatch-Plattform. Ihr Konto wird nun von unserem Team geprüft — Sie erhalten eine weitere E-Mail, sobald Ihr Zugang freigeschaltet ist. Das dauert in der Regel weniger als einen Werktag.</p>
+      <p style="font-size:12px;color:#888;">Hinweis zum Datenschutz: Sie haben bei der Registrierung eingewilligt, dass wir Ihre Angaben zur Verwaltung Ihres Zugangs und zur projektbezogenen Ansprache speichern und nutzen. Sie können diese Einwilligung jederzeit widerrufen und die Löschung Ihrer Daten verlangen (datenschutz@phalanx.de). Details in unserer Datenschutzerklärung.</p>
+    `),
+  });
+}
+
+// Freischaltungs-Info an den Nutzer nach Admin-Approval
+async function sendAccountApprovedEmail({ to, firstName }) {
+  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+  return sendMail({
+    to,
+    subject: '[CapitalMatch] Ihr Zugang ist freigeschaltet',
+    html: mailShell('Zugang freigeschaltet', `
+      <p>Hallo ${firstName || ''},</p>
+      <p>gute Nachrichten: Ihr CapitalMatch-Konto wurde geprüft und freigeschaltet. Sie können sich ab sofort anmelden und Mandate einsehen, NDAs anfordern und Unterlagen abrufen.</p>
+      <p style="text-align:center; margin: 24px 0;">
+        <a href="${loginUrl}" style="background:#1A4D8A;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">Jetzt anmelden</a>
+      </p>
+    `),
+  });
+}
+
 // Hinweis an den Admin bei neuer Registrierung
 async function sendRegistrationNotification({ firstName, lastName, email, company, role }) {
   const to = process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de';
@@ -219,4 +248,29 @@ async function sendRegistrationNotification({ firstName, lastName, email, compan
   });
 }
 
-module.exports = { sendDownloadNotification, sendMail, sendPasswordResetEmail, sendRegistrationNotification };
+// Generische Prozess-Benachrichtigung an den Investor (jeder Funnel-Schritt)
+async function sendProcessUpdateEmail({ to, firstName, title, message, ctaLabel, ctaPath }) {
+  const url = `${process.env.FRONTEND_URL || 'http://localhost:5173'}${ctaPath || ''}`;
+  return sendMail({
+    to,
+    subject: `[CapitalMatch] ${title}`,
+    html: mailShell(title, `
+      <p>Hallo ${firstName || ''},</p>
+      <p>${message}</p>
+      ${ctaLabel ? `<p style="text-align:center; margin: 24px 0;">
+        <a href="${url}" style="background:#1A4D8A;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">${ctaLabel}</a>
+      </p>` : ''}
+      <p style="font-size:12px;color:#888;">Diese Nachricht wurde automatisch von der CapitalMatch-Plattform gesendet.</p>
+    `),
+  });
+}
+
+module.exports = {
+  sendDownloadNotification,
+  sendMail,
+  sendPasswordResetEmail,
+  sendRegistrationNotification,
+  sendRegistrationConfirmationEmail,
+  sendAccountApprovedEmail,
+  sendProcessUpdateEmail,
+};

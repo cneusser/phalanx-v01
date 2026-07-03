@@ -109,6 +109,28 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
   db.auditLog(req.user.id, 'UPLOAD_DOCUMENT', 'document', docId,
     `${displayName} → Projekt ${projectId}`, req.ip);
 
+  // Berechtigte Interessenten über neue Unterlagen informieren:
+  // nur diejenigen, deren Interest-Stage das Kategorie-Gate bereits passiert hat
+  {
+    const levelToCategory = { public: 'teaser', nda: 'im', approved: 'dataroom' };
+    const category = levelToCategory[access_level] || 'im';
+    const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [projectId]);
+    const interested = await db.all(`
+      SELECT u.email, u.first_name, i.stage FROM interests i
+      JOIN users u ON u.id = i.buyer_id
+      WHERE i.project_id = ? AND i.stage != 'rejected' AND u.is_active = 1
+    `, [projectId]);
+    const { sendProcessUpdateEmail } = require('../utils/email');
+    for (const b of interested.filter(b => stageAllows(b.stage, category))) {
+      sendProcessUpdateEmail({
+        to: b.email, firstName: b.first_name,
+        title: `Neue Unterlagen verfügbar — ${proj ? proj.codename : 'Mandat'}`,
+        message: `Für das Mandat <strong>${proj ? proj.codename : ''}</strong> wurden neue Unterlagen bereitgestellt: <strong>${displayName}</strong>.`,
+        ctaLabel: 'Unterlagen ansehen', ctaPath: `/projekte/${projectId}`,
+      }).catch(() => {});
+    }
+  }
+
   res.status(201).json({
     success: true,
     data: {
@@ -127,8 +149,10 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
   const { projectId } = req.params;
   const isAdminUser = ['super_admin', 'advisor'].includes(req.user.role);
 
+  // has_file: Seed-Einträge ohne physische Datei → Download-Button deaktivieren
   const docs = await db.all(`
-    SELECT id, filename, file_type, file_size, access_level, category, folder, version, description, created_at
+    SELECT id, filename, file_type, file_size, access_level, category, folder, version, description, created_at,
+           (file_path IS NOT NULL)::int AS has_file
     FROM documents WHERE project_id = ? ORDER BY created_at DESC
   `, [projectId]);
 
