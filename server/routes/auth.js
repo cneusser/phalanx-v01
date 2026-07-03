@@ -45,8 +45,11 @@ router.post('/register', wrap(async (req, res) => {
 
   db.auditLog(userId, 'REGISTER', 'user', userId, `role=${userRole}`, req.ip);
 
-  // Log for admin notification (no email unless SMTP configured)
   console.log(`\n📬 Neue Registrierung: ${first_name} ${last_name} <${email}> (${userRole}) — wartet auf Freigabe`);
+  // Admin-Benachrichtigung (nur wenn SMTP konfiguriert, sonst Log)
+  const { sendRegistrationNotification } = require('../utils/email');
+  sendRegistrationNotification({ firstName: first_name, lastName: last_name, email, company, role: userRole })
+    .catch(() => {});
 
   // Return pending status — NO TOKEN
   return res.status(201).json({
@@ -117,6 +120,10 @@ router.post('/forgot-password', wrap(async (req, res) => {
     console.log(`\n🔑 Password Reset angefordert für ${user.email}`);
     console.log(`   Reset-Link: ${resetUrl}`);
     console.log(`   Gültig bis: ${new Date(expires).toLocaleString('de-DE')}\n`);
+
+    // Reset-Mail an den Nutzer (nur wenn SMTP konfiguriert, sonst nur Log)
+    const { sendPasswordResetEmail } = require('../utils/email');
+    sendPasswordResetEmail({ to: user.email, firstName: user.first_name, resetUrl, expires }).catch(() => {});
 
     db.auditLog(user.id, 'PASSWORD_RESET_REQUESTED', 'user', user.id, null, req.ip);
   }

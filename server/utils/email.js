@@ -146,4 +146,62 @@ async function sendDownloadNotification(opts) {
   }
 }
 
-module.exports = { sendDownloadNotification };
+// ── Generischer Versand (nur wenn SMTP konfiguriert) ────────────────────────
+async function sendMail({ to, subject, html }) {
+  const transporter = createTransporter();
+  if (!transporter) {
+    console.log(`✉️  [SMTP nicht konfiguriert] E-Mail NICHT gesendet: "${subject}" an ${to}`);
+    return false;
+  }
+  try {
+    await transporter.sendMail({ from: `"CapitalMatch Plattform" <${process.env.SMTP_USER}>`, to, subject, html });
+    console.log(`✉️  E-Mail gesendet: "${subject}" an ${to}`);
+    return true;
+  } catch (err) {
+    console.error('⚠️  E-Mail-Versand fehlgeschlagen:', err.message);
+    return false;
+  }
+}
+
+const mailShell = (title, bodyHtml) => `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; color: #333;">
+    <div style="background: #1A4D8A; padding: 20px 24px; border-radius: 6px 6px 0 0;">
+      <h1 style="color: #fff; margin: 0; font-size: 18px;">${title}</h1>
+      <p style="color: rgba(255,255,255,0.7); margin: 4px 0 0; font-size: 13px;">CapitalMatch — eine Marke der Phalanx GmbH</p>
+    </div>
+    <div style="background: #fff; padding: 24px; border: 1px solid #DDE8F3; border-top: none; border-radius: 0 0 6px 6px; font-size: 14px; line-height: 1.6;">
+      ${bodyHtml}
+    </div>
+  </div>`;
+
+// Passwort-Reset-Link an den Nutzer
+async function sendPasswordResetEmail({ to, firstName, resetUrl, expires }) {
+  return sendMail({
+    to,
+    subject: '[CapitalMatch] Passwort zurücksetzen',
+    html: mailShell('Passwort zurücksetzen', `
+      <p>Hallo ${firstName || ''},</p>
+      <p>für Ihr CapitalMatch-Konto wurde ein Passwort-Reset angefordert. Klicken Sie auf den folgenden Button, um ein neues Passwort zu vergeben:</p>
+      <p style="text-align:center; margin: 24px 0;">
+        <a href="${resetUrl}" style="background:#1A4D8A;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">Neues Passwort vergeben</a>
+      </p>
+      <p style="font-size:12px;color:#888;">Der Link ist gültig bis ${new Date(expires).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}. Falls Sie den Reset nicht angefordert haben, ignorieren Sie diese E-Mail.</p>
+    `),
+  });
+}
+
+// Hinweis an den Admin bei neuer Registrierung
+async function sendRegistrationNotification({ firstName, lastName, email, company, role }) {
+  const to = process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de';
+  return sendMail({
+    to,
+    subject: `[CapitalMatch] Neue Registrierung: ${firstName} ${lastName}`,
+    html: mailShell('Neue Registrierung — Freigabe erforderlich', `
+      <p><strong>${firstName} ${lastName}</strong> (${role}) hat sich registriert und wartet auf Freigabe.</p>
+      <p>E-Mail: <a href="mailto:${email}">${email}</a><br/>Unternehmen: ${company || '—'}</p>
+      <p>Freigabe im Admin-Bereich unter „Nutzer".</p>
+    `),
+  });
+}
+
+module.exports = { sendDownloadNotification, sendMail, sendPasswordResetEmail, sendRegistrationNotification };

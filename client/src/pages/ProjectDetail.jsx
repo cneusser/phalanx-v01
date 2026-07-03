@@ -114,6 +114,7 @@ export default function ProjectDetail() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [publicDocs, setPublicDocs] = useState([]);
+  const [gatedDocs, setGatedDocs] = useState([]); // IM/Datenraum-Dokumente (serverseitig gate-gefiltert)
 
   const isAdmin = user && ['super_admin', 'advisor'].includes(user.role);
   const isStartup = teaser?.mandate_type === 'fundraising';
@@ -125,10 +126,12 @@ export default function ProjectDetail() {
     try {
       const teaserData = await api.get(`/projects/${id}/teaser`);
       setTeaser(teaserData);
-      // Öffentliche Dokumente laden
+      // Dokumente laden — der Server filtert bereits nach Gate-Status:
+      // Teaser immer, IM ab NDA-Signatur, Datenraum ab Admin-Freigabe (Sprint 3)
       try {
         const docs = await api.get(`/documents/${id}`);
         setPublicDocs((docs || []).filter(d => d.access_level === 'public'));
+        setGatedDocs((docs || []).filter(d => d.access_level !== 'public'));
       } catch { /* ignore */ }
 
       if (user) {
@@ -183,9 +186,11 @@ export default function ProjectDetail() {
   if (!teaser) return null;
 
   const approved = ndaStatus === 'approved' || ndaStatus === 'admin';
+  // Sprint 3: Nach NDA-Signatur ist das IM automatisch freigeschaltet
+  const imUnlocked = approved || ndaStatus === 'signed';
 
-  // Aktiver Tab prüfen ob zugänglich
-  const canViewTab = (key) => PUBLIC_TABS.includes(key) || approved;
+  // Aktiver Tab prüfen ob zugänglich (Dokumente bereits ab NDA-Signatur)
+  const canViewTab = (key) => PUBLIC_TABS.includes(key) || approved || (key === 'documents' && imUnlocked);
 
   const handleTabClick = (key) => {
     setActiveTab(key);
@@ -436,9 +441,11 @@ export default function ProjectDetail() {
 
     // Dokumente — zwei Sektionen: öffentlich + NDA-geschützt
     if (activeTab === 'documents') {
+      // Ab NDA-Signatur liefert der Server IM-Dokumente (gatedDocs);
+      // nach Admin-Freigabe zusätzlich Datenraum-Dokumente
       const ndaDocs = approved && fullData?.documents
         ? fullData.documents.filter(d => ['nda', 'approved'].includes(d.access_level))
-        : [];
+        : gatedDocs;
 
       const downloadDoc = async (doc) => {
         try {
@@ -496,12 +503,12 @@ export default function ProjectDetail() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
               <Lock size={15} color={C.navy} />
               <h4 style={{ fontWeight: 700, color: C.text, fontSize: '0.9rem', margin: 0 }}>Vertrauliche Dokumente</h4>
-              <span style={{ background: approved ? '#d1fae5' : '#fef3c7', color: approved ? '#065f46' : '#92400e', padding: '0.1rem 0.4rem', borderRadius: 4, fontSize: '0.65rem', fontWeight: 700 }}>
-                {approved ? 'NDA freigegeben' : 'NDA erforderlich'}
+              <span style={{ background: imUnlocked ? '#d1fae5' : '#fef3c7', color: imUnlocked ? '#065f46' : '#92400e', padding: '0.1rem 0.4rem', borderRadius: 4, fontSize: '0.65rem', fontWeight: 700 }}>
+                {approved ? 'NDA freigegeben' : imUnlocked ? 'IM freigeschaltet (NDA signiert)' : 'NDA erforderlich'}
               </span>
             </div>
 
-            {!approved ? (
+            {!imUnlocked ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem', background: C.bg, borderRadius: 6, border: `1px solid ${C.border}` }}>
                 <div style={{ width: 36, height: 36, background: '#fef3c7', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Lock size={16} color='#92400e' />

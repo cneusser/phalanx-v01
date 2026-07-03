@@ -3,10 +3,28 @@ const express = require('express');
 const path = require('path');
 const db = require('../db/database');
 const { authenticate } = require('../middleware/auth');
+const crypto = require('crypto');
+const fs = require('fs');
 const { generateNDA, saveNDA, NDA_DIR } = require('../utils/ndaGenerator');
 const wrap = require('../utils/asyncHandler');
 const { setStage } = require('../middleware/gates');
+const { getSignatureProvider } = require('../providers/signature');
 const router = express.Router();
+
+// Aktive NDA-Vorlage aus der DB laden (Fallback: eingebaute Standard-Vorlage)
+async function loadNdaTemplate() {
+  const row = await db.get(`SELECT * FROM nda_templates WHERE is_active = 1 ORDER BY version DESC, id DESC LIMIT 1`);
+  if (!row) return { id: null, ...require('../db/defaultNdaTemplate') };
+  return {
+    id: row.id,
+    name: row.name,
+    version: row.version,
+    court_venue: row.court_venue,
+    advisor: JSON.parse(row.advisor_json || '{}'),
+    preamble: row.preamble,
+    sections: JSON.parse(row.sections_json || '[]'),
+  };
+}
 
 // ─── NDA anfordern ───────────────────────────────────────────────────────────
 router.post('/', authenticate, wrap(async (req, res) => {
@@ -70,9 +88,11 @@ router.get('/:projectId/document', authenticate, wrap(async (req, res) => {
       ip: nda.consent_ip || null,
     } : null;
 
+    const template = await loadNdaTemplate();
     const pdfBuffer = await generateNDA({
       buyer: buyerData,
       project: { codename: project.codename, industry: project.industry, region: project.region },
+      template,
       signature,
     });
 
@@ -107,29 +127,52 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
   const now = new Date().toISOString();
 
   try {
-    // Generate signed PDF and save it
-    const pdfFilename = await saveNDA({
-      buyer: {
-        id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        company: user.company || '',
-        position: user.position || '',
-        email: user.email,
-        address: '',
-        city: '',
-        country: 'Deutschland',
-      },
-      project: { codename: project.codename, industry: project.industry, region: project.region },
-      signature: {
-        name: consent_name.trim(),
-        company: user.company || '',
-        date: now,
-        ip: consentIp,
-      },
-    });
+    const template = await loadNdaTemplate();
+    const buyerData = {
+      id: user.id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      company: user.company || '',
+      position: user.position || '',
+      email: user.email,
+      address: '',
+      city: '',
+      country: 'Deutschland',
+    };
+    const projectData = { codename: project.codename, industry: project.industry, region: project.region };
 
-    // Update DB
+    // 1. Befülltes (unsigniertes) NDA erzeugen und über den austauschbaren
+    //    SignatureProvider signieren (Standard: Stub, eIDAS FES)
+    const filledPdf = await generateNDA({ buyer: buyerData, project: projectData, template });
+    const provider = getSignatureProvider();
+    const providerName = (process.env.SIGNATURE_PROVIDER || 'stub').toLowerCase();
+    const { providerRef } = await provider.send(filledPdf, {
+      name: consent_name.trim(), email: user.email, company: user.company || '', ip: consentIp,
+    });
+    const signatureStatus = await provider.status(providerRef);
+    if (signatureStatus !== 'signed') {
+      // Bei echten Providern: Vorgang bleibt offen, Abschluss via Status-Polling/Webhook
+      return res.status(202).json({ success: true, data: { status: 'sent', provider_ref: providerRef } });
+    }
+
+    // 2. Signiertes PDF revisionssicher ablegen (Datei + SHA-256-Audit-Referenz)
+    const pdfFilename = await saveNDA({
+      buyer: buyerData,
+      project: projectData,
+      template,
+      signature: { name: consent_name.trim(), company: user.company || '', date: now, ip: consentIp },
+    });
+    const signedBuffer = fs.readFileSync(require('path').join(NDA_DIR, pdfFilename));
+    const auditRef = crypto.createHash('sha256').update(signedBuffer).digest('hex');
+
+    const interest = await db.get(`SELECT id FROM interests WHERE buyer_id = ? AND project_id = ?`, [req.user.id, req.params.projectId]);
+    await db.insert(
+      `INSERT INTO ndas (interest_id, nda_request_id, template_id, filled_pdf_ref, signature_provider, signature_status, provider_ref, signed_pdf_ref, signed_at, audit_ref)
+       VALUES (?, ?, ?, ?, ?, 'signed', ?, ?, now(), ?)`,
+      [interest ? interest.id : null, nda.id, template.id, null, providerName, providerRef, pdfFilename, auditRef]
+    );
+
+    // 3. Workflow-Status aktualisieren
     await db.run(`
       UPDATE nda_requests
       SET status='signed',
@@ -141,14 +184,16 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
       WHERE user_id=? AND project_id=?
     `, [now, consent_name.trim(), consentIp, pdfFilename, req.user.id, req.params.projectId]);
 
-    // Zustandsautomat: nda_signed erreicht
+    // 4. Zustandsautomat: nda_signed erreicht → IM/Exposé automatisch
+    //    freischalten (im_granted, Sprint 3)
     await setStage(req.user.id, req.params.projectId, 'nda_signed', req.user.id, consentIp);
+    await setStage(req.user.id, req.params.projectId, 'im_granted', req.user.id, consentIp);
     db.auditLog(req.user.id, 'NDA_SIGNED_ONLINE', 'nda_request', nda.id,
-      `Online §10: ${consent_name.trim()} | IP: ${consentIp} | PDF: ${pdfFilename}`, consentIp);
+      `Online §10 (${providerName}/FES): ${consent_name.trim()} | IP: ${consentIp} | PDF: ${pdfFilename} | SHA-256: ${auditRef.slice(0, 16)}…`, consentIp);
 
     console.log(`[EMAIL MOCK] NDA für ${project.codename} online unterzeichnet von ${user.email} (${consent_name.trim()})`);
 
-    res.json({ success: true, data: { status: 'signed', pdf_filename: pdfFilename } });
+    res.json({ success: true, data: { status: 'signed', pdf_filename: pdfFilename, audit_ref: auditRef } });
   } catch (e) {
     console.error('Sign error:', e);
     res.status(500).json({ success: false, error: 'Fehler beim Unterzeichnen: ' + e.message });
@@ -162,6 +207,7 @@ router.put('/:projectId/sign', authenticate, wrap(async (req, res) => {
   if (nda.status !== 'sent') return res.status(400).json({ success: false, error: 'NDA muss den Status "versendet" haben um unterzeichnet werden zu können' });
   await db.run(`UPDATE nda_requests SET status='signed', signed_at=now() WHERE user_id=? AND project_id=?`, [req.user.id, req.params.projectId]);
   await setStage(req.user.id, req.params.projectId, 'nda_signed', req.user.id, req.ip);
+  await setStage(req.user.id, req.params.projectId, 'im_granted', req.user.id, req.ip); // IM automatisch freischalten
   db.auditLog(req.user.id, 'NDA_SIGNED', 'nda_request', nda.id, null, req.ip);
   res.json({ success: true, data: { status: 'signed' } });
 }));

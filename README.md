@@ -71,6 +71,29 @@ Jede Tabelle trägt bereits eine Spalte `tenant_id` (Default: Tenant 1 =
 `phalanx`). Die Mandantentrennung (Row-Level-Security, Rollen, Branding)
 wird in Sprint 5 scharf geschaltet.
 
+### E-Signatur (Sprint 3)
+
+NDAs werden aus einer **konfigurierbaren Vorlage** (Tabelle `nda_templates`,
+Platzhalter wie `{{project_codename}}`, `{{buyer_name}}`, `{{court_venue}}`)
+generiert und über ein **austauschbares SignatureProvider-Interface** signiert
+(`server/providers/signature/`). Standard ist der **Stub-Provider** (Mock,
+simuliert eIDAS FES mit sofortigem Abschluss). Jeder Signaturvorgang wird
+revisionssicher in der Tabelle `ndas` abgelegt (signiertes PDF +
+SHA-256-`audit_ref`).
+
+Echten Dienst anbinden (z. B. Skribble, DocuSign): Provider-Klasse mit
+`send/status/fetchSignedDoc` in `server/providers/signature/` implementieren,
+registrieren und per ENV aktivieren:
+
+```
+SIGNATURE_PROVIDER=skribble   # Default: stub
+SIGNATURE_LEVEL=fes           # fes (Standard) oder qes
+```
+
+Nach der NDA-Signatur wird das Informationsmemorandum **automatisch**
+freigeschaltet (`interests.stage = im_granted`); der Datenraum bleibt bis zur
+Admin-Freigabe gesperrt.
+
 ### Admin-Zugang
 
 Der Admin-User wird bei jedem Start idempotent sichergestellt.

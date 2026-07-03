@@ -140,10 +140,29 @@ async function startupSeed() {
   } else {
     adminId = admin.id;
     await run(`UPDATE users SET role = ?, is_approved = 1, is_active = 1 WHERE email = ?`, [ADMIN.role, ADMIN.email]);
-    if (!isValidBcrypt(admin.password_hash)) {
+    // Notfall-Hebel: ADMIN_FORCE_PASSWORD_RESET=1 in Railway setzen →
+    // Admin-Passwort wird beim nächsten Start auf ADMIN_PASSWORD (bzw.
+    // Default) zurückgesetzt. Danach die Variable wieder entfernen!
+    if (process.env.ADMIN_FORCE_PASSWORD_RESET === '1') {
+      await run(`UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE email = ?`, [bcrypt.hashSync(ADMIN.password, 10), ADMIN.email]);
+      console.log('🔑 Admin-Passwort per ADMIN_FORCE_PASSWORD_RESET zurückgesetzt — Variable jetzt wieder entfernen!');
+    } else if (!isValidBcrypt(admin.password_hash)) {
       await run(`UPDATE users SET password_hash = ? WHERE email = ?`, [bcrypt.hashSync(ADMIN.password, 10), ADMIN.email]);
       console.log('🔑 Defekter Admin-Passwort-Hash zurückgesetzt');
     }
+  }
+
+  // 1b. Standard-NDA-Vorlage seeden, falls noch keine existiert (Sprint 3).
+  //     Danach ist die Vorlage in der Tabelle nda_templates konfigurierbar.
+  const { c: templateCount } = await get(`SELECT COUNT(*)::int AS c FROM nda_templates`);
+  if (templateCount === 0) {
+    const tpl = require('./defaultNdaTemplate');
+    await run(
+      `INSERT INTO nda_templates (name, version, court_venue, advisor_json, preamble, sections_json, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`,
+      [tpl.name, tpl.version, tpl.court_venue, JSON.stringify(tpl.advisor), tpl.preamble, JSON.stringify(tpl.sections)]
+    );
+    console.log('📄 Standard-NDA-Vorlage geseedet (nda_templates)');
   }
 
   // 2. Mandate seeden, wenn Projekte-Tabelle leer ist

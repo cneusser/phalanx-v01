@@ -9,6 +9,11 @@ const { initialize } = require('./db/database');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Railway/Reverse-Proxy: echte Client-IP aus X-Forwarded-For lesen.
+// Ohne dies zählt der Rate-Limiter ALLE Besucher als eine IP (globale Sperre)
+// und Audit-Logs enthalten nur die Proxy-IP.
+app.set('trust proxy', 1);
+
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // In production the React build is served by this same Express server (same origin),
@@ -19,8 +24,14 @@ const corsOrigins = process.env.NODE_ENV === 'production'
 
 app.use(cors({ origin: corsOrigins, credentials: true }));
 
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 500 });
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
+// JSON-Fehlermeldung, damit der Client sie sauber anzeigen kann
+const limiterJson = (msg) => ({
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: msg },
+});
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 500, ...limiterJson('Zu viele Anfragen — bitte in einigen Minuten erneut versuchen.') });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50, ...limiterJson('Zu viele Anmeldeversuche — bitte in 15 Minuten erneut versuchen.') });
 app.use('/api/', limiter);
 app.use('/api/auth/', authLimiter);
 

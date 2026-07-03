@@ -16,30 +16,40 @@ const BLACK = '#1A1A1A';
 const NDA_DIR = path.join(__dirname, '../data/ndas');
 if (!fs.existsSync(NDA_DIR)) fs.mkdirSync(NDA_DIR, { recursive: true });
 
+// Standard-Vorlage als Fallback (DB-Vorlage hat Vorrang, siehe nda_templates)
+const DEFAULT_TEMPLATE = require('../db/defaultNdaTemplate');
+
+// Platzhalter ({{key}}) mit Werten füllen
+function fillPlaceholders(text, vars) {
+  return String(text || '').replace(/\{\{(\w+)\}\}/g, (_, key) => (vars[key] != null ? vars[key] : `{{${key}}}`));
+}
+
 /**
  * Generate a personalized NDA PDF.
  * @param {object} opts
  * @param {object} opts.buyer      - { first_name, last_name, company, position, email, address, city, country }
  * @param {object} opts.project    - { codename, industry, region }
- * @param {object} opts.advisor    - { name, contact, address, city } – defaults to Phalanx
+ * @param {object} opts.template   - NDA-Vorlage { court_venue, advisor, preamble, sections } (Default: Standard-Vorlage)
  * @param {object} opts.signature  - { name, company, date } – filled if signed
- * @param {string} opts.courtVenue - Gerichtsstandort (default: München)
  * @returns {Promise<Buffer>}      - PDF as Buffer
  */
 function generateNDA(opts) {
   const {
     buyer,
     project,
-    advisor = {
-      name: 'Phalanx M&A Advisory GmbH',
-      contact: 'M&A Advisory Team',
-      address: 'Musterstraße 1',
-      city: '80331 München',
-      country: 'Deutschland',
-    },
+    template = DEFAULT_TEMPLATE,
     signature = null,
-    courtVenue = 'München',
   } = opts;
+
+  const advisor = template.advisor || DEFAULT_TEMPLATE.advisor;
+  const courtVenue = template.court_venue || 'München';
+  const vars = {
+    project_codename: project.codename,
+    buyer_name: `${buyer.first_name} ${buyer.last_name}`,
+    buyer_company: buyer.company || '',
+    court_venue: courtVenue,
+    advisor_name: advisor.name,
+  };
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -162,63 +172,23 @@ function generateNDA(opts) {
     hline(doc.y);
     doc.moveDown(0.5);
 
-    // ─── PRÄAMBEL ─────────────────────────────────────────────────────────────
+    // ─── PRÄAMBEL (aus Vorlage, Platzhalter befüllt) ─────────────────────────
     doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY).text('Präambel');
     doc.moveDown(0.2);
-    body(`Die Vertragsparteien beabsichtigen, Gespräche über das unter dem Projektnamen ${project.codename} genannte Mandat zu führen und sich untereinander vertrauliche Unterlagen und Informationen bereitzustellen. Der Transaktionsberater handelt hierbei als exklusiver M&A‑Berater für den Eigentümer und wurde vom Eigentümer und dem Zielunternehmen autorisiert, diese Vertraulichkeitsvereinbarung zugunsten des Eigentümers und des Zielunternehmens abzuschließen. Zweck dieser Vertraulichkeitsvereinbarung ist es, die vertraulichen Informationen beider Parteien vor unberechtigter Verwendung oder Veröffentlichung zu schützen.`);
+    body(fillPlaceholders(template.preamble, vars));
 
-    // ─── §1 ───────────────────────────────────────────────────────────────────
-    section(1, 'Verpflichtung zur Vertraulichkeit');
-    body('1.1  Die Vertragsparteien verpflichten sich gegenseitig, sämtliche verkörperten oder mündlich übermittelten Informationen und Erkenntnisse, die ihnen im Zusammenhang mit dem Projekt zugänglich gemacht werden, vertraulich zu behandeln, ausschließlich für das Projekt zu verwenden und nicht anderweitig zu nutzen, unabhängig davon, auf welchem Trägermedium die Informationen verkörpert sind.');
-    doc.moveDown(0.3);
-    body('1.2  Der Zugang zu vertraulichen Informationen wird auf solche Mitarbeiter, Organe und Berater beschränkt, die die Informationen im Rahmen ihrer Tätigkeit und zum Zweck des Projekts benötigen. Diese Personen sind zur Vertraulichkeit zu verpflichten, sofern eine gleichwertige berufsrechtliche Verschwiegenheitsverpflichtung nicht besteht.');
-    doc.moveDown(0.3);
-    body('1.3  Die Weitergabe vertraulicher Informationen an Geschäftsführer, Führungskräfte, Mitarbeiter, Berater, Gutachter, verbundene Gesellschaften oder Finanzierungspartner ist nur zulässig, wenn diese zuvor schriftlich und in mindestens gleichwertiger Weise zur Geheimhaltung verpflichtet wurden. Dies gilt nicht, soweit eine berufsrechtliche Pflicht zur Verschwiegenheit bereits besteht oder die Informationen im Zusammenhang mit dem Projekt zwingend offengelegt werden müssen.');
-    doc.moveDown(0.3);
-    body('1.4  Auf Verlangen der jeweils anderen Vertragspartei werden alle überlassenen vertraulichen Informationen und Unterlagen unverzüglich zurückgegeben oder vernichtet. Davon ausgenommen sind Unterlagen, deren Aufbewahrung aufgrund gesetzlicher Aufbewahrungspflichten oder interner Compliance‑ beziehungsweise IT‑Backup‑Regeln erforderlich ist.');
-
-    // ─── §2 ───────────────────────────────────────────────────────────────────
-    section(2, 'Ausnahmen von der Vertraulichkeit');
-    body('Diese Vertraulichkeitsvereinbarung erstreckt sich nicht auf Informationen, die:');
-    doc.moveDown(0.2);
-    bullet('ohne Zutun der empfangenden Partei allgemein bekannt oder öffentlich zugänglich waren oder werden;');
-    bullet('nach Offenlegung ohne Verletzung dieser Vertraulichkeitsvereinbarung veröffentlicht werden;');
-    bullet('sich nachweislich bereits rechtmäßig im Besitz der empfangenden Partei befanden;');
-    bullet('rechtmäßig von einem Dritten erhalten wurden;');
-    bullet('von der empfangenden Partei unabhängig und ohne Nutzung vertraulicher Informationen entwickelt wurden; oder');
-    bullet('aufgrund gesetzlicher, behördlicher oder gerichtlicher Anordnung offengelegt werden müssen.');
-
-    // ─── §3 ───────────────────────────────────────────────────────────────────
-    section(3, 'Anzeige bei Verlust');
-    body('Der Verlust oder die unberechtigte Offenlegung vertraulicher Informationen ist der jeweils anderen Vertragspartei unverzüglich schriftlich anzuzeigen. Dies gilt auch bei Verlusten infolge Diebstahls oder ähnlicher Ereignisse.');
-
-    // ─── §4 ───────────────────────────────────────────────────────────────────
-    section(4, 'Unentgeltliche Überlassung');
-    body('Die Überlassung vertraulicher Informationen erfolgt unentgeltlich.');
-
-    // ─── §5 ───────────────────────────────────────────────────────────────────
-    section(5, 'Laufzeit');
-    body('Diese Vertraulichkeitsvereinbarung gilt für einen Zeitraum von zwei (2) Jahren ab Unterzeichnung durch den Interessenten. Sofern die Vertraulichkeitsvereinbarung online abgeschlossen wird, beginnt die Laufzeit mit dem Zugang der per E‑Mail übermittelten Vertragsexemplare beim Interessenten.');
-
-    // ─── §6 ───────────────────────────────────────────────────────────────────
-    section(6, 'Anwendbares Recht und Gerichtsstand');
-    body(`Diese Vertraulichkeitsvereinbarung unterliegt dem Recht der Bundesrepublik Deutschland. Ausschließlicher Gerichtsstand für alle Streitigkeiten aus oder im Zusammenhang mit dieser Vereinbarung ist ${courtVenue}.`);
-
-    // ─── §7 ───────────────────────────────────────────────────────────────────
-    section(7, 'Haftungsbeschränkung und Nichtübertragbarkeit');
-    body('Für den Fall eines Verstoßes gegen diese Vertraulichkeitsvereinbarung gelten die allgemeinen gesetzlichen Regelungen. Eine Haftung besteht nur für unmittelbare Schäden; Folgeschäden, entgangener Gewinn oder sonstige indirekte Schäden sind ausgeschlossen. Sämtliche Ansprüche können pro Verstoß nur einmal geltend gemacht werden. Rechte und Pflichten aus dieser Vertraulichkeitsvereinbarung sind nicht übertragbar.');
-
-    // ─── §8 ───────────────────────────────────────────────────────────────────
-    section(8, 'Salvatorische Klausel');
-    body('Sollten einzelne Bestimmungen dieser Vertraulichkeitsvereinbarung unwirksam oder undurchführbar sein oder werden, bleibt die Wirksamkeit der übrigen Bestimmungen unberührt. Die Vertragsparteien werden die unwirksame oder undurchführbare Bestimmung durch eine wirksame Bestimmung ersetzen, die dem wirtschaftlichen Zweck der unwirksamen Bestimmung am nächsten kommt.');
-
-    // ─── §9 ───────────────────────────────────────────────────────────────────
-    section(9, 'Keine Verpflichtung zum Abschluss; Schriftform');
-    body('Durch die Unterzeichnung dieser Vertraulichkeitsvereinbarung kommt keine Verpflichtung zum Abschluss einer Transaktion zustande. Der Prozess bleibt für die Vertragsparteien unverbindlich, und keine Partei ist verpflichtet, eine Transaktion abzuschließen. Diese Vertraulichkeitsvereinbarung stellt die vollständige Vereinbarung zwischen den Vertragsparteien dar. Mündliche Nebenabreden bestehen nicht. Änderungen und Ergänzungen dieser Vertraulichkeitsvereinbarung sowie Kündigungen bedürfen der Schriftform; die elektronische Form ist hierfür nicht ausreichend. Dies gilt auch für eine Änderung oder Aufhebung dieser Schriftformklausel.');
-
-    // ─── §10 ──────────────────────────────────────────────────────────────────
-    section(10, 'Wirksamkeit bei Online‑Abschluss');
-    body('Wenn der Interessent diese Vertraulichkeitsvereinbarung online auf der Internetseite des Transaktionsberaters bestätigt, erkennt der Interessent die Verbindlichkeit dieser Vereinbarung auch ohne eigenhändige Unterschrift an. Der online erklärte Konsens hat für den Interessenten dieselbe rechtliche Wirkung wie eine handschriftliche Unterschrift und begründet eine rechtswirksame Vertraulichkeitsverpflichtung zwischen den Parteien.');
+    // ─── §§ aus der Vorlage ──────────────────────────────────────────────────
+    (template.sections || []).forEach((sec, idx) => {
+      section(idx + 1, fillPlaceholders(sec.title, vars));
+      (sec.paragraphs || []).forEach((p, i) => {
+        if (i > 0) doc.moveDown(0.3);
+        body(fillPlaceholders(p, vars));
+      });
+      if (sec.bullets && sec.bullets.length) {
+        doc.moveDown(0.2);
+        sec.bullets.forEach(b => bullet(fillPlaceholders(b, vars)));
+      }
+    });
 
     // ─── NEW PAGE for signature ───────────────────────────────────────────────
     doc.addPage();
