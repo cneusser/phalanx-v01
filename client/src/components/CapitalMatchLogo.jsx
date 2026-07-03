@@ -1,6 +1,11 @@
 import React from 'react';
+// Offizielles CapitalMatch-Logo (markenrechtlich geschützt).
+// Vite-Import: Die Datei wird fest ins Build-Bundle kompiliert und kann zur
+// Laufzeit nicht fehlen. Zum Austausch einfach die Datei
+// client/src/assets/capitalmatch-logo.png ersetzen (gleicher Dateiname).
+import logoUrl from '../assets/capitalmatch-logo.png';
 
-// CapitalMatch brand colors
+// CapitalMatch brand colors (weiter von anderen Komponenten genutzt)
 export const CM = {
   light: '#29ABE2',  // "Capital" — sky blue
   dark:  '#1A4D8A',  // "Match"   — deep navy
@@ -9,14 +14,15 @@ export const CM = {
 const FONT = "'Nunito', 'Poppins', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
 
 /**
- * CapitalMatch Logo — pure CSS text, always works.
+ * CapitalMatch Logo — offizielle Bildmarke.
  *
- * Props:
- *   textSize  – base font size in px (default 22)
- *   white     – true = white text for dark backgrounds (Navbar, Footer, Hero)
- *               false = brand colours for light backgrounds (Login, Register)
- *   showClaim – show tagline "Kapital suchen. Partner finden."
- *   compact   – single-line "CapitalMatch" (Navbar/Footer)
+ * Props (API unverändert zu früher):
+ *   textSize  – Basisgröße in px (steuert die Logo-Höhe; default 22)
+ *   white     – true = Einsatz auf dunklem Hintergrund (Navbar, Footer, Hero):
+ *               Logo wird auf einer weißen Schutzfläche gezeigt, damit die
+ *               Markenfarben lesbar bleiben und unverändert sind.
+ *   showClaim – Tagline "Kapital suchen. Partner finden." unter dem Logo
+ *   compact   – kleinere Darstellung (Navbar/Footer)
  */
 export default function CapitalMatchLogo({
   textSize  = 22,
@@ -26,18 +32,31 @@ export default function CapitalMatchLogo({
   showClaim = false,
   compact   = false,
 }) {
-  const colorCapital = white ? 'rgba(255,255,255,0.90)' : CM.light;
-  const colorMatch   = white ? '#ffffff'                 : CM.dark;
-  const colorClaim   = white ? 'rgba(255,255,255,0.60)' : '#6b7280';
+  // Logo ist zweizeilig gesetzt → Höhe ≈ 2 Textzeilen
+  const imgHeight = Math.round(textSize * (compact ? 1.9 : 2.2));
+  const colorClaim = white ? 'rgba(255,255,255,0.60)' : '#6b7280';
 
-  const wordStyle = (color) => ({
-    fontFamily:    FONT,
-    fontWeight:    800,
-    fontSize:      textSize,
-    color,
-    letterSpacing: '-0.03em',
-    lineHeight:    compact ? 1 : 1.1,
-  });
+  const img = (
+    <img
+      src={logoUrl}
+      alt="CapitalMatch"
+      style={{ height: imgHeight, width: 'auto', display: 'block', userSelect: 'none' }}
+      draggable={false}
+    />
+  );
+
+  // Auf dunklem Grund: weiße Schutzfläche (markenkonform, Farben unverändert)
+  const mark = white ? (
+    <span style={{
+      display: 'inline-flex',
+      background: '#ffffff',
+      borderRadius: 6,
+      padding: `${Math.max(3, Math.round(imgHeight * 0.14))}px ${Math.max(6, Math.round(imgHeight * 0.2))}px`,
+      lineHeight: 0,
+    }}>
+      {img}
+    </span>
+  ) : img;
 
   const claim = showClaim && !compact ? (
     <span style={{
@@ -47,27 +66,17 @@ export default function CapitalMatchLogo({
       fontSize:      Math.round(textSize * 0.38),
       color:         colorClaim,
       letterSpacing: '0.04em',
-      marginTop:     '0.45em',
+      marginTop:     '0.55em',
       whiteSpace:    'nowrap',
     }}>
       Kapital suchen. Partner finden.
     </span>
   ) : null;
 
-  if (compact) {
-    return (
-      <div style={{ display: 'inline-flex', alignItems: 'baseline', userSelect: 'none', lineHeight: 1 }}>
-        <span style={wordStyle(colorCapital)}>Capital</span>
-        <span style={wordStyle(colorMatch)}>Match</span>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', userSelect: 'none', lineHeight: 1 }}>
-      <span style={wordStyle(colorCapital)}>Capital</span>
-      <span style={wordStyle(colorMatch)}>Match</span>
+    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', userSelect: 'none' }}>
+      {mark}
       {claim}
-    </div>
+    </span>
   );
 }

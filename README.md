@@ -1,77 +1,119 @@
-# Phalanx M&A Plattform – V0.1
+# CapitalMatch (Phalanx GmbH) — M&A- & Fundraising-Plattform
 
-Ein sicherer Online-Marktplatz für Unternehmenstransaktionen.
+Ein sicherer Online-Marktplatz für Unternehmenstransaktionen und Startup-Finanzierungen.
 
-## Schnellstart
+## Tech Stack
+
+- **Backend:** Node.js + Express + **PostgreSQL (Knex)** + JWT
+- **Frontend:** React + Vite + React Router
+- **Deploy:** Railway (Auto-Deploy bei Push auf `main`)
+
+---
+
+## Datenbank (seit Sprint 1: PostgreSQL)
+
+Die App benötigt eine PostgreSQL-Datenbank. Die Verbindung kommt **ausschließlich**
+aus der Umgebungsvariable `DATABASE_URL`. Ohne sie startet der Server nicht
+(mit klarer Fehlermeldung).
+
+Migrationen liegen in `server/db/migrations/` und werden **bei jedem
+Serverstart automatisch** ausgeführt (`knex migrate:latest`). Danach läuft ein
+idempotenter Startup-Seed: Admin-Upsert + Beispiel-Mandate (nur wenn die
+Projekte-Tabelle leer ist). Mandats-Stammdaten sind in `server/db/seedData.js`
+konfigurierbar.
+
+### Railway einrichten (einmalig)
+
+1. Railway-Projekt öffnen → **„+ New" → „Database" → „Add PostgreSQL"**.
+2. Im **App-Service** (phalanx-v01) → Tab **„Variables"** → **„+ New Variable"**:
+   - Name: `DATABASE_URL`
+   - Wert: **Reference** auswählen → `Postgres` → `DATABASE_URL`
+   (Railway trägt dann automatisch die interne Verbindungs-URL ein.)
+3. Deploy auslösen (Push oder „Redeploy"). Beim ersten Start legt die App
+   Schema, Default-Tenant `phalanx`, Admin und Beispiel-Mandate selbst an.
+
+Das bisherige Volume wird für die SQLite-Datei nicht mehr gebraucht, bleibt
+aber für **hochgeladene Dokumente** (`uploads/`) und **signierte NDA-PDFs**
+(`server/data/ndas/`) weiterhin nötig.
+
+### Lokale Entwicklung
+
+PostgreSQL lokal starten (eine Möglichkeit von vielen):
 
 ```bash
-# Im Terminal (Node.js >= 18 erforderlich):
+# macOS (Homebrew)
+brew install postgresql@16 && brew services start postgresql@16
+createdb capitalmatch
+
+# oder mit Docker
+docker run -d --name capitalmatch-pg -p 5432:5432 \
+  -e POSTGRES_USER=capitalmatch -e POSTGRES_PASSWORD=capitalmatch \
+  -e POSTGRES_DB=capitalmatch postgres:16
+```
+
+Dann in `server/.env`:
+
+```
+DATABASE_URL=postgres://capitalmatch:capitalmatch@localhost:5432/capitalmatch
+```
+
+Nützliche Befehle (im Ordner `server/`):
+
+```bash
+npm run migrate    # Migrationen manuell ausführen
+npm run seed       # DESTRUKTIV: alles löschen + Auslieferungszustand seeden
+npm run dev        # Entwicklung (führt Migrationen + Seed beim Start aus)
+```
+
+### Multi-Tenancy (Vorbereitung)
+
+Jede Tabelle trägt bereits eine Spalte `tenant_id` (Default: Tenant 1 =
+`phalanx`). Die Mandantentrennung (Row-Level-Security, Rollen, Branding)
+wird in Sprint 5 scharf geschaltet.
+
+### Admin-Zugang
+
+Der Admin-User wird bei jedem Start idempotent sichergestellt.
+E-Mail/Passwort sind per ENV überschreibbar: `ADMIN_EMAIL`, `ADMIN_PASSWORD`
+(Defaults in `server/db/seedData.js`).
+
+---
+
+## Schnellstart (Entwicklung)
+
+```bash
+# Voraussetzungen: Node.js >= 18, laufendes PostgreSQL (siehe oben)
 cd phalanx-v01
 ./start.sh
 ```
 
-Die App öffnet sich unter:
 - **Frontend:** http://localhost:5173
 - **Backend API:** http://localhost:3001
-
-## Demo-Zugänge
-
-| Rolle | E-Mail | Passwort |
-|-------|--------|----------|
-| Admin | admin@phalanx.de | Admin1234! |
-| Berater | berater@phalanx.de | Berater1234! |
-| Käufer | max.mueller@example.de | Buyer1234! |
-| Käufer | petra.schreiber@example.de | Buyer1234! |
-
-## Features V0.1
-
-- Öffentliche Projektliste (6 anonymisierte Mandate)
-- Registrierung & Login (JWT-basiert)
-- Käufer-Dashboard mit NDA-Status
-- NDA-Anfrage-Workflow
-- Admin-Dashboard: KPIs, Projekte, NDA-Verwaltung, Käufer
-- Projekt anlegen (Admin-Wizard)
-- NDA-Freigabe durch Admin (1 Klick)
-- Audit-Log aller Aktionen
-- Buyer-Profil mit Suchkriterien
-
-## Tech Stack
-
-- **Backend:** Node.js + Express + sql.js (SQLite) + JWT
-- **Frontend:** React + Vite + React Router
-- **Stil:** Phalanx Brand (Navy #1B3A5C, Gold #C8A97E)
 
 ## Projektstruktur
 
 ```
 phalanx-v01/
-├── server/               # Express Backend
-│   ├── index.js          # Server Entry Point
-│   ├── db/               # Datenbank (sql.js + SQLite)
-│   │   ├── database.js   # DB-Initialisierung & Schema
-│   │   └── seed.js       # Demo-Daten
-│   ├── routes/           # API-Routen
-│   │   ├── auth.js       # Login / Register
-│   │   ├── projects.js   # Projekte (public + protected)
-│   │   ├── ndas.js       # NDA-Workflow
-│   │   ├── profile.js    # Käuferprofil
-│   │   └── admin.js      # Admin-Funktionen
-│   └── middleware/
-│       └── auth.js       # JWT-Authentifizierung
-├── client/               # React Frontend
-│   ├── src/
-│   │   ├── App.jsx       # Routing
-│   │   ├── context/      # AuthContext
-│   │   ├── api/          # API-Client
-│   │   ├── components/   # Navbar
-│   │   └── pages/        # Alle Seiten
-│   └── vite.config.js
-├── start.sh              # Entwicklung starten
-└── start-production.sh   # Production Build starten
+├── server/                 # Express Backend
+│   ├── index.js            # Server Entry Point
+│   ├── knexfile.js         # Knex-/Postgres-Konfiguration (DATABASE_URL)
+│   ├── db/
+│   │   ├── database.js     # DB-Layer (Knex) + Startup-Seed
+│   │   ├── migrations/     # Knex-Migrationen (Schema-Versionierung)
+│   │   ├── seedData.js     # Konfigurierbare Mandats-Stammdaten
+│   │   └── seed.js         # CLI-Voll-Reseed (destruktiv)
+│   ├── routes/             # API-Routen (auth, projects, ndas, admin, …)
+│   ├── middleware/auth.js  # JWT-Authentifizierung
+│   └── utils/              # NDA-PDF-Generator, E-Mail, asyncHandler
+├── client/                 # React Frontend (Vite)
+└── Dockerfile              # Railway-Build
 ```
 
-## Roadmap
+## Roadmap (Sprints)
 
-- **V0.2:** 2FA (TOTP), Dokumenten-Upload, E-Mail-Versand
-- **V0.3:** E-Signatur-Integration (eIDAS), Deal Alerts
-- **V1.0:** Matching-Engine, Datenraum, vollständiger Audit-Trail
+- **Sprint 0 ✓** Stabilisierung (Logo, Admin-Upsert, Filter-Counts, Anonymisierung)
+- **Sprint 1 ✓** PostgreSQL-Migration (Knex, Migrations, tenant_id)
+- **Sprint 2** Deal-Zustandsautomat mit Gates (deals, interests, permissions, activity_log)
+- **Sprint 3** NDA-Automatik + E-Signatur-Provider-Interface + gestufter Zugang
+- **Sprint 4** Sicherer Datenraum (Wasserzeichen, signierte Links) + Admin-CRM
+- **Sprint 5** Multi-Tenant (RLS), Branding je Tenant, Billing-Interface

@@ -1,5 +1,6 @@
 // ============================================================
 // CapitalMatch – Dokumente-Route (Upload, Download, Delete)
+// PostgreSQL/Knex
 // ============================================================
 
 const express = require('express');
@@ -9,6 +10,7 @@ const fs      = require('fs');
 const db      = require('../db/database');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendDownloadNotification } = require('../utils/email');
+const wrap = require('../utils/asyncHandler');
 
 const router = express.Router();
 const isAdmin = [authenticate, requireRole('super_admin', 'advisor')];
@@ -68,11 +70,11 @@ const upload = multer({
 });
 
 // ── POST /api/documents/:projectId  (Admin only) ───────────
-router.post('/:projectId', ...isAdmin, upload.single('file'), (req, res) => {
+router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen' });
 
   const { projectId } = req.params;
-  const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+  const project = await db.get('SELECT id FROM projects WHERE id = ?', [projectId]);
   if (!project) {
     // Datei wieder löschen wenn Projekt nicht gefunden
     fs.unlink(req.file.path, () => {});
@@ -82,10 +84,10 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), (req, res) => {
   const { description = '', access_level = 'nda' } = req.body;
   const displayName = req.body.display_name || req.file.originalname;
 
-  const result = db.prepare(`
-    INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, file_path, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-  `).run(
+  const docId = await db.insert(`
+    INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, file_path)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
     projectId,
     displayName,
     req.file.mimetype,
@@ -94,15 +96,15 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), (req, res) => {
     description,
     req.user.id,
     req.file.path,
-  );
+  ]);
 
-  db.auditLog(req.user.id, 'UPLOAD_DOCUMENT', 'document', result.lastInsertRowid,
+  db.auditLog(req.user.id, 'UPLOAD_DOCUMENT', 'document', docId,
     `${displayName} → Projekt ${projectId}`, req.ip);
 
   res.status(201).json({
     success: true,
     data: {
-      id:           result.lastInsertRowid,
+      id:           docId,
       filename:     displayName,
       file_type:    req.file.mimetype,
       file_size:    req.file.size,
@@ -110,48 +112,44 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), (req, res) => {
       description,
     },
   });
-});
+}));
 
 // ── GET /api/documents/:projectId  (Admin or NDA-approved) ─
-router.get('/:projectId', authenticate, (req, res) => {
+router.get('/:projectId', authenticate, wrap(async (req, res) => {
   const { projectId } = req.params;
   const isAdminUser = ['super_admin', 'advisor'].includes(req.user.role);
 
   if (!isAdminUser) {
-    const nda = db.prepare('SELECT status FROM nda_requests WHERE user_id = ? AND project_id = ?')
-      .get(req.user.id, projectId);
+    const nda = await db.get('SELECT status FROM nda_requests WHERE user_id = ? AND project_id = ?', [req.user.id, projectId]);
     if (!nda || nda.status !== 'approved') {
       return res.status(403).json({ success: false, error: 'NDA-Freigabe erforderlich' });
     }
   }
 
-  const docs = db.prepare(`
+  const docs = await db.all(`
     SELECT id, filename, file_type, file_size, access_level, description, created_at
     FROM documents WHERE project_id = ? ORDER BY created_at DESC
-  `).all(projectId);
+  `, [projectId]);
 
   res.json({ success: true, data: docs });
-});
+}));
 
 // ── GET /api/documents/:projectId/:docId/download ──────────
-router.get('/:projectId/:docId/download', authenticate, (req, res) => {
+router.get('/:projectId/:docId/download', authenticate, wrap(async (req, res) => {
   const { projectId, docId } = req.params;
   const isAdminUser = ['super_admin', 'advisor'].includes(req.user.role);
 
-  const doc = db.prepare('SELECT * FROM documents WHERE id = ? AND project_id = ?')
-    .get(docId, projectId);
+  const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
   if (!doc || !doc.file_path) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
 
   // Zugangskontrolle
   if (!isAdminUser) {
     if (doc.access_level === 'approved') {
-      const nda = db.prepare('SELECT status FROM nda_requests WHERE user_id = ? AND project_id = ?')
-        .get(req.user.id, projectId);
+      const nda = await db.get('SELECT status FROM nda_requests WHERE user_id = ? AND project_id = ?', [req.user.id, projectId]);
       if (!nda || nda.status !== 'approved')
         return res.status(403).json({ success: false, error: 'Freigabe erforderlich' });
     } else if (doc.access_level === 'nda') {
-      const nda = db.prepare('SELECT status FROM nda_requests WHERE user_id = ? AND project_id = ?')
-        .get(req.user.id, projectId);
+      const nda = await db.get('SELECT status FROM nda_requests WHERE user_id = ? AND project_id = ?', [req.user.id, projectId]);
       if (!nda || !['signed', 'approved'].includes(nda.status))
         return res.status(403).json({ success: false, error: 'NDA erforderlich' });
     }
@@ -166,7 +164,7 @@ router.get('/:projectId/:docId/download', authenticate, (req, res) => {
 
   // ── Admin-Benachrichtigung per E-Mail ──────────────────────
   // Projektnamen nachladen (für leserliche E-Mail)
-  const project = db.prepare('SELECT codename FROM projects WHERE id = ?').get(projectId);
+  const project = await db.get('SELECT codename FROM projects WHERE id = ?', [projectId]);
   sendDownloadNotification({
     documentName: doc.filename,
     projectName:  project ? project.codename : `Projekt ${projectId}`,
@@ -184,13 +182,12 @@ router.get('/:projectId/:docId/download', authenticate, (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.filename)}"`);
   res.setHeader('Content-Type', doc.file_type || 'application/octet-stream');
   res.sendFile(path.resolve(doc.file_path));
-});
+}));
 
 // ── DELETE /api/documents/:projectId/:docId  (Admin only) ──
-router.delete('/:projectId/:docId', ...isAdmin, (req, res) => {
+router.delete('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
   const { projectId, docId } = req.params;
-  const doc = db.prepare('SELECT * FROM documents WHERE id = ? AND project_id = ?')
-    .get(docId, projectId);
+  const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
   if (!doc) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
 
   // Datei löschen
@@ -198,10 +195,10 @@ router.delete('/:projectId/:docId', ...isAdmin, (req, res) => {
     fs.unlink(doc.file_path, err => { if (err) console.error('File delete error:', err); });
   }
 
-  db.prepare('DELETE FROM documents WHERE id = ?').run(docId);
+  await db.run('DELETE FROM documents WHERE id = ?', [docId]);
   db.auditLog(req.user.id, 'DELETE_DOCUMENT', 'document', docId, doc.filename, req.ip);
 
   res.json({ success: true, data: { message: 'Dokument gelöscht' } });
-});
+}));
 
 module.exports = router;

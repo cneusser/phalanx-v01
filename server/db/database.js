@@ -1,261 +1,159 @@
-const initSqlJs = require('sql.js');
-const fs = require('fs');
-const path = require('path');
-const { ADMIN, PROJECTS, CODENAME_RENAMES, KNOWN_CODENAMES } = require('./seedData');
+// ─────────────────────────────────────────────────────────────────────────────
+// CapitalMatch DB-Layer — PostgreSQL via Knex (Sprint 1)
+//
+// Ersetzt die frühere SQLite-(sql.js)-Implementierung. Öffentliche API:
+//   initialize()          – Migrationen ausführen + idempotenter Startup-Seed
+//   get(sql, params)      – erste Zeile oder undefined      (async)
+//   all(sql, params)      – alle Zeilen als Array            (async)
+//   run(sql, params)      – INSERT/UPDATE/DELETE, rowCount   (async)
+//   insert(sql, params)   – INSERT … RETURNING id → id       (async)
+//   auditLog(...)         – Append-only-Log (fire and forget)
+//   knex                  – rohe Knex-Instanz (Transaktionen, QueryBuilder)
+//
+// SQL-Platzhalter bleiben `?` (Knex übersetzt nach $1, $2, … für Postgres).
+// ─────────────────────────────────────────────────────────────────────────────
 
-const dbPath = path.join(__dirname, 'phalanx.db');
+const knexConfig = require('../knexfile');
 
-let db;
+if (!process.env.DATABASE_URL) {
+  console.error(`
+❌  DATABASE_URL ist nicht gesetzt.
 
-function saveDb() {
-  if (!db) return;
-  const data = db.export();
-  fs.writeFileSync(dbPath, Buffer.from(data));
+    CapitalMatch benötigt seit Sprint 1 eine PostgreSQL-Datenbank.
+
+    Railway:  Postgres-Plugin zum Projekt hinzufügen und im App-Service die
+              Variable DATABASE_URL als Reference auf Postgres.DATABASE_URL
+              anlegen (Details: README → "Datenbank").
+    Lokal:    server/.env →
+              DATABASE_URL=postgres://capitalmatch:capitalmatch@localhost:5432/capitalmatch
+`);
+  process.exit(1);
 }
 
-// Bind parameters properly for sql.js
-function bindParams(params) {
-  if (!params || params.length === 0) return [];
-  return params.map(p => p === undefined ? null : p);
+// pg liefert COUNT()/SUM() als String (BIGINT/NUMERIC) — für die App nach
+// Number parsen, damit z. B. `a + b` nicht zu Stringkonkatenation wird.
+const pgTypes = require('pg').types;
+pgTypes.setTypeParser(20, (v) => parseInt(v, 10));   // BIGINT
+pgTypes.setTypeParser(1700, (v) => parseFloat(v));   // NUMERIC
+
+const knex = require('knex')(knexConfig);
+
+async function get(sql, params = []) {
+  const result = await knex.raw(sql, params);
+  return result.rows[0];
 }
 
-function prepare(sql) {
-  return {
-    run(...params) {
-      db.run(sql, bindParams(params));
-      // Get last insert rowid
-      const res = db.exec('SELECT last_insert_rowid()');
-      const lastInsertRowid = res[0] ? res[0].values[0][0] : null;
-      saveDb();
-      return { lastInsertRowid };
-    },
-    get(...params) {
-      const result = db.exec(sql, bindParams(params));
-      if (!result[0] || !result[0].values[0]) return undefined;
-      const cols = result[0].columns;
-      const vals = result[0].values[0];
-      return Object.fromEntries(cols.map((c, i) => [c, vals[i]]));
-    },
-    all(...params) {
-      const result = db.exec(sql, bindParams(params));
-      if (!result[0]) return [];
-      const cols = result[0].columns;
-      return result[0].values.map(row => Object.fromEntries(cols.map((c, i) => [c, row[i]])));
-    }
-  };
+async function all(sql, params = []) {
+  const result = await knex.raw(sql, params);
+  return result.rows;
 }
 
+async function run(sql, params = []) {
+  const result = await knex.raw(sql, params);
+  return { rowCount: result.rowCount };
+}
+
+// INSERT mit automatischem RETURNING id
+async function insert(sql, params = []) {
+  const withReturning = /returning\s/i.test(sql) ? sql : `${sql} RETURNING id`;
+  const result = await knex.raw(withReturning, params);
+  return result.rows[0] ? result.rows[0].id : null;
+}
+
+// Append-only Audit-Log. Bewusst fire-and-forget: Logging darf nie
+// einen fachlichen Request scheitern lassen.
 function auditLog(userId, action, resourceType, resourceId, details, ip) {
-  try {
-    db.run(
-      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
-      [userId||null, action, resourceType||null, resourceId||null, details||null, ip||null]
+  knex('audit_logs')
+    .insert({
+      user_id: userId || null,
+      action,
+      resource_type: resourceType || null,
+      resource_id: resourceId ? parseInt(resourceId, 10) : null,
+      details: details || null,
+      ip_address: ip || null,
+    })
+    .catch((e) => console.warn('auditLog:', e.message));
+}
+
+// ── Startup-Seed (idempotent) ────────────────────────────────────────────────
+// Läuft bei jedem Serverstart NACH den Migrationen:
+//   1. Admin-User upserten (Rolle, Freigabe, Hash-Prüfung — wie Sprint 0)
+//   2. Beispiel-Mandate aus seedData.js einspielen, falls noch keine
+//      Projekte existieren (einmaliges Seed für den Betreiber-Mandanten)
+// WICHTIG: Die alte SQLite-Ära löschte bei jedem Start alle Fremd-User und
+// -Projekte („Cleanup"). Das entfällt ab jetzt — Postgres persistiert echte
+// Registrierungen und Admin-Änderungen dauerhaft.
+async function startupSeed() {
+  const bcrypt = require('bcryptjs');
+  const { ADMIN, PROJECTS } = require('./seedData');
+
+  // 1. Admin upserten
+  const isValidBcrypt = (h) => typeof h === 'string' && /^\$2[aby]\$\d{2}\$.{53}$/.test(h);
+  const admin = await get(`SELECT id, password_hash FROM users WHERE email = ?`, [ADMIN.email]);
+
+  let adminId;
+  if (!admin) {
+    adminId = await insert(
+      `INSERT INTO users (email, password_hash, role, first_name, last_name, company, position, phone, is_approved, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1)`,
+      [ADMIN.email, bcrypt.hashSync(ADMIN.password, 10), ADMIN.role, ADMIN.first_name, ADMIN.last_name, ADMIN.company, ADMIN.position, ADMIN.phone]
     );
-    saveDb();
-  } catch(e) { /* silent */ }
+    console.log(`👤 Admin-User angelegt: ${ADMIN.email}`);
+  } else {
+    adminId = admin.id;
+    await run(`UPDATE users SET role = ?, is_approved = 1, is_active = 1 WHERE email = ?`, [ADMIN.role, ADMIN.email]);
+    if (!isValidBcrypt(admin.password_hash)) {
+      await run(`UPDATE users SET password_hash = ? WHERE email = ?`, [bcrypt.hashSync(ADMIN.password, 10), ADMIN.email]);
+      console.log('🔑 Defekter Admin-Passwort-Hash zurückgesetzt');
+    }
+  }
+
+  // 2. Mandate seeden, wenn Projekte-Tabelle leer ist
+  const { c: projectCount } = await get(`SELECT COUNT(*)::int AS c FROM projects`);
+  if (projectCount === 0) {
+    for (const proj of PROJECTS) {
+      const p = proj.public;
+      const projectId = await insert(
+        `INSERT INTO projects (codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights,
+           stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type,
+           status, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+        [p.codename, p.industry, p.region, p.revenue_band || '—', p.ebitda_band || '—',
+         p.deal_type, p.short_description, JSON.stringify(p.highlights || []),
+         p.stage, p.investment_needed, p.equity_stake, p.post_money_valuation,
+         p.tam_band, p.sector_emoji, p.location_city, p.mandate_type || 'ma', adminId]
+      );
+
+      const d = proj.details || {};
+      await run(
+        `INSERT INTO project_details (project_id, full_description, revenue_actual, ebitda_actual, revenue_trend, employees,
+           founding_year, growth_strategy, key_risks, asking_price_band, team_description, problem_solution, use_of_funds,
+           traction_highlights, milestones)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [projectId, d.full_description, d.revenue_actual, d.ebitda_actual, d.revenue_trend, d.employees,
+         d.founding_year, d.growth_strategy, d.key_risks, d.asking_price_band, d.team_description,
+         d.problem_solution, d.use_of_funds, JSON.stringify(d.traction_highlights || []), d.milestones]
+      );
+
+      for (const doc of proj.documents || []) {
+        await run(
+          `INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [projectId, doc.filename, doc.file_type, doc.file_size, doc.access_level, doc.description, adminId]
+        );
+      }
+      console.log(`📁 Mandat geseedet: ${p.codename}`);
+    }
+  }
 }
 
 async function initialize() {
-  const SQL = await initSqlJs();
+  // Migrationen ausführen (legt Schema + Default-Tenant "phalanx" an)
+  const [, applied] = await knex.migrate.latest();
+  if (applied.length > 0) console.log(`🗄️  Migrationen ausgeführt: ${applied.join(', ')}`);
 
-  if (fs.existsSync(dbPath)) {
-    db = new SQL.Database(fs.readFileSync(dbPath));
-  } else {
-    db = new SQL.Database();
-  }
-
-  db.run(`PRAGMA foreign_keys = ON`);
-
-  const schema = `
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'buyer', first_name TEXT NOT NULL, last_name TEXT NOT NULL,
-      company TEXT, position TEXT, buyer_type TEXT, phone TEXT, is_active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS buyer_profiles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE NOT NULL,
-      industries TEXT DEFAULT '[]', regions TEXT DEFAULT '[]',
-      revenue_min REAL DEFAULT 0, revenue_max REAL DEFAULT 100,
-      ebitda_min REAL DEFAULT 0, ebitda_max REAL DEFAULT 20,
-      deal_types TEXT DEFAULT '[]', investment_style TEXT DEFAULT 'both',
-      notes TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS projects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, codename TEXT UNIQUE NOT NULL,
-      industry TEXT NOT NULL, region TEXT NOT NULL, revenue_band TEXT NOT NULL,
-      ebitda_band TEXT NOT NULL, deal_type TEXT NOT NULL, short_description TEXT NOT NULL,
-      highlights TEXT DEFAULT '[]', status TEXT DEFAULT 'active', created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS project_details (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER UNIQUE NOT NULL,
-      full_description TEXT, revenue_actual REAL, ebitda_actual REAL, revenue_trend TEXT,
-      employees INTEGER, founding_year INTEGER, growth_strategy TEXT, key_risks TEXT,
-      asking_price_band TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS nda_requests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, project_id INTEGER NOT NULL,
-      status TEXT DEFAULT 'requested', requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      sent_at DATETIME, signed_at DATETIME, approved_at DATETIME, approved_by INTEGER,
-      UNIQUE(user_id, project_id)
-    );
-    CREATE TABLE IF NOT EXISTS documents (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, filename TEXT NOT NULL,
-      file_type TEXT, file_size INTEGER, access_level TEXT DEFAULT 'nda', description TEXT,
-      uploaded_by INTEGER, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, action TEXT NOT NULL,
-      resource_type TEXT, resource_id INTEGER, details TEXT, ip_address TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
-
-  db.run(schema);
-
-  // ── Migrations: add columns that may not exist in older DBs ────────────────
-  const migrations = [
-    `ALTER TABLE nda_requests ADD COLUMN consent_name TEXT`,
-    `ALTER TABLE nda_requests ADD COLUMN consent_ip TEXT`,
-    `ALTER TABLE nda_requests ADD COLUMN online_consent_at DATETIME`,
-    `ALTER TABLE nda_requests ADD COLUMN signed_pdf_path TEXT`,
-    `ALTER TABLE nda_requests ADD COLUMN rejected_at DATETIME`,
-    // V0.3 Marketplace: Startup / Fundraising fields
-    `ALTER TABLE projects ADD COLUMN stage TEXT`,
-    `ALTER TABLE projects ADD COLUMN investment_needed TEXT`,
-    `ALTER TABLE projects ADD COLUMN equity_stake TEXT`,
-    `ALTER TABLE projects ADD COLUMN post_money_valuation TEXT`,
-    `ALTER TABLE projects ADD COLUMN tam_band TEXT`,
-    `ALTER TABLE projects ADD COLUMN sector_emoji TEXT`,
-    `ALTER TABLE projects ADD COLUMN location_city TEXT`,
-    `ALTER TABLE projects ADD COLUMN mandate_type TEXT DEFAULT 'ma'`,
-    // V0.3 documents: file path on disk
-    `ALTER TABLE documents ADD COLUMN file_path TEXT`,
-    // V0.3 project_details extra fields
-    `ALTER TABLE project_details ADD COLUMN team_description TEXT`,
-    `ALTER TABLE project_details ADD COLUMN problem_solution TEXT`,
-    `ALTER TABLE project_details ADD COLUMN use_of_funds TEXT`,
-    `ALTER TABLE project_details ADD COLUMN traction_highlights TEXT DEFAULT '[]'`,
-    `ALTER TABLE project_details ADD COLUMN milestones TEXT`,
-    // V0.2 user approval workflow
-    `ALTER TABLE users ADD COLUMN is_approved INTEGER DEFAULT 0`,
-    // V0.2 password reset
-    `ALTER TABLE users ADD COLUMN reset_token TEXT`,
-    `ALTER TABLE users ADD COLUMN reset_token_expires DATETIME`,
-  ];
-  for (const m of migrations) {
-    try { db.run(m); } catch(e) { /* column already exists – ignore */ }
-  }
-
-  saveDb();
-
-  // ── V0.2 Data Cleanup ─────────────────────────────────────────────────────
-  // Remove all legacy projects (keep only the mandates configured in seedData.js)
-  // and all legacy users (keep only the admin neusser@phalanx.de).
-  // This runs on every server start so Railway's persistent DB is always clean.
-
-  // ── Rename-/Anonymisierungs-Migrationen (idempotent, aus seedData.js) ─────
-  // Läuft nur, solange der alte Deckname noch in der DB steht. Beim Rename
-  // werden auch die öffentlichen Teaser-Felder (Beschreibung, Highlights)
-  // aus der zentralen Konfiguration anonymisiert nachgezogen.
-  for (const { from, to } of CODENAME_RENAMES) {
-    try {
-      const legacy = prepare(`SELECT id FROM projects WHERE codename = ?`).get(from);
-      if (legacy) {
-        const cfg = PROJECTS.find(p => p.public.codename === to);
-        if (cfg) {
-          db.run(
-            `UPDATE projects SET codename = ?, short_description = ?, highlights = ?, location_city = ? WHERE id = ?`,
-            [to, cfg.public.short_description, JSON.stringify(cfg.public.highlights), cfg.public.location_city, legacy.id]
-          );
-        } else {
-          db.run(`UPDATE projects SET codename = ? WHERE id = ?`, [to, legacy.id]);
-        }
-        console.log(`🕶️  Projekt anonymisiert: "${from}" → "${to}"`);
-        saveDb();
-      }
-    } catch(e) { console.warn(`Rename ${from} → ${to}:`, e.message); }
-  }
-
-  const codenameList = KNOWN_CODENAMES.map(c => `'${c.replace(/'/g, "''")}'`).join(', ');
-
-  try {
-    const oldProjects = db.exec(`
-      SELECT COUNT(*) as c FROM projects
-      WHERE codename NOT IN (${codenameList})
-    `);
-    const oldCount = oldProjects[0]?.values[0][0] || 0;
-    if (oldCount > 0) {
-      // Delete dependent records first
-      db.run(`DELETE FROM nda_requests WHERE project_id IN (
-        SELECT id FROM projects WHERE codename NOT IN (${codenameList})
-      )`);
-      db.run(`DELETE FROM documents WHERE project_id IN (
-        SELECT id FROM projects WHERE codename NOT IN (${codenameList})
-      )`);
-      db.run(`DELETE FROM project_details WHERE project_id IN (
-        SELECT id FROM projects WHERE codename NOT IN (${codenameList})
-      )`);
-      db.run(`DELETE FROM projects WHERE codename NOT IN (${codenameList})`);
-      console.log(`🧹 ${oldCount} Altprojekte gelöscht (nur konfigurierte Mandate behalten)`);
-      saveDb();
-    }
-  } catch(e) { console.warn('Cleanup projects:', e.message); }
-
-  try {
-    const oldUsers = db.exec(`SELECT COUNT(*) as c FROM users WHERE email != '${ADMIN.email.replace(/'/g, "''")}'`);
-    const oldUsersCount = oldUsers[0]?.values[0][0] || 0;
-    if (oldUsersCount > 0) {
-      db.run(`DELETE FROM buyer_profiles WHERE user_id IN (
-        SELECT id FROM users WHERE email != ?
-      )`, [ADMIN.email]);
-      db.run(`DELETE FROM nda_requests WHERE user_id IN (
-        SELECT id FROM users WHERE email != ?
-      )`, [ADMIN.email]);
-      db.run(`DELETE FROM users WHERE email != ?`, [ADMIN.email]);
-      console.log(`🧹 ${oldUsersCount} Alt-User gelöscht (nur Admin behalten)`);
-      saveDb();
-    }
-  } catch(e) { console.warn('Cleanup users:', e.message); }
-
-  // ── Admin-User idempotent upserten ─────────────────────────────────────────
-  // Läuft bei jedem Start: legt den Admin an ODER repariert ihn (Rolle,
-  // Freigabe, defekter Passwort-Hash). E-Mail/Passwort via ENV überschreibbar
-  // (ADMIN_EMAIL / ADMIN_PASSWORD, siehe seedData.js).
-  try {
-    const bcrypt = require('bcryptjs');
-    // Gültiger bcrypt-Hash: $2a$/$2b$/$2y$ + Cost + 53 Zeichen Salt/Digest
-    const isValidBcrypt = (h) => typeof h === 'string' && /^\$2[aby]\$\d{2}\$.{53}$/.test(h);
-
-    const admin = prepare(`SELECT id, password_hash FROM users WHERE email = ?`).get(ADMIN.email);
-
-    if (!admin) {
-      const hash = bcrypt.hashSync(ADMIN.password, 10);
-      db.run(
-        `INSERT INTO users (email, password_hash, role, first_name, last_name, company, position, phone, is_approved, is_active, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, datetime('now'))`,
-        [ADMIN.email, hash, ADMIN.role, ADMIN.first_name, ADMIN.last_name, ADMIN.company, ADMIN.position, ADMIN.phone]
-      );
-      console.log(`👤 Admin-User angelegt: ${ADMIN.email}`);
-    } else {
-      // Rolle + Freigabe bei jedem Start sicherstellen (Upsert-Teil)
-      db.run(`UPDATE users SET role = ?, is_approved = 1, is_active = 1 WHERE email = ?`, [ADMIN.role, ADMIN.email]);
-      // Passwort-Hash prüfen: nur bei fehlendem/defektem Hash zurücksetzen,
-      // damit ein bewusst geändertes Admin-Passwort erhalten bleibt.
-      if (!isValidBcrypt(admin.password_hash)) {
-        db.run(`UPDATE users SET password_hash = ? WHERE email = ?`, [bcrypt.hashSync(ADMIN.password, 10), ADMIN.email]);
-        console.log('🔑 Defekter Admin-Passwort-Hash zurückgesetzt');
-      }
-    }
-
-    // Konfigurierte Mandate sichtbar halten
-    db.run(`UPDATE projects SET status = 'active' WHERE codename IN (${codenameList})`);
-    saveDb();
-  } catch(e) { console.warn('Admin-Upsert:', e.message); }
-
-  console.log('✅ Database initialized');
+  await startupSeed();
+  console.log('✅ Database initialized (PostgreSQL)');
 }
 
-module.exports = { initialize, prepare, auditLog, saveDb };
+module.exports = { initialize, get, all, run, insert, auditLog, knex, startupSeed };

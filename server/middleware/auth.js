@@ -3,7 +3,9 @@ const db = require('../db/database');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'phalanx-secret';
 
-function authenticate(req, res, next) {
+const USER_FIELDS = 'id, tenant_id, email, role, first_name, last_name, company, is_active';
+
+async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, error: 'Nicht authentifiziert' });
@@ -11,7 +13,7 @@ function authenticate(req, res, next) {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = db.prepare('SELECT id, email, role, first_name, last_name, company, is_active FROM users WHERE id = ?').get(decoded.userId);
+    const user = await db.get(`SELECT ${USER_FIELDS} FROM users WHERE id = ?`, [decoded.userId]);
     if (!user || !user.is_active) {
       return res.status(401).json({ success: false, error: 'Benutzer nicht gefunden' });
     }
@@ -22,13 +24,13 @@ function authenticate(req, res, next) {
   }
 }
 
-function optionalAuth(req, res, next) {
+async function optionalAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return next();
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = db.prepare('SELECT id, email, role, first_name, last_name, company, is_active FROM users WHERE id = ?').get(decoded.userId);
+    const user = await db.get(`SELECT ${USER_FIELDS} FROM users WHERE id = ?`, [decoded.userId]);
     if (user && user.is_active) req.user = user;
   } catch (_) {}
   next();
