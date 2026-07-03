@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { Plus, Building2, Clock, CheckCircle, X } from 'lucide-react';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
+import GroupedSelect from '../components/GroupedSelect';
+import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING } from '../constants/projectOptions';
 
 const C = {
   navy:    '#1A4D8A',
@@ -208,16 +210,18 @@ export default function SellerDashboard() {
                 </div>
               </div>
 
-              {[
-                ['Unternehmensname / Codename *', 'codename', 'z.B. Müller GmbH oder Projekt Alpha', true],
-                ['Branche *', 'industry', 'z.B. Maschinenbau, Software, Handel', true],
-                ['Region *', 'region', 'z.B. Bayern, DACH, Norddeutschland', true],
-              ].map(([label, key, ph, req]) => (
-                <div key={key} style={{ marginBottom: '0.9rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.3rem' }}>{label}</label>
-                  <input value={form[key]} onChange={set(key)} placeholder={ph} required={req} style={INPUT} />
-                </div>
-              ))}
+              <div style={{ marginBottom: '0.9rem' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.3rem' }}>Unternehmensname / Codename *</label>
+                <input value={form.codename} onChange={set('codename')} placeholder="z.B. Müller GmbH oder Projekt Alpha" required style={INPUT} />
+              </div>
+              <div style={{ marginBottom: '0.9rem' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.3rem' }}>Branche (NACE) *</label>
+                <GroupedSelect value={form.industry} onChange={set('industry')} groups={NACE_INDUSTRIES} required style={INPUT} />
+              </div>
+              <div style={{ marginBottom: '0.9rem' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.3rem' }}>Region *</label>
+                <GroupedSelect value={form.region} onChange={set('region')} groups={BUNDESLAENDER} required style={INPUT} />
+              </div>
 
               {form.mandate_type === 'ma' && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.9rem' }}>
@@ -235,12 +239,13 @@ export default function SellerDashboard() {
 
               <div style={{ marginBottom: '0.9rem' }}>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.3rem' }}>Deal-Typ</label>
-                <select value={form.deal_type} onChange={set('deal_type')} style={{ ...INPUT, background: C.xLight }}>
-                  {form.mandate_type === 'ma'
-                    ? ['Nachfolge', 'MBO', 'MBI', 'Buy-and-Build', 'Strategische Partnerschaft', 'Wachstumskapital'].map(v => <option key={v} value={v}>{v}</option>)
-                    : ['Seed-Finanzierung', 'Series A', 'Angel-Runde', 'Wachstumsfinanzierung'].map(v => <option key={v} value={v}>{v}</option>)
-                  }
-                </select>
+                <GroupedSelect
+                  value={form.deal_type}
+                  onChange={set('deal_type')}
+                  groups={form.mandate_type === 'ma' ? DEAL_TYPES_MA : DEAL_TYPES_FUNDRAISING}
+                  required
+                  style={{ ...INPUT, background: C.xLight }}
+                />
               </div>
 
               <div style={{ marginBottom: '1.5rem' }}>

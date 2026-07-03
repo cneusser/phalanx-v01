@@ -141,6 +141,46 @@ router.put('/projects/:id/deal-status', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { deal_status } });
 }));
 
+// ── Nutzer-Zuordnung zu Projekten (Pflegerechte) ──────────────────────────
+router.get('/projects/:id/members', ...isAdmin, wrap(async (req, res) => {
+  const members = await db.all(`
+    SELECT pm.id, pm.user_id, pm.member_role, pm.created_at,
+           u.first_name || ' ' || u.last_name AS name, u.email, u.company, u.role
+    FROM project_members pm JOIN users u ON u.id = pm.user_id
+    WHERE pm.project_id = ? ORDER BY pm.created_at
+  `, [req.params.id]);
+  res.json({ success: true, data: members });
+}));
+
+router.post('/projects/:id/members', ...isAdmin, wrap(async (req, res) => {
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ success: false, error: 'user_id fehlt' });
+  const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.id]);
+  if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+  const user = await db.get('SELECT id, email, first_name FROM users WHERE id = ?', [user_id]);
+  if (!user) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+  await db.run(`
+    INSERT INTO project_members (project_id, user_id) VALUES (?, ?)
+    ON CONFLICT (project_id, user_id) DO NOTHING
+  `, [req.params.id, user_id]);
+  db.auditLog(req.user.id, 'PROJECT_MEMBER_ADDED', 'project', req.params.id, `${user.email} zugeordnet`, req.ip);
+  // Zugeordneten Nutzer informieren
+  const { sendProcessUpdateEmail } = require('../utils/email');
+  sendProcessUpdateEmail({
+    to: user.email, firstName: user.first_name,
+    title: `Sie wurden dem Mandat ${project.codename} zugeordnet`,
+    message: `Sie können das Mandat <strong>${project.codename}</strong> ab sofort über den Marktplatz einsehen und pflegen (Daten, Bild, Beschreibung).`,
+    ctaLabel: 'Zum Mandat', ctaPath: `/projekte/${req.params.id}`,
+  }).catch(() => {});
+  res.status(201).json({ success: true, data: { message: 'Nutzer zugeordnet' } });
+}));
+
+router.delete('/projects/:id/members/:userId', ...isAdmin, wrap(async (req, res) => {
+  await db.run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [req.params.id, req.params.userId]);
+  db.auditLog(req.user.id, 'PROJECT_MEMBER_REMOVED', 'project', req.params.id, `User #${req.params.userId} entfernt`, req.ip);
+  res.json({ success: true, data: { message: 'Zuordnung entfernt' } });
+}));
+
 // Interessentenliste je Deal mit Funnel-Stage (Basis für Sprint-4-CRM)
 router.get('/projects/:id/interests', ...isAdmin, wrap(async (req, res) => {
   const interests = await db.all(`

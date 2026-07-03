@@ -6,6 +6,17 @@ import {
   Edit2, Activity, Send, Download, Upload, Trash2, Lock, Globe, Shield,
   ClipboardList, ChevronLeft, ChevronRight,
 } from 'lucide-react';
+import GroupedSelect from '../components/GroupedSelect';
+import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES } from '../constants/projectOptions';
+
+// Auswahllisten je Formularfeld (statt Freitext) — abhängig vom Mandatstyp
+const fieldOptions = (key, mandateType) => {
+  if (key === 'industry') return NACE_INDUSTRIES;
+  if (key === 'region') return BUNDESLAENDER;
+  if (key === 'deal_type') return mandateType === 'fundraising' ? DEAL_TYPES_FUNDRAISING : DEAL_TYPES_MA;
+  if (key === 'stage') return FUNDRAISING_STAGES;
+  return null;
+};
 
 const C = {
   navy:   '#0D1B36',
@@ -878,10 +889,12 @@ export default function Admin() {
                 </div>
               </div>
 
-              {[['Name / Codename', 'codename', 'z. B. Projekt Alpha', true], ['Branche', 'industry', 'Food & Nutrition', true], ['Region', 'region', 'Bayern', true]].map(([label, key, ph, req]) => (
+              {[['Name / Codename', 'codename', 'z. B. Projekt Alpha', true], ['Branche (NACE)', 'industry', '', true], ['Region', 'region', '', true]].map(([label, key, ph, req]) => (
                 <div key={key} style={{ marginBottom: '0.9rem' }}>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.3rem' }}>{label}{req ? ' *' : ''}</label>
-                  <input value={newProject[key]} onChange={setNew(key)} placeholder={ph} required={req} style={INPUT_STYLE} />
+                  {fieldOptions(key, newProject.mandate_type)
+                    ? <GroupedSelect value={newProject[key]} onChange={setNew(key)} groups={fieldOptions(key, newProject.mandate_type)} required={req} style={INPUT_STYLE} />
+                    : <input value={newProject[key]} onChange={setNew(key)} placeholder={ph} required={req} style={INPUT_STYLE} />}
                 </div>
               ))}
 
@@ -891,7 +904,9 @@ export default function Admin() {
                     {[['Stage', 'stage', 'Seed'], ['Deal-Typ', 'deal_type', 'Seed-Finanzierung'], ['Runden-Volumen', 'investment_needed', '€ 1,1 Mio.'], ['Investor-Stake', 'equity_stake', '~26 %'], ['Post-Money', 'post_money_valuation', '€ 3,5 Mio.'], ['TAM', 'tam_band', '€ 9,3 Mrd.']].map(([label, key, ph]) => (
                       <div key={key}>
                         <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, color: '#555', marginBottom: '0.25rem' }}>{label}</label>
-                        <input value={newProject[key] || ''} onChange={setNew(key)} placeholder={ph} style={{ ...INPUT_STYLE, fontSize: '0.82rem' }} />
+                        {fieldOptions(key, 'fundraising')
+                          ? <GroupedSelect value={newProject[key]} onChange={setNew(key)} groups={fieldOptions(key, 'fundraising')} style={{ ...INPUT_STYLE, fontSize: '0.82rem' }} />
+                          : <input value={newProject[key] || ''} onChange={setNew(key)} placeholder={ph} style={{ ...INPUT_STYLE, fontSize: '0.82rem' }} />}
                       </div>
                     ))}
                   </div>
@@ -907,7 +922,9 @@ export default function Admin() {
                   {[['Umsatzband', 'revenue_band', '5–10 Mio. €'], ['EBITDA-Band', 'ebitda_band', '1–2 Mio. €'], ['Deal-Typ', 'deal_type', 'Nachfolge']].map(([label, key, ph]) => (
                     <div key={key}>
                       <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, color: '#555', marginBottom: '0.25rem' }}>{label}</label>
-                      <input value={newProject[key] || ''} onChange={setNew(key)} placeholder={ph} style={INPUT_STYLE} />
+                      {fieldOptions(key, 'ma')
+                        ? <GroupedSelect value={newProject[key]} onChange={setNew(key)} groups={fieldOptions(key, 'ma')} style={INPUT_STYLE} />
+                        : <input value={newProject[key] || ''} onChange={setNew(key)} placeholder={ph} style={INPUT_STYLE} />}
                     </div>
                   ))}
                 </div>
@@ -947,7 +964,9 @@ export default function Admin() {
               {projectFields.map(([label, key, ph, req]) => (
                 <div key={key} style={{ marginBottom: '0.9rem' }}>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.3rem' }}>{label}{req ? ' *' : ''}</label>
-                  <input value={editProject[key] || ''} onChange={setEdit(key)} placeholder={ph} required={req} style={INPUT_STYLE} />
+                  {fieldOptions(key, editProject.mandate_type)
+                    ? <GroupedSelect value={editProject[key]} onChange={setEdit(key)} groups={fieldOptions(key, editProject.mandate_type)} required={req} style={INPUT_STYLE} />
+                    : <input value={editProject[key] || ''} onChange={setEdit(key)} placeholder={ph} required={req} style={INPUT_STYLE} />}
                 </div>
               ))}
               <div style={{ marginBottom: '0.9rem' }}>

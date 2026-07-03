@@ -6,9 +6,40 @@ const wrap = require('../utils/asyncHandler');
 const { getStage } = require('../middleware/gates');
 const { stageAllows } = require('../utils/dealStateMachine');
 const { requireCompleteProfile } = require('../utils/profileCompleteness');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const router = express.Router();
 
-const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type';
+const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type, (image_path IS NOT NULL)::int AS has_image';
+
+// ── Pflege-Berechtigung: Admin, Ersteller ODER zugeordnetes Projektmitglied ──
+async function canManageProject(user, projectId) {
+  if (['super_admin', 'advisor'].includes(user.role)) return true;
+  const p = await db.get('SELECT created_by FROM projects WHERE id = ?', [projectId]);
+  if (!p) return false;
+  if (p.created_by === user.id) return true;
+  const member = await db.get('SELECT id FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, user.id]);
+  return !!member;
+}
+
+// ── Projektbild-Upload (Teaser-Ebene) ────────────────────────────────────────
+const IMAGE_DIR = process.env.UPLOAD_DIR
+  ? path.join(process.env.UPLOAD_DIR, 'project_images')
+  : path.join(__dirname, '../../uploads/project_images');
+if (!fs.existsSync(IMAGE_DIR)) fs.mkdirSync(IMAGE_DIR, { recursive: true });
+
+const imageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, IMAGE_DIR),
+    filename: (req, file, cb) => cb(null, `project_${req.params.id}_${Date.now()}${path.extname(file.originalname).toLowerCase()}`),
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    const ok = ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype);
+    cb(ok ? null : new Error('Nur JPG, PNG oder WebP erlaubt (max. 5 MB)'), ok);
+  },
+});
 
 // ── GET /stats — Public platform statistics ───────────────────────────────
 router.get('/stats', wrap(async (req, res) => {
@@ -97,11 +128,81 @@ router.post('/my-project', authenticate, requireCompleteProfile(), wrap(async (r
   res.status(201).json({ success: true, data: { id: projectId, message: 'Projekt eingereicht. Es wird nach Prüfung veröffentlicht.' } });
 }));
 
-// ── GET /:id/teaser — Public teaser ───────────────────────────────────────
-router.get('/:id/teaser', wrap(async (req, res) => {
-  const project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
+// ── GET /:id/teaser — Public teaser (+ can_manage für eingeloggte Pfleger) ─
+router.get('/:id/teaser', optionalAuth, wrap(async (req, res) => {
+  // Pfleger (Admin/Ersteller/Mitglied) sehen den Teaser auch im Entwurfsstatus
+  let project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
+  let canManage = false;
+  if (req.user) canManage = await canManageProject(req.user, req.params.id);
+  if (!project && canManage) {
+    project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ?`, [req.params.id]);
+  }
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
-  res.json({ success: true, data: { ...project, highlights: JSON.parse(project.highlights || '[]') } });
+  res.json({ success: true, data: { ...project, highlights: JSON.parse(project.highlights || '[]'), can_manage: canManage } });
+}));
+
+// ── PUT /:id — Mandat pflegen über den Marktplatz (Admin/Ersteller/Mitglied) ─
+router.put('/:id', authenticate, wrap(async (req, res) => {
+  if (!(await canManageProject(req.user, req.params.id))) {
+    return res.status(403).json({ success: false, error: 'Keine Berechtigung zur Pflege dieses Mandats' });
+  }
+  const isAdmin = ['super_admin', 'advisor'].includes(req.user.role);
+  const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights,
+          stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, status } = req.body;
+
+  if (codename) {
+    const dupe = await db.get('SELECT id FROM projects WHERE codename = ? AND id != ?', [codename, req.params.id]);
+    if (dupe) return res.status(409).json({ success: false, error: 'Name/Codename bereits vergeben' });
+  }
+
+  await db.run(`
+    UPDATE projects SET
+      codename=COALESCE(?,codename), industry=COALESCE(?,industry), region=COALESCE(?,region),
+      revenue_band=COALESCE(?,revenue_band), ebitda_band=COALESCE(?,ebitda_band),
+      deal_type=COALESCE(?,deal_type), short_description=COALESCE(?,short_description),
+      highlights=COALESCE(?,highlights), stage=COALESCE(?,stage),
+      investment_needed=COALESCE(?,investment_needed), equity_stake=COALESCE(?,equity_stake),
+      post_money_valuation=COALESCE(?,post_money_valuation), tam_band=COALESCE(?,tam_band),
+      sector_emoji=COALESCE(?,sector_emoji), location_city=COALESCE(?,location_city),
+      status=COALESCE(?,status),
+      updated_at=now() WHERE id=?
+  `, [
+    codename||null, industry||null, region||null, revenue_band||null, ebitda_band||null,
+    deal_type||null, short_description||null, highlights?JSON.stringify(highlights):null, stage||null,
+    investment_needed||null, equity_stake||null, post_money_valuation||null, tam_band||null,
+    sector_emoji||null, location_city||null,
+    isAdmin ? (status || null) : null, // Sichtbarkeit ändert nur der Admin
+    req.params.id,
+  ]);
+  db.auditLog(req.user.id, 'UPDATE_PROJECT', 'project', req.params.id, isAdmin ? 'via Marktplatz (Admin)' : 'via Marktplatz (Mitglied/Verkäufer)', req.ip);
+  res.json({ success: true, data: { message: 'Mandat aktualisiert' } });
+}));
+
+// ── POST /:id/image — Projektbild hochladen (Pfleger) ───────────────────────
+router.post('/:id/image', authenticate, wrap(async (req, res, next) => {
+  if (!(await canManageProject(req.user, req.params.id))) {
+    return res.status(403).json({ success: false, error: 'Keine Berechtigung' });
+  }
+  imageUpload.single('image')(req, res, async (err) => {
+    if (err) return res.status(400).json({ success: false, error: err.message });
+    if (!req.file) return res.status(400).json({ success: false, error: 'Keine Bilddatei hochgeladen' });
+    // Altes Bild aufräumen
+    const old = await db.get('SELECT image_path FROM projects WHERE id = ?', [req.params.id]);
+    if (old && old.image_path && fs.existsSync(old.image_path)) fs.unlink(old.image_path, () => {});
+    await db.run('UPDATE projects SET image_path = ?, updated_at = now() WHERE id = ?', [req.file.path, req.params.id]);
+    db.auditLog(req.user.id, 'PROJECT_IMAGE_UPLOADED', 'project', req.params.id, req.file.filename, req.ip);
+    res.json({ success: true, data: { message: 'Bild gespeichert' } });
+  });
+}));
+
+// ── GET /:id/image — Projektbild ausliefern (öffentlich, Teaser-Ebene) ──────
+router.get('/:id/image', wrap(async (req, res) => {
+  const p = await db.get('SELECT image_path FROM projects WHERE id = ?', [req.params.id]);
+  if (!p || !p.image_path || !fs.existsSync(p.image_path)) {
+    return res.status(404).json({ success: false, error: 'Kein Bild vorhanden' });
+  }
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.sendFile(path.resolve(p.image_path));
 }));
 
 // ── GET /:id — Full detail (requires auth + vollständiges Profil + NDA) ───

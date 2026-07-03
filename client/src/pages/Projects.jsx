@@ -142,9 +142,11 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin }) {
         <StageBadge label={p.stage || p.deal_type} />
       </div>
 
-      {/* Codename + Avatar */}
+      {/* Codename + Bild/Avatar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '0.6rem' }}>
-        <InitialsAvatar name={p.codename} />
+        {p.has_image === 1
+          ? <img src={`/api/projects/${p.id}/image`} alt="" style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, border: `1px solid ${C.border}`, flexShrink: 0 }} />
+          : <InitialsAvatar name={p.codename} />}
         <div style={{ minWidth: 0 }}>
           <h3 style={{
             fontWeight: 700, color: C.text, fontSize: '0.97rem',

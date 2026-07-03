@@ -88,7 +88,9 @@ function MandateTile({ p }) {
         </span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-        <ProjectAvatar name={p.codename} color={`${C.accent}18`} />
+        {p.has_image === 1
+          ? <img src={`${API}/api/projects/${p.id}/image`} alt="" style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, border: `1px solid ${C.border}`, flexShrink: 0 }} />
+          : <ProjectAvatar name={p.codename} color={`${C.accent}18`} />}
         <div>
           <div style={{ fontWeight: 700, color: C.text, fontSize: '0.97rem' }}>{p.codename}</div>
           <div style={{ fontSize: '0.73rem', color: C.muted }}>

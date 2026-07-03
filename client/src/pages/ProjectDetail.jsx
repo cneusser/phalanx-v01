@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import ProjectEditModal from '../components/ProjectEditModal';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import NDASignModal from '../components/NDASignModal';
@@ -115,6 +116,7 @@ export default function ProjectDetail() {
   const [activeTab, setActiveTab] = useState('overview');
   const [publicDocs, setPublicDocs] = useState([]);
   const [gatedDocs, setGatedDocs] = useState([]); // IM/Datenraum-Dokumente (serverseitig gate-gefiltert)
+  const [showEdit, setShowEdit] = useState(false); // Mandats-Pflege über Marktplatz
 
   const isAdmin = user && ['super_admin', 'advisor'].includes(user.role);
   const isStartup = teaser?.mandate_type === 'fundraising';
@@ -650,10 +652,23 @@ export default function ProjectDetail() {
                 )}
               </div>
 
-              {/* Titel */}
-              <h1 style={{ fontSize: '1.6rem', fontWeight: 700, color: C.text, marginBottom: '1.25rem', lineHeight: 1.2 }}>
-                {teaser.codename}
-              </h1>
+              {/* Titel + Bild + Pflege-Button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
+                {teaser.has_image === 1 && (
+                  <img src={`/api/projects/${teaser.id}/image`} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}`, flexShrink: 0 }} />
+                )}
+                <h1 style={{ fontSize: '1.6rem', fontWeight: 700, color: C.text, lineHeight: 1.2, margin: 0, flex: 1 }}>
+                  {teaser.codename}
+                </h1>
+                {teaser.can_manage && (
+                  <button onClick={() => setShowEdit(true)} style={{
+                    padding: '0.5rem 1rem', borderRadius: 6, border: `1px solid ${C.border}`,
+                    background: C.bg, color: C.navy, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap',
+                  }}>
+                    ✎ Mandat pflegen
+                  </button>
+                )}
+              </div>
 
               {/* KPI-Reihe */}
               {isStartup ? (
@@ -855,6 +870,15 @@ export default function ProjectDetail() {
           projectName={teaser.codename}
           onClose={() => setShowNDAModal(false)}
           onSigned={() => { setNdaStatus('signed'); setShowNDAModal(false); }}
+        />
+      )}
+
+      {/* Mandats-Pflege über den Marktplatz (Admin/Ersteller/zugeordnete Nutzer) */}
+      {showEdit && (
+        <ProjectEditModal
+          project={teaser}
+          onClose={() => setShowEdit(false)}
+          onSaved={() => loadProject()}
         />
       )}
     </div>
