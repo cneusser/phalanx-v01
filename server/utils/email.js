@@ -62,15 +62,6 @@ async function sendDownloadNotification(opts) {
   // Immer in die Logs schreiben (Railway-Dashboard zeigt dies)
   console.log(`📥 DOWNLOAD | ${ts} | Dokument: "${documentName}" | Projekt: ${projectName} | Typ: ${levelLabel} | Von: ${user.first_name} ${user.last_name} <${user.email}> | Firma: ${user.company || '—'} | IP: ${ip}`);
 
-  // E-Mail senden (nur wenn SMTP konfiguriert)
-  const transporter = createTransporter();
-  if (!transporter) {
-    if (!process.env.SMTP_HOST) {
-      // Kein Warning-Spam – SMTP ist optional
-    }
-    return;
-  }
-
   const subject = `[CapitalMatch] Download: ${documentName} — ${user.first_name} ${user.last_name}`;
 
   const html = `
@@ -132,34 +123,54 @@ async function sendDownloadNotification(opts) {
     </div>
   `;
 
-  try {
-    await transporter.sendMail({
-      from: `"CapitalMatch Plattform" <${fromAddress()}>`,
-      to,
-      subject,
-      html,
-    });
-    console.log(`✉️  Benachrichtigung gesendet an ${to}`);
-  } catch (err) {
-    console.error('⚠️  E-Mail-Versand fehlgeschlagen:', err.message);
-    // Kein throw – Download trotzdem erfolgreich
-  }
+  // Versand über zentralen sendMail (Brevo-API bevorzugt, kein throw —
+  // Download bleibt auch bei Mail-Fehler erfolgreich)
+  await sendMail({ to, subject, html });
 }
 
 // Absenderadresse: MAIL_FROM (z. B. bei Brevo/Versanddiensten nötig, wo der
 // SMTP-Login von der Absenderadresse abweicht), Fallback: SMTP_USER
 const fromAddress = () => process.env.MAIL_FROM || process.env.SMTP_USER;
 
-// ── Generischer Versand (nur wenn SMTP konfiguriert) ────────────────────────
-async function sendMail({ to, subject, html }) {
-  const transporter = createTransporter();
-  if (!transporter) {
-    console.log(`✉️  [SMTP nicht konfiguriert] E-Mail NICHT gesendet: "${subject}" an ${to}`);
-    return false;
+// ── Versand via Brevo-HTTPS-API (Port 443) ──────────────────────────────────
+// Railway blockiert ausgehende SMTP-Ports (25/465/587) auf Free/Hobby-Plänen.
+// Deshalb bevorzugt die Plattform die Brevo-REST-API, wenn BREVO_API_KEY
+// gesetzt ist. SMTP bleibt als Fallback (lokal / Pro-Plan) erhalten.
+async function sendViaBrevoApi({ to, subject, html }) {
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': process.env.BREVO_API_KEY,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: 'CapitalMatch Plattform', email: fromAddress() },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Brevo API ${res.status}: ${(await res.text()).slice(0, 300)}`);
   }
+}
+
+// ── Generischer Versand (Brevo-API bevorzugt, sonst SMTP) ───────────────────
+async function sendMail({ to, subject, html }) {
   try {
+    if (process.env.BREVO_API_KEY) {
+      await sendViaBrevoApi({ to, subject, html });
+      console.log(`✉️  E-Mail gesendet (Brevo-API): "${subject}" an ${to}`);
+      return true;
+    }
+    const transporter = createTransporter();
+    if (!transporter) {
+      console.log(`✉️  [Kein BREVO_API_KEY / SMTP nicht konfiguriert] E-Mail NICHT gesendet: "${subject}" an ${to}`);
+      return false;
+    }
     await transporter.sendMail({ from: `"CapitalMatch Plattform" <${fromAddress()}>`, to, subject, html });
-    console.log(`✉️  E-Mail gesendet: "${subject}" an ${to}`);
+    console.log(`✉️  E-Mail gesendet (SMTP): "${subject}" an ${to}`);
     return true;
   } catch (err) {
     console.error('⚠️  E-Mail-Versand fehlgeschlagen:', err.message);
