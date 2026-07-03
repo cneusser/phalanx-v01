@@ -581,27 +581,40 @@ export default function ProjectDetail() {
           <div>
             {/* Header-Karte */}
             <div style={{ background: C.card, borderRadius: 6, padding: '2rem', border: `1px solid ${C.border}`, marginBottom: '1.5rem' }}>
-              {/* Badges: Typ + Branche + Region + Status */}
+              {/* Badges: Typ + Branche + Region + Status — klickbar als Live-Filter im Marktplatz */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-                <span style={{
-                  background: teaser.mandate_type === 'fundraising' ? '#EDE9FE' : '#EDF4FA',
-                  color: teaser.mandate_type === 'fundraising' ? '#5B21B6' : C.navy,
-                  padding: '0.22rem 0.6rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700,
-                }}>
+                <span
+                  onClick={() => navigate(`/projekte?mandate_type=${encodeURIComponent(teaser.mandate_type || 'ma')}`)}
+                  title="Ähnliche Mandate anzeigen"
+                  style={{
+                    background: teaser.mandate_type === 'fundraising' ? '#EDE9FE' : '#EDF4FA',
+                    color: teaser.mandate_type === 'fundraising' ? '#5B21B6' : C.navy,
+                    padding: '0.22rem 0.6rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700,
+                    cursor: 'pointer',
+                  }}>
                   {teaser.mandate_type === 'fundraising' ? 'Fundraising' : 'M&A'}
                 </span>
                 {(teaser.stage || teaser.deal_type) && (
-                  <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.22rem 0.6rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700 }}>
+                  <span
+                    onClick={() => teaser.deal_type && navigate(`/projekte?deal_type=${encodeURIComponent(teaser.deal_type)}`)}
+                    title="Mandate mit diesem Deal-Typ anzeigen"
+                    style={{ background: '#fef3c7', color: '#92400e', padding: '0.22rem 0.6rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}>
                     {teaser.stage || teaser.deal_type}
                   </span>
                 )}
                 {teaser.industry && (
-                  <span style={{ background: C.bg, color: C.muted, padding: '0.22rem 0.6rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600, border: `1px solid ${C.border}` }}>
+                  <span
+                    onClick={() => navigate(`/projekte?industry=${encodeURIComponent(teaser.industry)}`)}
+                    title="Mandate dieser Branche anzeigen"
+                    style={{ background: C.bg, color: C.muted, padding: '0.22rem 0.6rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600, border: `1px solid ${C.border}`, cursor: 'pointer' }}>
                     <Building2 size={10} style={{ verticalAlign: 'middle', marginRight: 3 }} />{teaser.industry}
                   </span>
                 )}
                 {(teaser.location_city || teaser.region) && (
-                  <span style={{ background: C.bg, color: C.muted, padding: '0.22rem 0.6rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600, border: `1px solid ${C.border}` }}>
+                  <span
+                    onClick={() => teaser.region && navigate(`/projekte?region=${encodeURIComponent(teaser.region)}`)}
+                    title="Mandate dieser Region anzeigen"
+                    style={{ background: C.bg, color: C.muted, padding: '0.22rem 0.6rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600, border: `1px solid ${C.border}`, cursor: 'pointer' }}>
                     <MapPin size={10} style={{ verticalAlign: 'middle', marginRight: 3 }} />{teaser.location_city || teaser.region}
                   </span>
                 )}
@@ -668,8 +681,9 @@ export default function ProjectDetail() {
 
             {/* Detail-Tabs */}
             <div style={{ background: C.card, borderRadius: 6, border: `1px solid ${C.border}` }}>
-              {/* Tab-Leiste */}
-              <div style={{
+              {/* Tab-Leiste — Scrollbalken ausgeblendet (legte sich auf macOS über die Tabs) */}
+              <style>{`.cm-tabbar { scrollbar-width: none; -ms-overflow-style: none; } .cm-tabbar::-webkit-scrollbar { display: none; }`}</style>
+              <div className="cm-tabbar" style={{
                 display: 'flex', gap: 0, borderBottom: `1px solid ${C.border}`,
                 overflowX: 'auto',
               }}>

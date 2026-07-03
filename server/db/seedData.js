@@ -22,8 +22,7 @@ const ADMIN = {
 const PROJECTS = [
   {
     public: {
-      // Deckname-Platzhalter — finaler Deckname wird vom Betreiber festgelegt
-      codename: 'Projekt B',
+      codename: 'Projekt Umami',
       industry: 'Food & Nutrition',
       region: 'Bayern',
       location_city: 'Süddeutschland',
@@ -74,14 +73,14 @@ const PROJECTS = [
     },
     documents: [
       {
-        filename: 'Investment_Teaser_Projekt_B_2026.pdf',
+        filename: 'Investment_Teaser_Projekt_Umami_2026.pdf',
         file_type: 'application/pdf',
         file_size: 2097152,
         access_level: 'public',
-        description: 'Investment Teaser Projekt B 2026 — zugänglich nach Registrierung und Admin-Freigabe',
+        description: 'Investment Teaser Projekt Umami 2026 — zugänglich nach Registrierung und Admin-Freigabe',
       },
       {
-        filename: 'Pitchdeck_Projekt_B_2026.pptx',
+        filename: 'Pitchdeck_Projekt_Umami_2026.pptx',
         file_type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         file_size: 8388608,
         access_level: 'nda',
@@ -161,7 +160,8 @@ const PROJECTS = [
 // Historische Decknamen → aktueller Deckname (idempotente Rename-Migrationen)
 const CODENAME_RENAMES = [
   { from: 'Scopo GmbH',   to: 'Nexora' },
-  { from: 'ika ika GmbH', to: 'Projekt B' },
+  { from: 'ika ika GmbH', to: 'Projekt Umami' },
+  { from: 'Projekt B',    to: 'Projekt Umami' },
 ];
 
 // Alle jemals gültigen Codenamen (für Cleanup-Whitelist während der Transition)

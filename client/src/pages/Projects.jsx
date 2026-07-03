@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -218,9 +218,19 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin }) {
 export default function Projects() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [projects, setProjects] = useState([]);
   const [filters, setFilters] = useState({ industries: [], regions: [], deal_types: [], stages: [] });
-  const [sel, setSel] = useState({ industry: '', region: '', deal_type: '', search: '', mandate_type: '' });
+  // Initiale Filter aus der URL übernehmen (Live-Filter über klickbare Tags,
+  // z. B. /projekte?industry=Food%20%26%20Nutrition)
+  const urlParams = new URLSearchParams(location.search);
+  const [sel, setSel] = useState({
+    industry:     urlParams.get('industry')     || '',
+    region:       urlParams.get('region')       || '',
+    deal_type:    urlParams.get('deal_type')    || '',
+    search:       urlParams.get('search')       || '',
+    mandate_type: urlParams.get('mandate_type') || '',
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ndaStatus, setNdaStatus] = useState({});

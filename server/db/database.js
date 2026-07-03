@@ -60,6 +60,20 @@ async function insert(sql, params = []) {
   return result.rows[0] ? result.rows[0].id : null;
 }
 
+// Sprint 2: activity_log (append-only, DB-Trigger verhindert UPDATE/DELETE).
+// Fire-and-forget wie auditLog.
+function activityLog(actorId, action, resource, resourceId, ip) {
+  knex('activity_log')
+    .insert({
+      actor_id: actorId || null,
+      action,
+      resource: resource || null,
+      resource_id: resourceId ? parseInt(resourceId, 10) : null,
+      ip: ip || null,
+    })
+    .catch((e) => console.warn('activityLog:', e.message));
+}
+
 // Append-only Audit-Log. Bewusst fire-and-forget: Logging darf nie
 // einen fachlichen Request scheitern lassen.
 function auditLog(userId, action, resourceType, resourceId, details, ip) {
@@ -85,7 +99,31 @@ function auditLog(userId, action, resourceType, resourceId, details, ip) {
 // Registrierungen und Admin-Änderungen dauerhaft.
 async function startupSeed() {
   const bcrypt = require('bcryptjs');
-  const { ADMIN, PROJECTS } = require('./seedData');
+  const { ADMIN, PROJECTS, CODENAME_RENAMES } = require('./seedData');
+
+  // 0. Rename-/Anonymisierungs-Migrationen (idempotent): läuft nur, solange
+  //    ein alter Deckname noch in der DB steht. Öffentliche Teaser-Felder
+  //    werden dabei aus der Konfiguration nachgezogen. Dokument-Anzeigenamen,
+  //    die den alten Decknamen enthalten, werden mit umbenannt.
+  for (const { from, to } of CODENAME_RENAMES) {
+    const legacy = await get(`SELECT id FROM projects WHERE codename = ?`, [from]);
+    if (!legacy) continue;
+    const cfg = PROJECTS.find(p => p.public.codename === to);
+    if (cfg) {
+      await run(
+        `UPDATE projects SET codename = ?, short_description = ?, highlights = ?, location_city = ?, updated_at = now() WHERE id = ?`,
+        [to, cfg.public.short_description, JSON.stringify(cfg.public.highlights), cfg.public.location_city, legacy.id]
+      );
+      await run(`UPDATE documents SET filename = replace(filename, ?, ?), description = replace(description, ?, ?) WHERE project_id = ?`,
+        [from, to, from, to, legacy.id]);
+      // Dateinamen nutzen Unterstriche statt Leerzeichen
+      await run(`UPDATE documents SET filename = replace(filename, ?, ?) WHERE project_id = ?`,
+        [from.replace(/\s/g, '_'), to.replace(/\s/g, '_'), legacy.id]);
+    } else {
+      await run(`UPDATE projects SET codename = ?, updated_at = now() WHERE id = ?`, [to, legacy.id]);
+    }
+    console.log(`🕶️  Projekt umbenannt: "${from}" → "${to}"`);
+  }
 
   // 1. Admin upserten
   const isValidBcrypt = (h) => typeof h === 'string' && /^\$2[aby]\$\d{2}\$.{53}$/.test(h);
@@ -156,4 +194,4 @@ async function initialize() {
   console.log('✅ Database initialized (PostgreSQL)');
 }
 
-module.exports = { initialize, get, all, run, insert, auditLog, knex, startupSeed };
+module.exports = { initialize, get, all, run, insert, auditLog, activityLog, knex, startupSeed };

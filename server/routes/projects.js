@@ -3,6 +3,8 @@ const express = require('express');
 const db = require('../db/database');
 const { authenticate, optionalAuth } = require('../middleware/auth');
 const wrap = require('../utils/asyncHandler');
+const { getStage } = require('../middleware/gates');
+const { stageAllows } = require('../utils/dealStateMachine');
 const router = express.Router();
 
 const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type';
@@ -110,9 +112,14 @@ router.get('/:id', authenticate, wrap(async (req, res) => {
   if (!isAdmin) {
     const nda = await db.get(`SELECT status FROM nda_requests WHERE user_id = ? AND project_id = ?`, [req.user.id, project.id]);
     ndaStatus = nda ? nda.status : null;
-    if (ndaStatus !== 'approved') {
+    // Zustandsautomat: Detaildaten erst ab Gate 'details' (dataroom_granted).
+    // Serverseitig erzwungen — nicht über Direkt-URLs/API umgehbar.
+    const stage = await getStage(req.user.id, project.id);
+    if (!stageAllows(stage, 'details')) {
+      db.activityLog(req.user.id, 'ACCESS_DETAILS_DENIED', 'details', project.id, req.ip);
       return res.status(403).json({ success: false, error: 'NDA-Freigabe erforderlich', ndaStatus, projectId: project.id });
     }
+    db.activityLog(req.user.id, 'ACCESS_DETAILS', 'details', project.id, req.ip);
   }
 
   const details   = await db.get('SELECT * FROM project_details WHERE project_id = ?', [project.id]);

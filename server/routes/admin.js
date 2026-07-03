@@ -3,6 +3,8 @@ const express = require('express');
 const db = require('../db/database');
 const { authenticate, requireRole } = require('../middleware/auth');
 const wrap = require('../utils/asyncHandler');
+const { setStage } = require('../middleware/gates');
+const { canTransitionDeal, DEAL_TRANSITIONS } = require('../utils/dealStateMachine');
 const router = express.Router();
 const isAdmin = [authenticate, requireRole('super_admin', 'advisor')];
 
@@ -99,22 +101,54 @@ router.put('/projects/:id', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Aktualisiert' } });
 }));
 
-// Publish project (set active)
+// Publish project (set active) — synchronisiert deal_status
 router.put('/projects/:id/publish', ...isAdmin, wrap(async (req, res) => {
-  const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.id]);
+  const project = await db.get('SELECT id, codename, deal_status FROM projects WHERE id = ?', [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
-  await db.run(`UPDATE projects SET status = 'active', updated_at = now() WHERE id = ?`, [req.params.id]);
+  await db.run(`UPDATE projects SET status = 'active', deal_status = CASE WHEN deal_status = 'draft' THEN 'teaser_live' ELSE deal_status END, updated_at = now() WHERE id = ?`, [req.params.id]);
   db.auditLog(req.user.id, 'PROJECT_PUBLISHED', 'project', req.params.id, project.codename, req.ip);
+  db.activityLog(req.user.id, 'DEAL_STATUS_TEASER_LIVE', 'deal', req.params.id, req.ip);
   res.json({ success: true, data: { message: 'Projekt veröffentlicht' } });
 }));
 
-// Unpublish project (set draft)
+// Unpublish project (set draft) — synchronisiert deal_status
 router.put('/projects/:id/unpublish', ...isAdmin, wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
-  await db.run(`UPDATE projects SET status = 'draft', updated_at = now() WHERE id = ?`, [req.params.id]);
+  await db.run(`UPDATE projects SET status = 'draft', deal_status = 'draft', updated_at = now() WHERE id = ?`, [req.params.id]);
   db.auditLog(req.user.id, 'PROJECT_UNPUBLISHED', 'project', req.params.id, project.codename, req.ip);
+  db.activityLog(req.user.id, 'DEAL_STATUS_DRAFT', 'deal', req.params.id, req.ip);
   res.json({ success: true, data: { message: 'Projekt zurückgezogen (Entwurf)' } });
+}));
+
+// ── Deal-Zustandsautomat (Sprint 2) ───────────────────────────────────────
+// Deal-Status setzen — nur erlaubte Übergänge (State Machine wird serverseitig
+// erzwungen, kein freies Setzen möglich)
+router.put('/projects/:id/deal-status', ...isAdmin, wrap(async (req, res) => {
+  const { deal_status } = req.body;
+  const project = await db.get('SELECT id, codename, deal_status FROM projects WHERE id = ?', [req.params.id]);
+  if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+  if (!canTransitionDeal(project.deal_status, deal_status)) {
+    return res.status(400).json({
+      success: false,
+      error: `Ungültiger Übergang: ${project.deal_status} → ${deal_status}`,
+      allowed: DEAL_TRANSITIONS[project.deal_status] || [],
+    });
+  }
+  await db.run(`UPDATE projects SET deal_status = ?, updated_at = now() WHERE id = ?`, [deal_status, req.params.id]);
+  db.activityLog(req.user.id, `DEAL_STATUS_${deal_status.toUpperCase()}`, 'deal', req.params.id, req.ip);
+  db.auditLog(req.user.id, 'DEAL_STATUS_CHANGED', 'project', req.params.id, `${project.deal_status} → ${deal_status}`, req.ip);
+  res.json({ success: true, data: { deal_status } });
+}));
+
+// Interessentenliste je Deal mit Funnel-Stage (Basis für Sprint-4-CRM)
+router.get('/projects/:id/interests', ...isAdmin, wrap(async (req, res) => {
+  const interests = await db.all(`
+    SELECT i.*, u.first_name || ' ' || u.last_name AS buyer_name, u.email AS buyer_email, u.company AS buyer_company
+    FROM interests i JOIN users u ON u.id = i.buyer_id
+    WHERE i.project_id = ? ORDER BY i.updated_at DESC
+  `, [req.params.id]);
+  res.json({ success: true, data: interests });
 }));
 
 // ── Users ─────────────────────────────────────────────────────────────────
@@ -167,6 +201,8 @@ router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {
   const nda = await db.get('SELECT * FROM nda_requests WHERE id = ?', [req.params.id]);
   if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });
   await db.run(`UPDATE nda_requests SET status='approved', approved_at=now(), approved_by=? WHERE id=?`, [req.user.id, req.params.id]);
+  // Zustandsautomat: Datenraum-Gate öffnen
+  await setStage(nda.user_id, nda.project_id, 'dataroom_granted', req.user.id, req.ip);
   db.auditLog(req.user.id, 'NDA_APPROVED', 'nda_request', nda.id, null, req.ip);
   res.json({ success: true, data: { message: 'NDA freigegeben' } });
 }));
@@ -175,6 +211,8 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
   const nda = await db.get('SELECT * FROM nda_requests WHERE id = ?', [req.params.id]);
   if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });
   await db.run(`UPDATE nda_requests SET status='rejected', rejected_at=now() WHERE id=?`, [req.params.id]);
+  // Zustandsautomat: Interesse ablehnen (terminal)
+  await setStage(nda.user_id, nda.project_id, 'rejected', req.user.id, req.ip);
   db.auditLog(req.user.id, 'NDA_REJECTED', 'nda_request', nda.id, null, req.ip);
   res.json({ success: true, data: { message: 'NDA abgelehnt' } });
 }));

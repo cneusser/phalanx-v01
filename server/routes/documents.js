@@ -11,6 +11,14 @@ const db      = require('../db/database');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendDownloadNotification } = require('../utils/email');
 const wrap = require('../utils/asyncHandler');
+const { getStage } = require('../middleware/gates');
+const { stageAllows } = require('../utils/dealStateMachine');
+
+// Kategorie eines Dokuments (Fallback über access_level für Altbestände)
+function docCategory(doc) {
+  if (doc.category) return doc.category;
+  return { public: 'teaser', nda: 'im', approved: 'dataroom' }[doc.access_level] || 'im';
+}
 
 const router = express.Router();
 const isAdmin = [authenticate, requireRole('super_admin', 'advisor')];
@@ -114,24 +122,30 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
   });
 }));
 
-// ── GET /api/documents/:projectId  (Admin or NDA-approved) ─
+// ── GET /api/documents/:projectId  (gate-gefiltert je Kategorie) ─
 router.get('/:projectId', authenticate, wrap(async (req, res) => {
   const { projectId } = req.params;
   const isAdminUser = ['super_admin', 'advisor'].includes(req.user.role);
 
-  if (!isAdminUser) {
-    const nda = await db.get('SELECT status FROM nda_requests WHERE user_id = ? AND project_id = ?', [req.user.id, projectId]);
-    if (!nda || nda.status !== 'approved') {
-      return res.status(403).json({ success: false, error: 'NDA-Freigabe erforderlich' });
-    }
-  }
-
   const docs = await db.all(`
-    SELECT id, filename, file_type, file_size, access_level, description, created_at
+    SELECT id, filename, file_type, file_size, access_level, category, folder, version, description, created_at
     FROM documents WHERE project_id = ? ORDER BY created_at DESC
   `, [projectId]);
 
-  res.json({ success: true, data: docs });
+  if (isAdminUser) {
+    return res.json({ success: true, data: docs });
+  }
+
+  // Zustandsautomat: Nutzer sieht nur Dokumente, deren Kategorie-Gate seine
+  // Interest-Stage bereits passiert hat (serverseitig, nicht umgehbar).
+  const stage = await getStage(req.user.id, projectId);
+  const visible = docs.filter(d => stageAllows(stage, docCategory(d)));
+  if (visible.length === 0 && docs.length > 0) {
+    db.activityLog(req.user.id, 'ACCESS_DOCLIST_DENIED', 'documents', projectId, req.ip);
+    return res.status(403).json({ success: false, error: 'NDA-Freigabe erforderlich' });
+  }
+  db.activityLog(req.user.id, 'ACCESS_DOCLIST', 'documents', projectId, req.ip);
+  res.json({ success: true, data: visible });
 }));
 
 // ── GET /api/documents/:projectId/:docId/download ──────────
@@ -142,19 +156,21 @@ router.get('/:projectId/:docId/download', authenticate, wrap(async (req, res) =>
   const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
   if (!doc || !doc.file_path) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
 
-  // Zugangskontrolle
+  // Zugangskontrolle über den Zustandsautomaten: Kategorie-Gate muss
+  // von der Interest-Stage des Nutzers passiert sein (teaser → Login genügt,
+  // im → nda_signed, dataroom → dataroom_granted). Serverseitig erzwungen.
   if (!isAdminUser) {
-    if (doc.access_level === 'approved') {
-      const nda = await db.get('SELECT status FROM nda_requests WHERE user_id = ? AND project_id = ?', [req.user.id, projectId]);
-      if (!nda || nda.status !== 'approved')
-        return res.status(403).json({ success: false, error: 'Freigabe erforderlich' });
-    } else if (doc.access_level === 'nda') {
-      const nda = await db.get('SELECT status FROM nda_requests WHERE user_id = ? AND project_id = ?', [req.user.id, projectId]);
-      if (!nda || !['signed', 'approved'].includes(nda.status))
-        return res.status(403).json({ success: false, error: 'NDA erforderlich' });
+    const stage = await getStage(req.user.id, projectId);
+    const category = docCategory(doc);
+    if (!stageAllows(stage, category)) {
+      db.activityLog(req.user.id, 'DOWNLOAD_DENIED', category, docId, req.ip);
+      return res.status(403).json({
+        success: false,
+        error: category === 'dataroom' ? 'Freigabe erforderlich' : 'NDA erforderlich',
+      });
     }
-    // 'public' → kein Check
   }
+  db.activityLog(req.user.id, 'DOWNLOAD_DOCUMENT', docCategory(doc), docId, req.ip);
 
   if (!fs.existsSync(doc.file_path))
     return res.status(404).json({ success: false, error: 'Datei nicht gefunden' });

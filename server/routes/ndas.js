@@ -5,6 +5,7 @@ const db = require('../db/database');
 const { authenticate } = require('../middleware/auth');
 const { generateNDA, saveNDA, NDA_DIR } = require('../utils/ndaGenerator');
 const wrap = require('../utils/asyncHandler');
+const { setStage } = require('../middleware/gates');
 const router = express.Router();
 
 // ─── NDA anfordern ───────────────────────────────────────────────────────────
@@ -17,6 +18,8 @@ router.post('/', authenticate, wrap(async (req, res) => {
   if (existing) return res.status(409).json({ success: false, error: 'NDA bereits angefordert', data: { status: existing.status } });
 
   const ndaId = await db.insert(`INSERT INTO nda_requests (user_id, project_id, status) VALUES (?, ?, 'requested')`, [req.user.id, project_id]);
+  // Zustandsautomat: Interesse registrieren (Gate-Grundlage)
+  await setStage(req.user.id, project_id, 'requested', req.user.id, req.ip);
   db.auditLog(req.user.id, 'NDA_REQUESTED', 'nda_request', ndaId, `Projekt: ${project.codename}`, req.ip);
   console.log(`[EMAIL MOCK] NDA-Anfrage für ${project.codename} von ${req.user.email}`);
   res.status(201).json({ success: true, data: { id: ndaId, status: 'requested' } });
@@ -138,6 +141,8 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
       WHERE user_id=? AND project_id=?
     `, [now, consent_name.trim(), consentIp, pdfFilename, req.user.id, req.params.projectId]);
 
+    // Zustandsautomat: nda_signed erreicht
+    await setStage(req.user.id, req.params.projectId, 'nda_signed', req.user.id, consentIp);
     db.auditLog(req.user.id, 'NDA_SIGNED_ONLINE', 'nda_request', nda.id,
       `Online §10: ${consent_name.trim()} | IP: ${consentIp} | PDF: ${pdfFilename}`, consentIp);
 
@@ -156,6 +161,7 @@ router.put('/:projectId/sign', authenticate, wrap(async (req, res) => {
   if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });
   if (nda.status !== 'sent') return res.status(400).json({ success: false, error: 'NDA muss den Status "versendet" haben um unterzeichnet werden zu können' });
   await db.run(`UPDATE nda_requests SET status='signed', signed_at=now() WHERE user_id=? AND project_id=?`, [req.user.id, req.params.projectId]);
+  await setStage(req.user.id, req.params.projectId, 'nda_signed', req.user.id, req.ip);
   db.auditLog(req.user.id, 'NDA_SIGNED', 'nda_request', nda.id, null, req.ip);
   res.json({ success: true, data: { status: 'signed' } });
 }));
@@ -169,6 +175,7 @@ router.put('/:projectId/send', authenticate, wrap(async (req, res) => {
   if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });
   if (nda.status !== 'requested') return res.status(400).json({ success: false, error: 'NDA muss den Status "angefordert" haben' });
   await db.run(`UPDATE nda_requests SET status='sent', sent_at=now() WHERE user_id=? AND project_id=?`, [targetUserId, req.params.projectId]);
+  await setStage(targetUserId, req.params.projectId, 'nda_pending', req.user.id, req.ip);
   db.auditLog(req.user.id, 'NDA_SENT', 'nda_request', nda.id, null, req.ip);
   res.json({ success: true, data: { status: 'sent' } });
 }));
