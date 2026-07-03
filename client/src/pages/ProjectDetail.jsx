@@ -51,6 +51,7 @@ const ALL_TABS = [
   ['market',    'Markt & Potenzial'],
   ['financials','Finanzen'],
   ['documents', 'Dokumente'],
+  ['qa',        'Q&A'],
   ['contact',   'Kontakt'],
 ];
 
@@ -117,6 +118,10 @@ export default function ProjectDetail() {
   const [publicDocs, setPublicDocs] = useState([]);
   const [gatedDocs, setGatedDocs] = useState([]); // IM/Datenraum-Dokumente (serverseitig gate-gefiltert)
   const [showEdit, setShowEdit] = useState(false); // Mandats-Pflege über Marktplatz
+  // Sprint 4: Q&A-Modul
+  const [questions, setQuestions] = useState([]);
+  const [newQuestion, setNewQuestion] = useState('');
+  const [qaMsg, setQaMsg] = useState('');
 
   const isAdmin = user && ['super_admin', 'advisor'].includes(user.role);
   const isStartup = teaser?.mandate_type === 'fundraising';
@@ -148,6 +153,8 @@ export default function ProjectDetail() {
           if (ndaData.id) setNdaId(ndaData.id);
           if (ndaData.status === 'approved') {
             try { const full = await api.get(`/projects/${id}`); setFullData(full); } catch { /* ignore */ }
+            // Sprint 4: eigene Q&A-Threads laden
+            try { setQuestions(await api.get(`/projects/${id}/questions`)); } catch { /* ignore */ }
           }
         }
       }
@@ -449,26 +456,17 @@ export default function ProjectDetail() {
         ? fullData.documents.filter(d => ['nda', 'approved'].includes(d.access_level))
         : gatedDocs;
 
+      // Sprint 4: Download über signierten, ablaufenden Link (15 Min.)
+      // — PDFs aus IM/Datenraum kommen serverseitig mit dynamischem Wasserzeichen
       const downloadDoc = async (doc) => {
         try {
-          const token = localStorage.getItem('phalanx_token');
-          const res = await fetch(`/api/documents/${id}/${doc.id}/download`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) {
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = doc.filename; a.click();
-            URL.revokeObjectURL(url);
-          } else {
-            // Verständliches Feedback statt stillem Nichts
-            let msg = 'Download nicht möglich.';
-            try { const d = await res.json(); if (d.error) msg = d.error; } catch { /* ignore */ }
-            alert(`${msg}${res.status === 404 ? ' — Die Datei wurde noch nicht hochgeladen.' : ''}`);
-          }
-        } catch {
-          alert('Download fehlgeschlagen — bitte später erneut versuchen.');
+          const link = await api.post(`/documents/${id}/${doc.id}/link`, {});
+          const a = document.createElement('a');
+          a.href = link.url; a.download = doc.filename; a.click();
+        } catch (e) {
+          alert(e.message?.includes('nicht gefunden')
+            ? `${e.message} — Die Datei wurde noch nicht hochgeladen.`
+            : (e.message || 'Download fehlgeschlagen — bitte später erneut versuchen.'));
         }
       };
 
@@ -563,6 +561,58 @@ export default function ProjectDetail() {
               ))
             )}
           </div>
+        </div>
+      );
+    }
+
+    // Sprint 4: Q&A — nach Datenraum-Freigabe
+    if (activeTab === 'qa') {
+      if (!approved) return <LockedTabPlaceholder onRequestNDA={requestNDA} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
+
+      const askQuestion = async () => {
+        if (!newQuestion.trim()) return;
+        setQaMsg('');
+        try {
+          await api.post(`/projects/${id}/questions`, { question: newQuestion });
+          setNewQuestion('');
+          setQuestions(await api.get(`/projects/${id}/questions`));
+          setQaMsg('Frage übermittelt — Sie werden per E-Mail informiert, sobald eine Antwort vorliegt.');
+        } catch (e) { setQaMsg('Fehler: ' + e.message); }
+      };
+
+      return (
+        <div>
+          <p style={{ color: '#555', fontSize: '0.875rem', lineHeight: 1.7, marginBottom: '1rem' }}>
+            Stellen Sie hier Ihre Fragen zum Mandat — der Transaktionsberater antwortet direkt in diesem Bereich.
+          </p>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+            <input
+              value={newQuestion}
+              onChange={e => setNewQuestion(e.target.value)}
+              placeholder="Ihre Frage zum Mandat…"
+              style={{ flex: 1, padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.85rem', outline: 'none' }}
+            />
+            <button onClick={askQuestion} style={{ padding: '0.6rem 1.25rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}>
+              Frage stellen
+            </button>
+          </div>
+          {qaMsg && <div style={{ background: qaMsg.startsWith('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 6, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: qaMsg.startsWith('Fehler') ? '#991b1b' : '#065f46' }}>{qaMsg}</div>}
+
+          {questions.length === 0 ? (
+            <p style={{ color: C.muted, fontSize: '0.83rem' }}>Noch keine Fragen gestellt.</p>
+          ) : questions.map(q => (
+            <div key={q.id} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.9rem 1rem', marginBottom: '0.75rem' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: C.text, marginBottom: '0.3rem' }}>{q.question}</div>
+              <div style={{ fontSize: '0.7rem', color: C.muted, marginBottom: q.answer ? '0.5rem' : 0 }}>
+                Gestellt am {new Date(q.asked_at).toLocaleString('de-DE')} · {q.status === 'answered' ? 'Beantwortet' : 'Wartet auf Antwort'}
+              </div>
+              {q.answer && (
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '0.6rem 0.8rem', fontSize: '0.83rem', color: '#166534' }}>
+                  {q.answer}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       );
     }

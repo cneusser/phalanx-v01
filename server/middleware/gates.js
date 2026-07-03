@@ -18,6 +18,36 @@ async function getStage(userId, projectId) {
   return row ? row.stage : null;
 }
 
+// ── Granulare Datenraum-Rechte (Sprint 4) ────────────────────────────────────
+// permissions: (resource='dataroom', level='read'|'download') + (resource='qa', level='qa')
+// Standard bei Datenraum-Freigabe: download + qa. Admin kann je Interessent
+// einschränken (nur lesen, kein Q&A) oder entziehen.
+async function grantDefaultPermissions(userId, projectId) {
+  await db.run(`
+    INSERT INTO permissions (project_id, user_id, resource, level) VALUES (?, ?, 'dataroom', 'download')
+    ON CONFLICT (project_id, user_id, resource) DO UPDATE SET level = EXCLUDED.level`,
+    [projectId, userId]);
+  await db.run(`
+    INSERT INTO permissions (project_id, user_id, resource, level) VALUES (?, ?, 'qa', 'qa')
+    ON CONFLICT (project_id, user_id, resource) DO NOTHING`,
+    [projectId, userId]);
+}
+
+/**
+ * need: 'read' (Datenraum sehen), 'download' (Dateien laden), 'qa' (Fragen stellen)
+ */
+async function hasPermission(user, projectId, need) {
+  if (ADMIN_ROLES.includes(user.role)) return true;
+  if (need === 'qa') {
+    const row = await db.get(`SELECT id FROM permissions WHERE project_id = ? AND user_id = ? AND resource = 'qa'`, [projectId, user.id]);
+    return !!row;
+  }
+  const row = await db.get(`SELECT level FROM permissions WHERE project_id = ? AND user_id = ? AND resource = 'dataroom'`, [projectId, user.id]);
+  if (!row) return false;
+  if (need === 'read') return true;                 // read ODER download genügt
+  return row.level === 'download';                  // download nur bei explizitem Recht
+}
+
 // Interest-Stage setzen (Upsert) — zentrale Stelle für alle Übergänge
 async function setStage(userId, projectId, stage, actorId, ip) {
   await db.run(
@@ -27,6 +57,10 @@ async function setStage(userId, projectId, stage, actorId, ip) {
      DO UPDATE SET stage = EXCLUDED.stage, updated_at = now()`,
     [projectId, userId, stage]
   );
+  // Datenraum-Freigabe: Standard-Rechte (download + qa) setzen
+  if (stage === 'dataroom_granted') {
+    await grantDefaultPermissions(userId, projectId);
+  }
   db.activityLog(actorId, `INTEREST_STAGE_${stage.toUpperCase()}`, 'interest', projectId, ip);
 }
 
@@ -63,4 +97,4 @@ function requireGate(resource, paramName = 'projectId') {
   };
 }
 
-module.exports = { requireGate, getStage, setStage, ADMIN_ROLES };
+module.exports = { requireGate, getStage, setStage, hasPermission, grantDefaultPermissions, ADMIN_ROLES };

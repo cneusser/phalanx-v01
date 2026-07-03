@@ -29,12 +29,28 @@ router.get('/stats', ...isAdmin, wrap(async (req, res) => {
            COUNT(*) FILTER (WHERE status='approved')::int  AS approved
     FROM nda_requests
   `);
+  // Sprint 4: Datenraum-Zugriffe (7 Tage) + fällige Aufgaben
+  const dr = await db.get(`
+    SELECT COUNT(*)::int AS c FROM activity_log
+    WHERE action IN ('DOWNLOAD_DOCUMENT','DOWNLOAD_SIGNED_LINK','ACCESS_DETAILS','ACCESS_DOCLIST')
+      AND ts >= now() - interval '7 days'
+  `);
+  const t = await db.get(`
+    SELECT COUNT(*) FILTER (WHERE status='open')::int AS open,
+           COUNT(*) FILTER (WHERE status='open' AND due_date <= CURRENT_DATE)::int AS due
+    FROM tasks
+  `);
+  const qa = await db.get(`SELECT COUNT(*) FILTER (WHERE status='open')::int AS open FROM qa_threads`);
+
   res.json({
     success: true,
     data: {
       projects: { total: p.total, active: p.active, draft: p.draft },
       users:    { total: u.total, pending: u.pending, this_week: u.this_week },
       ndas:     { requested: n.requested, signed: n.signed, approved: n.approved, total: n.total },
+      dataroom: { accesses_7d: dr.c },
+      tasks:    { open: t.open, due: t.due },
+      qa:       { open: qa.open },
     },
   });
 }));
@@ -371,6 +387,101 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
     }
   }
   res.json({ success: true, data: { message: 'NDA abgelehnt' } });
+}));
+
+// ── Sprint 4: Q&A beantworten ─────────────────────────────────────────────
+router.put('/questions/:id/answer', ...isAdmin, wrap(async (req, res) => {
+  const { answer } = req.body;
+  if (!answer || !answer.trim()) return res.status(400).json({ success: false, error: 'Antwort fehlt' });
+  const q = await db.get('SELECT * FROM qa_threads WHERE id = ?', [req.params.id]);
+  if (!q) return res.status(404).json({ success: false, error: 'Frage nicht gefunden' });
+  await db.run(`UPDATE qa_threads SET answer = ?, status = 'answered', answered_at = now(), answered_by = ? WHERE id = ?`,
+    [answer.trim(), req.user.id, req.params.id]);
+  db.activityLog(req.user.id, 'QA_ANSWERED', 'qa', q.id, req.ip);
+  // Fragesteller informieren
+  const buyer = await db.get('SELECT email, first_name FROM users WHERE id = ?', [q.buyer_id]);
+  const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [q.project_id]);
+  if (buyer) {
+    const { sendProcessUpdateEmail } = require('../utils/email');
+    sendProcessUpdateEmail({
+      to: buyer.email, firstName: buyer.first_name,
+      title: `Ihre Frage wurde beantwortet — ${proj ? proj.codename : 'Mandat'}`,
+      message: `Zu Ihrer Frage im Mandat <strong>${proj ? proj.codename : ''}</strong> liegt eine Antwort vor.`,
+      ctaLabel: 'Antwort ansehen', ctaPath: `/projekte/${q.project_id}`,
+    }).catch(() => {});
+  }
+  res.json({ success: true, data: { message: 'Antwort gespeichert' } });
+}));
+
+// ── Sprint 4: Granulare Datenraum-Rechte je Interessent ───────────────────
+router.get('/projects/:id/permissions/:userId', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(`SELECT resource, level FROM permissions WHERE project_id = ? AND user_id = ?`, [req.params.id, req.params.userId]);
+  const dataroom = rows.find(r => r.resource === 'dataroom');
+  res.json({ success: true, data: { dataroom: dataroom ? dataroom.level : 'none', qa: rows.some(r => r.resource === 'qa') } });
+}));
+
+router.put('/projects/:id/permissions/:userId', ...isAdmin, wrap(async (req, res) => {
+  const { dataroom, qa } = req.body; // dataroom: 'download' | 'read' | 'none'; qa: bool
+  if (dataroom === 'none') {
+    await db.run(`DELETE FROM permissions WHERE project_id = ? AND user_id = ? AND resource = 'dataroom'`, [req.params.id, req.params.userId]);
+  } else if (['read', 'download'].includes(dataroom)) {
+    await db.run(`INSERT INTO permissions (project_id, user_id, resource, level) VALUES (?, ?, 'dataroom', ?)
+      ON CONFLICT (project_id, user_id, resource) DO UPDATE SET level = EXCLUDED.level`, [req.params.id, req.params.userId, dataroom]);
+  }
+  if (qa === false) {
+    await db.run(`DELETE FROM permissions WHERE project_id = ? AND user_id = ? AND resource = 'qa'`, [req.params.id, req.params.userId]);
+  } else if (qa === true) {
+    await db.run(`INSERT INTO permissions (project_id, user_id, resource, level) VALUES (?, ?, 'qa', 'qa')
+      ON CONFLICT (project_id, user_id, resource) DO NOTHING`, [req.params.id, req.params.userId]);
+  }
+  db.auditLog(req.user.id, 'PERMISSIONS_CHANGED', 'project', req.params.id, `User #${req.params.userId}: dataroom=${dataroom}, qa=${qa}`, req.ip);
+  res.json({ success: true, data: { message: 'Rechte aktualisiert' } });
+}));
+
+// ── Sprint 4: Aufgaben (CRM) ──────────────────────────────────────────────
+router.get('/tasks', ...isAdmin, wrap(async (req, res) => {
+  let sql = `SELECT t.*, p.codename, u.first_name || ' ' || u.last_name AS owner_name
+             FROM tasks t LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = t.owner_id`;
+  const params = [];
+  if (req.query.project_id) { sql += ` WHERE t.project_id = ?`; params.push(req.query.project_id); }
+  sql += ` ORDER BY t.status ASC, t.due_date ASC NULLS LAST, t.created_at DESC`;
+  res.json({ success: true, data: await db.all(sql, params) });
+}));
+
+router.post('/tasks', ...isAdmin, wrap(async (req, res) => {
+  const { title, due_date, project_id, owner_id } = req.body;
+  if (!title || !title.trim()) return res.status(400).json({ success: false, error: 'Titel fehlt' });
+  const id = await db.insert(`INSERT INTO tasks (title, due_date, project_id, owner_id) VALUES (?, ?, ?, ?)`,
+    [title.trim(), due_date || null, project_id || null, owner_id || req.user.id]);
+  res.status(201).json({ success: true, data: { id } });
+}));
+
+router.put('/tasks/:id', ...isAdmin, wrap(async (req, res) => {
+  const { status, title, due_date } = req.body;
+  await db.run(`UPDATE tasks SET
+      status = COALESCE(?, status),
+      title = COALESCE(?, title),
+      due_date = COALESCE(?, due_date),
+      done_at = CASE WHEN ? = 'done' THEN now() WHEN ? = 'open' THEN NULL ELSE done_at END
+    WHERE id = ?`,
+    [status || null, title || null, due_date || null, status || '', status || '', req.params.id]);
+  res.json({ success: true, data: { message: 'Aufgabe aktualisiert' } });
+}));
+
+router.delete('/tasks/:id', ...isAdmin, wrap(async (req, res) => {
+  await db.run(`DELETE FROM tasks WHERE id = ?`, [req.params.id]);
+  res.json({ success: true, data: { message: 'Aufgabe gelöscht' } });
+}));
+
+// ── Sprint 4: Aktivitätslog je Deal ───────────────────────────────────────
+router.get('/projects/:id/activity', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(`
+    SELECT al.ts, al.action, al.resource, u.first_name || ' ' || u.last_name AS actor_name
+    FROM activity_log al LEFT JOIN users u ON u.id = al.actor_id
+    WHERE al.resource_id = ? OR (al.resource IN ('details','documents','teaser','im','dataroom','qa','interest','deal') AND al.resource_id = ?)
+    ORDER BY al.ts DESC LIMIT 100
+  `, [req.params.id, req.params.id]);
+  res.json({ success: true, data: rows });
 }));
 
 // ── Activity + Audit ──────────────────────────────────────────────────────

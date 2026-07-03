@@ -93,6 +93,34 @@ Als **Investor** (Inkognito-Fenster), Projekt Umami öffnen:
 - [ ] **F2 Passwort vergessen:** „Passwort vergessen"-Flow anstoßen → Meldung
   erscheint (Versand-Link steht derzeit nur im Railway-Log, SMTP folgt später).
 
+## G. Datenraum & CRM (Sprint 4)
+
+Voraussetzung: Ein Investor mit Datenraum-Freigabe (D8) und mindestens eine
+als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
+
+- [ ] **G1 Wasserzeichen:** Als Investor ein Datenraum-PDF herunterladen →
+  jede Seite trägt diagonal „VERTRAULICH — [Ihr Name]" und in der Fußzeile
+  Name, E-Mail und Datum.
+- [ ] **G2 Ablaufender Link:** Der Download läuft über einen signierten Link
+  (15 Min. gültig). — *optional technisch:* Link kopieren, 15 Min. warten →
+  „Link ungültig oder abgelaufen".
+- [ ] **G3 Granulare Rechte:** Admin → Pipeline → Deal öffnen → beim
+  Interessenten „Datenraum: Nur lesen" wählen → Investor kann Liste sehen,
+  Download wird mit klarer Meldung verweigert. Danach zurück auf
+  „Lesen + Download".
+- [ ] **G4 Q&A:** Investor stellt im Tab „Q&A" eine Frage → du bekommst eine
+  Mail → im Deal-CRM antworten → Investor bekommt Mail und sieht die Antwort
+  im Q&A-Tab. Bei entzogenem Q&A-Recht (G3-Dialog) kann er keine Fragen stellen.
+- [ ] **G5 Kanban-Pipeline:** Admin-Tab „Pipeline (CRM)" zeigt die Deals in
+  Spalten (Entwurf / Teaser live / In Diligence / LoI / Closed). Klick auf
+  eine Karte öffnet das Deal-CRM. Statuswechsel nur entlang erlaubter Pfeile
+  (z. B. Teaser live → In Diligence); unerlaubte Sprünge bietet die UI nicht
+  an und der Server lehnt sie ab.
+- [ ] **G6 Aufgaben:** Im Deal-CRM eine Aufgabe mit Fälligkeit anlegen →
+  erscheint im Dashboard unter „Offene Aufgaben" (überfällige mit ⚠).
+- [ ] **G7 Dashboard:** Übersicht zeigt die neuen Kacheln Datenraum-Zugriffe
+  (7 Tage), offene Aufgaben, offene Q&A-Fragen.
+
 ---
 
 ## Hinweise

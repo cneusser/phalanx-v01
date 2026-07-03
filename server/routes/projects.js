@@ -3,7 +3,7 @@ const express = require('express');
 const db = require('../db/database');
 const { authenticate, optionalAuth } = require('../middleware/auth');
 const wrap = require('../utils/asyncHandler');
-const { getStage } = require('../middleware/gates');
+const { getStage, hasPermission } = require('../middleware/gates');
 const { stageAllows } = require('../utils/dealStateMachine');
 const { requireCompleteProfile } = require('../utils/profileCompleteness');
 const multer = require('multer');
@@ -203,6 +203,42 @@ router.get('/:id/image', wrap(async (req, res) => {
   }
   res.setHeader('Cache-Control', 'public, max-age=300');
   res.sendFile(path.resolve(p.image_path));
+}));
+
+// ── Q&A-Modul (Sprint 4): Fragen stellen & eigene Threads lesen ────────────
+// Gate: Datenraum-Freigabe + granulares qa-Recht (serverseitig erzwungen)
+router.post('/:id/questions', authenticate, wrap(async (req, res) => {
+  const { question } = req.body;
+  if (!question || question.trim().length < 5) {
+    return res.status(400).json({ success: false, error: 'Bitte formulieren Sie Ihre Frage (mind. 5 Zeichen)' });
+  }
+  const stage = await getStage(req.user.id, req.params.id);
+  if (!stageAllows(stage, 'qa') || !(await hasPermission(req.user, req.params.id, 'qa'))) {
+    db.activityLog(req.user.id, 'QA_DENIED', 'qa', req.params.id, req.ip);
+    return res.status(403).json({ success: false, error: 'Q&A ist erst nach Datenraum-Freigabe verfügbar' });
+  }
+  const qId = await db.insert(
+    `INSERT INTO qa_threads (project_id, buyer_id, question) VALUES (?, ?, ?)`,
+    [req.params.id, req.user.id, question.trim()]
+  );
+  db.activityLog(req.user.id, 'QA_QUESTION_ASKED', 'qa', qId, req.ip);
+  // Admin benachrichtigen
+  const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [req.params.id]);
+  const { sendMail } = require('../utils/email');
+  sendMail({
+    to: process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de',
+    subject: `[CapitalMatch] Neue Q&A-Frage — ${proj ? proj.codename : 'Mandat'}`,
+    html: `<p><strong>${req.user.first_name} ${req.user.last_name}</strong> (${req.user.email}) fragt zu <strong>${proj ? proj.codename : ''}</strong>:</p><blockquote>${question.trim()}</blockquote><p>Beantwortung im Admin-Bereich → Pipeline → Deal öffnen.</p>`,
+  }).catch(() => {});
+  res.status(201).json({ success: true, data: { id: qId, status: 'open' } });
+}));
+
+router.get('/:id/questions', authenticate, wrap(async (req, res) => {
+  const isAdmin = ['super_admin', 'advisor'].includes(req.user.role);
+  const rows = isAdmin
+    ? await db.all(`SELECT q.*, u.first_name || ' ' || u.last_name AS buyer_name FROM qa_threads q JOIN users u ON u.id = q.buyer_id WHERE q.project_id = ? ORDER BY q.asked_at DESC`, [req.params.id])
+    : await db.all(`SELECT id, question, answer, status, asked_at, answered_at FROM qa_threads WHERE project_id = ? AND buyer_id = ? ORDER BY asked_at DESC`, [req.params.id, req.user.id]);
+  res.json({ success: true, data: rows });
 }));
 
 // ── GET /:id — Full detail (requires auth + vollständiges Profil + NDA) ───

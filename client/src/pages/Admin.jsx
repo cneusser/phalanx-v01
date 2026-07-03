@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import GroupedSelect from '../components/GroupedSelect';
 import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES } from '../constants/projectOptions';
+import DealCrmModal, { DEAL_STATUS_LABELS } from '../components/DealCrmModal';
 
 // Auswahllisten je Formularfeld (statt Freitext) — abhängig vom Mandatstyp
 const fieldOptions = (key, mandateType) => {
@@ -108,6 +109,9 @@ export default function Admin() {
   // Nutzerverwaltung: Suche + Detail-Modal (Pitchbook-Ansicht)
   const [userSearch, setUserSearch] = useState('');
   const [userDetail, setUserDetail] = useState(null);
+
+  // Sprint 4: Deal-CRM (Kanban-Pipeline)
+  const [dealCrm, setDealCrm] = useState(null);
 
   const [msg, setMsg] = useState({ text: '', type: 'success' });
 
@@ -341,9 +345,10 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'projects', 'ndas', 'users', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
+    pipeline: 'Pipeline (CRM)',
     projects: 'Projekte',
     ndas:     'NDA-Anfragen',
     users:    'Nutzer',
@@ -399,11 +404,20 @@ export default function Admin() {
 
       {/* KPIs */}
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
           <KPICard label="Aktive Projekte" value={stats.projects.active} sub={`${stats.projects.total} gesamt · ${stats.projects.draft} Entwurf`} icon={Building2} />
           <KPICard label="Registrierte Nutzer" value={stats.users.total} sub={stats.users.pending > 0 ? `⚠️ ${stats.users.pending} ausstehend` : `+${stats.users.this_week} diese Woche`} icon={Users} color={stats.users.pending > 0 ? '#f59e0b' : '#8b5cf6'} />
           <KPICard label="NDA-Anfragen" value={stats.ndas.total} sub={`${stats.ndas.requested} offen`} icon={FileText} color="#f59e0b" />
           <KPICard label="Freigaben" value={stats.ndas.approved} sub={`${stats.ndas.signed} unterschrieben`} icon={CheckCircle} color="#10b981" />
+        </div>
+      )}
+      {/* Sprint 4: Datenraum-/CRM-KPIs */}
+      {stats && stats.dataroom && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+          <KPICard label="Datenraum-Zugriffe (7 Tage)" value={stats.dataroom.accesses_7d} sub="Ansichten & Downloads" icon={Eye} color="#0ea5e9" />
+          <KPICard label="Offene Aufgaben" value={stats.tasks.open} sub={stats.tasks.due > 0 ? `⚠️ ${stats.tasks.due} fällig` : 'keine fällig'} icon={ClipboardList} color={stats.tasks.due > 0 ? '#ef4444' : '#8b5cf6'} />
+          <KPICard label="Offene Q&A-Fragen" value={stats.qa.open} sub="warten auf Antwort" icon={FileText} color={stats.qa.open > 0 ? '#f59e0b' : '#10b981'} />
+          <KPICard label="Pipeline" value={stats.projects.active} sub="Deals im Prozess — Tab Pipeline" icon={Activity} color="#1D4E89" />
         </div>
       )}
 
@@ -644,6 +658,40 @@ export default function Admin() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Sprint 4: Pipeline (Kanban-CRM) — Status kommt aus dem Zustandsautomaten */}
+      {activeTab === 'pipeline' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.75rem', alignItems: 'start' }}>
+          {['draft', 'teaser_live', 'in_diligence', 'loi', 'closed', 'withdrawn'].map(status => {
+            const deals = projects.filter(p => (p.deal_status || 'teaser_live') === status);
+            return (
+              <div key={status} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.6rem' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.7rem', color: C.navy, letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{DEAL_STATUS_LABELS[status].toUpperCase()}</span>
+                  <span style={{ color: C.muted }}>{deals.length}</span>
+                </div>
+                {deals.map(p => (
+                  <div
+                    key={p.id}
+                    onClick={() => setDealCrm(p)}
+                    style={{
+                      background: '#fff', border: `1px solid ${C.border}`, borderRadius: 6,
+                      padding: '0.6rem', marginBottom: '0.5rem', cursor: 'pointer',
+                      boxShadow: '0 1px 2px rgba(13,27,54,0.05)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.text, marginBottom: '0.2rem' }}>{p.codename}</div>
+                    <div style={{ fontSize: '0.68rem', color: C.muted }}>
+                      {p.mandate_type === 'fundraising' ? 'Fundraising' : 'M&A'} · {p.nda_count} Interessent{p.nda_count !== 1 ? 'en' : ''} · {p.approved_count} freigegeben
+                    </div>
+                  </div>
+                ))}
+                {deals.length === 0 && <div style={{ fontSize: '0.7rem', color: '#bbb', textAlign: 'center', padding: '0.5rem 0' }}>—</div>}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -1105,6 +1153,15 @@ export default function Admin() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Sprint 4: Deal-CRM-Modal */}
+      {dealCrm && (
+        <DealCrmModal
+          project={dealCrm}
+          onClose={() => setDealCrm(null)}
+          onChanged={() => loadAll()}
+        />
       )}
 
       {/* Nutzer-Detail-Modal (Pitchbook-Ansicht) */}

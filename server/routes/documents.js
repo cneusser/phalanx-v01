@@ -11,13 +11,56 @@ const db      = require('../db/database');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendDownloadNotification } = require('../utils/email');
 const wrap = require('../utils/asyncHandler');
-const { getStage } = require('../middleware/gates');
+const { getStage, hasPermission } = require('../middleware/gates');
 const { stageAllows } = require('../utils/dealStateMachine');
+const { addWatermark } = require('../utils/watermark');
+const { createDownloadToken, verifyDownloadToken, DEFAULT_TTL_MS } = require('../utils/signedLinks');
 
 // Kategorie eines Dokuments (Fallback über access_level für Altbestände)
 function docCategory(doc) {
   if (doc.category) return doc.category;
   return { public: 'teaser', nda: 'im', approved: 'dataroom' }[doc.access_level] || 'im';
+}
+
+// ── Zentrale Zugriffs-Prüfung für einen Dokument-Download ───────────────────
+// Zustandsautomat (Stage-Gate) + granulare Datenraum-Rechte (Sprint 4)
+async function checkDownloadAccess(user, doc, projectId) {
+  const isAdminUser = ['super_admin', 'advisor'].includes(user.role);
+  if (isAdminUser) return { ok: true };
+  const category = docCategory(doc);
+  const stage = await getStage(user.id, projectId);
+  if (!stageAllows(stage, category)) {
+    return { ok: false, error: category === 'dataroom' ? 'Freigabe erforderlich' : 'NDA erforderlich' };
+  }
+  if (category === 'dataroom' && !(await hasPermission(user, projectId, 'download'))) {
+    return { ok: false, error: 'Kein Download-Recht für den Datenraum — bitte an den Berater wenden' };
+  }
+  return { ok: true };
+}
+
+// ── Datei ausliefern — PDFs aus IM/Datenraum mit dynamischem Wasserzeichen ──
+async function streamDocument(res, doc, user, projectId, via) {
+  const category = docCategory(doc);
+  db.activityLog(user.id, via === 'signed' ? 'DOWNLOAD_SIGNED_LINK' : 'DOWNLOAD_DOCUMENT', category, doc.id, null);
+
+  const isPdf = (doc.file_type || '').includes('pdf') || String(doc.filename).toLowerCase().endsWith('.pdf');
+  const needsWatermark = ['im', 'dataroom'].includes(category) && isPdf;
+
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.filename)}"`);
+  res.setHeader('Content-Type', doc.file_type || 'application/octet-stream');
+
+  if (needsWatermark) {
+    try {
+      const stamped = await addWatermark(fs.readFileSync(doc.file_path), {
+        name: `${user.first_name} ${user.last_name}`,
+        email: user.email,
+      });
+      return res.send(stamped);
+    } catch (e) {
+      console.warn('Wasserzeichen fehlgeschlagen, liefere Original:', e.message);
+    }
+  }
+  res.sendFile(path.resolve(doc.file_path));
 }
 
 const router = express.Router();
@@ -144,6 +187,39 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
   });
 }));
 
+// ── GET /api/documents/signed/:token — Download via signiertem Link ────────
+// Keine Bearer-Auth nötig: die HMAC-Signatur MIT Ablaufzeit ist die
+// Autorisierung. Zugriffsrechte werden trotzdem erneut serverseitig geprüft.
+router.get('/signed/:token', wrap(async (req, res) => {
+  const parsed = verifyDownloadToken(req.params.token);
+  if (!parsed) return res.status(403).json({ success: false, error: 'Link ungültig oder abgelaufen — bitte neuen Download-Link anfordern' });
+
+  const user = await db.get('SELECT id, email, first_name, last_name, role, is_active FROM users WHERE id = ?', [parsed.userId]);
+  const doc = await db.get('SELECT * FROM documents WHERE id = ?', [parsed.docId]);
+  if (!user || !user.is_active || !doc || !doc.file_path || !fs.existsSync(doc.file_path)) {
+    return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
+  }
+  const access = await checkDownloadAccess(user, doc, doc.project_id);
+  if (!access.ok) return res.status(403).json({ success: false, error: access.error });
+
+  await streamDocument(res, doc, user, doc.project_id, 'signed');
+}));
+
+// ── POST /api/documents/:projectId/:docId/link — signierten Link erzeugen ──
+// Ablaufender Download-Link (Standard 15 Min.), z. B. zum Öffnen im Browser
+router.post('/:projectId/:docId/link', authenticate, wrap(async (req, res) => {
+  const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [req.params.docId, req.params.projectId]);
+  if (!doc || !doc.file_path) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
+  const access = await checkDownloadAccess(req.user, doc, req.params.projectId);
+  if (!access.ok) {
+    db.activityLog(req.user.id, 'DOWNLOAD_LINK_DENIED', docCategory(doc), doc.id, req.ip);
+    return res.status(403).json({ success: false, error: access.error });
+  }
+  const token = createDownloadToken({ docId: doc.id, userId: req.user.id });
+  db.activityLog(req.user.id, 'DOWNLOAD_LINK_CREATED', docCategory(doc), doc.id, req.ip);
+  res.json({ success: true, data: { url: `/api/documents/signed/${token}`, expires_in_seconds: DEFAULT_TTL_MS / 1000 } });
+}));
+
 // ── GET /api/documents/:projectId  (gate-gefiltert je Kategorie) ─
 router.get('/:projectId', authenticate, wrap(async (req, res) => {
   const { projectId } = req.params;
@@ -162,8 +238,15 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
 
   // Zustandsautomat: Nutzer sieht nur Dokumente, deren Kategorie-Gate seine
   // Interest-Stage bereits passiert hat (serverseitig, nicht umgehbar).
+  // Datenraum zusätzlich nur mit granularem Lese-Recht (Sprint 4).
   const stage = await getStage(req.user.id, projectId);
-  const visible = docs.filter(d => stageAllows(stage, docCategory(d)));
+  const dataroomRead = await hasPermission(req.user, projectId, 'read');
+  const visible = docs.filter(d => {
+    const cat = docCategory(d);
+    if (!stageAllows(stage, cat)) return false;
+    if (cat === 'dataroom' && !dataroomRead) return false;
+    return true;
+  });
   if (visible.length === 0 && docs.length > 0) {
     db.activityLog(req.user.id, 'ACCESS_DOCLIST_DENIED', 'documents', projectId, req.ip);
     return res.status(403).json({ success: false, error: 'NDA-Freigabe erforderlich' });
@@ -180,21 +263,12 @@ router.get('/:projectId/:docId/download', authenticate, wrap(async (req, res) =>
   const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
   if (!doc || !doc.file_path) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
 
-  // Zugangskontrolle über den Zustandsautomaten: Kategorie-Gate muss
-  // von der Interest-Stage des Nutzers passiert sein (teaser → Login genügt,
-  // im → nda_signed, dataroom → dataroom_granted). Serverseitig erzwungen.
-  if (!isAdminUser) {
-    const stage = await getStage(req.user.id, projectId);
-    const category = docCategory(doc);
-    if (!stageAllows(stage, category)) {
-      db.activityLog(req.user.id, 'DOWNLOAD_DENIED', category, docId, req.ip);
-      return res.status(403).json({
-        success: false,
-        error: category === 'dataroom' ? 'Freigabe erforderlich' : 'NDA erforderlich',
-      });
-    }
+  // Zugangskontrolle: Stage-Gate + granulare Datenraum-Rechte (Sprint 4)
+  const access = await checkDownloadAccess(req.user, doc, projectId);
+  if (!access.ok) {
+    db.activityLog(req.user.id, 'DOWNLOAD_DENIED', docCategory(doc), docId, req.ip);
+    return res.status(403).json({ success: false, error: access.error });
   }
-  db.activityLog(req.user.id, 'DOWNLOAD_DOCUMENT', docCategory(doc), docId, req.ip);
 
   if (!fs.existsSync(doc.file_path))
     return res.status(404).json({ success: false, error: 'Datei nicht gefunden' });
@@ -219,9 +293,8 @@ router.get('/:projectId/:docId/download', authenticate, wrap(async (req, res) =>
     timestamp: new Date(),
   }).catch(err => console.error('Notification error:', err));
 
-  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.filename)}"`);
-  res.setHeader('Content-Type', doc.file_type || 'application/octet-stream');
-  res.sendFile(path.resolve(doc.file_path));
+  // Auslieferung mit dynamischem Wasserzeichen (PDF, IM/Datenraum)
+  await streamDocument(res, doc, req.user, projectId, 'bearer');
 }));
 
 // ── DELETE /api/documents/:projectId/:docId  (Admin only) ──
