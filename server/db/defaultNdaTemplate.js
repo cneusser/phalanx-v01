@@ -15,10 +15,10 @@ module.exports = {
   version: 1,
   court_venue: 'München',
   advisor: {
-    name: 'Phalanx M&A Advisory GmbH',
+    name: 'Phalanx GmbH',
     contact: 'M&A Advisory Team',
-    address: 'Musterstraße 1',
-    city: '80331 München',
+    address: 'Helene-Lange-Straße 28',
+    city: '91056 Erlangen',
     country: 'Deutschland',
   },
   preamble:

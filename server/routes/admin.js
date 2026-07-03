@@ -142,6 +142,35 @@ router.put('/projects/:id/unpublish', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Projekt zurückgezogen (Entwurf)' } });
 }));
 
+// ── Killswitch: Projekt ENDGÜLTIG löschen ──────────────────────────────────
+// Entfernt das Mandat samt aller abhängigen Daten (Interessen, NDAs, Q&A,
+// Aufgaben, Rechte, Zuordnungen — via FK-Kaskaden) und aller Dateien
+// (Dokumente, Projektbild, signierte NDA-PDFs). Nicht umkehrbar.
+router.delete('/projects/:id', ...isAdmin, wrap(async (req, res) => {
+  const project = await db.get('SELECT id, codename, image_path FROM projects WHERE id = ?', [req.params.id]);
+  if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+
+  const fs = require('fs');
+  const path = require('path');
+  const { NDA_DIR } = require('../utils/ndaGenerator');
+
+  // Physische Dateien einsammeln und löschen
+  const docs = await db.all(`SELECT file_path FROM documents WHERE project_id = ? AND file_path IS NOT NULL`, [project.id]);
+  const ndaPdfs = await db.all(`SELECT signed_pdf_path FROM nda_requests WHERE project_id = ? AND signed_pdf_path IS NOT NULL`, [project.id]);
+  for (const d of docs) { try { fs.unlinkSync(d.file_path); } catch { /* schon weg */ } }
+  for (const n of ndaPdfs) { try { fs.unlinkSync(path.join(NDA_DIR, n.signed_pdf_path)); } catch { /* schon weg */ } }
+  if (project.image_path) { try { fs.unlinkSync(project.image_path); } catch { /* schon weg */ } }
+
+  // Datensatz löschen — FK-Kaskaden räumen alle abhängigen Tabellen ab
+  await db.run(`DELETE FROM projects WHERE id = ?`, [project.id]);
+
+  db.auditLog(req.user.id, 'PROJECT_KILLSWITCH', 'project', req.params.id,
+    `"${project.codename}" endgültig gelöscht (${docs.length} Dokumente, ${ndaPdfs.length} NDA-PDFs)`, req.ip);
+  db.activityLog(req.user.id, 'PROJECT_KILLSWITCH', 'project', req.params.id, req.ip);
+  console.log(`🗑️  Killswitch: Projekt "${project.codename}" (#${project.id}) endgültig gelöscht durch Admin #${req.user.id}`);
+  res.json({ success: true, data: { message: `Mandat "${project.codename}" wurde endgültig gelöscht` } });
+}));
+
 // ── Deal-Zustandsautomat (Sprint 2) ───────────────────────────────────────
 // Deal-Status setzen — nur erlaubte Übergänge (State Machine wird serverseitig
 // erzwungen, kein freies Setzen möglich)

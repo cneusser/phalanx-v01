@@ -39,7 +39,7 @@ export default function Register() {
   const { register } = useAuth();
   const [roleType, setRoleType] = useState('buyer'); // 'buyer' or 'seller'
   const [form, setForm] = useState({
-    email: '', password: '', first_name: '', last_name: '',
+    email: '', password: '', salutation: '', title: '', first_name: '', last_name: '',
     company: '', position: '', buyer_type: 'strategic', phone: '',
   });
   const [showPw, setShowPw] = useState(false);
@@ -142,6 +142,22 @@ export default function Register() {
         )}
 
         <form onSubmit={handleSubmit}>
+          {/* Anrede (Pflicht) + Titel */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 1rem' }}>
+            <div style={{ marginBottom: '0.9rem' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.35rem' }}>
+                Anrede *
+              </label>
+              <select value={form.salutation} onChange={set('salutation')} required style={{ ...inputStyle, background: '#fff' }}>
+                <option value="">Bitte wählen…</option>
+                <option value="Herr">Herr</option>
+                <option value="Frau">Frau</option>
+                <option value="Divers">Divers</option>
+              </select>
+            </div>
+            <Field label="Titel (optional)" value={form.title} onChange={set('title')} placeholder="z. B. Dr., Prof." />
+          </div>
+
           {/* Name fields */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 1rem' }}>
             <Field label="Vorname" value={form.first_name} onChange={set('first_name')} placeholder="Max" required />

@@ -72,13 +72,14 @@ router.get('/:projectId/document', authenticate, wrap(async (req, res) => {
 
     const buyerData = {
       id: user.id,
-      first_name: user.first_name,
+      first_name: [user.title, user.first_name].filter(Boolean).join(' '),
       last_name: user.last_name,
       company: user.company || '',
       position: user.position || '',
       email: user.email,
-      address: '',
-      city: '',
+      // Anschrift aus dem Pflichtprofil (Sprint 5.1)
+      address: user.street || '',
+      city: [user.postal_code, user.city].filter(Boolean).join(' '),
       country: 'Deutschland',
     };
 
@@ -132,13 +133,14 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
     const template = await loadNdaTemplate();
     const buyerData = {
       id: user.id,
-      first_name: user.first_name,
+      first_name: [user.title, user.first_name].filter(Boolean).join(' '),
       last_name: user.last_name,
       company: user.company || '',
       position: user.position || '',
       email: user.email,
-      address: '',
-      city: '',
+      // Anschrift aus dem Pflichtprofil (Sprint 5.1)
+      address: user.street || '',
+      city: [user.postal_code, user.city].filter(Boolean).join(' '),
       country: 'Deutschland',
     };
     const projectData = { codename: project.codename, industry: project.industry, region: project.region };

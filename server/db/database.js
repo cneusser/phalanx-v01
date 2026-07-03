@@ -218,6 +218,16 @@ async function startupSeed() {
 
   // 1b. Standard-NDA-Vorlage seeden, falls noch keine existiert (Sprint 3).
   //     Danach ist die Vorlage in der Tabelle nda_templates konfigurierbar.
+  //     Datenfix: Platzhalter-Adresse (Musterstraße) in bereits geseedeten
+  //     Vorlagen durch die echte Phalanx-Adresse ersetzen.
+  try {
+    const tplFix = require('./defaultNdaTemplate');
+    await run(
+      `UPDATE nda_templates SET advisor_json = ? WHERE advisor_json LIKE '%Musterstraße 1%'`,
+      [JSON.stringify(tplFix.advisor)]
+    );
+  } catch (e) { console.warn('NDA-Adressfix:', e.message); }
+
   const { c: templateCount } = await get(`SELECT COUNT(*)::int AS c FROM nda_templates`);
   if (templateCount === 0) {
     const tpl = require('./defaultNdaTemplate');

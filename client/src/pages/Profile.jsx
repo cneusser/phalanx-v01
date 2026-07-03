@@ -40,7 +40,7 @@ export default function Profile() {
   const [revenueMin, setRevenueMin] = useState(0);
   const [revenueMax, setRevenueMax] = useState(100);
   // Kontaktdaten + Pitchbook-Selbstdarstellung
-  const [contact, setContact] = useState({ first_name: '', last_name: '', company: '', position: '', phone: '', about: '', website: '', linkedin_url: '' });
+  const [contact, setContact] = useState({ salutation: '', title: '', first_name: '', last_name: '', company: '', position: '', phone: '', street: '', postal_code: '', city: '', about: '', website: '', linkedin_url: '' });
   const [missingFields, setMissingFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,8 +57,10 @@ export default function Profile() {
       setRevenueMin(d.profile?.revenue_min ?? 0);
       setRevenueMax(d.profile?.revenue_max ?? 100);
       setContact({
+        salutation: d.user?.salutation || '', title: d.user?.title || '',
         first_name: d.user?.first_name || '', last_name: d.user?.last_name || '',
         company: d.user?.company || '', position: d.user?.position || '', phone: d.user?.phone || '',
+        street: d.user?.street || '', postal_code: d.user?.postal_code || '', city: d.user?.city || '',
         about: d.user?.about || '', website: d.user?.website || '', linkedin_url: d.user?.linkedin_url || '',
       });
       setMissingFields(d.missing_fields || []);
@@ -131,12 +133,35 @@ export default function Profile() {
         <div style={card}>
           <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '1.5rem', fontSize: '1rem' }}>Kontaktdaten <span style={{ color: '#c00', fontWeight: 400, fontSize: '0.8rem' }}>(Pflicht für die Prozessteilnahme)</span></h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            {[['Vorname *', 'first_name'], ['Nachname *', 'last_name'], ['Unternehmen *', 'company'], ['Position *', 'position'], ['Telefon *', 'phone']].map(([label, key]) => (
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Anrede *</label>
+              <select value={contact.salutation} onChange={setC('salutation')} style={{ ...INPUT, background: '#fff', borderColor: missingFields.includes('salutation') ? '#f59e0b' : '#ddd' }}>
+                <option value="">Bitte wählen…</option>
+                <option value="Herr">Herr</option>
+                <option value="Frau">Frau</option>
+                <option value="Divers">Divers</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Titel (optional)</label>
+              <input value={contact.title} onChange={setC('title')} placeholder="z. B. Dr., Prof." style={INPUT} />
+            </div>
+            {[['Vorname *', 'first_name'], ['Nachname *', 'last_name'], ['Unternehmen *', 'company'], ['Position *', 'position'], ['Telefon *', 'phone'], ['Straße + Hausnummer *', 'street']].map(([label, key]) => (
               <div key={key}>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>{label}</label>
                 <input value={contact[key]} onChange={setC(key)} style={{ ...INPUT, borderColor: missingFields.includes(key) ? '#f59e0b' : '#ddd' }} />
               </div>
             ))}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>PLZ *</label>
+                <input value={contact.postal_code} onChange={setC('postal_code')} style={{ ...INPUT, borderColor: missingFields.includes('postal_code') ? '#f59e0b' : '#ddd' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Ort *</label>
+                <input value={contact.city} onChange={setC('city')} style={{ ...INPUT, borderColor: missingFields.includes('city') ? '#f59e0b' : '#ddd' }} />
+              </div>
+            </div>
           </div>
         </div>
 

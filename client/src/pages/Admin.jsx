@@ -135,6 +135,18 @@ export default function Admin() {
       .catch(e => showMsg(e.message, 'error'));
   }
 
+  // Killswitch: Projekt endgültig löschen (doppelte Bestätigung)
+  async function killProject(p) {
+    if (!confirm(`Mandat "${p.codename}" ENDGÜLTIG löschen?\n\nAlle Interessenten-Zuordnungen, NDAs (inkl. signierter PDFs), Dokumente, Q&A und Aufgaben dieses Mandats werden unwiderruflich entfernt.`)) return;
+    const typed = prompt(`Zur Bestätigung bitte den Codenamen eintippen:\n${p.codename}`);
+    if (typed !== p.codename) { showMsg('Abgebrochen — Codename stimmte nicht überein.', 'error'); return; }
+    try {
+      const r = await api.delete(`/admin/projects/${p.id}`);
+      showMsg(r.message || 'Mandat endgültig gelöscht ✓');
+      loadAll();
+    } catch (e) { showMsg(e.message, 'error'); }
+  }
+
   async function gdprDeleteUser(id, email) {
     if (!confirm(`DSGVO-Löschung für ${email}?\n\nAlle personenbezogenen Daten, Interessen, NDA-Anfragen und signierten NDA-PDFs werden endgültig gelöscht. Vorgänge in den Protokollen werden pseudonymisiert.\n\nDies kann NICHT rückgängig gemacht werden.`)) return;
     try {
@@ -585,6 +597,9 @@ export default function Admin() {
                       <button onClick={() => { openUpload(p); loadProjectDocs(p.id); }} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#dcfce7', color: '#166534', border: 'none', padding: '0.3rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
                         <Upload size={11} /> Dokumente
                       </button>
+                      <button onClick={() => killProject(p)} title="Endgültig löschen (Killswitch)" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', padding: '0.3rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
+                        <Trash2 size={11} /> Löschen
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -752,7 +767,7 @@ export default function Admin() {
                         </button>
                       )}
                       {u.is_active ? (
-                        <button onClick={() => deactivateUser(u.id)} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                        <button onClick={() => deactivateUser(u.id)} style={{ background: '#fef3c7', color: '#92400e', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
                           Deaktivieren
                         </button>
                       ) : (
@@ -760,6 +775,9 @@ export default function Admin() {
                           Aktivieren
                         </button>
                       )}
+                      <button onClick={() => gdprDeleteUser(u.id, u.email)} title="DSGVO-Löschung (endgültig)" style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
+                        🗑 Löschen
+                      </button>
                     </div>
                   </td>
                 </tr>

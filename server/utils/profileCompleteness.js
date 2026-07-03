@@ -5,15 +5,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 const db = require('../db/database');
 
-const REQUIRED_FIELDS = ['first_name', 'last_name', 'company', 'position', 'phone'];
+const REQUIRED_FIELDS = ['salutation', 'first_name', 'last_name', 'company', 'position', 'phone', 'street', 'postal_code', 'city'];
 
 function missingProfileFields(user) {
   return REQUIRED_FIELDS.filter((f) => !user[f] || String(user[f]).trim() === '');
 }
 
 const FIELD_LABELS = {
-  first_name: 'Vorname', last_name: 'Nachname', company: 'Unternehmen',
-  position: 'Position', phone: 'Telefonnummer',
+  salutation: 'Anrede', first_name: 'Vorname', last_name: 'Nachname',
+  company: 'Unternehmen', position: 'Position', phone: 'Telefonnummer',
+  street: 'Straße', postal_code: 'PLZ', city: 'Ort',
 };
 
 // Express-Middleware: blockiert buyer/seller mit unvollständigem Profil.
@@ -24,7 +25,7 @@ function requireCompleteProfile() {
     try {
       if (['super_admin', 'advisor'].includes(req.user.role)) return next();
       const user = await db.get(
-        `SELECT first_name, last_name, company, position, phone FROM users WHERE id = ?`,
+        `SELECT salutation, first_name, last_name, company, position, phone, street, postal_code, city FROM users WHERE id = ?`,
         [req.user.id]
       );
       const missing = missingProfileFields(user || {});
