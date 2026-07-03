@@ -121,6 +121,25 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
 - [ ] **G7 Dashboard:** Übersicht zeigt die neuen Kacheln Datenraum-Zugriffe
   (7 Tage), offene Aufgaben, offene Q&A-Fragen.
 
+## H. Multi-Tenant & Billing (Sprint 5)
+
+- [ ] **H1 Alles läuft wie vorher:** Kompletter Kurzdurchlauf (Login,
+  Marktplatz, NDA, Dokumente) — die RLS-Umstellung darf im Tagesgeschäft
+  nichts ändern. Im Railway-Log steht beim Start
+  `🔐 RLS aktiv — App-Verbindung als "…_app"`.
+- [ ] **H2 Mandant anlegen:** — *per API/technisch* — `POST /api/admin/tenants`
+  legt Tenant + tenant_owner an; dessen Login funktioniert nur über die
+  Tenant-Subdomain, auf der Hauptdomain ist er unsichtbar (401).
+- [ ] **H3 Branding:** `GET /api/tenant/branding` liefert je Subdomain
+  Name/Farben; die Navigation übernimmt Farbe und Namen des Mandanten.
+- [ ] **H4 Auditor-Rolle:** Ein Nutzer mit Rolle `auditor` sieht
+  Aktivitäts-/Audit-Protokolle, kann aber nichts freigeben oder ändern (403).
+- [ ] **H5 Billing (Feature-Flag):** Erst mit `BILLING_ENABLED=1` (Railway)
+  UND aktiviertem Tenant-Billing wird beim Statuswechsel eines Deals auf
+  „Teaser live" einmalig eine Setup-Gebühr im Stub verbucht
+  (`GET /api/admin/billing/events`) — kein Doppelevent bei erneutem Wechsel.
+  Ohne Flag: keinerlei Billing-Aktivität.
+
 ---
 
 ## Hinweise

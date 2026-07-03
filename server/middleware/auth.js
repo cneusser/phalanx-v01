@@ -5,6 +5,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'phalanx-secret';
 
 const USER_FIELDS = 'id, tenant_id, email, role, first_name, last_name, company, is_active';
 
+// Sprint 5 (RLS): Nutzer-Lookup im Kontext des über die Subdomain aufgelösten
+// Tenants — sonst wären Nutzer anderer Mandanten unsichtbar (fail closed).
+async function lookupUser(req, userId) {
+  const fn = (d) => d.get(`SELECT ${USER_FIELDS} FROM users WHERE id = ?`, [userId]);
+  return (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
+}
+
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -13,7 +20,7 @@ async function authenticate(req, res, next) {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await db.get(`SELECT ${USER_FIELDS} FROM users WHERE id = ?`, [decoded.userId]);
+    const user = await lookupUser(req, decoded.userId);
     if (!user || !user.is_active) {
       return res.status(401).json({ success: false, error: 'Benutzer nicht gefunden' });
     }
@@ -30,7 +37,7 @@ async function optionalAuth(req, res, next) {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await db.get(`SELECT ${USER_FIELDS} FROM users WHERE id = ?`, [decoded.userId]);
+    const user = await lookupUser(req, decoded.userId);
     if (user && user.is_active) req.user = user;
   } catch (_) {}
   next();

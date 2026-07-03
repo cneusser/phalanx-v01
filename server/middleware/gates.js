@@ -7,7 +7,7 @@
 const db = require('../db/database');
 const { stageAllows } = require('../utils/dealStateMachine');
 
-const ADMIN_ROLES = ['super_admin', 'advisor'];
+const ADMIN_ROLES = ['super_admin', 'advisor', 'tenant_owner'];
 
 // Aktuelle Interest-Stage eines Nutzers für ein Projekt (oder null)
 async function getStage(userId, projectId) {

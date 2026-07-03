@@ -23,6 +23,15 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
+  // Sprint 5: Branding je Tenant (Farben/Name über Subdomain aufgelöst)
+  const [branding, setBranding] = useState(null);
+  useEffect(() => {
+    fetch('/api/tenant/branding')
+      .then(r => r.json())
+      .then(d => { if (d.success && d.data.slug !== 'phalanx') setBranding(d.data); })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -61,7 +70,7 @@ export default function Navbar() {
 
   return (
     <nav style={{
-      background: C.navy,
+      background: branding ? branding.primary_color : C.navy,
       position: 'sticky',
       top: 0,
       zIndex: 100,
@@ -71,9 +80,18 @@ export default function Navbar() {
         maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64,
       }}>
-        {/* Logo */}
-        <Link to="/" style={{ textDecoration: 'none' }}>
-          <CapitalMatchLogo textSize={19} white={true} compact={true} />
+        {/* Logo — bei White-Label-Tenants: Logo/Name des Mandanten */}
+        <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          {branding ? (
+            <>
+              {branding.logo_url && <img src={branding.logo_url} alt="" style={{ height: 32, width: 'auto' }} />}
+              <span style={{ color: '#fff', fontWeight: 800, fontSize: '1.1rem', letterSpacing: '-0.02em' }}>
+                {branding.display_name}
+              </span>
+            </>
+          ) : (
+            <CapitalMatchLogo textSize={19} white={true} compact={true} />
+          )}
         </Link>
 
         {/* Desktop Nav */}

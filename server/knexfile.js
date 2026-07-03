@@ -21,7 +21,17 @@ const config = {
     connectionString,
     ssl: needsSsl ? { rejectUnauthorized: false } : false,
   },
-  pool: { min: 0, max: 10 },
+  pool: {
+    min: 0,
+    max: 10,
+    // Sprint 5 (RLS): Jede DB-Verbindung startet im Kontext des
+    // Default-Tenants (1 = phalanx). Row-Level-Security filtert damit ALLE
+    // Queries zwingend auf diesen Tenant. Cross-Tenant-Operationen laufen
+    // ausschließlich über db.withTenant() (SET LOCAL in Transaktion).
+    afterCreate: (conn, done) => {
+      conn.query(`SET app.tenant_id = '1'`, (err) => done(err, conn));
+    },
+  },
   migrations: {
     directory: require('path').join(__dirname, 'db', 'migrations'),
     tableName: 'knex_migrations',

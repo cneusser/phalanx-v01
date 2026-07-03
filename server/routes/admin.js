@@ -6,7 +6,12 @@ const wrap = require('../utils/asyncHandler');
 const { setStage } = require('../middleware/gates');
 const { canTransitionDeal, DEAL_TRANSITIONS } = require('../utils/dealStateMachine');
 const router = express.Router();
-const isAdmin = [authenticate, requireRole('super_admin', 'advisor')];
+// Sprint 5 — Rollenmodell: super_admin (Plattform), tenant_owner (eigener
+// Mandant, RLS-beschränkt), advisor (Berater), auditor (nur Lesezugriff auf
+// Protokolle), seller, buyer.
+const isAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner')];
+const isSuperAdmin = [authenticate, requireRole('super_admin')];
+const isAuditorOrAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner', 'auditor')];
 
 // ── Stats ─────────────────────────────────────────────────────────────────
 router.get('/stats', ...isAdmin, wrap(async (req, res) => {
@@ -154,6 +159,28 @@ router.put('/projects/:id/deal-status', ...isAdmin, wrap(async (req, res) => {
   await db.run(`UPDATE projects SET deal_status = ?, updated_at = now() WHERE id = ?`, [deal_status, req.params.id]);
   db.activityLog(req.user.id, `DEAL_STATUS_${deal_status.toUpperCase()}`, 'deal', req.params.id, req.ip);
   db.auditLog(req.user.id, 'DEAL_STATUS_CHANGED', 'project', req.params.id, `${project.deal_status} → ${deal_status}`, req.ip);
+
+  // Sprint 5 — Billing-Hook: Setup-Gebühr je AKTIVIERTEM Deal-Prozess
+  // (Feature-Flag: ENV BILLING_ENABLED=1 UND tenants.billing_enabled=1;
+  //  doppelbuchungssicher über vorhandenes deal_setup-Event)
+  try {
+    const { getPaymentProvider, billingGloballyEnabled } = require('../providers/payment');
+    if (deal_status === 'teaser_live' && billingGloballyEnabled()) {
+      const tenant = await db.get(`SELECT * FROM tenants WHERE id = (SELECT tenant_id FROM projects WHERE id = ?)`, [req.params.id]);
+      const already = await db.get(`SELECT id FROM billing_events WHERE project_id = ? AND event_type = 'deal_setup'`, [req.params.id]);
+      if (tenant && tenant.billing_enabled === 1 && !already) {
+        const provider = getPaymentProvider();
+        const charge = await provider.chargeDealSetup(tenant, project);
+        await db.run(
+          `INSERT INTO billing_events (tenant_id, event_type, project_id, amount_cents, provider, provider_ref, status)
+           VALUES (?, 'deal_setup', ?, ?, ?, ?, ?)`,
+          [tenant.id, req.params.id, charge.amountCents, (process.env.PAYMENT_PROVIDER || 'stub'), charge.providerRef, charge.status === 'paid' ? 'paid' : 'recorded']
+        );
+        db.auditLog(req.user.id, 'BILLING_DEAL_SETUP', 'project', req.params.id, `${(charge.amountCents / 100).toFixed(2)} EUR (${charge.providerRef})`, req.ip);
+      }
+    }
+  } catch (e) { console.warn('Billing-Hook:', e.message); }
+
   res.json({ success: true, data: { deal_status } });
 }));
 
@@ -312,7 +339,10 @@ router.delete('/users/:id', ...isAdmin, wrap(async (req, res) => {
     try { fs.unlinkSync(path.join(NDA_DIR, p.signed_pdf_path)); } catch { /* Datei ggf. schon weg */ }
   }
 
-  await db.knex.transaction(async (trx) => {
+  // Owner-Verbindung: ALTER TABLE (Trigger-Toggle) erfordert Tabellen-Owner —
+  // dokumentierter DSGVO-Löschpfad, jede Nutzung wird protokolliert
+  await db.ownerKnex.transaction(async (trx) => {
+    await trx.raw(`SELECT set_config('app.tenant_id', '1', true)`);
     // Personenbezug in Audit-Logs entfernen (Aktionen bleiben pseudonymisiert erhalten)
     await trx.raw(`UPDATE audit_logs SET details = '[DSGVO-gelöscht]', ip_address = NULL, user_id = NULL WHERE user_id = ?`, [user.id]);
     // activity_log ist append-only — Trigger für den dokumentierten Löschpfad kontrolliert aussetzen
@@ -484,8 +514,68 @@ router.get('/projects/:id/activity', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: rows });
 }));
 
-// ── Activity + Audit ──────────────────────────────────────────────────────
-router.get('/activity', ...isAdmin, wrap(async (req, res) => {
+// ── Sprint 5: Tenant-Verwaltung (nur Plattform-Admin) ─────────────────────
+router.get('/tenants', ...isSuperAdmin, wrap(async (req, res) => {
+  const tenants = await db.all(`SELECT id, slug, name, display_name, subdomain, primary_color, accent_color, billing_enabled, plan, created_at FROM tenants ORDER BY id`);
+  res.json({ success: true, data: tenants });
+}));
+
+router.post('/tenants', ...isSuperAdmin, wrap(async (req, res) => {
+  const { slug, name, subdomain, primary_color, accent_color, owner_email, owner_password, owner_first_name, owner_last_name } = req.body;
+  if (!slug || !name || !owner_email || !owner_password) {
+    return res.status(400).json({ success: false, error: 'Pflichtfelder: slug, name, owner_email, owner_password' });
+  }
+  const existing = await db.get(`SELECT id FROM tenants WHERE slug = ? OR subdomain = ?`, [slug, subdomain || slug]);
+  if (existing) return res.status(409).json({ success: false, error: 'Slug/Subdomain bereits vergeben' });
+
+  const tenantId = await db.insert(
+    `INSERT INTO tenants (slug, name, display_name, subdomain, primary_color, accent_color)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [slug, name, name, subdomain || slug, primary_color || '#0D1B36', accent_color || '#29ABE2']
+  );
+
+  // Tenant-Owner im Kontext des NEUEN Mandanten anlegen (RLS: withTenant)
+  const bcrypt = require('bcryptjs');
+  await db.withTenant(tenantId, async (t) => {
+    await t.insert(
+      `INSERT INTO users (tenant_id, email, password_hash, role, first_name, last_name, company, is_approved, is_active, privacy_consent_at)
+       VALUES (?, ?, ?, 'tenant_owner', ?, ?, ?, 1, 1, now())`,
+      [tenantId, owner_email.toLowerCase(), bcrypt.hashSync(owner_password, 10),
+       owner_first_name || 'Tenant', owner_last_name || 'Owner', name]
+    );
+  });
+
+  db.auditLog(req.user.id, 'TENANT_CREATED', 'tenant', tenantId, `${slug} (${subdomain || slug})`, req.ip);
+  res.status(201).json({ success: true, data: { id: tenantId, message: `Mandant "${name}" angelegt — erreichbar über Subdomain "${subdomain || slug}"` } });
+}));
+
+router.put('/tenants/:id', ...isSuperAdmin, wrap(async (req, res) => {
+  const { display_name, subdomain, primary_color, accent_color, logo_url, billing_enabled, plan } = req.body;
+  await db.run(`
+    UPDATE tenants SET
+      display_name = COALESCE(?, display_name), subdomain = COALESCE(?, subdomain),
+      primary_color = COALESCE(?, primary_color), accent_color = COALESCE(?, accent_color),
+      logo_url = COALESCE(?, logo_url), billing_enabled = COALESCE(?, billing_enabled),
+      plan = COALESCE(?, plan)
+    WHERE id = ?`,
+    [display_name ?? null, subdomain ?? null, primary_color ?? null, accent_color ?? null,
+     logo_url ?? null, billing_enabled ?? null, plan ?? null, req.params.id]);
+  db.auditLog(req.user.id, 'TENANT_UPDATED', 'tenant', req.params.id, null, req.ip);
+  res.json({ success: true, data: { message: 'Mandant aktualisiert' } });
+}));
+
+// ── Sprint 5: Billing-Events (Feature-Flag billing_enabled) ───────────────
+router.get('/billing/events', ...isAdmin, wrap(async (req, res) => {
+  const events = await db.all(`
+    SELECT b.*, p.codename FROM billing_events b
+    LEFT JOIN projects p ON p.id = b.project_id
+    ORDER BY b.created_at DESC LIMIT 200
+  `);
+  res.json({ success: true, data: events });
+}));
+
+// ── Activity + Audit (auditor: nur Lesezugriff hier) ──────────────────────
+router.get('/activity', ...isAuditorOrAdmin, wrap(async (req, res) => {
   const logs = await db.all(`
     SELECT al.*, u.first_name || ' ' || u.last_name as user_name, u.email as user_email
     FROM audit_logs al LEFT JOIN users u ON u.id = al.user_id ORDER BY al.created_at DESC LIMIT 50
@@ -493,7 +583,7 @@ router.get('/activity', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: logs });
 }));
 
-router.get('/audit-logs', ...isAdmin, wrap(async (req, res) => {
+router.get('/audit-logs', ...isAuditorOrAdmin, wrap(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = 50;
   const offset = (page - 1) * limit;

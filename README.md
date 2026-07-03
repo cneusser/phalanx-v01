@@ -65,11 +65,44 @@ npm run seed       # DESTRUKTIV: alles löschen + Auslieferungszustand seeden
 npm run dev        # Entwicklung (führt Migrationen + Seed beim Start aus)
 ```
 
-### Multi-Tenancy (Vorbereitung)
+### Multi-Tenancy (Sprint 5 — AKTIV)
 
-Jede Tabelle trägt bereits eine Spalte `tenant_id` (Default: Tenant 1 =
-`phalanx`). Die Mandantentrennung (Row-Level-Security, Rollen, Branding)
-wird in Sprint 5 scharf geschaltet.
+**Row-Level-Security ist scharf geschaltet** (ENABLE + FORCE auf allen
+Tenant-Tabellen): Jede Query ist auf `current_setting('app.tenant_id')`
+gefiltert — auch für den DB-Owner. Fail closed: ohne Session-Variable sind
+null Zeilen sichtbar. Jede Verbindung startet im Default-Tenant 1 (phalanx,
+`knexfile.js → pool.afterCreate`); Cross-Tenant-Operationen laufen
+ausschließlich über `db.withTenant(tenantId, fn)` (SET LOCAL in Transaktion).
+
+**Rollen:** `super_admin` (Plattform), `tenant_owner` (verwaltet eigenen
+Mandanten, sieht per RLS NUR eigene Daten), `advisor`, `auditor` (nur
+Lesezugriff auf Aktivitäts-/Audit-Protokolle), `seller`, `buyer`.
+
+**Neuen Mandanten anlegen** (nur super_admin):
+`POST /api/admin/tenants` mit `{ slug, name, subdomain, owner_email,
+owner_password }` — legt Tenant + tenant_owner an. Erreichbar über die
+Subdomain (`kunde1.capitalmatch.de`); DNS/Custom-Domain in Railway auf die
+App zeigen lassen. Login/Registrierung/Token-Prüfung laufen automatisch im
+Tenant-Kontext der Subdomain.
+
+**Branding je Tenant:** `PUT /api/admin/tenants/:id` mit `display_name`,
+`primary_color`, `accent_color`, `logo_url`, `subdomain`. Der Client lädt
+`GET /api/tenant/branding` und wendet Farben/Name in der Navigation an.
+
+### Billing (Sprint 5 — Feature-Flag)
+
+Abrechnung über austauschbares **PaymentProvider-Interface**
+(`server/providers/payment/`, Standard: Stub). Aktiv nur wenn BEIDES gesetzt:
+ENV `BILLING_ENABLED=1` **und** `tenants.billing_enabled = 1`.
+
+Komponenten: Tenant-Abo (`createSubscription`), **Setup-Gebühr je aktiviertem
+Deal-Prozess** (automatisch beim Übergang `→ teaser_live`, doppelbuchungssicher),
+optionale Datenraum-Staffel. Alle Vorgänge landen in `billing_events`
+(`GET /api/admin/billing/events`). Preise via ENV:
+`BILLING_SUBSCRIPTION_CENTS`, `BILLING_DEAL_SETUP_CENTS`, `BILLING_DATAROOM_CENTS`.
+Echten Anbieter (z. B. Stripe) anbinden: Provider-Klasse implementieren,
+registrieren, `PAYMENT_PROVIDER=stripe` setzen — dokumentiert in
+`providers/payment/index.js`.
 
 ### E-Signatur (Sprint 3)
 

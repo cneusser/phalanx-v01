@@ -38,7 +38,11 @@ app.use('/api/auth/', authLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Sprint 5: Tenant über Subdomain auflösen (Fallback: Default-Tenant)
+app.use(require('./middleware/tenant').resolveTenant);
+
 // Routes
+app.use('/api/tenant', require('./routes/tenant'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/ndas', require('./routes/ndas'));

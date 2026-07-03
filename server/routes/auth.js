@@ -27,24 +27,31 @@ router.post('/register', wrap(async (req, res) => {
   const validRoles = ['buyer', 'seller'];
   const userRole = validRoles.includes(role) ? role : 'buyer';
 
-  const existing = await db.get('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
-  if (existing) return res.status(409).json({ success: false, error: 'Diese E-Mail-Adresse ist bereits registriert' });
-
+  // Sprint 5 (RLS): Registrierung läuft im Kontext des über die Subdomain
+  // aufgelösten Tenants (Default: 1)
+  const tenantId = req.tenantId || 1;
   const password_hash = bcrypt.hashSync(password, 10);
-  const userId = await db.insert(
-    `INSERT INTO users (email, password_hash, role, first_name, last_name, company, position, buyer_type, phone, is_approved, is_active, privacy_consent_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, now())`,
-    [email.toLowerCase(), password_hash, userRole,
-     first_name, last_name,
-     company || null, position || null,
-     userRole === 'buyer' ? (buyer_type || null) : null,
-     phone || null]
-  );
 
-  // Create buyer profile only for buyers
-  if (userRole === 'buyer') {
-    await db.run(`INSERT INTO buyer_profiles (user_id, industries, regions, deal_types) VALUES (?, '[]', '[]', '[]')`, [userId]);
-  }
+  const result = await db.withTenant(tenantId, async (t) => {
+    const existing = await t.get('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
+    if (existing) return { conflict: true };
+    const userId = await t.insert(
+      `INSERT INTO users (tenant_id, email, password_hash, role, first_name, last_name, company, position, buyer_type, phone, is_approved, is_active, privacy_consent_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, now())`,
+      [tenantId, email.toLowerCase(), password_hash, userRole,
+       first_name, last_name,
+       company || null, position || null,
+       userRole === 'buyer' ? (buyer_type || null) : null,
+       phone || null]
+    );
+    // Create buyer profile only for buyers
+    if (userRole === 'buyer') {
+      await t.run(`INSERT INTO buyer_profiles (tenant_id, user_id, industries, regions, deal_types) VALUES (?, ?, '[]', '[]', '[]')`, [tenantId, userId]);
+    }
+    return { userId };
+  });
+  if (result.conflict) return res.status(409).json({ success: false, error: 'Diese E-Mail-Adresse ist bereits registriert' });
+  const userId = result.userId;
 
   db.auditLog(userId, 'REGISTER', 'user', userId, `role=${userRole}`, req.ip);
 
@@ -70,7 +77,9 @@ router.post('/login', wrap(async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ success: false, error: 'E-Mail und Passwort erforderlich' });
 
-  const user = await db.get('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]);
+  // Sprint 5 (RLS): Lookup im Tenant-Kontext der Subdomain (Default: 1)
+  const user = await db.withTenant(req.tenantId || 1, (t) =>
+    t.get('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]));
 
   if (!user || !user.is_active) {
     return res.status(401).json({ success: false, error: 'Ungültige Anmeldedaten' });

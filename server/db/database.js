@@ -36,34 +36,98 @@ const pgTypes = require('pg').types;
 pgTypes.setTypeParser(20, (v) => parseInt(v, 10));   // BIGINT
 pgTypes.setTypeParser(1700, (v) => parseFloat(v));   // NUMERIC
 
-const knex = require('knex')(knexConfig);
+// ── Zwei Verbindungen (Sprint 5 / RLS) ───────────────────────────────────────
+// ownerKnex: DB-Owner (Railway-Standard-User, meist Superuser) — NUR für
+//            Migrationen und Wartung. Superuser umgehen RLS!
+// appKnex:   nicht-privilegierte App-Rolle (NOSUPERUSER, NOBYPASSRLS) — wird
+//            bei initialize() automatisch angelegt. ALLE Anwendungs-Queries
+//            laufen hierüber, damit Row-Level-Security greift.
+const ownerKnex = require('knex')(knexConfig);
+let appKnex = ownerKnex; // bis initialize() die RLS-Rolle eingerichtet hat
 
 async function get(sql, params = []) {
-  const result = await knex.raw(sql, params);
+  const result = await appKnex.raw(sql, params);
   return result.rows[0];
 }
 
 async function all(sql, params = []) {
-  const result = await knex.raw(sql, params);
+  const result = await appKnex.raw(sql, params);
   return result.rows;
 }
 
 async function run(sql, params = []) {
-  const result = await knex.raw(sql, params);
+  const result = await appKnex.raw(sql, params);
   return { rowCount: result.rowCount };
 }
 
 // INSERT mit automatischem RETURNING id
 async function insert(sql, params = []) {
   const withReturning = /returning\s/i.test(sql) ? sql : `${sql} RETURNING id`;
-  const result = await knex.raw(withReturning, params);
+  const result = await appKnex.raw(withReturning, params);
   return result.rows[0] ? result.rows[0].id : null;
+}
+
+// App-Rolle ohne Superuser-/BYPASSRLS-Rechte einrichten (idempotent) und
+// die Anwendungsverbindung darauf umstellen
+async function setupRlsRole() {
+  const url = new URL(process.env.DATABASE_URL);
+  const appUser = `${decodeURIComponent(url.username || 'postgres')}_app`;
+  const pwd = decodeURIComponent(url.password || '');
+  const q = (s) => s.replace(/'/g, "''");
+
+  await ownerKnex.raw(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${q(appUser)}') THEN
+        CREATE ROLE "${appUser}" LOGIN;
+      END IF;
+    END $$;
+  `);
+  await ownerKnex.raw(`ALTER ROLE "${appUser}" LOGIN PASSWORD '${q(pwd)}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`);
+  await ownerKnex.raw(`GRANT USAGE ON SCHEMA public TO "${appUser}"`);
+  await ownerKnex.raw(`GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO "${appUser}"`);
+  await ownerKnex.raw(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "${appUser}"`);
+  await ownerKnex.raw(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLES TO "${appUser}"`);
+  await ownerKnex.raw(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "${appUser}"`);
+
+  url.username = encodeURIComponent(appUser);
+  appKnex = require('knex')({
+    ...knexConfig,
+    connection: { ...knexConfig.connection, connectionString: url.toString() },
+  });
+  module.exports.knex = appKnex;
+  // Verbindung verifizieren (schlägt fehl → Server startet nicht, fail closed)
+  const who = await appKnex.raw(`SELECT current_user, current_setting('app.tenant_id', true) AS tenant`);
+  console.log(`🔐 RLS aktiv — App-Verbindung als "${who.rows[0].current_user}" (Tenant ${who.rows[0].tenant})`);
+}
+
+// ── Sprint 5: Cross-Tenant-Kontext (Row-Level-Security) ─────────────────────
+// Alle normalen Queries laufen im Default-Tenant (app.tenant_id = '1', gesetzt
+// beim Verbindungsaufbau). Für Operationen in einem ANDEREN Mandanten:
+//   await db.withTenant(tenantId, async (t) => { await t.get(...); })
+// SET LOCAL gilt nur innerhalb der Transaktion — danach greift wieder der
+// Default. RLS ist fail-closed: ohne gültige Session-Var sind 0 Zeilen sichtbar.
+async function withTenant(tenantId, fn) {
+  return appKnex.transaction(async (trx) => {
+    await trx.raw(`SELECT set_config('app.tenant_id', ?, true)`, [String(tenantId)]);
+    const t = {
+      get: async (sql, params = []) => (await trx.raw(sql, params)).rows[0],
+      all: async (sql, params = []) => (await trx.raw(sql, params)).rows,
+      run: async (sql, params = []) => ({ rowCount: (await trx.raw(sql, params)).rowCount }),
+      insert: async (sql, params = []) => {
+        const withReturning = /returning\s/i.test(sql) ? sql : `${sql} RETURNING id`;
+        const result = await trx.raw(withReturning, params);
+        return result.rows[0] ? result.rows[0].id : null;
+      },
+      trx,
+    };
+    return fn(t);
+  });
 }
 
 // Sprint 2: activity_log (append-only, DB-Trigger verhindert UPDATE/DELETE).
 // Fire-and-forget wie auditLog.
 function activityLog(actorId, action, resource, resourceId, ip) {
-  knex('activity_log')
+  appKnex('activity_log')
     .insert({
       actor_id: actorId || null,
       action,
@@ -77,7 +141,7 @@ function activityLog(actorId, action, resource, resourceId, ip) {
 // Append-only Audit-Log. Bewusst fire-and-forget: Logging darf nie
 // einen fachlichen Request scheitern lassen.
 function auditLog(userId, action, resourceType, resourceId, details, ip) {
-  knex('audit_logs')
+  appKnex('audit_logs')
     .insert({
       user_id: userId || null,
       action,
@@ -205,12 +269,16 @@ async function startupSeed() {
 }
 
 async function initialize() {
-  // Migrationen ausführen (legt Schema + Default-Tenant "phalanx" an)
-  const [, applied] = await knex.migrate.latest();
+  // Migrationen ausführen (legt Schema + Default-Tenant "phalanx" an) —
+  // bewusst über die Owner-Verbindung (DDL-Rechte)
+  const [, applied] = await ownerKnex.migrate.latest();
   if (applied.length > 0) console.log(`🗄️  Migrationen ausgeführt: ${applied.join(', ')}`);
+
+  // Sprint 5: RLS-App-Rolle einrichten und Anwendungsverbindung umstellen
+  await setupRlsRole();
 
   await startupSeed();
   console.log('✅ Database initialized (PostgreSQL)');
 }
 
-module.exports = { initialize, get, all, run, insert, auditLog, activityLog, knex, startupSeed };
+module.exports = { initialize, get, all, run, insert, auditLog, activityLog, knex: appKnex, ownerKnex, startupSeed, withTenant };
