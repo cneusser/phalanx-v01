@@ -225,10 +225,21 @@ export default function Projects() {
   const [error, setError] = useState('');
   const [ndaStatus, setNdaStatus] = useState({});
   const [ndaLoading, setNdaLoading] = useState({});
-  // Total counts are fetched once (no mandate_type filter) so buttons always show correct numbers
+  // Gesamtzahlen kommen vom Server (/projects/stats) — unabhängig vom aktiven
+  // Tab und von Filtern. null = lädt noch; 0 wird korrekt als 0 angezeigt.
   const [totalCounts, setTotalCounts] = useState({ all: null, ma: null, fundraising: null });
 
   useEffect(() => { loadProjects(); }, [sel]);
+
+  useEffect(() => {
+    api.get('/projects/stats')
+      .then(s => setTotalCounts({
+        all: s.total_active ?? 0,
+        ma: s.ma?.active ?? 0,
+        fundraising: s.fundraising?.active ?? 0,
+      }))
+      .catch(() => {});
+  }, []);
 
   async function loadProjects() {
     try {
@@ -241,13 +252,6 @@ export default function Projects() {
       const data = await api.get(`/projects?${params.toString()}`);
       setProjects(data.projects);
       if (!sel.industry && !sel.region && !sel.deal_type) setFilters(data.filters);
-      // Capture global counts when loading unfiltered (no mandate_type)
-      if (!sel.mandate_type && !sel.industry && !sel.region && !sel.deal_type && !sel.search) {
-        const all = data.projects.length;
-        const ma = data.projects.filter(p => p.mandate_type !== 'fundraising').length;
-        const fundraising = data.projects.filter(p => p.mandate_type === 'fundraising').length;
-        setTotalCounts({ all, ma, fundraising });
-      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -282,9 +286,6 @@ export default function Projects() {
 
   const select = (k, v) => setSel(prev => ({ ...prev, [k]: prev[k] === v ? '' : v }));
   const isAdmin = user && ['super_admin', 'advisor'].includes(user.role);
-
-  const fundraisingCount = projects.filter(p => p.mandate_type === 'fundraising').length;
-  const maCount = projects.filter(p => p.mandate_type !== 'fundraising').length;
 
   return (
     <div style={{ background: C.bg, minHeight: '100vh' }}>

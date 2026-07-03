@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Lock, Users, FileText, ChevronRight, Building2, TrendingUp, Eye, Cpu } from 'lucide-react';
+import { Shield, Lock, Users, FileText, ChevronRight, Building2, TrendingUp, Eye } from 'lucide-react';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -70,14 +70,65 @@ function ProjectAvatar({ name, color }) {
   );
 }
 
+// Kachel für ein Mandat — Daten kommen aus der API, nichts hartkodiert
+function MandateTile({ p }) {
+  const isStartup = p.mandate_type === 'fundraising';
+  const metrics = isStartup
+    ? [['RUNDE', p.investment_needed], ['STAKE', p.equity_stake], ['POST-M.', p.post_money_valuation]]
+    : [['UMSATZ', p.revenue_band], ['EBITDA', p.ebitda_band]];
+
+  return (
+    <div style={{ background: C.card, borderRadius: 6, padding: '1.75rem', border: `1px solid ${C.border}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+        <span style={{ background: isStartup ? '#EDE9FE' : '#EDF4FA', color: isStartup ? '#5B21B6' : C.navy, padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700 }}>
+          {isStartup ? 'Fundraising' : 'M&A'}
+        </span>
+        <span style={{ background: '#FEF3C7', color: '#92400E', padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700 }}>
+          {p.stage || p.deal_type}
+        </span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+        <ProjectAvatar name={p.codename} color={`${C.accent}18`} />
+        <div>
+          <div style={{ fontWeight: 700, color: C.text, fontSize: '0.97rem' }}>{p.codename}</div>
+          <div style={{ fontSize: '0.73rem', color: C.muted }}>
+            {[p.industry, p.location_city || p.region].filter(Boolean).join(' · ')}
+          </div>
+        </div>
+      </div>
+      <p style={{ fontSize: '0.83rem', color: '#444', lineHeight: 1.55, marginBottom: '1rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {p.short_description}
+      </p>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.1rem' }}>
+        {metrics.map(([l, v]) => (
+          <div key={l} style={{ flex: 1, background: C.bg, borderRadius: 6, padding: '0.45rem 0.5rem', textAlign: 'center', border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: '0.6rem', color: C.muted, fontWeight: 700, marginBottom: '0.1rem' }}>{l}</div>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: C.text }}>{v || '—'}</div>
+          </div>
+        ))}
+      </div>
+      <Link to="/projekte" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', background: C.navy, color: '#fff', padding: '0.55rem', borderRadius: 6, textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600 }}>
+        Teaser ansehen <ChevronRight size={13} />
+      </Link>
+    </div>
+  );
+}
+
 export default function Landing() {
   const [platformStats, setPlatformStats] = useState(null);
+  const [mandates, setMandates] = useState([]);
 
   useEffect(() => {
     fetch(`${API}/api/projects/stats`)
       .then(r => r.json())
       .then(d => { if (d.success) setPlatformStats(d.data); })
       .catch(() => {/* silent fallback to defaults */});
+
+    // Aktuelle Mandate dynamisch laden (anonymisierte Teaser-Daten aus der DB)
+    fetch(`${API}/api/projects`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setMandates((d.data.projects || []).slice(0, 2)); })
+      .catch(() => {/* Sektion wird bei Fehler ausgeblendet */});
   }, []);
 
   // Fallback values while loading or on error
@@ -225,68 +276,15 @@ export default function Landing() {
             </Link>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-
-            {/* ika ika Kachel */}
-            <div style={{ background: C.card, borderRadius: 6, padding: '1.75rem', border: `1px solid ${C.border}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                <span style={{ background: '#EDE9FE', color: '#5B21B6', padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700 }}>Fundraising</span>
-                <span style={{ background: '#FEF3C7', color: '#92400E', padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700 }}>Seed</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                <ProjectAvatar name="ika ika" color={`${C.accent}18`} />
-                <div>
-                  <div style={{ fontWeight: 700, color: C.text, fontSize: '0.97rem' }}>ika ika GmbH</div>
-                  <div style={{ fontSize: '0.73rem', color: C.muted }}>Food & Nutrition · Bayern</div>
-                </div>
-              </div>
-              <p style={{ fontSize: '0.83rem', color: '#444', lineHeight: 1.55, marginBottom: '1rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                Bio-Kraftsuppen & Functional Food für Darmgesundheit — 958 Kunden organisch validiert, BIO-zertifiziert, 0g Zucker.
-              </p>
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.1rem' }}>
-                {[['RUNDE', '€ 1,1 Mio.'], ['STAKE', '~26 %'], ['POST-M.', '€ 3,5 Mio.']].map(([l, v]) => (
-                  <div key={l} style={{ flex: 1, background: C.bg, borderRadius: 6, padding: '0.45rem 0.5rem', textAlign: 'center', border: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: '0.6rem', color: C.muted, fontWeight: 700, marginBottom: '0.1rem' }}>{l}</div>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: C.text }}>{v}</div>
-                  </div>
-                ))}
-              </div>
-              <Link to="/projekte" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', background: C.navy, color: '#fff', padding: '0.55rem', borderRadius: 6, textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600 }}>
-                Teaser ansehen <ChevronRight size={13} />
-              </Link>
+          {mandates.length > 0 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+              {mandates.map(p => <MandateTile key={p.id} p={p} />)}
             </div>
-
-            {/* Scopo Kachel */}
-            <div style={{ background: C.card, borderRadius: 6, padding: '1.75rem', border: `1px solid ${C.border}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                <span style={{ background: '#EDE9FE', color: '#5B21B6', padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700 }}>Fundraising</span>
-                <span style={{ background: '#EDE9FE', color: '#5B21B6', padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700 }}>Angel Round</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                <div style={{ width: 44, height: 44, borderRadius: 6, background: `${C.navy}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Cpu size={20} color={C.navy} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, color: C.text, fontSize: '0.97rem' }}>Scopo GmbH</div>
-                  <div style={{ fontSize: '0.73rem', color: C.muted }}>Industrial Tech / AI · Erlangen</div>
-                </div>
-              </div>
-              <p style={{ fontSize: '0.83rem', color: '#444', lineHeight: 1.55, marginBottom: '1rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                Agentic Factory OS — KI-Agenten verbinden Maschinendaten mit Bediener-Wissen. Live-Pilot bei Hutchinson Brazil (Tier-1 Automotive).
-              </p>
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.1rem' }}>
-                {[['RUNDE', '€ 1,1 Mio.'], ['STAKE', '20 %'], ['POST-M.', '€ 5,5 Mio.']].map(([l, v]) => (
-                  <div key={l} style={{ flex: 1, background: C.bg, borderRadius: 6, padding: '0.45rem 0.5rem', textAlign: 'center', border: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: '0.6rem', color: C.muted, fontWeight: 700, marginBottom: '0.1rem' }}>{l}</div>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: C.text }}>{v}</div>
-                  </div>
-                ))}
-              </div>
-              <Link to="/projekte" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', background: C.navy, color: '#fff', padding: '0.55rem', borderRadius: 6, textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600 }}>
-                Teaser ansehen <ChevronRight size={13} />
-              </Link>
+          ) : (
+            <div style={{ padding: '2rem', textAlign: 'center', color: C.muted, fontSize: '0.875rem', background: C.bg, borderRadius: 6, border: `1px solid ${C.border}` }}>
+              Aktuelle Mandate werden geladen …
             </div>
-          </div>
+          )}
         </div>
       </section>
 

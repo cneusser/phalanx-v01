@@ -1,6 +1,7 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
+const { ADMIN, PROJECTS, CODENAME_RENAMES, KNOWN_CODENAMES } = require('./seedData');
 
 const dbPath = path.join(__dirname, 'phalanx.db');
 
@@ -151,81 +152,108 @@ async function initialize() {
   saveDb();
 
   // ── V0.2 Data Cleanup ─────────────────────────────────────────────────────
-  // Remove all legacy projects (keep only Nexora and ika ika GmbH)
+  // Remove all legacy projects (keep only the mandates configured in seedData.js)
   // and all legacy users (keep only the admin neusser@phalanx.de).
   // This runs on every server start so Railway's persistent DB is always clean.
 
-  // ── Rename migration: Scopo GmbH → Nexora ─────────────────────────────────
-  try {
-    db.run(`UPDATE projects SET codename = 'Nexora' WHERE codename = 'Scopo GmbH'`);
-    saveDb();
-  } catch(e) { /* silent */ }
+  // ── Rename-/Anonymisierungs-Migrationen (idempotent, aus seedData.js) ─────
+  // Läuft nur, solange der alte Deckname noch in der DB steht. Beim Rename
+  // werden auch die öffentlichen Teaser-Felder (Beschreibung, Highlights)
+  // aus der zentralen Konfiguration anonymisiert nachgezogen.
+  for (const { from, to } of CODENAME_RENAMES) {
+    try {
+      const legacy = prepare(`SELECT id FROM projects WHERE codename = ?`).get(from);
+      if (legacy) {
+        const cfg = PROJECTS.find(p => p.public.codename === to);
+        if (cfg) {
+          db.run(
+            `UPDATE projects SET codename = ?, short_description = ?, highlights = ?, location_city = ? WHERE id = ?`,
+            [to, cfg.public.short_description, JSON.stringify(cfg.public.highlights), cfg.public.location_city, legacy.id]
+          );
+        } else {
+          db.run(`UPDATE projects SET codename = ? WHERE id = ?`, [to, legacy.id]);
+        }
+        console.log(`🕶️  Projekt anonymisiert: "${from}" → "${to}"`);
+        saveDb();
+      }
+    } catch(e) { console.warn(`Rename ${from} → ${to}:`, e.message); }
+  }
+
+  const codenameList = KNOWN_CODENAMES.map(c => `'${c.replace(/'/g, "''")}'`).join(', ');
 
   try {
     const oldProjects = db.exec(`
       SELECT COUNT(*) as c FROM projects
-      WHERE codename NOT IN ('Nexora', 'ika ika GmbH')
+      WHERE codename NOT IN (${codenameList})
     `);
     const oldCount = oldProjects[0]?.values[0][0] || 0;
     if (oldCount > 0) {
       // Delete dependent records first
       db.run(`DELETE FROM nda_requests WHERE project_id IN (
-        SELECT id FROM projects WHERE codename NOT IN ('Nexora', 'ika ika GmbH')
+        SELECT id FROM projects WHERE codename NOT IN (${codenameList})
       )`);
       db.run(`DELETE FROM documents WHERE project_id IN (
-        SELECT id FROM projects WHERE codename NOT IN ('Nexora', 'ika ika GmbH')
+        SELECT id FROM projects WHERE codename NOT IN (${codenameList})
       )`);
       db.run(`DELETE FROM project_details WHERE project_id IN (
-        SELECT id FROM projects WHERE codename NOT IN ('Nexora', 'ika ika GmbH')
+        SELECT id FROM projects WHERE codename NOT IN (${codenameList})
       )`);
-      db.run(`DELETE FROM projects WHERE codename NOT IN ('Nexora', 'ika ika GmbH')`);
-      console.log(`🧹 ${oldCount} Altprojekte gelöscht (nur Nexora + ika ika behalten)`);
+      db.run(`DELETE FROM projects WHERE codename NOT IN (${codenameList})`);
+      console.log(`🧹 ${oldCount} Altprojekte gelöscht (nur konfigurierte Mandate behalten)`);
       saveDb();
     }
   } catch(e) { console.warn('Cleanup projects:', e.message); }
 
   try {
-    const oldUsers = db.exec(`
-      SELECT COUNT(*) as c FROM users WHERE email != 'neusser@phalanx.de'
-    `);
+    const oldUsers = db.exec(`SELECT COUNT(*) as c FROM users WHERE email != '${ADMIN.email.replace(/'/g, "''")}'`);
     const oldUsersCount = oldUsers[0]?.values[0][0] || 0;
     if (oldUsersCount > 0) {
       db.run(`DELETE FROM buyer_profiles WHERE user_id IN (
-        SELECT id FROM users WHERE email != 'neusser@phalanx.de'
-      )`);
+        SELECT id FROM users WHERE email != ?
+      )`, [ADMIN.email]);
       db.run(`DELETE FROM nda_requests WHERE user_id IN (
-        SELECT id FROM users WHERE email != 'neusser@phalanx.de'
-      )`);
-      db.run(`DELETE FROM users WHERE email != 'neusser@phalanx.de'`);
+        SELECT id FROM users WHERE email != ?
+      )`, [ADMIN.email]);
+      db.run(`DELETE FROM users WHERE email != ?`, [ADMIN.email]);
       console.log(`🧹 ${oldUsersCount} Alt-User gelöscht (nur Admin behalten)`);
       saveDb();
     }
   } catch(e) { console.warn('Cleanup users:', e.message); }
 
-  // ── Ensure admin user exists (create if DB is fresh) ─────────────────────
+  // ── Admin-User idempotent upserten ─────────────────────────────────────────
+  // Läuft bei jedem Start: legt den Admin an ODER repariert ihn (Rolle,
+  // Freigabe, defekter Passwort-Hash). E-Mail/Passwort via ENV überschreibbar
+  // (ADMIN_EMAIL / ADMIN_PASSWORD, siehe seedData.js).
   try {
     const bcrypt = require('bcryptjs');
-    const adminCheck = db.exec(`SELECT COUNT(*) FROM users WHERE email = 'neusser@phalanx.de'`);
-    const adminExists = adminCheck[0]?.values[0][0] || 0;
-    if (!adminExists) {
-      const hash = bcrypt.hashSync('Phalanx@2026!', 10);
+    // Gültiger bcrypt-Hash: $2a$/$2b$/$2y$ + Cost + 53 Zeichen Salt/Digest
+    const isValidBcrypt = (h) => typeof h === 'string' && /^\$2[aby]\$\d{2}\$.{53}$/.test(h);
+
+    const admin = prepare(`SELECT id, password_hash FROM users WHERE email = ?`).get(ADMIN.email);
+
+    if (!admin) {
+      const hash = bcrypt.hashSync(ADMIN.password, 10);
       db.run(
         `INSERT INTO users (email, password_hash, role, first_name, last_name, company, position, phone, is_approved, is_active, created_at)
-         VALUES ('neusser@phalanx.de', ?, 'super_admin', 'Christian', 'Neusser', 'Phalanx GmbH', 'Geschäftsführer', '+49 9131 9206075', 1, 1, datetime('now'))`,
-        [hash]
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, datetime('now'))`,
+        [ADMIN.email, hash, ADMIN.role, ADMIN.first_name, ADMIN.last_name, ADMIN.company, ADMIN.position, ADMIN.phone]
       );
-      saveDb();
-      console.log('👤 Admin-User angelegt: neusser@phalanx.de / Phalanx@2026!');
+      console.log(`👤 Admin-User angelegt: ${ADMIN.email}`);
+    } else {
+      // Rolle + Freigabe bei jedem Start sicherstellen (Upsert-Teil)
+      db.run(`UPDATE users SET role = ?, is_approved = 1, is_active = 1 WHERE email = ?`, [ADMIN.role, ADMIN.email]);
+      // Passwort-Hash prüfen: nur bei fehlendem/defektem Hash zurücksetzen,
+      // damit ein bewusst geändertes Admin-Passwort erhalten bleibt.
+      if (!isValidBcrypt(admin.password_hash)) {
+        db.run(`UPDATE users SET password_hash = ? WHERE email = ?`, [bcrypt.hashSync(ADMIN.password, 10), ADMIN.email]);
+        console.log('🔑 Defekter Admin-Passwort-Hash zurückgesetzt');
+      }
     }
-  } catch(e) { console.warn('Admin-User-Init:', e.message); }
 
-  // Ensure admin account is always active and approved
-  try {
-    db.run(`UPDATE users SET is_approved = 1, is_active = 1 WHERE email = 'neusser@phalanx.de'`);
-    // Ensure both projects are active (visible)
-    db.run(`UPDATE projects SET status = 'active' WHERE codename IN ('Nexora', 'ika ika GmbH')`);
+    // Konfigurierte Mandate sichtbar halten
+    db.run(`UPDATE projects SET status = 'active' WHERE codename IN (${codenameList})`);
     saveDb();
-  } catch(e) { /* silent */ }
+  } catch(e) { console.warn('Admin-Upsert:', e.message); }
 
   console.log('✅ Database initialized');
 }

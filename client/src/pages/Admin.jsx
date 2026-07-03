@@ -828,7 +828,7 @@ export default function Admin() {
                 </div>
               </div>
 
-              {[['Name / Codename', 'codename', 'ika ika GmbH', true], ['Branche', 'industry', 'Food & Nutrition', true], ['Region', 'region', 'Bayern', true]].map(([label, key, ph, req]) => (
+              {[['Name / Codename', 'codename', 'z. B. Projekt Alpha', true], ['Branche', 'industry', 'Food & Nutrition', true], ['Region', 'region', 'Bayern', true]].map(([label, key, ph, req]) => (
                 <div key={key} style={{ marginBottom: '0.9rem' }}>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.3rem' }}>{label}{req ? ' *' : ''}</label>
                   <input value={newProject[key]} onChange={setNew(key)} placeholder={ph} required={req} style={INPUT_STYLE} />
