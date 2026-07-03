@@ -134,7 +134,7 @@ async function sendDownloadNotification(opts) {
 
   try {
     await transporter.sendMail({
-      from: `"CapitalMatch Plattform" <${process.env.SMTP_USER}>`,
+      from: `"CapitalMatch Plattform" <${fromAddress()}>`,
       to,
       subject,
       html,
@@ -146,6 +146,10 @@ async function sendDownloadNotification(opts) {
   }
 }
 
+// Absenderadresse: MAIL_FROM (z. B. bei Brevo/Versanddiensten nötig, wo der
+// SMTP-Login von der Absenderadresse abweicht), Fallback: SMTP_USER
+const fromAddress = () => process.env.MAIL_FROM || process.env.SMTP_USER;
+
 // ── Generischer Versand (nur wenn SMTP konfiguriert) ────────────────────────
 async function sendMail({ to, subject, html }) {
   const transporter = createTransporter();
@@ -154,7 +158,7 @@ async function sendMail({ to, subject, html }) {
     return false;
   }
   try {
-    await transporter.sendMail({ from: `"CapitalMatch Plattform" <${process.env.SMTP_USER}>`, to, subject, html });
+    await transporter.sendMail({ from: `"CapitalMatch Plattform" <${fromAddress()}>`, to, subject, html });
     console.log(`✉️  E-Mail gesendet: "${subject}" an ${to}`);
     return true;
   } catch (err) {
