@@ -230,20 +230,22 @@ function generateNDA(opts) {
 
     // Interessent signature (right)
     if (signature) {
-      // Signed box — mit visueller Unterschrift (Schreibschrift-Stil)
-      doc.rect(sig2X - 8, sigStartY - 8, sigColW + 8, 120)
+      // Signed box — grüner Rahmen mit Status + eigenem Unterschriftsfeld
+      doc.rect(sig2X - 8, sigStartY - 8, sigColW + 16, 138)
         .fillAndStroke('#f0fdf4', '#86efac');
       doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#065f46')
         .text('Online unterzeichnet', sig2X, sigStartY);
       doc.font('Helvetica').fontSize(8.5).fillColor(GRAY)
         .text(`Datum: ${signedStr}`, sig2X, doc.y);
-      doc.moveDown(0.4);
-      // Visuelle Unterschrift: Name in kursiver Serifenschrift über der Linie
-      doc.font('Times-Italic').fontSize(20).fillColor('#0f3d2e')
-        .text(signature.name, sig2X, doc.y, { width: sigColW });
-      doc.moveDown(0.15);
-      hline(doc.y, '#16a34a', sigColW);
-      doc.moveDown(0.3);
+
+      // Umrandetes Unterschriftsfeld mit visueller Unterschrift (Schreibschrift)
+      const sigBoxY = doc.y + 5;
+      const sigBoxH = 42;
+      doc.rect(sig2X, sigBoxY, sigColW, sigBoxH).fillAndStroke('#ffffff', '#16a34a');
+      doc.font('Times-Italic').fontSize(22).fillColor('#0f3d2e')
+        .text(signature.name, sig2X, sigBoxY + 11, { width: sigColW, align: 'center' });
+
+      doc.y = sigBoxY + sigBoxH + 5;
       doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY)
         .text('Unterschrift Interessent (Online §10)', sig2X, doc.y, { width: sigColW });
       doc.font('Helvetica').fontSize(9).fillColor(BLACK)
