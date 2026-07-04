@@ -142,6 +142,23 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
 
 ---
 
+## I. Bewertungsrechner (Sprint 6)
+
+- [ ] **I1 Öffentlich & anonym:** `/unternehmenswert` ohne Login aufrufen (auch
+  im Inkognito-Fenster). Branche wählen, Umsatz + EBIT der letzten Jahre
+  eingeben, Qualitätsfaktoren setzen → „Unternehmenswert berechnen" → Werte-
+  Korridor (konservativ / Basis / optimistisch) erscheint.
+- [ ] **I2 Plausibilität:** Höhere Qualitätsbewertung hebt den Wert (Multiple
+  näher am oberen Bandende); ein negatives EBIT zeigt „nicht bewertbar".
+- [ ] **I3 PDF-Report + Lead:** Name/E-Mail eingeben, Datenschutz-Haken setzen →
+  „PDF-Report anfordern" → PDF wird heruntergeladen (Korridor + Verfahren +
+  Disclaimer) und per E-Mail versendet.
+- [ ] **I4 Lead im Admin:** Admin → Tab „Bewertungs-Leads" → der Lead erscheint
+  mit Name, E-Mail, Branche und Basiswert.
+- [ ] **I5 Nav-Link:** „Unternehmenswert" erscheint in der Navigationsleiste.
+
+---
+
 ## Hinweise
 
 - Die geseedeten Beispiel-Dokumente (Teaser/Pitchdeck) sind **Metadaten ohne

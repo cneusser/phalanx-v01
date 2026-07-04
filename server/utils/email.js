@@ -136,7 +136,20 @@ const fromAddress = () => process.env.MAIL_FROM || process.env.SMTP_USER;
 // Railway blockiert ausgehende SMTP-Ports (25/465/587) auf Free/Hobby-Plänen.
 // Deshalb bevorzugt die Plattform die Brevo-REST-API, wenn BREVO_API_KEY
 // gesetzt ist. SMTP bleibt als Fallback (lokal / Pro-Plan) erhalten.
-async function sendViaBrevoApi({ to, subject, html }) {
+async function sendViaBrevoApi({ to, subject, html, attachments }) {
+  const payload = {
+    sender: { name: 'CapitalMatch Plattform', email: fromAddress() },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+  };
+  // Anhänge (Base64) — Brevo erwartet [{ content, name }]
+  if (attachments && attachments.length) {
+    payload.attachment = attachments.map(a => ({
+      content: a.encoding === 'base64' ? a.content : Buffer.from(a.content).toString('base64'),
+      name: a.filename,
+    }));
+  }
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -144,12 +157,7 @@ async function sendViaBrevoApi({ to, subject, html }) {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
-    body: JSON.stringify({
-      sender: { name: 'CapitalMatch Plattform', email: fromAddress() },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-    }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     throw new Error(`Brevo API ${res.status}: ${(await res.text()).slice(0, 300)}`);
@@ -157,10 +165,11 @@ async function sendViaBrevoApi({ to, subject, html }) {
 }
 
 // ── Generischer Versand (Brevo-API bevorzugt, sonst SMTP) ───────────────────
-async function sendMail({ to, subject, html }) {
+// Optional: attachments [{ filename, content, encoding, contentType }]
+async function sendMail({ to, subject, html, attachments }) {
   try {
     if (process.env.BREVO_API_KEY) {
-      await sendViaBrevoApi({ to, subject, html });
+      await sendViaBrevoApi({ to, subject, html, attachments });
       console.log(`✉️  E-Mail gesendet (Brevo-API): "${subject}" an ${to}`);
       return true;
     }
@@ -169,7 +178,12 @@ async function sendMail({ to, subject, html }) {
       console.log(`✉️  [Kein BREVO_API_KEY / SMTP nicht konfiguriert] E-Mail NICHT gesendet: "${subject}" an ${to}`);
       return false;
     }
-    await transporter.sendMail({ from: `"CapitalMatch Plattform" <${fromAddress()}>`, to, subject, html });
+    const smtpAttachments = (attachments || []).map(a => ({
+      filename: a.filename,
+      content: a.encoding === 'base64' ? Buffer.from(a.content, 'base64') : a.content,
+      contentType: a.contentType,
+    }));
+    await transporter.sendMail({ from: `"CapitalMatch Plattform" <${fromAddress()}>`, to, subject, html, attachments: smtpAttachments });
     console.log(`✉️  E-Mail gesendet (SMTP): "${subject}" an ${to}`);
     return true;
   } catch (err) {

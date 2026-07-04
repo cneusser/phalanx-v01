@@ -603,6 +603,42 @@ router.get('/billing/events', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: events });
 }));
 
+// ── Sprint 6: Bewertungs-Leads + Multiples-Pflege ─────────────────────────
+router.get('/valuation-leads', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(`
+    SELECT id, lead_email, lead_name, nace_section, results_json, created_at
+    FROM valuations ORDER BY created_at DESC LIMIT 200
+  `);
+  const data = rows.map(r => {
+    let base = null, industry = null, positive = true;
+    try { const res = JSON.parse(r.results_json || '{}'); base = res.corridor ? res.corridor.base : null; industry = res.industryLabel || null; positive = res.positive; } catch {}
+    return { id: r.id, lead_email: r.lead_email, lead_name: r.lead_name, nace_section: r.nace_section, industry, corridor_base: base, positive, created_at: r.created_at };
+  });
+  res.json({ success: true, data });
+}));
+
+router.get('/valuation-multiples', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(`SELECT * FROM valuation_multiples ORDER BY nace_section`);
+  res.json({ success: true, data: rows });
+}));
+
+router.put('/valuation-multiples/:id', ...isAdmin, wrap(async (req, res) => {
+  const { ebit_multiple_min, ebit_multiple_avg, ebit_multiple_max, revenue_multiple_min, revenue_multiple_max, label, source } = req.body;
+  await db.run(`
+    UPDATE valuation_multiples SET
+      ebit_multiple_min = COALESCE(?, ebit_multiple_min),
+      ebit_multiple_avg = COALESCE(?, ebit_multiple_avg),
+      ebit_multiple_max = COALESCE(?, ebit_multiple_max),
+      revenue_multiple_min = COALESCE(?, revenue_multiple_min),
+      revenue_multiple_max = COALESCE(?, revenue_multiple_max),
+      label = COALESCE(?, label), source = COALESCE(?, source), valid_from = now()
+    WHERE id = ?`,
+    [ebit_multiple_min ?? null, ebit_multiple_avg ?? null, ebit_multiple_max ?? null,
+     revenue_multiple_min ?? null, revenue_multiple_max ?? null, label ?? null, source ?? null, req.params.id]);
+  db.auditLog(req.user.id, 'VALUATION_MULTIPLE_UPDATED', 'valuation_multiple', req.params.id, null, req.ip);
+  res.json({ success: true, data: { message: 'Multiple aktualisiert' } });
+}));
+
 // ── Activity + Audit (auditor: nur Lesezugriff hier) ──────────────────────
 router.get('/activity', ...isAuditorOrAdmin, wrap(async (req, res) => {
   const logs = await db.all(`

@@ -10,6 +10,25 @@ Ein sicherer Online-Marktplatz für Unternehmenstransaktionen und Startup-Finanz
 
 ---
 
+## Bewertungsrechner (Sprint 6)
+
+Öffentlicher, anonymer Unternehmenswert-Rechner als Lead-Magnet unter
+`/unternehmenswert` (ohne Login). Zwei Verfahren (Multiplikator + vereinfachtes
+Ertragswertverfahren §199 BewG) liefern einen **Werte-Korridor**
+(konservativ/Basis/optimistisch). Gegen E-Mail + DSGVO-Consent gibt es einen
+**PDF-Report** in Phalanx-CI (Download + Mailversand); der Vorgang wird als
+**Bewertungs-Lead** im Admin (`Admin → Bewertungs-Leads`) erfasst.
+
+Branchen-Multiples liegen als **indikative, pflegbare** Werte in
+`valuation_multiples` (je NACE-Abschnitt, im Admin über
+`GET/PUT /api/admin/valuation-multiples` änderbar). Alle Bewertungen sind
+ausdrücklich **indikativ** (kein IDW-S1-Gutachten, kein Marktpreis).
+
+Feature-Flag: `VALUATION_ENABLED` (Default an; `=0` deaktiviert die Endpoints).
+Öffentlicher Rechner ist rate-limitiert.
+
+---
+
 ## Datenbank (seit Sprint 1: PostgreSQL)
 
 Die App benötigt eine PostgreSQL-Datenbank. Die Verbindung kommt **ausschließlich**

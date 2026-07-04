@@ -112,6 +112,8 @@ export default function Admin() {
 
   // Sprint 4: Deal-CRM (Kanban-Pipeline)
   const [dealCrm, setDealCrm] = useState(null);
+  // Sprint 6: Bewertungs-Leads
+  const [valLeads, setValLeads] = useState([]);
   // Drag & Drop der Pipeline-Karten
   const [dragDeal, setDragDeal] = useState(null);       // { id, deal_status }
   const [dragOverCol, setDragOverCol] = useState(null); // Ziel-Spalte (Hover)
@@ -196,6 +198,10 @@ export default function Admin() {
     } catch (e) { console.error(e); }
   }
 
+  async function loadValLeads() {
+    try { setValLeads(await api.get('/admin/valuation-leads') || []); } catch (e) { console.error(e); }
+  }
+
   async function loadAuditLogs(page = 1) {
     setAuditLoading(true);
     try {
@@ -213,6 +219,7 @@ export default function Admin() {
   useEffect(() => {
     if (activeTab === 'activity') loadActivity();
     if (activeTab === 'audit') loadAuditLogs(1);
+    if (activeTab === 'leads') loadValLeads();
   }, [activeTab]);
 
   useEffect(() => {
@@ -386,13 +393,14 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'leads', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
     projects: 'Projekte',
     ndas:     'NDA-Anfragen',
     users:    'Nutzer',
+    leads:    'Bewertungs-Leads',
     activity: 'Aktivitätslog',
     audit:    'Audit-Trail',
   };
@@ -853,6 +861,36 @@ export default function Admin() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Sprint 6: Bewertungs-Leads Tab */}
+      {activeTab === 'leads' && (
+        <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+          {valLeads.length === 0 ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: C.muted }}>Noch keine Bewertungs-Leads. Sie entstehen, wenn Besucher über den öffentlichen Rechner (<code>/unternehmenswert</code>) einen PDF-Report anfordern.</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+              <thead>
+                <tr style={{ background: C.bg }}>
+                  {['Name', 'E-Mail', 'Branche', 'Wert (Basis)', 'Datum'].map(h => (
+                    <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.75rem' }}>{h.toUpperCase()}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {valLeads.map(l => (
+                  <tr key={l.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: C.text }}>{l.lead_name || '—'}</td>
+                    <td style={{ padding: '0.75rem 1rem' }}><a href={`mailto:${l.lead_email}`} style={{ color: C.navy }}>{l.lead_email}</a></td>
+                    <td style={{ padding: '0.75rem 1rem', color: '#555', fontSize: '0.82rem' }}>{l.industry || l.nace_section}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: C.text }}>{l.positive && l.corridor_base != null ? Math.round(l.corridor_base).toLocaleString('de-DE') + ' €' : 'n. b.'}</td>
+                    <td style={{ padding: '0.75rem 1rem', color: C.muted, fontSize: '0.78rem' }}>{new Date(l.created_at).toLocaleString('de-DE')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 

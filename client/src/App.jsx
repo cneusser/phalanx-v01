@@ -6,6 +6,7 @@ import CapitalMatchLogo from './components/CapitalMatchLogo';
 import Landing from './pages/Landing';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
+import ValuationCalculator from './pages/ValuationCalculator';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -59,6 +60,7 @@ function AppRoutes() {
           <Route path="/" element={<Landing />} />
           <Route path="/projekte" element={<Projects />} />
           <Route path="/projekte/:id" element={<ProjectDetail />} />
+          <Route path="/unternehmenswert" element={<ValuationCalculator />} />
           <Route path="/registrieren" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/passwort-vergessen" element={<ForgotPassword />} />
