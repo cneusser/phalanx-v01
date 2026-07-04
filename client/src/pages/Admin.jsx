@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import GroupedSelect from '../components/GroupedSelect';
 import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES } from '../constants/projectOptions';
-import DealCrmModal, { DEAL_STATUS_LABELS } from '../components/DealCrmModal';
+import DealCrmModal, { DEAL_STATUS_LABELS, DEAL_TRANSITIONS } from '../components/DealCrmModal';
 
 // Auswahllisten je Formularfeld (statt Freitext) — abhängig vom Mandatstyp
 const fieldOptions = (key, mandateType) => {
@@ -112,6 +112,23 @@ export default function Admin() {
 
   // Sprint 4: Deal-CRM (Kanban-Pipeline)
   const [dealCrm, setDealCrm] = useState(null);
+  // Drag & Drop der Pipeline-Karten
+  const [dragDeal, setDragDeal] = useState(null);       // { id, deal_status }
+  const [dragOverCol, setDragOverCol] = useState(null); // Ziel-Spalte (Hover)
+
+  async function moveDeal(project, toStatus) {
+    const from = project.deal_status || 'teaser_live';
+    if (from === toStatus) return;
+    if (!(DEAL_TRANSITIONS[from] || []).includes(toStatus)) {
+      showMsg(`Übergang ${DEAL_STATUS_LABELS[from]} → ${DEAL_STATUS_LABELS[toStatus]} ist nicht erlaubt`, 'error');
+      return;
+    }
+    try {
+      await api.put(`/admin/projects/${project.id}/deal-status`, { deal_status: toStatus });
+      showMsg(`${project.codename}: ${DEAL_STATUS_LABELS[toStatus]} ✓`);
+      loadAll();
+    } catch (e) { showMsg(e.message, 'error'); }
+  }
 
   const [msg, setMsg] = useState({ text: '', type: 'success' });
 
@@ -347,6 +364,18 @@ export default function Admin() {
       const docs = await api.get(`/documents/${projectId}`);
       setUploadState(s => ({ ...s, existingDocs: docs }));
     } catch { /* ignore */ }
+  }
+
+  // Zugangslevel (Einordnung) eines vorhandenen Dokuments ändern
+  async function changeDocLevel(projectId, docId, access_level) {
+    try {
+      await api.patch(`/documents/${projectId}/${docId}`, { access_level });
+      showMsg('Einordnung geändert ✓');
+      const docs = await api.get(`/documents/${projectId}`);
+      setUploadState(s => ({ ...s, existingDocs: docs }));
+    } catch (err) {
+      showMsg('Fehler: ' + err.message, 'error');
+    }
   }
 
   if (loading) return (
@@ -641,11 +670,23 @@ export default function Admin() {
                           <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600 }}>Online §10</div>
                           <div style={{ fontSize: '0.68rem', color: C.muted }}>{n.consent_name}</div>
                           <div style={{ fontSize: '0.68rem', color: '#aaa' }}>{new Date(n.online_consent_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
-                          {n.signed_pdf_path && (
+                          {n.online_consent_at && (
                             <button onClick={async () => {
-                              const token = localStorage.getItem('phalanx_token');
-                              const res = await fetch(`/api/ndas/${n.project_id}/download?user_id=${n.user_id}`, { headers: { Authorization: `Bearer ${token}` } });
-                              if (res.ok) { const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = n.signed_pdf_path; a.click(); }
+                              try {
+                                const token = localStorage.getItem('phalanx_token');
+                                const res = await fetch(`/api/ndas/${n.project_id}/download?user_id=${n.user_id}`, { headers: { Authorization: `Bearer ${token}` } });
+                                if (res.ok) {
+                                  const blob = await res.blob();
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url; a.download = n.signed_pdf_path || `NDA_${n.project_codename || n.project_id}.pdf`; a.click();
+                                  URL.revokeObjectURL(url);
+                                } else {
+                                  let msg = 'Download nicht möglich.';
+                                  try { const d = await res.json(); if (d.error) msg = d.error; } catch { /* ignore */ }
+                                  showMsg(msg, 'error');
+                                }
+                              } catch (e) { showMsg('Download fehlgeschlagen: ' + e.message, 'error'); }
                             }} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', background: '#e0f2fe', color: '#0369a1', border: 'none', padding: '0.2rem 0.5rem', borderRadius: 4, cursor: 'pointer', fontSize: '0.68rem', fontWeight: 600, marginTop: '0.2rem' }}>
                               <Download size={9} /> PDF
                             </button>
@@ -676,38 +717,66 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Sprint 4: Pipeline (Kanban-CRM) — Status kommt aus dem Zustandsautomaten */}
+      {/* Sprint 4: Pipeline (Kanban-CRM) — Status aus dem Zustandsautomaten, per Drag & Drop verschiebbar */}
       {activeTab === 'pipeline' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.75rem', alignItems: 'start' }}>
-          {['draft', 'teaser_live', 'in_diligence', 'loi', 'closed', 'withdrawn'].map(status => {
-            const deals = projects.filter(p => (p.deal_status || 'teaser_live') === status);
-            return (
-              <div key={status} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.6rem' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.7rem', color: C.navy, letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{DEAL_STATUS_LABELS[status].toUpperCase()}</span>
-                  <span style={{ color: C.muted }}>{deals.length}</span>
-                </div>
-                {deals.map(p => (
-                  <div
-                    key={p.id}
-                    onClick={() => setDealCrm(p)}
-                    style={{
-                      background: '#fff', border: `1px solid ${C.border}`, borderRadius: 6,
-                      padding: '0.6rem', marginBottom: '0.5rem', cursor: 'pointer',
-                      boxShadow: '0 1px 2px rgba(13,27,54,0.05)',
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.text, marginBottom: '0.2rem' }}>{p.codename}</div>
-                    <div style={{ fontSize: '0.68rem', color: C.muted }}>
-                      {p.mandate_type === 'fundraising' ? 'Fundraising' : 'M&A'} · {p.nda_count} Interessent{p.nda_count !== 1 ? 'en' : ''} · {p.approved_count} freigegeben
-                    </div>
+        <>
+          <div style={{ fontSize: '0.78rem', color: C.muted, marginBottom: '0.75rem' }}>
+            Karten per Drag & Drop zwischen den Spalten ziehen, um den Deal-Status zu ändern (nur erlaubte Übergänge). Klick öffnet das Deal-CRM.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.75rem', alignItems: 'start' }}>
+            {['draft', 'teaser_live', 'in_diligence', 'loi', 'closed', 'withdrawn'].map(status => {
+              const deals = projects.filter(p => (p.deal_status || 'teaser_live') === status);
+              const isValidTarget = dragDeal && (DEAL_TRANSITIONS[dragDeal.deal_status] || []).includes(status);
+              const isOver = dragOverCol === status;
+              return (
+                <div
+                  key={status}
+                  onDragOver={(e) => { if (isValidTarget) { e.preventDefault(); setDragOverCol(status); } }}
+                  onDragLeave={() => setDragOverCol(prev => prev === status ? null : prev)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragDeal && isValidTarget) {
+                      const proj = projects.find(p => p.id === dragDeal.id);
+                      if (proj) moveDeal(proj, status);
+                    }
+                    setDragDeal(null); setDragOverCol(null);
+                  }}
+                  style={{
+                    background: isOver ? '#eef6ff' : C.bg,
+                    border: `1px ${dragDeal ? (isValidTarget ? 'dashed' : 'solid') : 'solid'} ${isOver ? C.accent : isValidTarget ? '#93c5fd' : C.border}`,
+                    borderRadius: 6, padding: '0.6rem', minHeight: 80, transition: 'background 0.12s, border-color 0.12s',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: '0.7rem', color: C.navy, letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{DEAL_STATUS_LABELS[status].toUpperCase()}</span>
+                    <span style={{ color: C.muted }}>{deals.length}</span>
                   </div>
-                ))}
-                {deals.length === 0 && <div style={{ fontSize: '0.7rem', color: '#bbb', textAlign: 'center', padding: '0.5rem 0' }}>—</div>}
-              </div>
-            );
-          })}
-        </div>
+                  {deals.map(p => (
+                    <div
+                      key={p.id}
+                      draggable
+                      onDragStart={() => setDragDeal({ id: p.id, deal_status: p.deal_status || 'teaser_live' })}
+                      onDragEnd={() => { setDragDeal(null); setDragOverCol(null); }}
+                      onClick={() => setDealCrm(p)}
+                      style={{
+                        background: '#fff', border: `1px solid ${C.border}`, borderRadius: 6,
+                        padding: '0.6rem', marginBottom: '0.5rem', cursor: 'grab',
+                        boxShadow: '0 1px 2px rgba(13,27,54,0.05)',
+                        opacity: dragDeal && dragDeal.id === p.id ? 0.5 : 1,
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.text, marginBottom: '0.2rem' }}>{p.codename}</div>
+                      <div style={{ fontSize: '0.68rem', color: C.muted }}>
+                        {p.mandate_type === 'fundraising' ? 'Fundraising' : 'M&A'} · {p.nda_count} Interessent{p.nda_count !== 1 ? 'en' : ''} · {p.approved_count} freigegeben
+                      </div>
+                    </div>
+                  ))}
+                  {deals.length === 0 && <div style={{ fontSize: '0.7rem', color: '#bbb', textAlign: 'center', padding: '0.5rem 0' }}>—</div>}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {/* Users Tab */}
@@ -1145,18 +1214,28 @@ export default function Admin() {
               <div>
                 <div style={{ fontSize: '0.73rem', color: C.muted, fontWeight: 700, letterSpacing: '0.07em', marginBottom: '0.5rem' }}>VORHANDENE DOKUMENTE</div>
                 {uploadState.existingDocs.map(doc => (
-                  <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.75rem', background: C.bg, borderRadius: 6, marginBottom: '0.35rem', border: `1px solid ${C.border}` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                  <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.75rem', background: C.bg, borderRadius: 6, marginBottom: '0.35rem', border: `1px solid ${C.border}`, gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1 }}>
                       <FileText size={13} color={C.navy} />
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: '0.8rem', color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.filename}</div>
                         <div style={{ fontSize: '0.68rem', color: C.muted }}>
-                          {doc.access_level === 'public' ? 'Öffentlich' : doc.access_level === 'nda' ? 'NDA' : 'Freigegeben'}
-                          {doc.description ? ` · ${doc.description}` : ''}
-                          {doc.file_size ? ` · ${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : ''}
+                          {doc.description ? `${doc.description} · ` : ''}
+                          {doc.file_size ? `${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : ''}
                         </div>
                       </div>
                     </div>
+                    {/* Zugangslevel nachträglich änderbar */}
+                    <select
+                      value={doc.access_level}
+                      onChange={(e) => changeDocLevel(uploadProject.id, doc.id, e.target.value)}
+                      title="Einordnung ändern"
+                      style={{ fontSize: '0.7rem', padding: '0.25rem 0.4rem', border: `1px solid ${C.border}`, borderRadius: 5, background: '#fff', cursor: 'pointer', flexShrink: 0 }}
+                    >
+                      <option value="public">Öffentlich</option>
+                      <option value="nda">NDA</option>
+                      <option value="approved">Freigegeben</option>
+                    </select>
                     <button onClick={() => deleteDocument(uploadProject.id, doc.id, doc.filename)} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.3rem 0.5rem', borderRadius: 5, cursor: 'pointer', flexShrink: 0 }}>
                       <Trash2 size={12} />
                     </button>

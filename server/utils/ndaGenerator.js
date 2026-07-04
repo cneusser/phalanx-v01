@@ -13,7 +13,14 @@ const GRAY  = '#555555';
 const LIGHT = '#EDF4FA';
 const BLACK = '#1A1A1A';
 
-const NDA_DIR = path.join(__dirname, '../data/ndas');
+// Persistenter Speicher: bevorzugt das Railway-Volume (RAILWAY_VOLUME_MOUNT_PATH
+// wird automatisch gesetzt, sobald ein Volume am Service hängt). Sonst ENV
+// NDA_DIR, sonst lokaler Ordner (Entwicklung). Verhindert, dass signierte
+// NDA-PDFs bei jedem Deploy verloren gehen.
+const NDA_DIR = process.env.NDA_DIR
+  || (process.env.RAILWAY_VOLUME_MOUNT_PATH
+        ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'ndas')
+        : path.join(__dirname, '../data/ndas'));
 if (!fs.existsSync(NDA_DIR)) fs.mkdirSync(NDA_DIR, { recursive: true });
 
 // Standard-Vorlage als Fallback (DB-Vorlage hat Vorrang, siehe nda_templates)

@@ -261,16 +261,47 @@ router.get('/:projectId/download', authenticate, wrap(async (req, res) => {
     : req.user.id;
 
   const nda = await db.get('SELECT * FROM nda_requests WHERE user_id = ? AND project_id = ?', [targetUserId, req.params.projectId]);
-  if (!nda || !nda.signed_pdf_path) {
+  if (!nda || !nda.online_consent_at) {
     return res.status(404).json({ success: false, error: 'Kein unterzeichnetes NDA-Dokument verfügbar' });
   }
 
-  const filePath = path.join(NDA_DIR, nda.signed_pdf_path);
-  if (!require('fs').existsSync(filePath)) {
-    return res.status(404).json({ success: false, error: 'PDF-Datei nicht gefunden' });
+  // Bevorzugt die gespeicherte Datei ausliefern …
+  if (nda.signed_pdf_path) {
+    const filePath = path.join(NDA_DIR, nda.signed_pdf_path);
+    if (fs.existsSync(filePath)) {
+      return res.download(filePath, nda.signed_pdf_path);
+    }
   }
 
-  res.download(filePath, nda.signed_pdf_path);
+  // … sonst das signierte PDF aus den gespeicherten Signaturdaten neu
+  // erzeugen (robust gegen verlorene Dateien; identischer Inhalt).
+  const buyer = await db.get('SELECT * FROM users WHERE id = ?', [targetUserId]);
+  const project = await db.get('SELECT * FROM projects WHERE id = ?', [req.params.projectId]);
+  const template = await loadNdaTemplate();
+  const pdfBuffer = await generateNDA({
+    buyer: {
+      id: buyer.id,
+      first_name: [buyer.title, buyer.first_name].filter(Boolean).join(' '),
+      last_name: buyer.last_name,
+      company: buyer.company || '',
+      position: buyer.position || '',
+      email: buyer.email,
+      address: buyer.street || '',
+      city: [buyer.postal_code, buyer.city].filter(Boolean).join(' '),
+      country: 'Deutschland',
+    },
+    project: { codename: project.codename, industry: project.industry, region: project.region },
+    template,
+    signature: {
+      name: nda.consent_name || `${buyer.first_name} ${buyer.last_name}`,
+      company: buyer.company || '',
+      date: nda.online_consent_at,
+      ip: nda.consent_ip || null,
+    },
+  });
+  const filename = nda.signed_pdf_path || `NDA_${project.codename}_${buyer.id}.pdf`;
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"` });
+  res.send(pdfBuffer);
 }));
 
 module.exports = router;

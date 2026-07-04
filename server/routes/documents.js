@@ -66,9 +66,11 @@ async function streamDocument(res, doc, user, projectId, via) {
 const router = express.Router();
 const isAdmin = [authenticate, requireRole('super_admin', 'advisor')];
 
-// ── Upload-Verzeichnis ──────────────────────────────────────
+// ── Upload-Verzeichnis (persistent: Railway-Volume bevorzugt) ──────────────
 const UPLOAD_DIR = process.env.UPLOAD_DIR
-  || path.join(__dirname, '../../uploads');
+  || (process.env.RAILWAY_VOLUME_MOUNT_PATH
+        ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads')
+        : path.join(__dirname, '../../uploads'));
 
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -312,6 +314,28 @@ router.delete('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
   db.auditLog(req.user.id, 'DELETE_DOCUMENT', 'document', docId, doc.filename, req.ip);
 
   res.json({ success: true, data: { message: 'Dokument gelöscht' } });
+}));
+
+// ── PATCH /api/documents/:projectId/:docId  (Admin: Einordnung ändern) ─────
+// Zugangslevel (public/nda/approved) und/oder Bezeichnung nachträglich anpassen.
+// Kategorie (teaser/im/dataroom) wird passend zum access_level mitgeführt.
+router.patch('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
+  const { projectId, docId } = req.params;
+  const { access_level, description } = req.body;
+  const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
+  if (!doc) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
+
+  const levelToCategory = { public: 'teaser', nda: 'im', approved: 'dataroom' };
+  const newLevel = ['public', 'nda', 'approved'].includes(access_level) ? access_level : doc.access_level;
+  const newCategory = levelToCategory[newLevel] || doc.category;
+
+  await db.run(
+    `UPDATE documents SET access_level = ?, category = ?, description = COALESCE(?, description) WHERE id = ?`,
+    [newLevel, newCategory, description ?? null, docId]
+  );
+  db.auditLog(req.user.id, 'UPDATE_DOCUMENT', 'document', docId,
+    `${doc.filename}: ${doc.access_level} → ${newLevel}`, req.ip);
+  res.json({ success: true, data: { message: 'Dokument aktualisiert', access_level: newLevel, category: newCategory } });
 }));
 
 module.exports = router;

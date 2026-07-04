@@ -3,7 +3,7 @@ const db = require('../db/database');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'phalanx-secret';
 
-const USER_FIELDS = 'id, tenant_id, email, role, first_name, last_name, company, is_active';
+const USER_FIELDS = 'id, tenant_id, email, role, salutation, title, first_name, last_name, company, is_active';
 
 // Sprint 5 (RLS): Nutzer-Lookup im Kontext des über die Subdomain aufgelösten
 // Tenants — sonst wären Nutzer anderer Mandanten unsichtbar (fail closed).

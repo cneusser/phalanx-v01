@@ -130,7 +130,7 @@ export default function Navbar() {
                 }}
               >
                 <User size={15} />
-                <span style={{ fontSize: '0.85rem' }}>{user.first_name}</span>
+                <span style={{ fontSize: '0.85rem' }}>{[user.title, user.first_name, user.last_name].filter(Boolean).join(' ')}</span>
                 <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>▾</span>
               </button>
 
@@ -142,7 +142,7 @@ export default function Navbar() {
                   minWidth: 210, overflow: 'hidden', zIndex: 200,
                 }}>
                   <div style={{ padding: '0.8rem 1rem', borderBottom: '1px solid #eef2f7', background: C.xLight }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: C.navy }}>{user.first_name} {user.last_name}</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: C.navy }}>{[user.salutation, user.title, user.first_name, user.last_name].filter(Boolean).join(' ')}</div>
                     <div style={{ fontSize: '0.75rem', color: C.gray }}>{user.email}</div>
                     <div style={{
                       display: 'inline-block', marginTop: '0.3rem',

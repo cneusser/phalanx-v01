@@ -23,9 +23,10 @@ async function canManageProject(user, projectId) {
   return !!member;
 }
 
-// ── Projektbild-Upload (Teaser-Ebene) ────────────────────────────────────────
-const IMAGE_DIR = process.env.UPLOAD_DIR
-  ? path.join(process.env.UPLOAD_DIR, 'project_images')
+// ── Projektbild-Upload (Teaser-Ebene, persistent: Railway-Volume bevorzugt) ──
+const IMAGE_BASE = process.env.UPLOAD_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH;
+const IMAGE_DIR = IMAGE_BASE
+  ? path.join(IMAGE_BASE, 'project_images')
   : path.join(__dirname, '../../uploads/project_images');
 if (!fs.existsSync(IMAGE_DIR)) fs.mkdirSync(IMAGE_DIR, { recursive: true });
 
