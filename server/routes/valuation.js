@@ -21,15 +21,15 @@ const valLimiter = rateLimit({
   message: { success: false, error: 'Zu viele Bewertungsanfragen — bitte in einigen Minuten erneut versuchen.' },
 });
 
-// NACE-Abschnittsbuchstaben aus der Branchen-Auswahl ableiten (z. B. "C28 – …" → "C")
-function naceSection(industry) {
-  const m = String(industry || '').trim().match(/^([A-Z])/);
-  return m ? m[1] : 'X';
+// Branchen-Key aus der Auswahl ableiten (Slug; Fallback 'sonstige')
+function industryKey(industry) {
+  const k = String(industry || '').trim().toLowerCase();
+  return k || 'sonstige';
 }
 
-async function loadMultiple(section) {
-  return (await db.get(`SELECT * FROM valuation_multiples WHERE nace_section = ?`, [section]))
-      || (await db.get(`SELECT * FROM valuation_multiples WHERE nace_section = 'X'`));
+async function loadMultiple(key) {
+  return (await db.get(`SELECT * FROM valuation_multiples WHERE industry_key = ?`, [key]))
+      || (await db.get(`SELECT * FROM valuation_multiples WHERE industry_key = 'sonstige'`));
 }
 
 // Eingaben aus dem Request normalisieren
@@ -51,12 +51,12 @@ function parseInput(body) {
 router.post('/quick', valLimiter, optionalAuth, wrap(async (req, res) => {
   if (!enabled()) return res.status(404).json({ success: false, error: 'Bewertung derzeit nicht verfügbar' });
   const input = parseInput(req.body);
-  const section = naceSection(input.industry);
-  const multiple = await loadMultiple(section);
+  const key = industryKey(input.industry);
+  const multiple = await loadMultiple(key);
   if (!multiple) return res.status(500).json({ success: false, error: 'Bewertungsgrundlagen nicht verfügbar' });
   const result = evaluate(input, multiple);
   db.activityLog(req.user ? req.user.id : null, 'VALUATION_QUICK', 'valuation', null, req.ip);
-  res.json({ success: true, data: { result, nace_section: section } });
+  res.json({ success: true, data: { result, industry_key: key } });
 }));
 
 // ── POST /report — Lead + PDF-Report (E-Mail + DSGVO-Consent) ──────────────
@@ -67,8 +67,8 @@ router.post('/report', valLimiter, optionalAuth, wrap(async (req, res) => {
   if (!privacy_consent) return res.status(400).json({ success: false, error: 'Bitte stimmen Sie der Datenschutzerklärung zu' });
 
   const input = parseInput(req.body);
-  const section = naceSection(input.industry);
-  const multiple = await loadMultiple(section);
+  const key = industryKey(input.industry);
+  const multiple = await loadMultiple(key);
   const result = evaluate(input, multiple);
 
   // Lead speichern (tenant-bewusst: Default-Tenant bzw. Subdomain-Tenant)
@@ -76,7 +76,7 @@ router.post('/report', valLimiter, optionalAuth, wrap(async (req, res) => {
   await db.withTenant(tenantId, (t) => t.insert(
     `INSERT INTO valuations (tenant_id, lead_email, lead_name, user_id, nace_section, inputs_json, results_json, privacy_consent, ip)
      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-    [tenantId, email.toLowerCase(), name || null, req.user ? req.user.id : null, section,
+    [tenantId, email.toLowerCase(), name || null, req.user ? req.user.id : null, key,
      JSON.stringify(input), JSON.stringify(result), req.ip]
   ));
 
@@ -96,7 +96,7 @@ router.post('/report', valLimiter, optionalAuth, wrap(async (req, res) => {
   sendMail({
     to: process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de',
     subject: `[CapitalMatch] Neuer Bewertungs-Lead: ${name || email}`,
-    html: `<p>Neuer Bewertungs-Lead über den Quick-Check:</p><p>${name || '—'} · <a href="mailto:${email}">${email}</a>${company ? ' · ' + company : ''}<br/>Branche: ${result.industryLabel || section} · Korridor (Basis): ${result.positive ? Math.round(result.corridor.base).toLocaleString('de-DE') + ' €' : 'n. b.'}</p>`,
+    html: `<p>Neuer Bewertungs-Lead über den Quick-Check:</p><p>${name || '—'} · <a href="mailto:${email}">${email}</a>${company ? ' · ' + company : ''}<br/>Branche: ${result.industryLabel || key} · Korridor (Basis): ${result.positive ? Math.round(result.corridor.base).toLocaleString('de-DE') + ' €' : 'n. b.'}</p>`,
   }).catch(() => {});
 
   db.auditLog(req.user ? req.user.id : null, 'VALUATION_LEAD', 'valuation', null, email.toLowerCase(), req.ip);

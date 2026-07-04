@@ -618,23 +618,28 @@ router.get('/valuation-leads', ...isAdmin, wrap(async (req, res) => {
 }));
 
 router.get('/valuation-multiples', ...isAdmin, wrap(async (req, res) => {
-  const rows = await db.all(`SELECT * FROM valuation_multiples ORDER BY nace_section`);
+  const rows = await db.all(`SELECT * FROM valuation_multiples ORDER BY sort_order, label`);
   res.json({ success: true, data: rows });
 }));
 
+// Pflegbare Multiples-Zeile aktualisieren (Branche × Größenklasse, DUB-Struktur).
 router.put('/valuation-multiples/:id', ...isAdmin, wrap(async (req, res) => {
-  const { ebit_multiple_min, ebit_multiple_avg, ebit_multiple_max, revenue_multiple_min, revenue_multiple_max, label, source } = req.body;
-  await db.run(`
-    UPDATE valuation_multiples SET
-      ebit_multiple_min = COALESCE(?, ebit_multiple_min),
-      ebit_multiple_avg = COALESCE(?, ebit_multiple_avg),
-      ebit_multiple_max = COALESCE(?, ebit_multiple_max),
-      revenue_multiple_min = COALESCE(?, revenue_multiple_min),
-      revenue_multiple_max = COALESCE(?, revenue_multiple_max),
-      label = COALESCE(?, label), source = COALESCE(?, source), valid_from = now()
-    WHERE id = ?`,
-    [ebit_multiple_min ?? null, ebit_multiple_avg ?? null, ebit_multiple_max ?? null,
-     revenue_multiple_min ?? null, revenue_multiple_max ?? null, label ?? null, source ?? null, req.params.id]);
+  const FIELDS = [
+    'label', 'source',
+    'micro_ebit_min', 'micro_ebit_max',
+    'small_ebit_min', 'small_ebit_max',
+    'mid_ebit_min', 'mid_ebit_max',
+    'revenue_multiple_min', 'revenue_multiple_max',
+  ];
+  const sets = [], vals = [];
+  for (const f of FIELDS) {
+    if (req.body[f] !== undefined && req.body[f] !== null && req.body[f] !== '') {
+      sets.push(`${f} = ?`); vals.push(req.body[f]);
+    }
+  }
+  if (!sets.length) return res.status(400).json({ success: false, error: 'Keine Änderungen übergeben' });
+  vals.push(req.params.id);
+  await db.run(`UPDATE valuation_multiples SET ${sets.join(', ')}, valid_from = now() WHERE id = ?`, vals);
   db.auditLog(req.user.id, 'VALUATION_MULTIPLE_UPDATED', 'valuation_multiple', req.params.id, null, req.ip);
   res.json({ success: true, data: { message: 'Multiple aktualisiert' } });
 }));

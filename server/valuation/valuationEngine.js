@@ -49,6 +49,19 @@ function round(n) {
   return Math.round(clampNum(n));
 }
 
+// Größenklasse aus Ø-Umsatz ableiten (DUB-Logik):
+//   Micro < 5 Mio. €, Small 5–50 Mio. €, Mid > 50 Mio. €.
+// Liefert das passende EBIT-Band der Multiples-Zeile.
+function pickSizeBand(avgRevenue, multiple) {
+  let key, label;
+  if (avgRevenue > 50e6) { key = 'mid'; label = 'Mid-Cap (> 50 Mio. € Umsatz)'; }
+  else if (avgRevenue >= 5e6) { key = 'small'; label = 'Small-Cap (5–50 Mio. € Umsatz)'; }
+  else { key = 'micro'; label = 'Micro-Cap (< 5 Mio. € Umsatz)'; }
+  const min = clampNum(multiple[`${key}_ebit_min`]);
+  const max = clampNum(multiple[`${key}_ebit_max`]);
+  return { key, label, min, max };
+}
+
 /**
  * @param {object} input
  *   revenues: [z1,z2,z3]  Umsatz der letzten Jahre
@@ -71,11 +84,14 @@ function evaluate(input, multiple) {
   const oneOffs = clampNum(input.oneOffs);                   // Sondereffekte → abziehen
   const adjustedEbit = rawAvgEbit - ownerAdj - oneOffs;
 
+  // Größenklasse (Micro/Small/Mid) aus Ø-Umsatz → EBIT-Band der Klasse
+  const sizeBand = pickSizeBand(avgRevenue, multiple);
+
   // Multiplikatorverfahren mit Qualitätsposition im Band
   const pos = qualityPosition(input.quality);
-  const emMin = clampNum(multiple.ebit_multiple_min);
-  const emMax = clampNum(multiple.ebit_multiple_max);
-  const emAvg = clampNum(multiple.ebit_multiple_avg);
+  const emMin = sizeBand.min;
+  const emMax = sizeBand.max;
+  const emAvg = Math.round(((emMin + emMax) / 2) * 100) / 100;
   const chosenMultiple = emMin + (emMax - emMin) * pos;
 
   const ebitValueLow = adjustedEbit * emMin;
@@ -115,9 +131,11 @@ function evaluate(input, multiple) {
       oneOffs: round(oneOffs),
       qualityPosition: Math.round(pos * 100) / 100,
     },
+    sizeBand: { key: sizeBand.key, label: sizeBand.label },
     methods: {
       multiple: {
         band: { min: emMin, avg: emAvg, max: emMax },
+        sizeBandLabel: sizeBand.label,
         chosenMultiple: Math.round(chosenMultiple * 100) / 100,
         valueLow: round(ebitValueLow),
         valueMid: round(ebitValueMid),

@@ -19,10 +19,16 @@ Ertragswertverfahren §199 BewG) liefern einen **Werte-Korridor**
 **PDF-Report** in Phalanx-CI (Download + Mailversand); der Vorgang wird als
 **Bewertungs-Lead** im Admin (`Admin → Bewertungs-Leads`) erfasst.
 
-Branchen-Multiples liegen als **indikative, pflegbare** Werte in
-`valuation_multiples` (je NACE-Abschnitt, im Admin über
-`GET/PUT /api/admin/valuation-multiples` änderbar). Alle Bewertungen sind
+Branchen-Multiples liegen als **pflegbare** Werte in `valuation_multiples` — je
+Branche (20 Kategorien) und **Größenklasse** (Micro < 5 Mio. €, Small 5–50 Mio. €,
+Mid > 50 Mio. € Umsatz) ein EBIT-Multiple von–bis. Die Engine wählt die
+Größenklasse automatisch anhand des Ø-Umsatzes. Quelle der Startwerte:
+**DUB KMU-Multiples (Q2/2026)**. Pflege im Admin über den Tab **„Multiples"**
+bzw. `GET/PUT /api/admin/valuation-multiples`. Alle Bewertungen bleiben
 ausdrücklich **indikativ** (kein IDW-S1-Gutachten, kein Marktpreis).
+
+Der PDF-Report ist im Phalanx-Briefbogen gehalten (Logo, Tagline, 1,5-zeilig,
+Blocksatz) mit werblichem Abschluss-Block und Kontaktangaben.
 
 Feature-Flag: `VALUATION_ENABLED` (Default an; `=0` deaktiviert die Endpoints).
 Öffentlicher Rechner ist rate-limitiert.

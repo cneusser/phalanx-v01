@@ -156,6 +156,13 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
 - [ ] **I4 Lead im Admin:** Admin → Tab „Bewertungs-Leads" → der Lead erscheint
   mit Name, E-Mail, Branche und Basiswert.
 - [ ] **I5 Nav-Link:** „Unternehmenswert" erscheint in der Navigationsleiste.
+- [ ] **I6 Größenklasse:** Gleiche Branche, aber Ø-Umsatz < 5 Mio. € vs. 5–50 Mio. €
+  vs. > 50 Mio. € → im Ergebnis erscheint die jeweilige Größenklasse (Micro/Small/
+  Mid) und ein anderes Multiple-Band.
+- [ ] **I7 Multiples pflegen:** Admin → Tab „Multiples" → Zahl ändern (Feld färbt
+  sich, „Speichern" aktiv) → speichern → neue Bewertung nutzt den geänderten Wert.
+- [ ] **I8 PDF-Optik:** Report zeigt Phalanx-Logo, Tagline, Größenklasse, werblichen
+  Abschluss-Block mit Kontakt und Quelle „DUB KMU-Multiples (Q2/2026)".
 
 ---
 

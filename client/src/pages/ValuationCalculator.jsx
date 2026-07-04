@@ -2,13 +2,36 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { Calculator, TrendingUp, Download, ChevronRight, AlertTriangle } from 'lucide-react';
-import GroupedSelect from '../components/GroupedSelect';
-import { NACE_INDUSTRIES } from '../constants/projectOptions';
 
 const C = {
   navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2',
   bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B',
 };
+
+// Branchen (DUB KMU-Multiples-Struktur) — key muss zu valuation_multiples.industry_key passen
+const INDUSTRIES = [
+  ['maschinenbau', 'Maschinen- und Anlagenbau'],
+  ['automotive', 'Fahrzeugbau & Automotive'],
+  ['elektrotechnik', 'Elektrotechnik & Elektronik'],
+  ['metall', 'Metallverarbeitung & Fertigungstechnik'],
+  ['chemie', 'Chemie, Kunststoffe & Verpackung'],
+  ['medizintechnik', 'Medizintechnik & Life Sciences'],
+  ['software', 'Software & Digitale Plattformen'],
+  ['it_services', 'IT-Services & Systemhäuser'],
+  ['medien', 'Medien, Marketing & Agenturen'],
+  ['telekom', 'Telekommunikation & Infrastruktur'],
+  ['gesundheit', 'Gesundheitswesen: Pflege & Dienstleister'],
+  ['b2b_dienste', 'Unternehmensnahe Dienstleistungen (B2B)'],
+  ['bau', 'Bauhaupt- & Baunebengewerbe (Handwerk)'],
+  ['immobilien', 'Immobilien-Dienstl. & Facility Mgmt.'],
+  ['finanz', 'Finanzdienstleistungen & Vers.-Makler'],
+  ['nahrung', 'Nahrungs- & Genussmittel'],
+  ['konsum', 'Konsumgüter (Non-Food)'],
+  ['ecommerce', 'Handel: E-Commerce & Versand'],
+  ['handel', 'Handel: Groß- & Einzelhandel (Stationär)'],
+  ['logistik', 'Transport, Logistik & Spedition'],
+  ['sonstige', 'Sonstige / branchenübergreifend'],
+];
 const INPUT = { width: '100%', padding: '0.6rem 0.75rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' };
 const LABEL = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' };
 
@@ -103,7 +126,12 @@ export default function ValuationCalculator() {
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', fontWeight: 700, color: C.navy, marginBottom: '1.25rem' }}><Calculator size={18} /> Ihre Angaben</h2>
 
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-            <div><label style={LABEL}>Branche (NACE) *</label><GroupedSelect value={industry} onChange={e => setIndustry(e.target.value)} groups={NACE_INDUSTRIES} style={INPUT} /></div>
+            <div><label style={LABEL}>Branche *</label>
+              <select value={industry} onChange={e => setIndustry(e.target.value)} style={INPUT}>
+                <option value="">Bitte wählen …</option>
+                {INDUSTRIES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </div>
             <div><label style={LABEL}>Rechtsform</label><input value={legalForm} onChange={e => setLegalForm(e.target.value)} placeholder="z. B. GmbH" style={INPUT} /></div>
             <div><label style={LABEL}>Gründungsjahr</label><input value={foundingYear} onChange={e => setFoundingYear(e.target.value)} placeholder="2005" style={INPUT} /></div>
           </div>
@@ -157,7 +185,7 @@ export default function ValuationCalculator() {
         {result && (
           <div id="val-result" style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: '1.75rem', marginBottom: '1.5rem' }}>
             <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: C.navy, marginBottom: '0.4rem' }}>Ihr indikativer Werte-Korridor</h2>
-            <p style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '1.25rem' }}>Enterprise Value · Branche: {result.industryLabel || '—'}</p>
+            <p style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '1.25rem' }}>Enterprise Value · Branche: {result.industryLabel || '—'}{result.sizeBand ? ` · ${result.sizeBand.label}` : ''}</p>
 
             {result.positive ? (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>

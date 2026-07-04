@@ -114,6 +114,11 @@ export default function Admin() {
   const [dealCrm, setDealCrm] = useState(null);
   // Sprint 6: Bewertungs-Leads
   const [valLeads, setValLeads] = useState([]);
+  // Sprint 6.1: Multiples-Pflege (Branche × Größenklasse)
+  const [valMultiples, setValMultiples] = useState([]);
+  const [multEdits, setMultEdits] = useState({});   // { id: { feld: wert } }
+  const [multSaving, setMultSaving] = useState(null); // id, das gerade speichert
+  const [multMsg, setMultMsg] = useState('');
   // Drag & Drop der Pipeline-Karten
   const [dragDeal, setDragDeal] = useState(null);       // { id, deal_status }
   const [dragOverCol, setDragOverCol] = useState(null); // Ziel-Spalte (Hover)
@@ -202,6 +207,30 @@ export default function Admin() {
     try { setValLeads(await api.get('/admin/valuation-leads') || []); } catch (e) { console.error(e); }
   }
 
+  async function loadValMultiples() {
+    try { setValMultiples(await api.get('/admin/valuation-multiples') || []); setMultEdits({}); } catch (e) { console.error(e); }
+  }
+
+  const MULT_FIELDS = ['micro_ebit_min', 'micro_ebit_max', 'small_ebit_min', 'small_ebit_max', 'mid_ebit_min', 'mid_ebit_max', 'revenue_multiple_min', 'revenue_multiple_max'];
+
+  function editMult(id, field, value) {
+    setMultEdits(s => ({ ...s, [id]: { ...(s[id] || {}), [field]: value } }));
+  }
+
+  async function saveMult(row) {
+    const changes = multEdits[row.id];
+    if (!changes || !Object.keys(changes).length) return;
+    setMultSaving(row.id); setMultMsg('');
+    try {
+      const body = {};
+      for (const f of MULT_FIELDS) if (changes[f] !== undefined) body[f] = parseFloat(String(changes[f]).replace(',', '.'));
+      await api.put(`/admin/valuation-multiples/${row.id}`, body);
+      setMultMsg(`„${row.label}" gespeichert.`);
+      await loadValMultiples();
+    } catch (e) { setMultMsg('Fehler: ' + e.message); }
+    finally { setMultSaving(null); }
+  }
+
   async function loadAuditLogs(page = 1) {
     setAuditLoading(true);
     try {
@@ -220,6 +249,7 @@ export default function Admin() {
     if (activeTab === 'activity') loadActivity();
     if (activeTab === 'audit') loadAuditLogs(1);
     if (activeTab === 'leads') loadValLeads();
+    if (activeTab === 'multiples') loadValMultiples();
   }, [activeTab]);
 
   useEffect(() => {
@@ -393,7 +423,7 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'leads', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'leads', 'multiples', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
@@ -401,6 +431,7 @@ export default function Admin() {
     ndas:     'NDA-Anfragen',
     users:    'Nutzer',
     leads:    'Bewertungs-Leads',
+    multiples: 'Multiples',
     activity: 'Aktivitätslog',
     audit:    'Audit-Trail',
   };
@@ -891,6 +922,65 @@ export default function Admin() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* Sprint 6.1: Multiples-Pflege (Branche × Größenklasse) */}
+      {activeTab === 'multiples' && (
+        <div>
+          <div style={{ background: '#EDF4FA', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.9rem 1.1rem', marginBottom: '1rem', fontSize: '0.82rem', color: '#334155', lineHeight: 1.5 }}>
+            EBIT-Multiples je Branche und Größenklasse (Micro &lt; 5 Mio. €, Small 5–50 Mio. €, Mid &gt; 50 Mio. € Umsatz). Der Rechner wählt die Größenklasse automatisch anhand des Ø-Umsatzes. Werte als „von–bis". Quelle: <strong>DUB KMU-Multiples (Q2/2026)</strong>. Änderungen wirken sofort auf neue Bewertungen.
+          </div>
+          {multMsg && <div style={{ background: multMsg.startsWith('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 6, padding: '0.55rem 0.9rem', marginBottom: '0.85rem', fontSize: '0.82rem', color: multMsg.startsWith('Fehler') ? '#991b1b' : '#065f46' }}>{multMsg}</div>}
+          <div style={{ background: C.card, borderRadius: 6, overflowX: 'auto', border: `1px solid ${C.border}` }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: 820 }}>
+              <thead>
+                <tr style={{ background: C.bg }}>
+                  <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.72rem' }}>BRANCHE</th>
+                  {['MICRO', 'SMALL', 'MID'].map(h => (
+                    <th key={h} colSpan={2} style={{ padding: '0.6rem 0.4rem', textAlign: 'center', fontWeight: 600, color: C.navy, fontSize: '0.72rem', borderLeft: `1px solid ${C.border}` }}>{h}</th>
+                  ))}
+                  <th colSpan={2} style={{ padding: '0.6rem 0.4rem', textAlign: 'center', fontWeight: 600, color: C.navy, fontSize: '0.72rem', borderLeft: `1px solid ${C.border}` }}>UMSATZ-×</th>
+                  <th style={{ padding: '0.6rem 0.4rem' }}></th>
+                </tr>
+                <tr style={{ background: C.bg }}>
+                  <th style={{ padding: '0 0.8rem 0.5rem', textAlign: 'left', fontWeight: 400, color: C.muted, fontSize: '0.66rem' }}>EBIT-Multiple (von–bis)</th>
+                  {['von', 'bis', 'von', 'bis', 'von', 'bis', 'von', 'bis'].map((h, i) => (
+                    <th key={i} style={{ padding: '0 0.3rem 0.5rem', textAlign: 'center', fontWeight: 400, color: C.muted, fontSize: '0.66rem', borderLeft: i % 2 === 0 ? `1px solid ${C.border}` : 'none' }}>{h}</th>
+                  ))}
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {valMultiples.map(row => {
+                  const ed = multEdits[row.id] || {};
+                  const val = (f) => ed[f] !== undefined ? ed[f] : row[f];
+                  const dirty = Object.keys(ed).length > 0;
+                  const cell = (f, i) => (
+                    <td style={{ padding: '0.3rem', textAlign: 'center', borderLeft: i % 2 === 0 ? `1px solid ${C.border}` : 'none' }}>
+                      <input value={val(f)} onChange={e => editMult(row.id, f, e.target.value)} inputMode="decimal"
+                        style={{ width: 46, padding: '0.3rem 0.2rem', textAlign: 'center', border: `1px solid ${ed[f] !== undefined ? C.steel : C.border}`, borderRadius: 5, fontSize: '0.78rem', outline: 'none' }} />
+                    </td>
+                  );
+                  return (
+                    <tr key={row.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                      <td style={{ padding: '0.4rem 0.8rem', fontWeight: 600, color: C.text, fontSize: '0.78rem' }}>{row.label}</td>
+                      {cell('micro_ebit_min', 0)}{cell('micro_ebit_max', 1)}
+                      {cell('small_ebit_min', 2)}{cell('small_ebit_max', 3)}
+                      {cell('mid_ebit_min', 4)}{cell('mid_ebit_max', 5)}
+                      {cell('revenue_multiple_min', 6)}{cell('revenue_multiple_max', 7)}
+                      <td style={{ padding: '0.3rem 0.6rem', textAlign: 'right' }}>
+                        <button onClick={() => saveMult(row)} disabled={!dirty || multSaving === row.id}
+                          style={{ padding: '0.35rem 0.8rem', background: dirty ? C.navy : C.border, color: dirty ? '#fff' : C.muted, border: 'none', borderRadius: 5, fontSize: '0.72rem', fontWeight: 600, cursor: dirty ? 'pointer' : 'default' }}>
+                          {multSaving === row.id ? '…' : 'Speichern'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
