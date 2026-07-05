@@ -111,12 +111,20 @@ export default function SellerDashboard() {
             Verwalten Sie Ihre Unternehmenspräsentationen auf CapitalMatch
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: C.navy, color: '#fff', border: 'none', padding: '0.7rem 1.25rem', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: '0.875rem' }}
-        >
-          <Plus size={16} /> Unternehmen einreichen
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => navigate('/projekte')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fff', color: C.navy, border: `1px solid ${C.navy}`, padding: '0.7rem 1.1rem', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: '0.875rem' }}
+          >
+            <Building2 size={16} /> Marktplatz & Kaufmandate
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: C.navy, color: '#fff', border: 'none', padding: '0.7rem 1.25rem', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: '0.875rem' }}
+          >
+            <Plus size={16} /> Unternehmen einreichen
+          </button>
+        </div>
       </div>
 
       {msg && (

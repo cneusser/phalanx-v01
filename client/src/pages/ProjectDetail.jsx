@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import ProjectEditModal from '../components/ProjectEditModal';
-import { api } from '../api/client';
+import { api, getToken } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import NDASignModal from '../components/NDASignModal';
 import {
@@ -207,6 +207,15 @@ export default function ProjectDetail() {
 
   // ── Tab-Inhalte ──────────────────────────────────────────────────────────
 
+  async function downloadTeaserPdf() {
+    try {
+      const res = await fetch(`/api/projects/${teaser.id}/teaser.pdf`, { headers: { Authorization: `Bearer ${getToken()}` } });
+      if (!res.ok) throw new Error('Fehler');
+      const b = await res.blob(); const u = URL.createObjectURL(b);
+      const a = document.createElement('a'); a.href = u; a.download = `Kurzprofil_${teaser.codename}.pdf`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u);
+    } catch (e) { /* still */ }
+  }
+
   const renderTabContent = () => {
     // Überblick — öffentlich
     if (activeTab === 'overview') {
@@ -229,6 +238,13 @@ export default function ProjectDetail() {
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Kurzprofil als PDF (eingeloggte Nutzer) — mit Audit-Trail */}
+          {user && (
+            <button onClick={downloadTeaserPdf} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: C.bg, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.5rem 0.9rem', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', marginBottom: '1.25rem' }}>
+              ⬇ Kurzprofil als PDF
+            </button>
           )}
 
           {/* Exposé — nach NDA (IM-Gate) bzw. für Pfleger */}
@@ -722,12 +738,11 @@ export default function ProjectDetail() {
                   {teaser.codename}
                 </h1>
                 {teaser.can_manage && (
-                  <button onClick={() => setShowEdit(true)} style={{
-                    padding: '0.5rem 1rem', borderRadius: 6, border: `1px solid ${C.border}`,
-                    background: C.bg, color: C.navy, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap',
-                  }}>
-                    ✎ Mandat pflegen
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button onClick={() => setShowEdit(true)} style={{ padding: '0.5rem 0.9rem', borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.navy, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>✎ Pflegen</button>
+                    <Link to={`/mandat/${teaser.id}/expose`} style={{ padding: '0.5rem 0.9rem', borderRadius: 6, border: 'none', background: C.accent, color: '#fff', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap', textDecoration: 'none' }}>📄 Exposé</Link>
+                    <Link to={`/mandat/${teaser.id}/safe`} style={{ padding: '0.5rem 0.9rem', borderRadius: 6, border: 'none', background: C.navy, color: '#fff', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap', textDecoration: 'none' }}>🔒 Safe</Link>
+                  </div>
                 )}
               </div>
 

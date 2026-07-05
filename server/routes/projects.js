@@ -142,6 +142,25 @@ router.get('/:id/teaser', optionalAuth, wrap(async (req, res) => {
   res.json({ success: true, data: { ...project, highlights: JSON.parse(project.highlights || '[]'), can_manage: canManage } });
 }));
 
+// ── GET /:id/teaser.pdf — Kurzprofil als PDF (mit Audit-Trail & Markierung) ──
+router.get('/:id/teaser.pdf', authenticate, wrap(async (req, res) => {
+  const canManage = await canManageProject(req.user, req.params.id);
+  let project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
+  if (!project && canManage) project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ?`, [req.params.id]);
+  if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+  const { generateTeaserReport } = require('../valuation/teaserReport');
+  const pdf = await generateTeaserReport({
+    project: { ...project, highlights: JSON.parse(project.highlights || '[]') },
+    recipient: { name: [req.user.title, req.user.first_name, req.user.last_name].filter(Boolean).join(' '), email: req.user.email },
+    date: new Date(),
+  });
+  // Jede Erzeugung wird protokolliert (Audit-Trail)
+  db.auditLog(req.user.id, 'TEASER_PDF', 'project', project.id, `Kurzprofil ${project.codename}`, req.ip);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="Kurzprofil_${String(project.codename).replace(/[^a-zA-Z0-9]/g, '_')}.pdf"`);
+  res.send(pdf);
+}));
+
 // ── PUT /:id — Mandat pflegen über den Marktplatz (Admin/Ersteller/Mitglied) ─
 router.put('/:id', authenticate, wrap(async (req, res) => {
   if (!(await canManageProject(req.user, req.params.id))) {
@@ -213,10 +232,15 @@ router.post('/:id/questions', authenticate, wrap(async (req, res) => {
   if (!question || question.trim().length < 5) {
     return res.status(400).json({ success: false, error: 'Bitte formulieren Sie Ihre Frage (mind. 5 Zeichen)' });
   }
-  const stage = await getStage(req.user.id, req.params.id);
-  if (!stageAllows(stage, 'qa') || !(await hasPermission(req.user, req.params.id, 'qa'))) {
-    db.activityLog(req.user.id, 'QA_DENIED', 'qa', req.params.id, req.ip);
-    return res.status(403).json({ success: false, error: 'Q&A ist erst nach Datenraum-Freigabe verfügbar' });
+  // Admins/Berater und Mandats-Pfleger dürfen jederzeit Fragen erfassen
+  // (z. B. FAQ pflegen/testen); Käufer erst nach Datenraum-Freigabe + qa-Recht.
+  const isManager = ['super_admin', 'advisor', 'tenant_owner'].includes(req.user.role) || await canManageProject(req.user, req.params.id);
+  if (!isManager) {
+    const stage = await getStage(req.user.id, req.params.id);
+    if (!stageAllows(stage, 'qa') || !(await hasPermission(req.user, req.params.id, 'qa'))) {
+      db.activityLog(req.user.id, 'QA_DENIED', 'qa', req.params.id, req.ip);
+      return res.status(403).json({ success: false, error: 'Q&A ist erst nach Datenraum-Freigabe verfügbar' });
+    }
   }
   const qId = await db.insert(
     `INSERT INTO qa_threads (project_id, buyer_id, question) VALUES (?, ?, ?)`,

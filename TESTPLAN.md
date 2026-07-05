@@ -247,6 +247,20 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
 - [ ] **M3 Exposé-Wasserzeichen:** Das Exposé-PDF behält zusätzlich das diagonale
   Empfänger-Wasserzeichen (Name/E-Mail).
 
+## N. Q&A, Verkäufer-Pflege & Teaser-PDF
+
+- [ ] **N1 Q&A als Admin/Pfleger:** Auf der Mandatsseite → Tab „Q&A" → als Admin oder
+  Mandats-Pfleger eine Frage erfassen → wird gespeichert (kein „erst nach Datenraum-
+  Freigabe"-Fehler mehr). Käufer ohne Freigabe erhalten weiterhin den Hinweis.
+- [ ] **N2 Verkäufer pflegt Exposé/Safe:** Als **Verkäufer**, der ein Mandat betreut,
+  erscheinen auf der Mandatsseite die Buttons „📄 Exposé" und „🔒 Safe" (neben
+  „Pflegen") und öffnen Editor bzw. Safe.
+- [ ] **N3 Verkäufer sieht Kaufmandate:** Verkäufer-Dashboard → „Marktplatz &
+  Kaufmandate" → Marktplatz mit allen Mandaten; Teaser einsehbar, NDA anforderbar.
+- [ ] **N4 Teaser-PDF:** Mandatsseite → „⬇ Kurzprofil als PDF" → PDF mit Briefbogen-
+  Footer, gelber Vertraulichkeits-Markierung und Empfänger-Wasserzeichen; jede
+  Erzeugung erscheint im Audit-Trail (Aktion `TEASER_PDF`).
+
 ---
 
 ## Hinweise
