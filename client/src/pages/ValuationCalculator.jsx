@@ -2,36 +2,12 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { Calculator, TrendingUp, Download, ChevronRight, AlertTriangle } from 'lucide-react';
+import { VALUATION_INDUSTRIES as INDUSTRIES } from '../constants/valuationIndustries';
 
 const C = {
   navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2',
   bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B',
 };
-
-// Branchen (DUB KMU-Multiples-Struktur) — key muss zu valuation_multiples.industry_key passen
-const INDUSTRIES = [
-  ['maschinenbau', 'Maschinen- und Anlagenbau'],
-  ['automotive', 'Fahrzeugbau & Automotive'],
-  ['elektrotechnik', 'Elektrotechnik & Elektronik'],
-  ['metall', 'Metallverarbeitung & Fertigungstechnik'],
-  ['chemie', 'Chemie, Kunststoffe & Verpackung'],
-  ['medizintechnik', 'Medizintechnik & Life Sciences'],
-  ['software', 'Software & Digitale Plattformen'],
-  ['it_services', 'IT-Services & Systemhäuser'],
-  ['medien', 'Medien, Marketing & Agenturen'],
-  ['telekom', 'Telekommunikation & Infrastruktur'],
-  ['gesundheit', 'Gesundheitswesen: Pflege & Dienstleister'],
-  ['b2b_dienste', 'Unternehmensnahe Dienstleistungen (B2B)'],
-  ['bau', 'Bauhaupt- & Baunebengewerbe (Handwerk)'],
-  ['immobilien', 'Immobilien-Dienstl. & Facility Mgmt.'],
-  ['finanz', 'Finanzdienstleistungen & Vers.-Makler'],
-  ['nahrung', 'Nahrungs- & Genussmittel'],
-  ['konsum', 'Konsumgüter (Non-Food)'],
-  ['ecommerce', 'Handel: E-Commerce & Versand'],
-  ['handel', 'Handel: Groß- & Einzelhandel (Stationär)'],
-  ['logistik', 'Transport, Logistik & Spedition'],
-  ['sonstige', 'Sonstige / branchenübergreifend'],
-];
 const INPUT = { width: '100%', padding: '0.6rem 0.75rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' };
 const LABEL = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' };
 

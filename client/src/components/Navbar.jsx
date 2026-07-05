@@ -98,6 +98,7 @@ export default function Navbar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
           {navLink('/projekte', 'Marktplatz')}
           {navLink('/unternehmenswert', 'Unternehmenswert')}
+          {user && !isAdmin && navLink('/bewertung', 'Bewertung')}
           {!user && navLink('/registrieren', 'Registrieren')}
           {user && !isAdmin && navLink('/dashboard', 'Mein Bereich')}
           {isAdmin && navLink('/admin', 'Admin')}

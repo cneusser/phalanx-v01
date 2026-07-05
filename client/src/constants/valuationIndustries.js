@@ -1,0 +1,25 @@
+// Branchen (DUB KMU-Multiples-Struktur). key === valuation_multiples.industry_key.
+// Von Quick-Check (Sprint 6) und ausführlicher Bewertung (Sprint 7) gemeinsam genutzt.
+export const VALUATION_INDUSTRIES = [
+  ['maschinenbau', 'Maschinen- und Anlagenbau'],
+  ['automotive', 'Fahrzeugbau & Automotive'],
+  ['elektrotechnik', 'Elektrotechnik & Elektronik'],
+  ['metall', 'Metallverarbeitung & Fertigungstechnik'],
+  ['chemie', 'Chemie, Kunststoffe & Verpackung'],
+  ['medizintechnik', 'Medizintechnik & Life Sciences'],
+  ['software', 'Software & Digitale Plattformen'],
+  ['it_services', 'IT-Services & Systemhäuser'],
+  ['medien', 'Medien, Marketing & Agenturen'],
+  ['telekom', 'Telekommunikation & Infrastruktur'],
+  ['gesundheit', 'Gesundheitswesen: Pflege & Dienstleister'],
+  ['b2b_dienste', 'Unternehmensnahe Dienstleistungen (B2B)'],
+  ['bau', 'Bauhaupt- & Baunebengewerbe (Handwerk)'],
+  ['immobilien', 'Immobilien-Dienstl. & Facility Mgmt.'],
+  ['finanz', 'Finanzdienstleistungen & Vers.-Makler'],
+  ['nahrung', 'Nahrungs- & Genussmittel'],
+  ['konsum', 'Konsumgüter (Non-Food)'],
+  ['ecommerce', 'Handel: E-Commerce & Versand'],
+  ['handel', 'Handel: Groß- & Einzelhandel (Stationär)'],
+  ['logistik', 'Transport, Logistik & Spedition'],
+  ['sonstige', 'Sonstige / branchenübergreifend'],
+];

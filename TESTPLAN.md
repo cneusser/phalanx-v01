@@ -166,6 +166,27 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
 
 ---
 
+## J. Ausführliche Bewertung (Sprint 7)
+
+- [ ] **J1 Login-Pflicht:** `/bewertung` ohne Login → Weiterleitung zum Login.
+  Als registrierter Nutzer erscheint die Übersicht „Ihre Bewertungen".
+- [ ] **J2 Stepper & Entwurf:** „Neue Bewertung" → Schritt 1 Finanzdaten (Branche,
+  Umsatz/EBIT, Bereinigungen), Schritt 2 Scorecard (−2…+2), Schritt 3 Substanz &
+  Käufer → „Entwurf speichern" → erscheint in der Liste als „Entwurf".
+- [ ] **J3 Berechnen:** „Berechnen" → Schritt 4 zeigt Korridor, Multiple, Ertragswert,
+  §199, Kapitaldienst-Einschätzung; Status wird „Berechnet".
+- [ ] **J4 Scorecard-Wirkung:** Gleiche Zahlen, aber Scorecard komplett +2 vs. −2 →
+  höheres bzw. niedrigeres Multiple und anderer Kapitalisierungszins.
+- [ ] **J5 PDF:** „Ausführlichen PDF-Report herunterladen" → mehrseitiger Report
+  (Bereinigung, Scorecard, Verfahren, Kapitaldienst, Disclaimer) in Phalanx-CI.
+- [ ] **J6 Admin-Review:** Admin → Tab „Ausf. Bewertungen" → Bewertung „Prüfen" →
+  Mandat zuordnen + Kommentar → „Als geprüft markieren" → Status „Geprüft"; die
+  Bewertung ist für den Nutzer danach schreibgeschützt.
+- [ ] **J7 Mandatsbezug:** Nach Zuordnung erscheint das Mandat (Codename) in der
+  Bewertungs-Liste (Nutzer- und Admin-Ansicht).
+
+---
+
 ## Hinweise
 
 - Die geseedeten Beispiel-Dokumente (Teaser/Pitchdeck) sind **Metadaten ohne

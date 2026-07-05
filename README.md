@@ -35,6 +35,32 @@ Feature-Flag: `VALUATION_ENABLED` (Default an; `=0` deaktiviert die Endpoints).
 
 ---
 
+## Ausführliche Bewertung (Sprint 7)
+
+Geführte, mehrstufige Bewertung für **registrierte** Nutzer unter `/bewertung`
+(Login-Pflicht). Ein Stepper erfasst Finanzdaten inkl. Bereinigungen (kalk.
+GF-Gehalt, Einmaleffekte, Gesellschafter-Miete), eine **Qualitäts-Scorecard**
+(7 Faktoren, je −2…+2), optionalen **Substanzwert** und Kapitaldienst-Annahmen.
+
+Die Engine (`server/valuation/detailedEngine.js`, rein/testbar) kombiniert das
+EBIT-Multiplikatorverfahren (Branchen-/Größenklassen-Multiple aus Sprint 6 ±
+Scorecard, Größenabschlag < 1 Mio. € EBIT), das vereinfachte Ertragswertverfahren
+(§199 BewG), einen **Ertragswert mit risikogerechtem Kapitalisierungszins**
+(Basiszins + Marktrisiko + Scorecard-Risikozuschlag) und einen
+**Kapitaldienstfähigkeits-Check** aus Käufersicht (finanzierbarer Preis / DSCR-
+Ampel). Ergebnis: Werte-Korridor + Methodenvergleich + Sensitivität (±1 Punkt).
+
+Ausgabe ist ein **mehrseitiger PDF-Report** in Phalanx-CI. Entwürfe sind
+speicherbar (`status = draft`), Berechnung setzt `submitted`. Admin/Berater prüfen
+im Admin-Tab **„Ausf. Bewertungen"** (Kommentar, optionale **Mandatszuordnung**
+`project_id`, `status = reviewed` → schreibgeschützt).
+
+Endpoints unter `/api/detailed-valuations` (alle mit Login). Vorerst **gratis**;
+Bezahlschranke vorbereitet über `VALUATION_PAID` (Default aus). Daten in
+`detailed_valuations` (tenant_id + RLS).
+
+---
+
 ## Datenbank (seit Sprint 1: PostgreSQL)
 
 Die App benötigt eine PostgreSQL-Datenbank. Die Verbindung kommt **ausschließlich**

@@ -119,6 +119,11 @@ export default function Admin() {
   const [multEdits, setMultEdits] = useState({});   // { id: { feld: wert } }
   const [multSaving, setMultSaving] = useState(null); // id, das gerade speichert
   const [multMsg, setMultMsg] = useState('');
+  // Sprint 7: Ausführliche Bewertungen (Review)
+  const [detVals, setDetVals] = useState([]);
+  const [detOpen, setDetOpen] = useState(null);       // aufgeklappte Bewertung (Detail)
+  const [detReview, setDetReview] = useState({});     // { comment, project_id }
+  const [detMsg, setDetMsg] = useState('');
   // Drag & Drop der Pipeline-Karten
   const [dragDeal, setDragDeal] = useState(null);       // { id, deal_status }
   const [dragOverCol, setDragOverCol] = useState(null); // Ziel-Spalte (Hover)
@@ -211,6 +216,40 @@ export default function Admin() {
     try { setValMultiples(await api.get('/admin/valuation-multiples') || []); setMultEdits({}); } catch (e) { console.error(e); }
   }
 
+  async function loadDetVals() {
+    try { setDetVals(await api.get('/detailed-valuations') || []); } catch (e) { console.error(e); }
+  }
+  async function openDetVal(row) {
+    if (detOpen === row.id) { setDetOpen(null); return; }
+    setDetMsg('');
+    try {
+      const d = await api.get(`/detailed-valuations/${row.id}`);
+      setDetOpen(row.id);
+      setDetReview({ comment: d.reviewer_comment || '', project_id: d.project_id || '', full: d });
+    } catch (e) { setDetMsg('Fehler: ' + e.message); }
+  }
+  async function saveDetReview(rowId, markReviewed) {
+    setDetMsg('');
+    try {
+      await api.put(`/detailed-valuations/${rowId}/review`, {
+        reviewer_comment: detReview.comment || null,
+        project_id: detReview.project_id === '' ? null : Number(detReview.project_id),
+        status: markReviewed ? 'reviewed' : undefined,
+      });
+      setDetMsg('Review gespeichert.');
+      loadDetVals();
+      if (markReviewed) setDetOpen(null);
+    } catch (e) { setDetMsg('Fehler: ' + e.message); }
+  }
+  async function downloadDetPdf(rowId) {
+    try {
+      const res = await fetch(`/api/detailed-valuations/${rowId}/report`, { headers: { Authorization: `Bearer ${localStorage.getItem('phalanx_token')}` } });
+      if (!res.ok) throw new Error('Fehler');
+      const blob = await res.blob(); const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `Bewertung_${rowId}.pdf`; a.click(); URL.revokeObjectURL(url);
+    } catch (e) { setDetMsg('PDF-Fehler: ' + e.message); }
+  }
+
   const MULT_FIELDS = ['micro_ebit_min', 'micro_ebit_max', 'small_ebit_min', 'small_ebit_max', 'mid_ebit_min', 'mid_ebit_max', 'revenue_multiple_min', 'revenue_multiple_max'];
 
   function editMult(id, field, value) {
@@ -250,6 +289,7 @@ export default function Admin() {
     if (activeTab === 'audit') loadAuditLogs(1);
     if (activeTab === 'leads') loadValLeads();
     if (activeTab === 'multiples') loadValMultiples();
+    if (activeTab === 'detvals') loadDetVals();
   }, [activeTab]);
 
   useEffect(() => {
@@ -423,7 +463,7 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'leads', 'multiples', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'leads', 'detvals', 'multiples', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
@@ -431,6 +471,7 @@ export default function Admin() {
     ndas:     'NDA-Anfragen',
     users:    'Nutzer',
     leads:    'Bewertungs-Leads',
+    detvals:  'Ausf. Bewertungen',
     multiples: 'Multiples',
     activity: 'Aktivitätslog',
     audit:    'Audit-Trail',
@@ -921,6 +962,70 @@ export default function Admin() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+      )}
+
+      {/* Sprint 7: Ausführliche Bewertungen — Review */}
+      {activeTab === 'detvals' && (
+        <div>
+          {detMsg && <div style={{ background: detMsg.includes('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 6, padding: '0.55rem 0.9rem', marginBottom: '0.85rem', fontSize: '0.82rem', color: detMsg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{detMsg}</div>}
+          {detVals.length === 0 ? (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: '3rem', textAlign: 'center', color: C.muted }}>Noch keine ausführlichen Bewertungen. Sie entstehen, wenn registrierte Nutzer unter <code>/bewertung</code> eine Bewertung berechnen.</div>
+          ) : (
+            <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
+                <thead><tr style={{ background: C.bg }}>
+                  {['Titel', 'Eigentümer', 'Status', 'Wert (Basis)', 'Mandat', ''].map(h => <th key={h} style={{ padding: '0.7rem 1rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.72rem' }}>{h.toUpperCase()}</th>)}
+                </tr></thead>
+                <tbody>
+                  {detVals.map(r => (
+                    <React.Fragment key={r.id}>
+                      <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                        <td style={{ padding: '0.7rem 1rem', fontWeight: 600, color: C.text }}>{r.title || '(ohne Titel)'}</td>
+                        <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.owner}<div style={{ fontSize: '0.72rem', color: C.muted }}>{r.owner_email}</div></td>
+                        <td style={{ padding: '0.7rem 1rem' }}><span style={{ background: (r.status === 'reviewed' ? '#166534' : r.status === 'submitted' ? '#1D4E89' : '#64748B') + '18', color: r.status === 'reviewed' ? '#166534' : r.status === 'submitted' ? '#1D4E89' : '#64748B', fontWeight: 600, fontSize: '0.72rem', padding: '0.15rem 0.55rem', borderRadius: 20 }}>{r.status === 'reviewed' ? 'Geprüft' : r.status === 'submitted' ? 'Berechnet' : 'Entwurf'}</span></td>
+                        <td style={{ padding: '0.7rem 1rem', fontWeight: 600 }}>{r.positive && r.corridor_base != null ? Math.round(r.corridor_base).toLocaleString('de-DE') + ' €' : (r.status === 'draft' ? '—' : 'n. b.')}</td>
+                        <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.codename || '—'}</td>
+                        <td style={{ padding: '0.7rem 1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {r.status !== 'draft' && <button onClick={() => downloadDetPdf(r.id)} style={{ background: C.bg, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', marginRight: 6 }}>PDF</button>}
+                          <button onClick={() => openDetVal(r)} style={{ background: detOpen === r.id ? C.navy : '#fff', color: detOpen === r.id ? '#fff' : C.navy, border: `1px solid ${C.navy}`, borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>{detOpen === r.id ? 'Schließen' : 'Prüfen'}</button>
+                        </td>
+                      </tr>
+                      {detOpen === r.id && detReview.full && (
+                        <tr><td colSpan={6} style={{ padding: '1rem 1.25rem', background: C.bg, borderBottom: `1px solid ${C.border}` }}>
+                          {detReview.full.results && detReview.full.results.corridor ? (
+                            <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#334155', marginBottom: '0.9rem' }}>
+                              <span><strong>Korridor:</strong> {['conservative','base','optimistic'].map(k => Math.round(detReview.full.results.corridor[k]).toLocaleString('de-DE')).join(' / ')} €</span>
+                              <span><strong>Multiple:</strong> {String(detReview.full.results.methods.multiple.chosenMultiple).replace('.', ',')}×</span>
+                              <span><strong>Kapitaldienst:</strong> {detReview.full.results.affordability.verdict}</span>
+                              <span><strong>bereinigtes EBIT:</strong> {Math.round(detReview.full.results.inputsSummary.adjustedEbit).toLocaleString('de-DE')} €</span>
+                            </div>
+                          ) : <div style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '0.9rem' }}>Noch nicht berechnet (Entwurf).</div>}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', alignItems: 'end' }}>
+                            <div>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: 4 }}>Mandat zuordnen (optional)</label>
+                              <select value={detReview.project_id} onChange={e => setDetReview(s => ({ ...s, project_id: e.target.value }))} style={{ width: '100%', padding: '0.5rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.82rem' }}>
+                                <option value="">— kein Mandat —</option>
+                                {projects.map(p => <option key={p.id} value={p.id}>{p.codename}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: 4 }}>Kommentar (Review)</label>
+                              <input value={detReview.comment} onChange={e => setDetReview(s => ({ ...s, comment: e.target.value }))} placeholder="Anmerkung zur Bewertung" style={{ width: '100%', padding: '0.5rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.82rem', boxSizing: 'border-box' }} />
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.9rem' }}>
+                            <button onClick={() => saveDetReview(r.id, false)} style={{ padding: '0.5rem 1rem', border: `1px solid ${C.navy}`, background: '#fff', color: C.navy, borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}>Speichern</button>
+                            {r.status !== 'reviewed' && <button onClick={() => saveDetReview(r.id, true)} style={{ padding: '0.5rem 1rem', border: 'none', background: '#166534', color: '#fff', borderRadius: 6, fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}>Als geprüft markieren</button>}
+                          </div>
+                        </td></tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
