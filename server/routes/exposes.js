@@ -1,0 +1,191 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Sprint 9 — Exposé-Builder.
+//   GET  /api/exposes/:projectId            Manager: voller Editor-Stand + Safe-Bilder;
+//                                           Käufer: nur published hinter IM-Gate
+//   PUT  /api/exposes/:projectId            Manager: speichern (Autosave)
+//   POST /api/exposes/:projectId/publish    Manager: veröffentlichen (Anonymisierungs-Ack)
+//   POST /api/exposes/:projectId/unpublish  Manager: zurück auf Entwurf
+//   GET  /api/exposes/:projectId/image/:id  Bild (gate-geprüft) aus dem Safe
+//   GET  /api/exposes/:projectId/pdf        Exposé-PDF mit Empfänger-Wasserzeichen
+// ─────────────────────────────────────────────────────────────────────────────
+const express = require('express');
+const db = require('../db/database');
+const wrap = require('../utils/asyncHandler');
+const { authenticate } = require('../middleware/auth');
+const { getStage } = require('../middleware/gates');
+const { stageAllows } = require('../utils/dealStateMachine');
+const { getStorage } = require('../providers/storage');
+const { generateExposeReport } = require('../valuation/exposeReport');
+const router = express.Router();
+
+const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
+const ADMIN_ROLES = ['super_admin', 'advisor', 'tenant_owner'];
+
+const DEFAULT_SECTIONS = [
+  { key: 'company', title: 'Unternehmen & Historie', enabled: true, body: '' },
+  { key: 'offering', title: 'Leistungsspektrum & Geschäftsmodell', enabled: true, body: '' },
+  { key: 'market', title: 'Markt & Wettbewerb', enabled: true, body: '' },
+  { key: 'organization', title: 'Organisation & Mitarbeiter', enabled: true, body: '' },
+  { key: 'financials', title: 'Finanzen (Kurzüberblick)', enabled: true, body: '' },
+  { key: 'swot', title: 'Stärken & Entwicklungspotenziale', enabled: true, body: '' },
+  { key: 'realestate', title: 'Immobilien & Anlagen', enabled: false, body: '' },
+  { key: 'buyer', title: 'Käuferanforderungen & Verkaufsgrund', enabled: true, body: '' },
+  { key: 'process', title: 'Prozess & nächste Schritte', enabled: true, body: '' },
+];
+
+async function canManage(req, projectId) {
+  const u = req.user;
+  if (ADMIN_ROLES.includes(u.role)) return true;
+  const p = await scoped(req, (t) => t.get('SELECT created_by FROM projects WHERE id = ?', [projectId]));
+  if (!p) return false;
+  if (p.created_by === u.id) return true;
+  const m = await scoped(req, (t) => t.get('SELECT id FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, u.id]));
+  return !!m;
+}
+
+async function loadExpose(req, projectId) {
+  return scoped(req, (t) => t.get('SELECT * FROM exposes WHERE project_id = ?', [projectId]));
+}
+function parseExpose(row) {
+  if (!row) return null;
+  let keyfacts = {}, sections = [], gallery = [];
+  try { keyfacts = JSON.parse(row.keyfacts_json || '{}'); } catch {}
+  try { sections = JSON.parse(row.sections_json || '[]'); } catch {}
+  try { gallery = JSON.parse(row.gallery_json || '[]'); } catch {}
+  if (!sections.length) sections = DEFAULT_SECTIONS;
+  return { id: row.id, status: row.status, keyfacts, sections, hero_image_id: row.hero_image_id,
+    gallery, anonymized_ack: !!row.anonymized_ack, published_at: row.published_at, updated_at: row.updated_at };
+}
+
+// Neuesten geprüften Bewertungskorridor des Mandats holen (optional)
+async function reviewedCorridor(req, projectId) {
+  const v = await scoped(req, (t) => t.get(
+    `SELECT results_json FROM detailed_valuations WHERE project_id = ? AND status = 'reviewed' ORDER BY reviewed_at DESC LIMIT 1`, [projectId]));
+  if (!v) return null;
+  try { const r = JSON.parse(v.results_json || '{}'); return r.corridor && r.positive ? r.corridor : null; } catch { return null; }
+}
+
+// ── GET — Editor (Manager) oder gated Web-Exposé (Käufer) ───────────────────
+router.get('/:projectId', authenticate, wrap(async (req, res) => {
+  const projectId = req.params.projectId;
+  const project = await scoped(req, (t) => t.get('SELECT id, codename, mandate_type, industry, region, status FROM projects WHERE id = ?', [projectId]));
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  const manage = await canManage(req, projectId);
+  const row = await loadExpose(req, projectId);
+  const expose = parseExpose(row) || { status: 'draft', keyfacts: {}, sections: DEFAULT_SECTIONS, hero_image_id: null, gallery: [], anonymized_ack: false };
+  const corridor = await reviewedCorridor(req, projectId);
+
+  if (manage) {
+    const safeImages = await scoped(req, (t) => t.all(
+      `SELECT id, name, mime FROM safe_items WHERE project_id = ? AND is_folder = 0 AND deleted_at IS NULL AND mime LIKE 'image/%' ORDER BY created_at DESC`, [projectId]));
+    return res.json({ success: true, data: { expose, project, corridor, safeImages, can_manage: true } });
+  }
+  // Käufer: nur veröffentlicht + IM-Gate passiert
+  const stage = await getStage(req.user.id, projectId);
+  if (expose.status !== 'published' || !stageAllows(stage, 'im')) {
+    return res.status(403).json({ success: false, error: 'Exposé erst nach unterzeichnetem NDA verfügbar' });
+  }
+  db.activityLog(req.user.id, 'EXPOSE_VIEW', 'expose', row ? row.id : null, req.ip);
+  res.json({ success: true, data: { expose: { ...expose, anonymized_ack: undefined }, project, corridor, can_manage: false } });
+}));
+
+// ── PUT — speichern (Manager, Autosave) ─────────────────────────────────────
+router.put('/:projectId', authenticate, wrap(async (req, res) => {
+  const projectId = req.params.projectId;
+  if (!(await canManage(req, projectId))) return res.status(403).json({ success: false, error: 'Kein Zugriff' });
+  const { keyfacts, sections, hero_image_id, gallery, anonymized_ack } = req.body;
+  const existing = await loadExpose(req, projectId);
+  if (existing) {
+    await scoped(req, (t) => t.run(
+      `UPDATE exposes SET keyfacts_json = COALESCE(?, keyfacts_json), sections_json = COALESCE(?, sections_json),
+         hero_image_id = ?, gallery_json = COALESCE(?, gallery_json), anonymized_ack = COALESCE(?, anonymized_ack),
+         updated_by = ?, updated_at = now() WHERE project_id = ?`,
+      [keyfacts ? JSON.stringify(keyfacts) : null, sections ? JSON.stringify(sections) : null,
+       hero_image_id !== undefined ? hero_image_id : existing.hero_image_id,
+       gallery ? JSON.stringify(gallery) : null, anonymized_ack != null ? (anonymized_ack ? 1 : 0) : null,
+       req.user.id, projectId]));
+  } else {
+    await scoped(req, (t) => t.insert(
+      `INSERT INTO exposes (tenant_id, project_id, status, keyfacts_json, sections_json, hero_image_id, gallery_json, anonymized_ack, updated_by)
+       VALUES (?, ?, 'draft', ?, ?, ?, ?, ?, ?)`,
+      [req.tenantId || 1, projectId, JSON.stringify(keyfacts || {}), JSON.stringify(sections || DEFAULT_SECTIONS),
+       hero_image_id || null, JSON.stringify(gallery || []), anonymized_ack ? 1 : 0, req.user.id]));
+  }
+  res.json({ success: true, data: { message: 'Gespeichert' } });
+}));
+
+// ── Publish / Unpublish ─────────────────────────────────────────────────────
+router.post('/:projectId/publish', authenticate, wrap(async (req, res) => {
+  const projectId = req.params.projectId;
+  if (!(await canManage(req, projectId))) return res.status(403).json({ success: false, error: 'Kein Zugriff' });
+  const row = await loadExpose(req, projectId);
+  const ack = req.body.anonymized_ack != null ? req.body.anonymized_ack : (row && row.anonymized_ack);
+  if (!ack) return res.status(400).json({ success: false, error: 'Bitte bestätigen Sie die Anonymisierungs-Checkliste vor der Veröffentlichung.' });
+  if (!row) return res.status(400).json({ success: false, error: 'Bitte zuerst Inhalte speichern.' });
+  await scoped(req, (t) => t.run(`UPDATE exposes SET status = 'published', anonymized_ack = 1, published_at = now(), updated_at = now() WHERE project_id = ?`, [projectId]));
+  db.auditLog(req.user.id, 'EXPOSE_PUBLISH', 'expose', row.id, null, req.ip);
+  res.json({ success: true, data: { message: 'Exposé veröffentlicht' } });
+}));
+
+router.post('/:projectId/unpublish', authenticate, wrap(async (req, res) => {
+  const projectId = req.params.projectId;
+  if (!(await canManage(req, projectId))) return res.status(403).json({ success: false, error: 'Kein Zugriff' });
+  await scoped(req, (t) => t.run(`UPDATE exposes SET status = 'draft', updated_at = now() WHERE project_id = ?`, [projectId]));
+  db.auditLog(req.user.id, 'EXPOSE_UNPUBLISH', 'expose', null, null, req.ip);
+  res.json({ success: true, data: { message: 'Exposé zurückgezogen' } });
+}));
+
+// Zugriffsprüfung für Exposé-Bilder + PDF (Manager oder published+Gate)
+async function exposeAccess(req, projectId) {
+  if (await canManage(req, projectId)) return { ok: true, manage: true, expose: parseExpose(await loadExpose(req, projectId)) };
+  const row = await loadExpose(req, projectId);
+  const expose = parseExpose(row);
+  const stage = await getStage(req.user.id, projectId);
+  if (!expose || expose.status !== 'published' || !stageAllows(stage, 'im')) return { ok: false };
+  return { ok: true, manage: false, expose };
+}
+
+// ── Bild aus dem Safe (gate-geprüft, nur wenn im Exposé referenziert) ───────
+router.get('/:projectId/image/:safeId', authenticate, wrap(async (req, res) => {
+  const projectId = req.params.projectId;
+  const acc = await exposeAccess(req, projectId);
+  if (!acc.ok) return res.status(403).json({ success: false, error: 'Kein Zugriff' });
+  const safeId = Number(req.params.safeId);
+  // Käufer dürfen nur referenzierte Bilder sehen
+  if (!acc.manage) {
+    const refd = acc.expose && (acc.expose.hero_image_id === safeId || (acc.expose.gallery || []).includes(safeId));
+    if (!refd) return res.status(403).json({ success: false, error: 'Kein Zugriff' });
+  }
+  const item = await scoped(req, (t) => t.get('SELECT * FROM safe_items WHERE id = ? AND project_id = ? AND is_folder = 0', [safeId, projectId]));
+  if (!item || !item.storage_key || !(item.mime || '').startsWith('image/')) return res.status(404).json({ success: false, error: 'Bild nicht gefunden' });
+  const buf = await getStorage().get(item.storage_key);
+  res.setHeader('Content-Type', item.mime);
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(item.name)}"`);
+  res.send(buf);
+}));
+
+// ── PDF-Export mit Empfänger-Wasserzeichen ──────────────────────────────────
+router.get('/:projectId/pdf', authenticate, wrap(async (req, res) => {
+  const projectId = req.params.projectId;
+  const acc = await exposeAccess(req, projectId);
+  if (!acc.ok) return res.status(403).json({ success: false, error: 'Exposé nicht verfügbar' });
+  const project = await scoped(req, (t) => t.get('SELECT codename FROM projects WHERE id = ?', [projectId]));
+  const expose = acc.expose;
+  const corridor = await reviewedCorridor(req, projectId);
+  let heroBuffer = null;
+  if (expose && expose.hero_image_id) {
+    const hero = await scoped(req, (t) => t.get('SELECT storage_key, mime FROM safe_items WHERE id = ? AND project_id = ?', [expose.hero_image_id, projectId]));
+    if (hero && hero.storage_key) { try { heroBuffer = await getStorage().get(hero.storage_key); } catch {} }
+  }
+  const pdf = await generateExposeReport({
+    project, keyfacts: expose.keyfacts, sections: expose.sections, corridor, heroBuffer,
+    recipient: { name: [req.user.title, req.user.first_name, req.user.last_name].filter(Boolean).join(' '), email: req.user.email },
+    date: new Date(),
+  });
+  db.activityLog(req.user.id, 'EXPOSE_PDF', 'expose', expose.id || null, req.ip);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="Expose_${project ? project.codename.replace(/[^a-zA-Z0-9]/g, '_') : projectId}.pdf"`);
+  res.send(pdf);
+}));
+
+module.exports = router;

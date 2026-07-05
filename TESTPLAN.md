@@ -211,6 +211,28 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
 
 ---
 
+## L. Exposé-Builder (Sprint 9)
+
+- [ ] **L1 Editor öffnen:** Admin → Projekte → „📄 Exposé" (`/mandat/:id/expose`) →
+  Keyfacts-Raster, Sektionen, Bild-Bereich erscheinen; Status „Entwurf".
+- [ ] **L2 Autosave:** Keyfact/Sektion ändern → Statusanzeige „Ungespeichert…" →
+  kurz darauf „Automatisch gespeichert"; nach Reload sind die Werte erhalten.
+- [ ] **L3 Korridor-Übernahme:** Existiert eine **geprüfte** ausführliche Bewertung
+  (Sprint 7) für das Mandat, erscheint der Werte-Korridor als Hinweis und im Exposé.
+- [ ] **L4 Bilder aus Safe:** Bilder im Container-Safe hochladen → im Editor als
+  Galerie wählbar; Stern-Klick setzt ein Titelbild.
+- [ ] **L5 Publish mit Anonymisierung:** Ohne alle Häkchen ist „Veröffentlichen"
+  gesperrt; nach Bestätigung wird das Exposé veröffentlicht.
+- [ ] **L6 Gate (Käufer):** Investor **ohne** NDA ruft `/projekte/:id/expose` auf →
+  „Exposé erst nach NDA verfügbar". Nach unterschriebenem NDA (Stage `nda_signed`)
+  ist das Web-Exposé sichtbar (Keyfacts, Sektionen, Galerie, Kaufpreisvorstellung).
+- [ ] **L7 PDF-Wasserzeichen:** PDF-Export enthält Name/E-Mail des Abrufenden als
+  diagonales Wasserzeichen und im Footer.
+- [ ] **L8 Vorschau (Pfleger):** Als Pfleger ist das Exposé auch im Entwurf über die
+  Vorschau sichtbar; Käufer sehen Entwürfe nie.
+
+---
+
 ## Hinweise
 
 - Die geseedeten Beispiel-Dokumente (Teaser/Pitchdeck) sind **Metadaten ohne

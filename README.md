@@ -97,6 +97,28 @@ Ohne diese Variablen läuft alles wie bisher auf dem Volume. Das Paket
 
 ---
 
+## Exposé-Builder (Sprint 9)
+
+Strukturiertes Verkaufs-Exposé je Mandat (Struktur nach DUB, Inhalt nach KERN/HWK).
+**Editor** unter `/mandat/:id/expose` (Admin/Pfleger): DUB-**Keyfacts-Raster**,
+ein-/ausblendbare **Sektionen** (Unternehmen, Markt, Organisation, Finanzen, SWOT,
+Käuferanforderungen, Prozess …), **Titelbild + Galerie** aus dem Container-Safe,
+**Autosave**. Der geprüfte Bewertungs-Korridor aus Sprint 7 wird automatisch als
+„Indikative Kaufpreisvorstellung" übernommen.
+
+**Web-Exposé** unter `/projekte/:id/expose` liegt hinter dem **IM-Gate**
+(`stageAllows(stage, 'im')` → erst NDA, dann Exposé); Pfleger sehen jederzeit eine
+Vorschau. **PDF-Export** in Phalanx-CI mit **Empfänger-Wasserzeichen** (Name/E-Mail
+diagonal + im Footer). Vor der Publikation ist eine **Anonymisierungs-Checkliste**
+zu bestätigen (`anonymized_ack`). Bilder werden nur ausgeliefert, wenn sie im
+veröffentlichten Exposé referenziert sind und der Abrufende das Gate passiert hat.
+
+Endpoints unter `/api/exposes`. Daten in `exposes` (project_id UNIQUE, tenant_id +
+RLS). Einstiege: Admin → Projekte → „📄 Exposé"; für Käufer nach NDA auf der
+Mandatsseite („Vollständiges Exposé ansehen").
+
+---
+
 ## Datenbank (seit Sprint 1: PostgreSQL)
 
 Die App benötigt eine PostgreSQL-Datenbank. Die Verbindung kommt **ausschließlich**

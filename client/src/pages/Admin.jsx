@@ -709,6 +709,9 @@ export default function Admin() {
                       <Link to={`/mandat/${p.id}/safe`} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#0D1B36', color: '#fff', padding: '0.3rem 0.6rem', borderRadius: 5, fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none' }}>
                         🔒 Safe
                       </Link>
+                      <Link to={`/mandat/${p.id}/expose`} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#1D4E89', color: '#fff', padding: '0.3rem 0.6rem', borderRadius: 5, fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none' }}>
+                        📄 Exposé
+                      </Link>
                       <button onClick={() => killProject(p)} title="Endgültig löschen (Killswitch)" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', padding: '0.3rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
                         <Trash2 size={11} /> Löschen
                       </button>

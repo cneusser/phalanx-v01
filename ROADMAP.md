@@ -17,8 +17,8 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 6.1 | Multiples auf Branche × Größenklasse (DUB), Report-Briefbogen, Admin-Multiples | ✅ fertig |
 | 7 | Ausführliche Bewertung (Engine + Report) | ✅ fertig |
 | 8 | Container-Safe (Ordner-Uploads, Object Storage) | ✅ fertig |
-| **9** | **Exposé-Builder (DUB-Standard, IM-Gate)** | ▶ als Nächstes |
-| 10 | Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking) | Ausbaustufe |
+| 9 | Exposé-Builder (DUB-Standard, IM-Gate) | ✅ fertig |
+| **10** | **Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking)** | Ausbaustufe / nächste |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →
@@ -120,7 +120,17 @@ Killswitch löscht Safe mit.
 
 ---
 
-## Sprint 9 — Exposé-Builder (DUB-Standard, IM-Gate)
+## Sprint 9 — Exposé-Builder (DUB-Standard, IM-Gate) — ✅ FERTIG
+
+Umgesetzt: Migration `exposes` (RLS), Editor mit DUB-Keyfacts-Raster + ein-/
+ausblendbaren Sektionen, Titelbild/Galerie aus dem Container-Safe, Autosave,
+Anonymisierungs-Checkliste vor Publikation. Web-Exposé hinter dem IM-Gate
+(erst NDA, dann Exposé), PDF-Export in Phalanx-CI mit Empfänger-Wasserzeichen,
+automatische Übernahme des geprüften Bewertungskorridors (Sprint 7) als
+Kaufpreisvorstellung. Offen als Folgeausbau: automatische Ableitung der
+öffentlichen Teaser-Karte aus markierten Exposé-Feldern.
+
+### Ursprüngliche Planung
 
 **Ziel:** Professionelle Exposés strukturell nach DUB, inhaltlich nach KERN/HWK — als
 gated Web-Exposé (erweitert die Detail-Tabs) und PDF-Export in CI; anonymes Kurzprofil

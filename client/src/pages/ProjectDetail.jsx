@@ -231,6 +231,17 @@ export default function ProjectDetail() {
             </div>
           )}
 
+          {/* Exposé — nach NDA (IM-Gate) bzw. für Pfleger */}
+          {(imUnlocked || teaser.can_manage) && (
+            <Link to={`/projekte/${teaser.id}/expose`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', background: C.navy, color: '#fff', borderRadius: 8, padding: '0.9rem 1.1rem', textDecoration: 'none', marginBottom: '1.25rem' }}>
+              <span style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Vollständiges Exposé ansehen</span>
+                <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.7)' }}>{teaser.can_manage ? 'Editor / Vorschau des Verkaufs-Exposés' : 'Eckdaten, Unternehmensprofil & Kaufpreisvorstellung'}</span>
+              </span>
+              <span style={{ background: C.steel, color: C.navy, borderRadius: 6, padding: '0.35rem 0.8rem', fontSize: '0.78rem', fontWeight: 700 }}>Öffnen →</span>
+            </Link>
+          )}
+
           {/* NDA-Aufforderung wenn nicht freigegeben */}
           {!approved && (
             <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '1.25rem', marginTop: '1rem' }}>
