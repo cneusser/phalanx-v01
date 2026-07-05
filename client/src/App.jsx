@@ -11,6 +11,8 @@ import DetailedValuation from './pages/DetailedValuation';
 import ProjectSafe from './pages/ProjectSafe';
 import ExposeEditor from './pages/ExposeEditor';
 import ExposeView from './pages/ExposeView';
+import Feedback from './pages/Feedback';
+import SearchProfiles from './pages/SearchProfiles';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -69,6 +71,8 @@ function AppRoutes() {
           <Route path="/mandat/:id/safe" element={<ProtectedRoute><ProjectSafe /></ProtectedRoute>} />
           <Route path="/mandat/:id/expose" element={<ProtectedRoute><ExposeEditor /></ProtectedRoute>} />
           <Route path="/projekte/:id/expose" element={<ProtectedRoute><ExposeView /></ProtectedRoute>} />
+          <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
+          <Route path="/suchprofile" element={<ProtectedRoute><SearchProfiles /></ProtectedRoute>} />
           <Route path="/registrieren" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/passwort-vergessen" element={<ForgotPassword />} />

@@ -240,6 +240,18 @@ export default function Projects() {
   // Gesamtzahlen kommen vom Server (/projects/stats) — unabhängig vom aktiven
   // Tab und von Filtern. null = lädt noch; 0 wird korrekt als 0 angezeigt.
   const [totalCounts, setTotalCounts] = useState({ all: null, ma: null, fundraising: null });
+  const [viewMode, setViewMode] = useState('cards'); // cards | table (Dealum-Stil)
+  const [saveMsg, setSaveMsg] = useState('');
+
+  async function saveSearch() {
+    const name = window.prompt('Name für dieses Suchprofil (Sie werden bei passenden neuen Mandaten benachrichtigt):');
+    if (!name) return;
+    try {
+      await api.post('/community/search-profiles', { name, criteria: { ...sel }, notify_frequency: 'instant' });
+      setSaveMsg('Suchprofil gespeichert — Sie werden bei passenden Mandaten benachrichtigt.');
+      setTimeout(() => setSaveMsg(''), 4000);
+    } catch (e) { setSaveMsg('Fehler: ' + e.message); }
+  }
 
   useEffect(() => { loadProjects(); }, [sel]);
 
@@ -415,21 +427,58 @@ export default function Projects() {
               </div>
             ) : (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.82rem', color: C.muted }}>
                     {projects.length} Mandat{projects.length !== 1 ? 'e' : ''} gefunden
                   </span>
-                  {!user && (
-                    <Link to="/registrieren" style={{
-                      display: 'flex', alignItems: 'center', gap: '0.35rem',
-                      fontSize: '0.8rem', color: C.navy, fontWeight: 600,
-                      textDecoration: 'none',
-                    }}>
-                      <ArrowUpRight size={13} /> Jetzt registrieren & NDA anfordern
-                    </Link>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {user && !isAdmin && (
+                      <>
+                        <button onClick={saveSearch} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', color: C.navy, border: `1px solid ${C.navy}`, borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer' }}>★ Suche speichern</button>
+                        <Link to="/suchprofile" style={{ fontSize: '0.76rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>Meine Suchprofile</Link>
+                      </>
+                    )}
+                    {/* Ansicht: Karten ⇄ Tabelle */}
+                    <div style={{ display: 'inline-flex', border: `1px solid ${C.border}`, borderRadius: 7, overflow: 'hidden' }}>
+                      {['cards', 'table'].map(m => (
+                        <button key={m} onClick={() => setViewMode(m)} style={{ padding: '0.35rem 0.7rem', fontSize: '0.74rem', fontWeight: 600, border: 'none', cursor: 'pointer', background: viewMode === m ? C.navy : '#fff', color: viewMode === m ? '#fff' : C.muted }}>{m === 'cards' ? 'Karten' : 'Tabelle'}</button>
+                      ))}
+                    </div>
+                    {!user && (
+                      <Link to="/registrieren" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>
+                        <ArrowUpRight size={13} /> Jetzt registrieren & NDA anfordern
+                      </Link>
+                    )}
+                  </div>
                 </div>
+                {saveMsg && <div style={{ background: saveMsg.startsWith('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 8, padding: '0.55rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: saveMsg.startsWith('Fehler') ? '#991b1b' : '#065f46' }}>{saveMsg}</div>}
 
+                {viewMode === 'table' ? (
+                  <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', minWidth: 720 }}>
+                      <thead><tr style={{ background: C.bg }}>
+                        {['Mandat', 'Typ', 'Branche', 'Region', 'Umsatz', 'EBITDA', 'Deal-Typ', 'Neu seit', ''].map(h => (
+                          <th key={h} style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.7rem', whiteSpace: 'nowrap' }}>{h.toUpperCase()}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody>
+                        {projects.map(p => (
+                          <tr key={p.id} style={{ borderTop: `1px solid ${C.border}`, cursor: 'pointer' }} onClick={() => navigate(`/projekte/${p.id}`)}>
+                            <td style={{ padding: '0.6rem 0.8rem', fontWeight: 700, color: C.navy }}>{p.codename}</td>
+                            <td style={{ padding: '0.6rem 0.8rem' }}><span style={{ background: p.mandate_type === 'fundraising' ? '#ede9fe' : C.bg, color: p.mandate_type === 'fundraising' ? '#5b21b6' : C.navy, padding: '0.1rem 0.45rem', borderRadius: 6, fontSize: '0.66rem', fontWeight: 700 }}>{p.mandate_type === 'fundraising' ? 'Startup' : 'M&A'}</span></td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.industry || '—'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.region || '—'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: '#555', whiteSpace: 'nowrap' }}>{p.revenue_band || (p.mandate_type === 'fundraising' ? p.investment_needed : '—') || '—'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: '#555', whiteSpace: 'nowrap' }}>{p.ebitda_band || '—'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.deal_type || '—'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: C.muted, whiteSpace: 'nowrap' }}>{p.created_at ? new Date(p.created_at).toLocaleDateString('de-DE') : '—'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}><span style={{ color: C.accent, fontWeight: 600, fontSize: '0.74rem', whiteSpace: 'nowrap' }}>Ansehen →</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
                   {projects.map(p => (
                     <MandateCard
@@ -442,6 +491,7 @@ export default function Projects() {
                     />
                   ))}
                 </div>
+                )}
 
                 {/* CTA für nicht-registrierte */}
                 {!user && (

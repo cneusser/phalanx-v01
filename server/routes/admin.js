@@ -13,6 +13,36 @@ const isAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_own
 const isSuperAdmin = [authenticate, requireRole('super_admin')];
 const isAuditorOrAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner', 'auditor')];
 
+// Sprint 10: Käufer mit passendem Suchprofil (Sofort-Frequenz) benachrichtigen.
+async function notifyMatchingBuyers(projectId) {
+  const p = await db.get(`SELECT id, codename, industry, region, deal_type, mandate_type, short_description FROM projects WHERE id = ?`, [projectId]);
+  if (!p) return;
+  const profiles = await db.all(`
+    SELECT sp.id, sp.name, sp.criteria_json, u.email, u.first_name
+    FROM search_profiles sp JOIN users u ON u.id = sp.user_id
+    WHERE sp.notify_frequency = 'instant' AND u.is_active = 1`);
+  const matches = (c) => {
+    if (c.industry && c.industry !== p.industry) return false;
+    if (c.region && c.region !== p.region) return false;
+    if (c.deal_type && c.deal_type !== p.deal_type) return false;
+    if (c.mandate_type && c.mandate_type !== p.mandate_type) return false;
+    if (c.search) { const s = (c.search || '').toLowerCase(); if (!(`${p.codename} ${p.short_description || ''}`.toLowerCase().includes(s))) return false; }
+    return true;
+  };
+  const { sendProcessUpdateEmail } = require('../utils/email');
+  for (const prof of profiles) {
+    let c = {}; try { c = JSON.parse(prof.criteria_json || '{}'); } catch {}
+    if (!matches(c)) continue;
+    sendProcessUpdateEmail({
+      to: prof.email, firstName: prof.first_name,
+      title: `Neues passendes Mandat — ${p.codename}`,
+      message: `zu Ihrem Suchprofil <strong>„${prof.name}"</strong> ist ein neues Mandat verfügbar: <strong>${p.codename}</strong> (${[p.industry, p.region].filter(Boolean).join(', ')}). Sehen Sie sich das Kurzprofil an und fordern Sie bei Interesse die vertraulichen Unterlagen an.`,
+      ctaLabel: 'Mandat ansehen', ctaPath: `/projekte/${p.id}`,
+    }).catch(() => {});
+    db.run(`UPDATE search_profiles SET last_notified_at = now() WHERE id = ?`, [prof.id]).catch(() => {});
+  }
+}
+
 // ── Stats ─────────────────────────────────────────────────────────────────
 router.get('/stats', ...isAdmin, wrap(async (req, res) => {
   const p = await db.get(`
@@ -129,6 +159,8 @@ router.put('/projects/:id/publish', ...isAdmin, wrap(async (req, res) => {
   await db.run(`UPDATE projects SET status = 'active', deal_status = CASE WHEN deal_status = 'draft' THEN 'teaser_live' ELSE deal_status END, updated_at = now() WHERE id = ?`, [req.params.id]);
   db.auditLog(req.user.id, 'PROJECT_PUBLISHED', 'project', req.params.id, project.codename, req.ip);
   db.activityLog(req.user.id, 'DEAL_STATUS_TEASER_LIVE', 'deal', req.params.id, req.ip);
+  // Sprint 10: passende Käufer-Suchprofile (Sofort-Benachrichtigung) informieren
+  notifyMatchingBuyers(req.params.id).catch(() => {});
   res.json({ success: true, data: { message: 'Projekt veröffentlicht' } });
 }));
 

@@ -119,6 +119,11 @@ export default function Admin() {
   const [multEdits, setMultEdits] = useState({});   // { id: { feld: wert } }
   const [multSaving, setMultSaving] = useState(null); // id, das gerade speichert
   const [multMsg, setMultMsg] = useState('');
+  // Changelog + Feedback (Community)
+  const [changelog, setChangelog] = useState([]);
+  const [clForm, setClForm] = useState({ version: '', title: '', items: '' });
+  const [clMsg, setClMsg] = useState('');
+  const [feedbackList, setFeedbackList] = useState([]);
   // Sprint 7: Ausführliche Bewertungen (Review)
   const [detVals, setDetVals] = useState([]);
   const [detOpen, setDetOpen] = useState(null);       // aufgeklappte Bewertung (Detail)
@@ -219,6 +224,23 @@ export default function Admin() {
   async function loadDetVals() {
     try { setDetVals(await api.get('/detailed-valuations') || []); } catch (e) { console.error(e); }
   }
+  async function loadChangelog() {
+    try { setChangelog(await api.get('/community/changelog') || []); } catch (e) { console.error(e); }
+  }
+  async function addChangelog() {
+    if (!clForm.version || !clForm.title) { setClMsg('Version und Titel erforderlich.'); return; }
+    setClMsg('');
+    try {
+      await api.post('/community/changelog', { version: clForm.version, title: clForm.title, items: clForm.items });
+      setClForm({ version: '', title: '', items: '' }); setClMsg('Eintrag hinzugefügt.'); loadChangelog();
+    } catch (e) { setClMsg('Fehler: ' + e.message); }
+  }
+  async function loadFeedback() {
+    try { setFeedbackList(await api.get('/community/feedback') || []); } catch (e) { console.error(e); }
+  }
+  async function setFeedbackStatus(id, status) {
+    try { await api.put(`/community/feedback/${id}/status`, { status }); setFeedbackList(l => l.map(f => f.id === id ? { ...f, status } : f)); } catch (e) { console.error(e); }
+  }
   async function openDetVal(row) {
     if (detOpen === row.id) { setDetOpen(null); return; }
     setDetMsg('');
@@ -290,6 +312,8 @@ export default function Admin() {
     if (activeTab === 'leads') loadValLeads();
     if (activeTab === 'multiples') loadValMultiples();
     if (activeTab === 'detvals') loadDetVals();
+    if (activeTab === 'changelog') loadChangelog();
+    if (activeTab === 'feedback') loadFeedback();
   }, [activeTab]);
 
   useEffect(() => {
@@ -463,7 +487,7 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'leads', 'detvals', 'multiples', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
@@ -473,6 +497,8 @@ export default function Admin() {
     leads:    'Bewertungs-Leads',
     detvals:  'Ausf. Bewertungen',
     multiples: 'Multiples',
+    feedback: 'Feedback',
+    changelog: 'Changelog',
     activity: 'Aktivitätslog',
     audit:    'Audit-Trail',
   };
@@ -1092,6 +1118,60 @@ export default function Admin() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Feedback-Tab */}
+      {activeTab === 'feedback' && (
+        <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+          {feedbackList.length === 0 ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: C.muted }}>Noch kein Feedback. Käufer/Verkäufer können über die Seite <code>/feedback</code> Wünsche senden.</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
+              <thead><tr style={{ background: C.bg }}>
+                {['Von', 'Kategorie', 'Nachricht', 'Status', 'Datum'].map(h => <th key={h} style={{ padding: '0.7rem 1rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.72rem' }}>{h.toUpperCase()}</th>)}
+              </tr></thead>
+              <tbody>
+                {feedbackList.map(f => (
+                  <tr key={f.id} style={{ borderBottom: `1px solid ${C.border}`, verticalAlign: 'top' }}>
+                    <td style={{ padding: '0.7rem 1rem' }}>{f.user_name || '—'}<div style={{ fontSize: '0.72rem', color: C.muted }}>{f.user_email} · {f.role === 'seller' ? 'Verkäufer' : f.role === 'buyer' ? 'Käufer' : f.role}</div></td>
+                    <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{{ idea: 'Idee', change: 'Änderung', bug: 'Fehler', other: 'Sonstiges' }[f.category] || f.category}</td>
+                    <td style={{ padding: '0.7rem 1rem', color: C.text, maxWidth: 380 }}>{f.message}</td>
+                    <td style={{ padding: '0.7rem 1rem' }}>
+                      <select value={f.status} onChange={e => setFeedbackStatus(f.id, e.target.value)} style={{ padding: '0.3rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.76rem' }}>
+                        {[['open', 'Offen'], ['planned', 'Geplant'], ['done', 'Umgesetzt'], ['declined', 'Abgelehnt']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      </select>
+                    </td>
+                    <td style={{ padding: '0.7rem 1rem', color: C.muted, fontSize: '0.76rem', whiteSpace: 'nowrap' }}>{new Date(f.created_at).toLocaleDateString('de-DE')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* Changelog-Tab */}
+      {activeTab === 'changelog' && (
+        <div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.1rem 1.25rem', marginBottom: '1.25rem' }}>
+            <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.75rem' }}>Neuen Changelog-Eintrag hinzufügen</div>
+            {clMsg && <div style={{ background: clMsg.startsWith('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 6, padding: '0.5rem 0.8rem', marginBottom: '0.75rem', fontSize: '0.8rem', color: clMsg.startsWith('Fehler') ? '#991b1b' : '#065f46' }}>{clMsg}</div>}
+            <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
+              <input value={clForm.version} onChange={e => setClForm(s => ({ ...s, version: e.target.value }))} placeholder="v0.235" style={{ padding: '0.5rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.84rem' }} />
+              <input value={clForm.title} onChange={e => setClForm(s => ({ ...s, title: e.target.value }))} placeholder="Titel des Releases" style={{ padding: '0.5rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.84rem' }} />
+            </div>
+            <textarea value={clForm.items} onChange={e => setClForm(s => ({ ...s, items: e.target.value }))} rows={3} placeholder="Ein Punkt pro Zeile…" style={{ width: '100%', padding: '0.5rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.84rem', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
+            <button onClick={addChangelog} style={{ marginTop: '0.6rem', padding: '0.5rem 1.1rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 7, fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' }}>Eintrag hinzufügen</button>
+          </div>
+          {changelog.map(c => (
+            <div key={c.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1rem 1.25rem', marginBottom: '0.75rem' }}>
+              <div style={{ fontWeight: 700, color: C.navy }}>{c.title} <span style={{ color: C.muted, fontWeight: 400, fontSize: '0.8rem' }}>· {c.version}{c.released_on ? ' · ' + new Date(c.released_on).toLocaleDateString('de-DE') : ''}</span></div>
+              <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.2rem', color: '#555', fontSize: '0.83rem', lineHeight: 1.6 }}>
+                {(c.items || []).map((it, j) => <li key={j}>{it}</li>)}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
 

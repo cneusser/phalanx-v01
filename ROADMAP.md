@@ -18,7 +18,7 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 7 | Ausführliche Bewertung (Engine + Report) | ✅ fertig |
 | 8 | Container-Safe (Ordner-Uploads, Object Storage) | ✅ fertig |
 | 9 | Exposé-Builder (DUB-Standard, IM-Gate) | ✅ fertig |
-| **10** | **Käufer-UX: Deal-Liste (Dealsuite/Dealum-Stil) + Suchprofile + Match-Benachrichtigungen** | ▶ als Nächstes |
+| **10** | **Käufer-UX: Deal-Liste + Suchprofile + Match-Benachrichtigungen** | 🟡 teilweise (Tabelle, Suchprofile, Sofort-Match ✅; Digest/Tags offen) |
 | 11 | In-App-Chat & Kontakte (Netzwerk) | geplant |
 | 12 | Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking) | Ausbaustufe |
 
@@ -161,23 +161,25 @@ Checkliste vor Publikation).
 
 ---
 
-## Sprint 10 — Käufer-UX: Deal-Liste, Suchprofile, Match-Benachrichtigungen ▶ ALS NÄCHSTES
+## Sprint 10 — Käufer-UX: Deal-Liste, Suchprofile, Match-Benachrichtigungen (teilweise ✅)
 
 Vorbilder: **Dealum** (Funnel-Tabelle) und **Dealsuite** (flexible Filter, gespeicherte
 Suchen, tägliche/wöchentliche Match-Benachrichtigungen, diskretes Netzwerk).
 
-- **Tabellarische Deal-/Projektliste für Käufer** (Dealum-Stil): sortierbare Spalten
-  (Name, Branche, Region, Umsatz-/EBITDA-Band, Deal-Typ, „Neu"-Datum, Status/Tags),
-  Umschaltung Karten ⇄ Tabelle, Spaltenauswahl, Schnellfilter, Detailspalte/Vorschau.
-- **Suchprofile / gespeicherte Suchen (Käufer):** Kriterien (Branche(n), Region,
-  Umsatz-/EBITDA-Band, Deal-Typ, Ticketgröße) als benanntes Profil speichern; Tabelle
-  `search_profiles` (user_id, criteria_json, notify_frequency), CRUD + UI.
-- **Match-Benachrichtigungen:** neue Mandate, die einem Suchprofil entsprechen, per
-  E-Mail (Frequenz wählbar: sofort / täglich / wöchentlich) — nutzt die neuen
-  Branded-Mails + Prozess-Benachrichtigungen. Scheduler/Digest.
-- **Tags & Aufgaben** je Deal (leichtes CRM aus Käufersicht), optional.
+**Bereits umgesetzt:**
+- ✅ **Tabellarische Ansicht** im Marktplatz (Umschalter Karten ⇄ Tabelle): Spalten
+  Mandat, Typ, Branche, Region, Umsatz, EBITDA, Deal-Typ, „Neu seit".
+- ✅ **Suchprofile / gespeicherte Suchen** (`search_profiles`, CRUD): aktuelle Filter
+  über „Suche speichern" sichern; Verwaltung unter `/suchprofile` (löschen, Frequenz,
+  Treffer ansehen).
+- ✅ **Sofort-Match-Benachrichtigung**: Wird ein Mandat veröffentlicht, erhalten Käufer
+  mit passendem Suchprofil (Frequenz „sofort") eine Branded-Mail.
 
-**Aufwand:** ~1,5 Sprints. Abhängig von: bestehender Marktplatz-Filterlogik.
+**Noch offen (Refinement):**
+- Spaltenauswahl/Sortierung & Tags/Aufgaben je Deal (Dealum-CRM-Feeling).
+- **Digest**: täglicher/wöchentlicher Sammel-Versand (Scheduler) für Frequenz
+  „täglich"/„wöchentlich".
+- Feinere Kriterien (Umsatz-/EBITDA-Band, Ticketgröße) in Suchprofilen.
 
 ---
 

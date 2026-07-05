@@ -279,6 +279,26 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
 - [ ] **O6 Impressum:** `/impressum` zeigt HRB 14306, USt-IdNr. DE 273 832 962 und
   Bankverbindung (Sparkasse Nürnberg, IBAN/BIC) gemäß Briefkopf.
 
+## P. Feedback, Changelog & Käufer-Suchprofile (Sprint 10)
+
+- [ ] **P1 Feedback senden:** `/feedback` (Käufer/Verkäufer) → Kategorie + Nachricht →
+  „Feedback senden" → Bestätigung; Eintrag erscheint im Admin-Tab „Feedback"; Admin
+  erhält eine Branded-Mail.
+- [ ] **P2 Feedback-Status:** Admin → „Feedback" → Status je Eintrag änderbar (Offen/
+  Geplant/Umgesetzt/Abgelehnt).
+- [ ] **P3 Changelog:** Admin → „Changelog" zeigt die Versionshistorie; neuer Eintrag
+  (Version, Titel, Punkte je Zeile) lässt sich hinzufügen und erscheint oben.
+- [ ] **P4 Roadmap/„Was ist neu":** Die Feedback-Seite zeigt die geplanten Funktionen
+  (professioneller Text) und die neuesten Changelog-Einträge.
+- [ ] **P5 Tabellenansicht:** Marktplatz → Umschalter „Tabelle" zeigt die Mandate als
+  sortier-/scrollbare Liste (Dealum-Stil); Klick auf eine Zeile öffnet das Mandat.
+- [ ] **P6 Suche speichern:** Filter setzen → „★ Suche speichern" → Name vergeben →
+  erscheint unter „Meine Suchprofile" (`/suchprofile`).
+- [ ] **P7 Suchprofil-Verwaltung:** Benachrichtigungsfrequenz umstellen, „Treffer"
+  öffnet den Marktplatz mit den Kriterien, Löschen entfernt das Profil.
+- [ ] **P8 Match-Mail:** Neues Mandat veröffentlichen, das einem Suchprofil (Frequenz
+  „sofort") entspricht → der Käufer erhält eine Branded-Mail mit Mandats-Link.
+
 ---
 
 ## Hinweise
