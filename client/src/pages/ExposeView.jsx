@@ -20,6 +20,7 @@ export default function ExposeView() {
   const [hero, setHero] = useState(null);
   const [state, setState] = useState('loading'); // loading | ok | locked | error
   const [err, setErr] = useState('');
+  const [pdfMsg, setPdfMsg] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -32,7 +33,14 @@ export default function ExposeView() {
   useEffect(() => { load(); }, [load]);
 
   async function downloadPdf() {
-    try { const res = await fetch(`/api/exposes/${pid}/pdf`, { headers: authHeaders() }); if (!res.ok) throw new Error('Fehler'); const b = await res.blob(); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `Expose_${data?.project?.codename || pid}.pdf`; a.click(); URL.revokeObjectURL(u); } catch {}
+    setPdfMsg('PDF wird erstellt…');
+    try {
+      const res = await fetch(`/api/exposes/${pid}/pdf`, { headers: authHeaders() });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `Fehler ${res.status}`); }
+      const b = await res.blob(); const u = URL.createObjectURL(b);
+      const a = document.createElement('a'); a.href = u; a.download = `Expose_${data?.project?.codename || pid}.pdf`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u);
+      setPdfMsg('');
+    } catch (e) { setPdfMsg('PDF-Fehler: ' + e.message); }
   }
 
   if (state === 'loading') return <div style={{ padding: '4rem', textAlign: 'center', color: C.muted }}>Wird geladen…</div>;
@@ -68,6 +76,17 @@ export default function ExposeView() {
       </div>
 
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '1.75rem 1.5rem 4rem' }}>
+        {pdfMsg && <div style={{ background: pdfMsg.includes('Fehler') ? '#fee2e2' : '#eff6ff', border: `1px solid ${pdfMsg.includes('Fehler') ? '#fca5a5' : '#bfdbfe'}`, borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: pdfMsg.includes('Fehler') ? '#991b1b' : C.accent }}>{pdfMsg}</div>}
+
+        {facts.length === 0 && activeSections.length === 0 && gallery.length === 0 && !(corridor && corridor.base) ? (
+          <div style={{ background: C.card, border: `1px dashed ${C.border}`, borderRadius: 12, padding: '2.5rem 1.5rem', textAlign: 'center' }}>
+            <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Dieses Exposé hat noch keine Inhalte</div>
+            {can_manage
+              ? <div style={{ fontSize: '0.88rem', color: C.muted }}>Befüllen Sie Eckdaten, Sektionen und Bilder im <Link to={`/mandat/${pid}/expose`} style={{ color: C.accent, fontWeight: 600 }}>Exposé-Editor</Link>.</div>
+              : <div style={{ fontSize: '0.88rem', color: C.muted }}>Das Exposé wird derzeit vorbereitet und in Kürze verfügbar sein.</div>}
+          </div>
+        ) : null}
+
         {hero && <img src={hero} alt="" style={{ width: '100%', maxHeight: 300, objectFit: 'cover', borderRadius: 12, marginBottom: '1.5rem', border: `1px solid ${C.border}` }} />}
 
         {/* Keyfacts */}

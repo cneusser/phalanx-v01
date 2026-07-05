@@ -230,6 +230,22 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
   diagonales Wasserzeichen und im Footer.
 - [ ] **L8 Vorschau (Pfleger):** Als Pfleger ist das Exposé auch im Entwurf über die
   Vorschau sichtbar; Käufer sehen Entwürfe nie.
+- [ ] **L9 Leerzustand:** Ein noch leeres Exposé zeigt in der Vorschau den Hinweis
+  „noch keine Inhalte" (Pfleger mit Link zum Editor); der PDF-Button meldet Fehler
+  klar, statt still zu bleiben.
+- [ ] **L10 Teaser-Ableitung:** Editor → „Öffentlichen Teaser aktualisieren" → die
+  Marktplatz-Karte des Mandats übernimmt Branche, Region, Umsatzband, Kurz-
+  beschreibung und Highlights aus dem Exposé (nur anonymisierte Angaben).
+
+## M. Briefbogen-Footer in PDFs
+
+- [ ] **M1 NDA:** Signiertes NDA-PDF zeigt auf **Seite 1** den vollständigen Phalanx-
+  Briefbogen-Footer (Adresse, Tel/Fax, Register, USt-IdNr., Bankverbindung, www);
+  Folgeseiten zeigen die schlanke Seitenzeile.
+- [ ] **M2 Bewertungen & Exposé:** Quick-Check-, ausführliche Bewertung und Exposé-PDF
+  tragen den Firmen-Footer auf **jeder** Seite; Inhalt überlappt den Footer nicht.
+- [ ] **M3 Exposé-Wasserzeichen:** Das Exposé-PDF behält zusätzlich das diagonale
+  Empfänger-Wasserzeichen (Name/E-Mail).
 
 ---
 

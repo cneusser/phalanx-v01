@@ -5,6 +5,7 @@
 const path = require('path');
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
+const { drawCompanyFooter } = require('../utils/pdfFooter');
 
 const NAVY = '#0D2A4A', ACCENT = '#1D4E89', STEEL = '#5B8FC9', GRAY = '#555555', BLACK = '#1A1A1A', LIGHT = '#EDF4FA';
 const LOGO = path.join(__dirname, '..', 'assets', 'phalanx-mark.png');
@@ -24,7 +25,7 @@ function generateExposeReport(opts) {
   const { project, keyfacts = {}, sections = [], recipient, corridor, heroBuffer, date = new Date() } = opts;
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', bufferPages: true,
-      margins: { top: 56, bottom: 70, left: 64, right: 64 },
+      margins: { top: 56, bottom: 96, left: 64, right: 64 },
       info: { Title: `Exposé ${project?.codename || ''}`, Author: 'Phalanx GmbH', Creator: 'CapitalMatch' } });
     const buffers = [];
     doc.on('data', b => buffers.push(b));
@@ -32,7 +33,7 @@ function generateExposeReport(opts) {
     doc.on('error', reject);
 
     const L = 64, PAGE_W = doc.page.width - 128, R = L + PAGE_W;
-    const pageBottom = doc.page.height - 80;
+    const pageBottom = doc.page.height - 104;
     const dateStr = new Date(date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
     const PROSE = (s) => ({ width: PAGE_W, align: 'justify', lineGap: Math.round(s * 0.5) });
 
@@ -120,12 +121,7 @@ function generateExposeReport(opts) {
         doc.opacity(1).restore();
       }
       const old = doc.page.margins.bottom; doc.page.margins.bottom = 0;
-      const pb = doc.page.height - 40;
-      doc.rect(0, pb, doc.page.width, 40).fill(NAVY);
-      doc.font('Helvetica').fontSize(7.3).fillColor('rgba(255,255,255,0.72)')
-        .text(`${rTag}`, L, pb + 9, { width: PAGE_W, align: 'left', lineBreak: false });
-      doc.font('Helvetica').fontSize(7.3).fillColor('rgba(255,255,255,0.6)')
-        .text(`CapitalMatch · Phalanx GmbH · ${dateStr} · Seite ${i + 1}/${range.count}`, L, pb + 22, { width: PAGE_W, align: 'left', lineBreak: false });
+      drawCompanyFooter(doc, { L, pageWidth: PAGE_W, note: `${rTag} · CapitalMatch/Phalanx GmbH · ${dateStr} · Seite ${i + 1}/${range.count}` });
       doc.page.margins.bottom = old;
     }
     doc.end();

@@ -84,6 +84,12 @@ export default function ExposeEditor() {
     catch (e) { setMsg('Fehler: ' + e.message); }
   }
   async function unpublish() { try { await api.post(`/exposes/${pid}/unpublish`, {}); setStatus('draft'); setMsg('Exposé zurückgezogen (Entwurf).'); } catch (e) { setMsg('Fehler: ' + e.message); } }
+  async function deriveTeaser() {
+    if (!window.confirm('Aus dem Exposé die öffentliche Teaser-Karte (Branche, Region, Umsatzband, Kurzbeschreibung, Highlights) aktualisieren? Nur anonymisierte Angaben verwenden.')) return;
+    setMsg('');
+    try { const d = await api.post(`/exposes/${pid}/derive-teaser`, {}); setMsg(d.message + ` (Branche: ${d.fields.industry || '—'}, ${d.fields.highlights} Highlights).`); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+  }
   async function downloadPdf() {
     try { const res = await fetch(`/api/exposes/${pid}/pdf`, { headers: authHeaders() }); if (!res.ok) throw new Error('Fehler'); const b = await res.blob(); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `Expose_${project?.codename || pid}.pdf`; a.click(); URL.revokeObjectURL(u); }
     catch (e) { setMsg('PDF-Fehler: ' + e.message); }
@@ -176,6 +182,12 @@ export default function ExposeEditor() {
               : <button onClick={unpublish} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0.6rem 1.3rem', background: '#fff', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 8, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>Zurückziehen (Entwurf)</button>}
             {status === 'published' && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#166534', fontSize: '0.82rem', fontWeight: 600 }}><CheckCircle size={15} /> Veröffentlicht</span>}
           </div>
+        </Card>
+
+        {/* Kurzprofil → öffentliche Teaser-Karte */}
+        <Card title="Öffentliche Teaser-Karte">
+          <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: '0.75rem' }}>Aus den (anonymisierten) Eckdaten und der Unternehmens-/Stärken-Sektion die öffentliche Marktplatz-Karte befüllen: Branche, Region, Umsatzband, Kurzbeschreibung und Investment-Highlights.</div>
+          <button onClick={deriveTeaser} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0.55rem 1.1rem', background: '#fff', color: C.navy, border: `1px solid ${C.navy}`, borderRadius: 8, fontWeight: 600, fontSize: '0.83rem', cursor: 'pointer' }}><UploadIcon size={14} /> Öffentlichen Teaser aktualisieren</button>
         </Card>
       </div>
     </div>

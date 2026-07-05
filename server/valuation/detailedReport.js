@@ -5,6 +5,7 @@
 const path = require('path');
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
+const { drawCompanyFooter } = require('../utils/pdfFooter');
 
 const NAVY = '#0D2A4A';
 const ACCENT = '#1D4E89';
@@ -33,7 +34,7 @@ function generateDetailedReport(opts) {
   const { result, input = {}, company, name, date = new Date() } = opts;
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', bufferPages: true,
-      margins: { top: 56, bottom: 64, left: 64, right: 64 },
+      margins: { top: 56, bottom: 92, left: 64, right: 64 },
       info: { Title: 'Ausführliche Unternehmensbewertung', Author: 'Phalanx GmbH', Creator: 'CapitalMatch' } });
     const buffers = [];
     doc.on('data', b => buffers.push(b));
@@ -41,7 +42,7 @@ function generateDetailedReport(opts) {
     doc.on('error', reject);
 
     const L = 64, PAGE_W = doc.page.width - 128, R = L + PAGE_W;
-    const pageBottom = doc.page.height - 74;
+    const pageBottom = doc.page.height - 100;
     const dateStr = new Date(date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
     const PROSE = (s) => ({ width: PAGE_W, align: 'justify', lineGap: Math.round(s * 0.5) });
 
@@ -192,9 +193,7 @@ function generateDetailedReport(opts) {
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(range.start + i);
       const old = doc.page.margins.bottom; doc.page.margins.bottom = 0;
-      const pb = doc.page.height - 34;
-      doc.rect(0, pb, doc.page.width, 34).fill(NAVY);
-      doc.font('Helvetica').fontSize(7.5).fillColor('rgba(255,255,255,0.65)').text(`CapitalMatch · eine Marke der Phalanx GmbH · Ausführliche Bewertung (indikativ) · ${dateStr} · Seite ${i + 1}/${range.count}`, L, pb + 12, { width: PAGE_W, align: 'center', lineBreak: false });
+      drawCompanyFooter(doc, { L, pageWidth: PAGE_W, note: `CapitalMatch · eine Marke der Phalanx GmbH · Ausführliche Bewertung (indikativ) · ${dateStr} · Seite ${i + 1}/${range.count}` });
       doc.page.margins.bottom = old;
     }
     doc.end();

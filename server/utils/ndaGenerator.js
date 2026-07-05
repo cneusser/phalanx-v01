@@ -6,6 +6,7 @@
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const { drawCompanyFooter } = require('./pdfFooter');
 
 const NAVY  = '#14314F';
 const GOLD  = '#A5C8E4';
@@ -62,7 +63,7 @@ function generateNDA(opts) {
     const doc = new PDFDocument({
       size: 'A4',
       bufferPages: true, // nötig für korrekte Fußzeilen/Seitenzählung auf allen Seiten
-      margins: { top: 65, bottom: 65, left: 72, right: 72 },
+      margins: { top: 65, bottom: 92, left: 72, right: 72 },
       info: {
         Title: `NDA – Projekt ${project.codename}`,
         Author: advisor.name,
@@ -285,21 +286,22 @@ function generateNDA(opts) {
       doc.y += 14;
     }
 
-    // ─── FOOTER on every page ────────────────────────────────────────────────
+    // ─── FOOTER ──────────────────────────────────────────────────────────────
+    // Vollständiger Phalanx-Briefbogen-Footer auf Seite 1; schlanke Seitenzeile
+    // auf allen weiteren Seiten (Firmen-Briefpapier zumindest auf der ersten Seite).
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(range.start + i);
-      // Unteren Seitenrand temporär aufheben, sonst legt pdfkit beim
-      // Schreiben in die Fußzeile automatisch neue (leere) Seiten an
       const oldBottomMargin = doc.page.margins.bottom;
       doc.page.margins.bottom = 0;
-      const pageBottom = doc.page.height - 38;
-      doc.rect(0, pageBottom, doc.page.width, 38).fill('#14314F');
-      doc.font('Helvetica').fontSize(7.5).fillColor('rgba(255,255,255,0.6)')
-        .text(
-          `${advisor.name}  ·  Vertraulich  ·  Projekt: ${project.codename}  ·  Seite ${i + 1} von ${range.count}`,
-          72, pageBottom + 14, { width: PAGE_W, align: 'center', lineBreak: false }
-        );
+      const note = `${advisor.name}  ·  Vertraulich  ·  Projekt: ${project.codename}  ·  Seite ${i + 1} von ${range.count}`;
+      if (i === 0) {
+        drawCompanyFooter(doc, { L: 72, pageWidth: PAGE_W, note });
+      } else {
+        const pageBottom = doc.page.height - 30;
+        doc.font('Helvetica').fontSize(7).fillColor('#9AA6B2')
+          .text(note, 72, pageBottom, { width: PAGE_W, align: 'center', lineBreak: false });
+      }
       doc.page.margins.bottom = oldBottomMargin;
     }
 

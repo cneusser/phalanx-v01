@@ -6,6 +6,7 @@
 const path = require('path');
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
+const { drawCompanyFooter } = require('../utils/pdfFooter');
 
 const NAVY = '#0D2A4A';   // Phalanx-Navy (Wortmarke)
 const ACCENT = '#1D4E89';
@@ -33,7 +34,7 @@ function generateValuationReport(opts) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4', bufferPages: true,
-      margins: { top: 56, bottom: 64, left: 64, right: 64 },
+      margins: { top: 56, bottom: 92, left: 64, right: 64 },
       info: { Title: 'Indikative Unternehmensbewertung', Author: 'Phalanx GmbH', Creator: 'CapitalMatch' },
     });
     const buffers = [];
@@ -185,15 +186,12 @@ function generateValuationReport(opts) {
     doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Wichtiger Hinweis', L + 12, dBoxY + 8);
     doc.font('Helvetica').fontSize(8).fillColor(GRAY).text(dText, L + 12, dBoxY + 20, { width: PAGE_W - 24, align: 'justify', lineGap: 1.5 });
 
-    // ── Footer je Seite ──────────────────────────────────────────────────────
+    // ── Briefbogen-Footer je Seite ───────────────────────────────────────────
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(range.start + i);
       const old = doc.page.margins.bottom; doc.page.margins.bottom = 0;
-      const pb = doc.page.height - 34;
-      doc.rect(0, pb, doc.page.width, 34).fill(NAVY);
-      doc.font('Helvetica').fontSize(7.5).fillColor('rgba(255,255,255,0.65)')
-        .text(`CapitalMatch · eine Marke der Phalanx GmbH · Indikative Bewertung · ${dateStr} · Seite ${i + 1}/${range.count}`, L, pb + 12, { width: PAGE_W, align: 'center', lineBreak: false });
+      drawCompanyFooter(doc, { L, pageWidth: PAGE_W, note: `CapitalMatch · eine Marke der Phalanx GmbH · Indikative Bewertung · ${dateStr} · Seite ${i + 1}/${range.count}` });
       doc.page.margins.bottom = old;
     }
     doc.end();

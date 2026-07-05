@@ -135,6 +135,37 @@ router.post('/:projectId/unpublish', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Exposé zurückgezogen' } });
 }));
 
+// ── Kurzprofil-Ableitung: öffentliche Teaser-Karte aus dem Exposé befüllen ──
+router.post('/:projectId/derive-teaser', authenticate, wrap(async (req, res) => {
+  const projectId = req.params.projectId;
+  if (!(await canManage(req, projectId))) return res.status(403).json({ success: false, error: 'Kein Zugriff' });
+  const expose = parseExpose(await loadExpose(req, projectId));
+  if (!expose) return res.status(400).json({ success: false, error: 'Bitte zuerst Exposé-Inhalte speichern.' });
+  const kf = expose.keyfacts || {};
+  const sec = (key) => { const s = (expose.sections || []).find(x => x.key === key && x.enabled && String(x.body || '').trim()); return s ? String(s.body).trim() : ''; };
+
+  // Kurzbeschreibung: Unternehmens- bzw. Leistungssektion (anonymisiert, gekürzt)
+  const shortDesc = (sec('company') || sec('offering') || '').slice(0, 600) || null;
+  // Highlights aus der Stärken-Sektion (zeilen-/satzweise), max. 5
+  const swot = sec('swot');
+  let highlights = [];
+  if (swot) highlights = swot.split(/\n|(?<=\.)\s+/).map(s => s.trim()).filter(s => s.length > 8).slice(0, 5);
+
+  await scoped(req, (t) => t.run(
+    `UPDATE projects SET
+       industry     = COALESCE(NULLIF(?, ''), industry),
+       region       = COALESCE(NULLIF(?, ''), region),
+       revenue_band = COALESCE(NULLIF(?, ''), revenue_band),
+       ebitda_band  = COALESCE(NULLIF(?, ''), ebitda_band),
+       short_description = COALESCE(?, short_description),
+       highlights   = COALESCE(?, highlights)
+     WHERE id = ?`,
+    [kf.industries || '', kf.region || '', kf.revenue_band || '', kf.ebit_band || '',
+     shortDesc, highlights.length ? JSON.stringify(highlights) : null, projectId]));
+  db.auditLog(req.user.id, 'EXPOSE_DERIVE_TEASER', 'project', projectId, null, req.ip);
+  res.json({ success: true, data: { message: 'Öffentliche Teaser-Karte aktualisiert', fields: { industry: kf.industries, region: kf.region, revenue_band: kf.revenue_band, ebitda_band: kf.ebit_band, highlights: highlights.length } } });
+}));
+
 // Zugriffsprüfung für Exposé-Bilder + PDF (Manager oder published+Gate)
 async function exposeAccess(req, projectId) {
   if (await canManage(req, projectId)) return { ok: true, manage: true, expose: parseExpose(await loadExpose(req, projectId)) };
