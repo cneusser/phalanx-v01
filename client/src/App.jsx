@@ -8,6 +8,7 @@ import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import ValuationCalculator from './pages/ValuationCalculator';
 import DetailedValuation from './pages/DetailedValuation';
+import ProjectSafe from './pages/ProjectSafe';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -63,6 +64,7 @@ function AppRoutes() {
           <Route path="/projekte/:id" element={<ProjectDetail />} />
           <Route path="/unternehmenswert" element={<ValuationCalculator />} />
           <Route path="/bewertung" element={<ProtectedRoute><DetailedValuation /></ProtectedRoute>} />
+          <Route path="/mandat/:id/safe" element={<ProtectedRoute><ProjectSafe /></ProtectedRoute>} />
           <Route path="/registrieren" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/passwort-vergessen" element={<ForgotPassword />} />

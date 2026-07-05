@@ -45,6 +45,7 @@ app.use(require('./middleware/tenant').resolveTenant);
 app.use('/api/tenant', require('./routes/tenant'));
 app.use('/api/valuation', require('./routes/valuation'));
 app.use('/api/detailed-valuations', require('./routes/detailedValuation'));
+app.use('/api/safe', require('./routes/safe'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/ndas', require('./routes/ndas'));

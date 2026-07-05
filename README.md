@@ -61,6 +61,42 @@ Bezahlschranke vorbereitet über `VALUATION_PAID` (Default aus). Daten in
 
 ---
 
+## Container-Safe (Sprint 8)
+
+Sichere Ablage ganzer Ordner, Bilder und **beliebiger Dateitypen** je Mandat unter
+`/mandat/:id/safe` — getrennt von Teaser/IM/Datenraum. Zugriff **ausschließlich für
+Admin und Projekt-Pfleger** (`can_manage`); **kein Investor-Zugriff** (härter als
+der Datenraum). Jeder Zugriff landet im `activity_log`/Audit.
+
+Funktionen: Ordnerbaum, Multi-Upload inkl. ganzer Ordner (`webkitdirectory` +
+Drag & Drop), Bildergalerie, **SHA-256-Checksumme** je Datei, **Versionierung** bei
+Namenskollision, **Papierkorb** (Soft-Delete, 30 Tage) mit Wiederherstellen,
+Speicherverbrauch je Mandat. Über **„In Datenraum übernehmen"** wird eine Safe-Datei
+als `documents`-Eintrag kopiert (Zugriffsebene wählbar) — ab dann greifen die
+bestehenden Gates/Wasserzeichen. Daten in `safe_items` (Ordnerbaum via `parent_id`,
+tenant_id + RLS).
+
+**Speicher-Provider (umschaltbar ohne Codeänderung):** `server/providers/storage/`
+mit `LocalVolumeProvider` (Default, Railway-Volume/Disk) und `S3Provider`
+(S3-kompatibel: Cloudflare R2, AWS S3, Hetzner). Auswahl über `STORAGE_PROVIDER`.
+
+**Cloudflare R2 aktivieren (empfohlen, egress-frei):**
+
+1. In Cloudflare einen **R2-Bucket** anlegen (z. B. `capitalmatch-safe`).
+2. Einen **R2-API-Token** erzeugen → Access Key ID + Secret.
+3. In Railway folgende ENV setzen:
+   - `STORAGE_PROVIDER=s3`
+   - `S3_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com`
+   - `S3_BUCKET=capitalmatch-safe`
+   - `S3_KEY=<Access Key ID>`
+   - `S3_SECRET=<Secret Access Key>`
+   - `S3_REGION=auto` (R2)
+
+Ohne diese Variablen läuft alles wie bisher auf dem Volume. Das Paket
+`@aws-sdk/client-s3` wird nur bei `STORAGE_PROVIDER=s3` geladen (Lazy Require).
+
+---
+
 ## Datenbank (seit Sprint 1: PostgreSQL)
 
 Die App benötigt eine PostgreSQL-Datenbank. Die Verbindung kommt **ausschließlich**

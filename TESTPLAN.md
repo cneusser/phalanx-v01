@@ -187,6 +187,30 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
 
 ---
 
+## K. Container-Safe (Sprint 8)
+
+- [ ] **K1 Einstieg & Zugriff:** Admin → Projekte → „🔒 Safe" öffnet den Explorer
+  (`/mandat/:id/safe`). Ein **Investor** (nicht-Pfleger) erhält beim Aufruf die
+  Meldung „Kein Zugriff" (keine Dateien sichtbar).
+- [ ] **K2 Ordner & Upload:** „Neuer Ordner" anlegen; per „Dateien" und per Drag &
+  Drop hochladen → erscheinen in der Liste, Bilder in der Galerie.
+- [ ] **K3 Ordner-Upload:** „Ordner hochladen" mit einem mehrstufigen Ordner → der
+  Ordnerbaum wird im Safe nachgebildet (Navigation per Breadcrumb).
+- [ ] **K4 Versionierung:** Gleiche Datei erneut hochladen → zweite Version (Badge
+  „v2"), die erste bleibt erhalten.
+- [ ] **K5 Download-Integrität:** Datei herunterladen → Inhalt identisch (Checksum).
+- [ ] **K6 Papierkorb:** Datei/Ordner löschen → „Papierkorb" zeigt sie →
+  Wiederherstellen bringt sie zurück; „Endgültig" entfernt sie inkl. Speicher.
+- [ ] **K7 In Datenraum übernehmen:** Bei einer Safe-Datei „Teilen"-Symbol →
+  Zugriffsebene wählen → die Datei erscheint als Dokument im Mandat (Gate greift).
+- [ ] **K8 Speicheranzeige:** Kopfzeile zeigt Gesamtgröße, Datei- und Ordnerzahl.
+- [ ] **K9 Killswitch:** Mandat löschen (Admin) entfernt auch dessen Safe-Einträge
+  (CASCADE über `project_id`).
+- [ ] **K10 Provider-Umschaltung (optional):** Mit `STORAGE_PROVIDER=s3` + R2-ENV
+  starten → Upload/Download funktionieren gegen R2, ohne Codeänderung.
+
+---
+
 ## Hinweise
 
 - Die geseedeten Beispiel-Dokumente (Teaser/Pitchdeck) sind **Metadaten ohne

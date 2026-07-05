@@ -16,8 +16,8 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 6 | Bewertungs-Quick-Check (öffentlicher Lead-Magnet) | ✅ fertig |
 | 6.1 | Multiples auf Branche × Größenklasse (DUB), Report-Briefbogen, Admin-Multiples | ✅ fertig |
 | 7 | Ausführliche Bewertung (Engine + Report) | ✅ fertig |
-| **8** | **Container-Safe (Ordner-Uploads, Object Storage)** | ▶ als Nächstes |
-| 9 | Exposé-Builder (DUB-Standard, IM-Gate) | geplant |
+| 8 | Container-Safe (Ordner-Uploads, Object Storage) | ✅ fertig |
+| **9** | **Exposé-Builder (DUB-Standard, IM-Gate)** | ▶ als Nächstes |
 | 10 | Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking) | Ausbaustufe |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
