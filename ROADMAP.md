@@ -18,7 +18,9 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 7 | Ausführliche Bewertung (Engine + Report) | ✅ fertig |
 | 8 | Container-Safe (Ordner-Uploads, Object Storage) | ✅ fertig |
 | 9 | Exposé-Builder (DUB-Standard, IM-Gate) | ✅ fertig |
-| **10** | **Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking)** | Ausbaustufe / nächste |
+| **10** | **Käufer-UX: Deal-Liste (Dealsuite/Dealum-Stil) + Suchprofile + Match-Benachrichtigungen** | ▶ als Nächstes |
+| 11 | In-App-Chat & Kontakte (Netzwerk) | geplant |
+| 12 | Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking) | Ausbaustufe |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →
@@ -159,7 +161,46 @@ Checkliste vor Publikation).
 
 ---
 
-## Sprint 10 — Ausführliche Bewertung 2.0 (datengetrieben) — Ausbaustufe
+## Sprint 10 — Käufer-UX: Deal-Liste, Suchprofile, Match-Benachrichtigungen ▶ ALS NÄCHSTES
+
+Vorbilder: **Dealum** (Funnel-Tabelle) und **Dealsuite** (flexible Filter, gespeicherte
+Suchen, tägliche/wöchentliche Match-Benachrichtigungen, diskretes Netzwerk).
+
+- **Tabellarische Deal-/Projektliste für Käufer** (Dealum-Stil): sortierbare Spalten
+  (Name, Branche, Region, Umsatz-/EBITDA-Band, Deal-Typ, „Neu"-Datum, Status/Tags),
+  Umschaltung Karten ⇄ Tabelle, Spaltenauswahl, Schnellfilter, Detailspalte/Vorschau.
+- **Suchprofile / gespeicherte Suchen (Käufer):** Kriterien (Branche(n), Region,
+  Umsatz-/EBITDA-Band, Deal-Typ, Ticketgröße) als benanntes Profil speichern; Tabelle
+  `search_profiles` (user_id, criteria_json, notify_frequency), CRUD + UI.
+- **Match-Benachrichtigungen:** neue Mandate, die einem Suchprofil entsprechen, per
+  E-Mail (Frequenz wählbar: sofort / täglich / wöchentlich) — nutzt die neuen
+  Branded-Mails + Prozess-Benachrichtigungen. Scheduler/Digest.
+- **Tags & Aufgaben** je Deal (leichtes CRM aus Käufersicht), optional.
+
+**Aufwand:** ~1,5 Sprints. Abhängig von: bestehender Marktplatz-Filterlogik.
+
+---
+
+## Sprint 11 — In-App-Chat & Kontakte (Netzwerk)
+
+- Direktnachrichten zwischen berechtigten Kontakten (nach NDA/Freigabe); Kontakte
+  gegenseitig hinzufügen/annehmen (Netzwerk wie Dealsuite).
+- Tabellen `connections` (requester/addressee/status) und `messages` (thread_id,
+  sender, body, read_at); RLS; Benachrichtigung per Branded-Mail bei neuer Nachricht.
+- Diskretionssteuerung: sichtbar nur, was der Nutzer teilt; Admin-Moderation.
+
+---
+
+## Querschnitt-Ergänzung — Prozess-Benachrichtigungen
+
+Jeder Funnel-Schritt löst eine **Branded-Mail** (Phalanx-Header + Impressum-Footer,
+werblicher Ton) aus: Registrierung, Freigabe, NDA angefordert/signiert/freigegeben,
+IM/Datenraum-Freigabe, neue Unterlagen, Q&A-Frage/-Antwort, LOI. Ziel: der Kunde ist
+über **jeden** Schritt informiert. (Basis bereits gelegt: `sendProcessUpdateEmail`.)
+
+---
+
+## Sprint 12 — Ausführliche Bewertung 2.0 (datengetrieben) — Ausbaustufe
 
 Langfrist-Wunsch, nach genügend Mandaten: aus Zahlen/Daten/Fakten automatisiert eine
 belastbarere indikative Bewertung, angereichert mit Marktdaten.

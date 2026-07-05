@@ -5,7 +5,7 @@ const wrap = require('../utils/asyncHandler');
 const { missingProfileFields } = require('../utils/profileCompleteness');
 const router = express.Router();
 
-const USER_FIELDS = 'id, email, role, salutation, title, first_name, last_name, company, position, buyer_type, phone, street, postal_code, city, about, website, linkedin_url, privacy_consent_at, created_at';
+const USER_FIELDS = 'id, email, role, salutation, title, first_name, last_name, company, position, buyer_type, mobile, phone, street, postal_code, city, about, website, linkedin_url, privacy_consent_at, created_at';
 
 router.get('/', authenticate, wrap(async (req, res) => {
   const user = await db.get(`SELECT ${USER_FIELDS} FROM users WHERE id = ?`, [req.user.id]);
@@ -17,14 +17,14 @@ router.get('/', authenticate, wrap(async (req, res) => {
 }));
 
 router.put('/', authenticate, wrap(async (req, res) => {
-  const { first_name, last_name, company, position, buyer_type, phone, about, website, linkedin_url,
+  const { first_name, last_name, company, position, buyer_type, mobile, phone, about, website, linkedin_url,
           salutation, title, street, postal_code, city,
           industries, regions, revenue_min, revenue_max, ebitda_min, ebitda_max, deal_types, investment_style, notes } = req.body;
   if (salutation && !['Herr', 'Frau', 'Divers'].includes(salutation)) {
     return res.status(400).json({ success: false, error: 'Ungültige Anrede (Herr, Frau oder Divers)' });
   }
-  await db.run(`UPDATE users SET first_name=COALESCE(?,first_name), last_name=COALESCE(?,last_name), company=COALESCE(?,company), position=COALESCE(?,position), buyer_type=COALESCE(?,buyer_type), phone=COALESCE(?,phone), about=COALESCE(?,about), website=COALESCE(?,website), linkedin_url=COALESCE(?,linkedin_url), salutation=COALESCE(?,salutation), title=COALESCE(?,title), street=COALESCE(?,street), postal_code=COALESCE(?,postal_code), city=COALESCE(?,city) WHERE id=?`,
-    [first_name||null, last_name||null, company||null, position||null, buyer_type||null, phone||null, about??null, website??null, linkedin_url??null,
+  await db.run(`UPDATE users SET first_name=COALESCE(?,first_name), last_name=COALESCE(?,last_name), company=COALESCE(?,company), position=COALESCE(?,position), buyer_type=COALESCE(?,buyer_type), mobile=COALESCE(?,mobile), phone=COALESCE(?,phone), about=COALESCE(?,about), website=COALESCE(?,website), linkedin_url=COALESCE(?,linkedin_url), salutation=COALESCE(?,salutation), title=COALESCE(?,title), street=COALESCE(?,street), postal_code=COALESCE(?,postal_code), city=COALESCE(?,city) WHERE id=?`,
+    [first_name||null, last_name||null, company||null, position||null, buyer_type||null, mobile||null, phone||null, about??null, website??null, linkedin_url??null,
      salutation||null, title??null, street||null, postal_code||null, city||null, req.user.id]);
   const ep = await db.get('SELECT id FROM buyer_profiles WHERE user_id = ?', [req.user.id]);
   if (ep) {

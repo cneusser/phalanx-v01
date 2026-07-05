@@ -114,7 +114,9 @@ export default function ProjectDetail() {
   const [requesting, setRequesting] = useState(false);
   const [showNDAModal, setShowNDAModal] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('tab') || 'overview'; } catch { return 'overview'; }
+  });
   const [publicDocs, setPublicDocs] = useState([]);
   const [gatedDocs, setGatedDocs] = useState([]); // IM/Datenraum-Dokumente (serverseitig gate-gefiltert)
   const [showEdit, setShowEdit] = useState(false); // Mandats-Pflege über Marktplatz
@@ -122,6 +124,7 @@ export default function ProjectDetail() {
   const [questions, setQuestions] = useState([]);
   const [newQuestion, setNewQuestion] = useState('');
   const [qaMsg, setQaMsg] = useState('');
+  const [qaDrafts, setQaDrafts] = useState({}); // Admin-Antwortentwürfe je Frage-ID
 
   const isAdmin = user && ['super_admin', 'advisor'].includes(user.role);
   const isStartup = teaser?.mandate_type === 'fundraising';
@@ -607,6 +610,18 @@ export default function ProjectDetail() {
         } catch (e) { setQaMsg('Fehler: ' + e.message); }
       };
 
+      const answerQuestion = async (qId) => {
+        const text = (qaDrafts[qId] || '').trim();
+        if (!text) return;
+        setQaMsg('');
+        try {
+          await api.put(`/admin/questions/${qId}/answer`, { answer: text });
+          setQaDrafts(s => ({ ...s, [qId]: '' }));
+          setQuestions(await api.get(`/projects/${id}/questions`));
+          setQaMsg('Antwort gespeichert und dem Fragenden per E-Mail zugestellt.');
+        } catch (e) { setQaMsg('Fehler: ' + e.message); }
+      };
+
       return (
         <div>
           <p style={{ color: '#555', fontSize: '0.875rem', lineHeight: 1.7, marginBottom: '1rem' }}>
@@ -633,9 +648,18 @@ export default function ProjectDetail() {
               <div style={{ fontSize: '0.7rem', color: C.muted, marginBottom: q.answer ? '0.5rem' : 0 }}>
                 Gestellt am {new Date(q.asked_at).toLocaleString('de-DE')} · {q.status === 'answered' ? 'Beantwortet' : 'Wartet auf Antwort'}
               </div>
+              {q.buyer_name && isAdmin && (
+                <div style={{ fontSize: '0.68rem', color: C.muted, marginBottom: '0.4rem' }}>Von: {q.buyer_name}</div>
+              )}
               {q.answer && (
                 <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '0.6rem 0.8rem', fontSize: '0.83rem', color: '#166534' }}>
                   {q.answer}
+                </div>
+              )}
+              {isAdmin && !q.answer && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <textarea value={qaDrafts[q.id] || ''} onChange={e => setQaDrafts(s => ({ ...s, [q.id]: e.target.value }))} rows={2} placeholder="Antwort verfassen…" style={{ width: '100%', padding: '0.5rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.83rem', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
+                  <button onClick={() => answerQuestion(q.id)} style={{ marginTop: '0.4rem', padding: '0.45rem 1rem', background: '#166534', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700 }}>Antworten & zusenden</button>
                 </div>
               )}
             </div>

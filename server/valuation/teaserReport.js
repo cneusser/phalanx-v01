@@ -24,6 +24,7 @@ function generateTeaserReport(opts) {
 
     const L = 64, PAGE_W = doc.page.width - 128, R = L + PAGE_W;
     const dateStr = new Date(date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+    const stampStr = new Date(date).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
     // Briefkopf
     let lb = 56;
@@ -40,7 +41,14 @@ function generateTeaserReport(opts) {
     doc.rect(L, doc.y, PAGE_W, 20).fillAndStroke('#FEF3C7', '#FCD34D');
     doc.font('Helvetica-Bold').fontSize(8).fillColor('#92400E')
       .text('ÖFFENTLICHES KURZPROFIL · VERTRAULICH BEHANDELN · KEINE WEITERGABE OHNE ZUSTIMMUNG', L, doc.y + 6, { width: PAGE_W, align: 'center' });
-    doc.y += 30; doc.x = L;
+    doc.y += 24; doc.x = L;
+    // Sichtbarer Audit-Stempel: wann und für wen erzeugt
+    if (recipient) {
+      doc.font('Helvetica').fontSize(7).fillColor(GRAY)
+        .text(`Erstellt am ${stampStr} Uhr · heruntergeladen von ${recipient.name || '—'}${recipient.email ? ' (' + recipient.email + ')' : ''}`, L, doc.y, { width: PAGE_W, align: 'center' });
+      doc.y += 12;
+    }
+    doc.x = L;
 
     // Titel
     doc.font('Helvetica-Bold').fontSize(19).fillColor(NAVY).text(project.codename || 'Mandat', L, doc.y);

@@ -40,7 +40,7 @@ export default function Profile() {
   const [revenueMin, setRevenueMin] = useState(0);
   const [revenueMax, setRevenueMax] = useState(100);
   // Kontaktdaten + Pitchbook-Selbstdarstellung
-  const [contact, setContact] = useState({ salutation: '', title: '', first_name: '', last_name: '', company: '', position: '', phone: '', street: '', postal_code: '', city: '', about: '', website: '', linkedin_url: '' });
+  const [contact, setContact] = useState({ salutation: '', title: '', first_name: '', last_name: '', company: '', position: '', mobile: '', phone: '', street: '', postal_code: '', city: '', about: '', website: '', linkedin_url: '' });
   const [missingFields, setMissingFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -59,7 +59,7 @@ export default function Profile() {
       setContact({
         salutation: d.user?.salutation || '', title: d.user?.title || '',
         first_name: d.user?.first_name || '', last_name: d.user?.last_name || '',
-        company: d.user?.company || '', position: d.user?.position || '', phone: d.user?.phone || '',
+        company: d.user?.company || '', position: d.user?.position || '', mobile: d.user?.mobile || '', phone: d.user?.phone || '',
         street: d.user?.street || '', postal_code: d.user?.postal_code || '', city: d.user?.city || '',
         about: d.user?.about || '', website: d.user?.website || '', linkedin_url: d.user?.linkedin_url || '',
       });
@@ -146,7 +146,7 @@ export default function Profile() {
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Titel (optional)</label>
               <input value={contact.title} onChange={setC('title')} placeholder="z. B. Dr., Prof." style={INPUT} />
             </div>
-            {[['Vorname *', 'first_name'], ['Nachname *', 'last_name'], ['Unternehmen *', 'company'], ['Position *', 'position'], ['Telefon *', 'phone'], ['Straße + Hausnummer *', 'street']].map(([label, key]) => (
+            {[['Vorname *', 'first_name'], ['Nachname *', 'last_name'], ['Unternehmen *', 'company'], ['Position *', 'position'], ['Mobilnummer *', 'mobile'], ['Telefon (optional)', 'phone'], ['Straße + Hausnummer *', 'street']].map(([label, key]) => (
               <div key={key}>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>{label}</label>
                 <input value={contact[key]} onChange={setC(key)} style={{ ...INPUT, borderColor: missingFields.includes(key) ? '#f59e0b' : '#ddd' }} />

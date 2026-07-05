@@ -40,7 +40,7 @@ export default function Register() {
   const [roleType, setRoleType] = useState('buyer'); // 'buyer' or 'seller'
   const [form, setForm] = useState({
     email: '', password: '', salutation: '', title: '', first_name: '', last_name: '',
-    company: '', position: '', buyer_type: 'strategic', phone: '',
+    company: '', position: '', buyer_type: 'strategic', mobile: '', phone: '',
   });
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
@@ -222,7 +222,9 @@ export default function Register() {
           )}
 
           {/* Phone */}
-          <Field label="Telefon" value={form.phone} onChange={set('phone')} placeholder="+49 170 123456" />
+          <Field label="Mobilnummer" value={form.mobile} onChange={set('mobile')} placeholder="+49 170 1234567" required />
+          <div style={{ fontSize: '0.72rem', color: C.gray, marginTop: '-0.5rem', marginBottom: '0.7rem' }}>Pflichtangabe — Grundlage für die spätere 2-Faktor-Authentifizierung.</div>
+          <Field label="Telefon (optional)" value={form.phone} onChange={set('phone')} placeholder="+49 9131 123456" />
 
           {/* GDPR Checkbox */}
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', marginBottom: '1.5rem' }}>

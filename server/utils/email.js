@@ -192,16 +192,52 @@ async function sendMail({ to, subject, html, attachments }) {
   }
 }
 
-const mailShell = (title, bodyHtml) => `
-  <div style="font-family: Arial, sans-serif; max-width: 600px; color: #333;">
-    <div style="background: #1A4D8A; padding: 20px 24px; border-radius: 6px 6px 0 0;">
-      <h1 style="color: #fff; margin: 0; font-size: 18px;">${title}</h1>
-      <p style="color: rgba(255,255,255,0.7); margin: 4px 0 0; font-size: 13px;">CapitalMatch — eine Marke der Phalanx GmbH</p>
+// Phalanx-Firmendaten (offizieller Briefkopf) — auch als Impressum in den Mails.
+const PHALANX_IMPRINT = {
+  tagline: 'Werte sichern. Wachstum finanzieren. Weitblick etablieren.',
+  name: 'Phalanx GmbH',
+  street: 'Helene-Lange-Straße 28',
+  city: 'D-91056 Erlangen',
+  tel: '+49 9131-9 20 60 75',
+  email: 'info@phalanx.de',
+  web: 'www.phalanx.de',
+  ceo: 'Geschäftsführer: Christian Neusser',
+  court: 'Registergericht Fürth HRB 14306',
+  vat: 'USt-IdNr. DE 273 832 962',
+};
+
+// Werblicher CTA-Button (optional)
+const ctaButton = (label, url) => label && url ? `
+  <p style="text-align:center; margin: 26px 0 6px;">
+    <a href="${url}" style="background:#0D2A4A;color:#fff;padding:13px 30px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block;">${label}</a>
+  </p>` : '';
+
+// Zentrales Mail-Layout: Phalanx-Header, Fließtext, werblicher Abbinder + Impressum-Footer.
+const mailShell = (title, bodyHtml, opts = {}) => {
+  const p = PHALANX_IMPRINT;
+  const promo = opts.promo !== false ? `
+    <div style="margin-top: 26px; padding: 16px 18px; background: #0D2A4A; border-radius: 8px; color: #fff;">
+      <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">CapitalMatch — Ihr digitaler Marktplatz für Unternehmenstransaktionen</div>
+      <div style="font-size: 12.5px; color: rgba(255,255,255,0.85); line-height: 1.6;">Kauf, Verkauf, Nachfolge und Wachstumsfinanzierung — diskret, strukturiert und persönlich begleitet von der Phalanx GmbH. Sprechen Sie uns an, wir stehen Ihnen zur Verfügung.</div>
+    </div>` : '';
+  return `
+  <div style="font-family: Arial, Helvetica, sans-serif; max-width: 620px; margin: 0 auto; color: #1a1a1a;">
+    <div style="background: #0D2A4A; padding: 22px 26px; border-radius: 8px 8px 0 0;">
+      <div style="color: #fff; font-size: 20px; font-weight: 800; letter-spacing: -0.01em;">CapitalMatch</div>
+      <div style="color: #8AB4D4; margin: 2px 0 0; font-size: 12px;">eine Marke der Phalanx GmbH · ${p.tagline}</div>
     </div>
-    <div style="background: #fff; padding: 24px; border: 1px solid #DDE8F3; border-top: none; border-radius: 0 0 6px 6px; font-size: 14px; line-height: 1.6;">
+    <div style="background: #fff; padding: 26px; border: 1px solid #DDE8F3; border-top: none; font-size: 14px; line-height: 1.65;">
+      <h1 style="color: #0D2A4A; margin: 0 0 14px; font-size: 17px;">${title}</h1>
       ${bodyHtml}
+      ${promo}
+    </div>
+    <div style="background: #F4F8FC; padding: 16px 26px; border: 1px solid #DDE8F3; border-top: none; border-radius: 0 0 8px 8px; font-size: 11px; color: #6B6B6B; line-height: 1.7;">
+      <div style="color:#5B8FC9; font-weight:700; margin-bottom:6px;">${p.tagline} &nbsp;·&nbsp; <a href="https://${p.web}" style="color:#5B8FC9; text-decoration:none;">${p.web}</a></div>
+      <strong style="color:#0D2A4A;">${p.name}</strong> · ${p.street} · ${p.city}<br/>
+      Tel ${p.tel} · <a href="mailto:${p.email}" style="color:#6B6B6B;">${p.email}</a> · ${p.ceo} · ${p.court} · ${p.vat}
     </div>
   </div>`;
+};
 
 // Passwort-Reset-Link an den Nutzer
 async function sendPasswordResetEmail({ to, firstName, resetUrl, expires }) {
@@ -211,11 +247,9 @@ async function sendPasswordResetEmail({ to, firstName, resetUrl, expires }) {
     html: mailShell('Passwort zurücksetzen', `
       <p>Hallo ${firstName || ''},</p>
       <p>für Ihr CapitalMatch-Konto wurde ein Passwort-Reset angefordert. Klicken Sie auf den folgenden Button, um ein neues Passwort zu vergeben:</p>
-      <p style="text-align:center; margin: 24px 0;">
-        <a href="${resetUrl}" style="background:#1A4D8A;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">Neues Passwort vergeben</a>
-      </p>
+      ${ctaButton('Neues Passwort vergeben', resetUrl)}
       <p style="font-size:12px;color:#888;">Der Link ist gültig bis ${new Date(expires).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}. Falls Sie den Reset nicht angefordert haben, ignorieren Sie diese E-Mail.</p>
-    `),
+    `, { promo: false }),
   });
 }
 

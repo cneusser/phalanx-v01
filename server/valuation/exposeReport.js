@@ -35,6 +35,7 @@ function generateExposeReport(opts) {
     const L = 64, PAGE_W = doc.page.width - 128, R = L + PAGE_W;
     const pageBottom = doc.page.height - 104;
     const dateStr = new Date(date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+    const stampStr = new Date(date).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const PROSE = (s) => ({ width: PAGE_W, align: 'justify', lineGap: Math.round(s * 0.5) });
 
     function letterhead() {
@@ -56,6 +57,10 @@ function generateExposeReport(opts) {
     doc.font('Helvetica-Bold').fontSize(18).fillColor(NAVY).text(project?.codename || 'Unternehmens-Exposé', L, doc.y);
     doc.moveDown(0.2);
     doc.font('Helvetica').fontSize(9.5).fillColor(GRAY).text('Anonymes Verkaufs-Exposé · vertraulich · nur für berechtigte Kaufinteressenten', L, doc.y, { width: PAGE_W });
+    if (recipient) {
+      doc.moveDown(0.2);
+      doc.font('Helvetica').fontSize(7.5).fillColor(GRAY).text(`Erstellt am ${stampStr} Uhr · heruntergeladen von ${recipient.name || '—'}${recipient.email ? ' (' + recipient.email + ')' : ''}`, L, doc.y, { width: PAGE_W });
+    }
     doc.moveDown(0.6);
 
     // Hero-Bild (optional)

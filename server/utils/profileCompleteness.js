@@ -5,7 +5,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 const db = require('../db/database');
 
-const REQUIRED_FIELDS = ['salutation', 'first_name', 'last_name', 'company', 'position', 'phone', 'street', 'postal_code', 'city'];
+// Mobilnummer ist Pflicht (Grundlage 2FA); Festnetz `phone` bleibt optional.
+const REQUIRED_FIELDS = ['salutation', 'first_name', 'last_name', 'company', 'position', 'mobile', 'street', 'postal_code', 'city'];
 
 function missingProfileFields(user) {
   return REQUIRED_FIELDS.filter((f) => !user[f] || String(user[f]).trim() === '');
@@ -13,7 +14,7 @@ function missingProfileFields(user) {
 
 const FIELD_LABELS = {
   salutation: 'Anrede', first_name: 'Vorname', last_name: 'Nachname',
-  company: 'Unternehmen', position: 'Position', phone: 'Telefonnummer',
+  company: 'Unternehmen', position: 'Position', mobile: 'Mobilnummer', phone: 'Telefonnummer',
   street: 'Straße', postal_code: 'PLZ', city: 'Ort',
 };
 
@@ -25,7 +26,7 @@ function requireCompleteProfile() {
     try {
       if (['super_admin', 'advisor'].includes(req.user.role)) return next();
       const user = await db.get(
-        `SELECT salutation, first_name, last_name, company, position, phone, street, postal_code, city FROM users WHERE id = ?`,
+        `SELECT salutation, first_name, last_name, company, position, mobile, phone, street, postal_code, city FROM users WHERE id = ?`,
         [req.user.id]
       );
       const missing = missingProfileFields(user || {});

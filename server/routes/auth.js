@@ -15,9 +15,11 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 // All new registrations require admin approval (is_approved = 0).
 // No token is returned — user sees a "pending" message.
 router.post('/register', wrap(async (req, res) => {
-  const { email, password, first_name, last_name, company, position, buyer_type, phone, role, privacy_consent, salutation, title } = req.body;
+  const { email, password, first_name, last_name, company, position, buyer_type, mobile, phone, role, privacy_consent, salutation, title } = req.body;
   if (!email || !password || !first_name || !last_name)
     return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen (Vorname, Nachname, E-Mail, Passwort)' });
+  if (!mobile || String(mobile).trim().length < 6)
+    return res.status(400).json({ success: false, error: 'Bitte geben Sie eine Mobilnummer an (Voraussetzung für die spätere 2-Faktor-Authentifizierung)' });
   // Anrede ist Pflicht — für alle Rollen
   if (!['Herr', 'Frau', 'Divers'].includes(salutation))
     return res.status(400).json({ success: false, error: 'Bitte wählen Sie eine Anrede (Herr, Frau oder Divers)' });
@@ -39,14 +41,14 @@ router.post('/register', wrap(async (req, res) => {
     const existing = await t.get('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
     if (existing) return { conflict: true };
     const userId = await t.insert(
-      `INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, buyer_type, phone, is_approved, is_active, privacy_consent_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, now())`,
+      `INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, buyer_type, mobile, phone, is_approved, is_active, privacy_consent_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, now())`,
       [tenantId, email.toLowerCase(), password_hash, userRole,
        salutation, title || null,
        first_name, last_name,
        company || null, position || null,
        userRole === 'buyer' ? (buyer_type || null) : null,
-       phone || null]
+       mobile || null, phone || null]
     );
     // Create buyer profile only for buyers
     if (userRole === 'buyer') {

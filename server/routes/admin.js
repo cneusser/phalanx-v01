@@ -465,8 +465,10 @@ router.put('/questions/:id/answer', ...isAdmin, wrap(async (req, res) => {
     sendProcessUpdateEmail({
       to: buyer.email, firstName: buyer.first_name,
       title: `Ihre Frage wurde beantwortet — ${proj ? proj.codename : 'Mandat'}`,
-      message: `Zu Ihrer Frage im Mandat <strong>${proj ? proj.codename : ''}</strong> liegt eine Antwort vor.`,
-      ctaLabel: 'Antwort ansehen', ctaPath: `/projekte/${q.project_id}`,
+      message: `zu Ihrer Frage im Mandat <strong>${proj ? proj.codename : ''}</strong> liegt nun eine Antwort unseres Transaktionsberaters vor:<br/><br/>`
+        + `<span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#555;margin-bottom:10px;"><em>Ihre Frage:</em><br/>${q.question}</span>`
+        + `<span style="display:block;background:#f0fdf4;border-left:3px solid #16a34a;padding:10px 14px;color:#166534;"><em>Antwort:</em><br/>${answer.trim()}</span>`,
+      ctaLabel: 'Im Mandat ansehen', ctaPath: `/projekte/${q.project_id}?tab=qa`,
     }).catch(() => {});
   }
   res.json({ success: true, data: { message: 'Antwort gespeichert' } });

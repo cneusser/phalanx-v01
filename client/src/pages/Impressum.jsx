@@ -49,16 +49,27 @@ export default function Impressum() {
           <div>
             <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#999', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>HANDELSREGISTER</h2>
             <p style={{ color: '#333', lineHeight: 1.9, fontSize: '0.9rem' }}>
-              Registergericht: Amtsgericht Fürth<br />
-              Registernummer: HRB 17882
+              Registergericht: Fürth<br />
+              Registernummer: HRB 14306<br />
+              USt-IdNr.: DE 273 832 962
             </p>
           </div>
           <div>
             <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#999', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>GESCHÄFTSFÜHRUNG</h2>
             <p style={{ color: '#333', lineHeight: 1.9, fontSize: '0.9rem' }}>
-              Dr. Christian Neusser
+              Christian Neusser
             </p>
           </div>
+        </div>
+
+        {/* Bankverbindung */}
+        <div style={{ borderTop: '1px solid #e0ddd6', paddingTop: '1.75rem', marginBottom: '2rem' }}>
+          <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#999', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>BANKVERBINDUNG</h2>
+          <p style={{ color: '#333', lineHeight: 1.9, fontSize: '0.9rem' }}>
+            Sparkasse Nürnberg<br />
+            IBAN: DE58 7605 0101 0010 8207 28<br />
+            BIC: SSKNDE77XXX
+          </p>
         </div>
 
         {/* Berufsrecht */}

@@ -261,6 +261,24 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
   Footer, gelber Vertraulichkeits-Markierung und Empfänger-Wasserzeichen; jede
   Erzeugung erscheint im Audit-Trail (Aktion `TEASER_PDF`).
 
+## O. Mails, Q&A-Flow, Audit-Stempel, Profil, Impressum
+
+- [ ] **O1 Branded-Mails:** Jede Kundenmail hat Phalanx-Header, werblichen Abbinder
+  und **Impressum-Footer** (Firma, Adresse, Kontakt, HRB, USt-IdNr.). Passwort-Reset
+  ohne Werbeblock.
+- [ ] **O2 Q&A-Direkteinstieg:** Die Admin-Benachrichtigung zu einer neuen Frage
+  enthält einen Button „Frage direkt beantworten" → öffnet die Mandatsseite im
+  Q&A-Tab (`?tab=qa`). Dort erscheint für Admins pro offener Frage ein Antwortfeld.
+- [ ] **O3 Antwort-Zustellung:** „Antworten & zusenden" speichert die Antwort und
+  schickt dem Fragenden eine Mail, die **Frage und Antwort** enthält.
+- [ ] **O4 PDF-Audit-Stempel:** Teaser- und Exposé-PDF zeigen sichtbar „Erstellt am
+  <Datum, Uhrzeit> · heruntergeladen von <Name> (<E-Mail>)"; Download bleibt im
+  Audit-Trail (`TEASER_PDF` / `EXPOSE_PDF`).
+- [ ] **O5 Mobilnummer Pflicht:** Registrierung ohne Mobilnummer → Fehler; Profil
+  verlangt die Mobilnummer (Grundlage 2FA). Festnetz bleibt optional.
+- [ ] **O6 Impressum:** `/impressum` zeigt HRB 14306, USt-IdNr. DE 273 832 962 und
+  Bankverbindung (Sparkasse Nürnberg, IBAN/BIC) gemäß Briefkopf.
+
 ---
 
 ## Hinweise

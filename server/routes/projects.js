@@ -247,13 +247,15 @@ router.post('/:id/questions', authenticate, wrap(async (req, res) => {
     [req.params.id, req.user.id, question.trim()]
   );
   db.activityLog(req.user.id, 'QA_QUESTION_ASKED', 'qa', qId, req.ip);
-  // Admin benachrichtigen
+  // Admin benachrichtigen — mit Direkt-Link zum Antworten
   const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [req.params.id]);
-  const { sendMail } = require('../utils/email');
-  sendMail({
+  const { sendProcessUpdateEmail } = require('../utils/email');
+  sendProcessUpdateEmail({
     to: process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de',
-    subject: `[CapitalMatch] Neue Q&A-Frage — ${proj ? proj.codename : 'Mandat'}`,
-    html: `<p><strong>${req.user.first_name} ${req.user.last_name}</strong> (${req.user.email}) fragt zu <strong>${proj ? proj.codename : ''}</strong>:</p><blockquote>${question.trim()}</blockquote><p>Beantwortung im Admin-Bereich → Pipeline → Deal öffnen.</p>`,
+    firstName: '',
+    title: `Neue Q&A-Frage — ${proj ? proj.codename : 'Mandat'}`,
+    message: `<strong>${req.user.first_name} ${req.user.last_name}</strong> (${req.user.email}) fragt zum Mandat <strong>${proj ? proj.codename : ''}</strong>:<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${question.trim()}</span>`,
+    ctaLabel: 'Frage direkt beantworten', ctaPath: `/projekte/${req.params.id}?tab=qa`,
   }).catch(() => {});
   res.status(201).json({ success: true, data: { id: qId, status: 'open' } });
 }));
