@@ -26,6 +26,7 @@ export default function ProjectSafe() {
   const [crumbs, setCrumbs] = useState([]);
   const [parent, setParent] = useState(null);
   const [usage, setUsage] = useState(null);
+  const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
   const [showTrash, setShowTrash] = useState(false);
@@ -41,13 +42,14 @@ export default function ProjectSafe() {
     try {
       const q = parentId ? `?parent_id=${parentId}` : '';
       const d = await api.get(`/safe/${pid}${q}`);
-      setItems(d.items); setCrumbs(d.breadcrumb); setParent(d.parent_id);
+      setItems(d.items); setCrumbs(d.breadcrumb); setParent(d.parent_id); if (d.project) setProject(d.project);
       api.get(`/safe/${pid}/usage`).then(setUsage).catch(() => {});
     } catch (e) { if ((e.message || '').includes('Zugriff')) setDenied(true); else setMsg('Fehler: ' + e.message); }
     finally { setLoading(false); }
   }, [pid]);
 
   useEffect(() => { load(null); }, [load]);
+  useEffect(() => { if (project) document.title = `Safe · ${project.codename} — CapitalMatch`; return () => { document.title = 'CapitalMatch'; }; }, [project]);
   // Ordner-Upload zuverlässig aktivieren (Attribute per Ref setzen)
   useEffect(() => { if (dirInput.current) { dirInput.current.setAttribute('webkitdirectory', ''); dirInput.current.setAttribute('directory', ''); } }, []);
 
@@ -70,7 +72,7 @@ export default function ProjectSafe() {
       const res = await fetch(`/api/safe/${pid}/upload`, { method: 'POST', headers: authHeaders(), body: fd });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || 'Upload fehlgeschlagen');
-      setMsg(`${j.data.created.length} Datei(en) hochgeladen.`); load(parent);
+      setMsg(`${j.data.created.length} Datei(en) hochgeladen → ${project ? project.codename : 'Mandat #' + pid}.`); load(parent);
     } catch (e) { setMsg('Fehler: ' + e.message); }
     finally { setUploading(false); }
   }
@@ -113,8 +115,14 @@ export default function ProjectSafe() {
           <Link to="/admin" style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: '0.6rem' }}><ChevronLeft size={14} /> Admin</Link>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><HardDrive size={22} /> Container-Safe</h1>
-              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', marginTop: 4 }}>Mandat #{pid} · sichere Ablage, nur für Pfleger — kein Investor-Zugriff.</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'rgba(255,255,255,0.65)', fontSize: '0.78rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                <HardDrive size={15} /> Container-Safe
+              </div>
+              <h1 style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: 4, display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                {project ? project.codename : `Mandat #${pid}`}
+                {project && <span style={{ fontSize: '0.66rem', fontWeight: 700, background: project.mandate_type === 'fundraising' ? 'rgba(139,92,246,0.25)' : 'rgba(41,171,226,0.22)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', padding: '0.15rem 0.55rem', borderRadius: 20, letterSpacing: '0.03em' }}>{project.mandate_type === 'fundraising' ? 'STARTUP' : 'M&A'}</span>}
+              </h1>
+              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', marginTop: 4 }}>Mandat #{pid}{project && project.industry ? ` · ${project.industry}` : ''} · sichere Ablage, nur für Pfleger — kein Investor-Zugriff.</p>
             </div>
             {usage && <div style={{ textAlign: 'right', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)' }}><div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{fmtBytes(usage.bytes)}</div><div>{usage.files} Dateien · {usage.folders} Ordner</div></div>}
           </div>

@@ -59,9 +59,11 @@ async function ensureFolderPath(req, projectId, parentId, segments) {
   return pid;
 }
 
-// ── Liste (ein Ordner) + Breadcrumb ─────────────────────────────────────────
+// ── Liste (ein Ordner) + Breadcrumb + Mandats-Info ──────────────────────────
 router.get('/:projectId', authenticate, wrap(async (req, res) => {
   if (!(await guard(req, res))) return;
+  const project = await scoped(req, (t) => t.get('SELECT id, codename, mandate_type, industry, status FROM projects WHERE id = ?', [req.params.projectId]));
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
   const pid = req.query.parent_id ? Number(req.query.parent_id) : null;
   const items = await scoped(req, (t) => t.all(
     `SELECT * FROM safe_items WHERE project_id = ? AND deleted_at IS NULL AND ${pid == null ? 'parent_id IS NULL' : 'parent_id = ?'}
@@ -76,7 +78,7 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
     crumbs.unshift({ id: f.id, name: f.name });
     cur = f.parent_id;
   }
-  res.json({ success: true, data: { items: items.map(rowOut), breadcrumb: crumbs, parent_id: pid } });
+  res.json({ success: true, data: { items: items.map(rowOut), breadcrumb: crumbs, parent_id: pid, project } });
 }));
 
 // ── Ordnerbaum (alle Ordner, für Sidebar) ───────────────────────────────────
