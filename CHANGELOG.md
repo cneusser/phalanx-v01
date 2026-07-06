@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.239 — 06.07.2026 · Roadmap aktualisiert & CRM aufgenommen
+- Öffentliche Roadmap: Käufer-Cockpit, In-App-Nachrichten & Mobil-Optimierung auf „Verfügbar" gesetzt
+- Neuer geplanter Punkt: Beziehungs- & Deal-Management (CRM) — Analyse folk.app, Konzept in ROADMAP.md (Sprint 14)
+- Standing Rule dokumentiert: Changelog + Roadmap werden bei jeder Änderung automatisch mitgeführt
+
 ## v0.238 — 06.07.2026 · Mobile-First: responsive Darstellung
 - Navigation mit Hamburger-Menü auf Smartphone & Tablet
 - Mehrspaltige Layouts (Marktplatz, Nachrichten, ausführliche Bewertung, Admin) stapeln sich auf kleinen Bildschirmen

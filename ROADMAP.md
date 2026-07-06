@@ -24,6 +24,7 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | — | Mobile-First / responsive Darstellung (v0.238) | ✅ (Hamburger-Nav, stapelnde Layouts, scrollbare Tabellen) |
 | **12** | **Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking)** | ▶ als Nächstes |
 | 13 | 2-Faktor-Authentifizierung (SMS/TOTP) | geplant (Mobil-Pflicht vorbereitet) |
+| 14 | **CRM / Beziehungs- & Deal-Management (Sell-Side)** | geplant (Analyse folk.app, Konzept unten) |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →
@@ -222,6 +223,77 @@ belastbarere indikative Bewertung, angereichert mit Marktdaten.
   **Sensitivitäts-/Szenarioanalyse** (Best/Base/Worst).
 - Benchmarking gegen anonyme Plattform-Daten (sobald genug Mandate vorhanden).
 - Versionierte Bewertungen je Deal, Übernahme in Exposé & CRM. Optional kostenpflichtig.
+
+---
+
+## Sprint 14 — CRM / Beziehungs- & Deal-Management (Sell-Side) — geplant
+
+**Motiv.** Langfristiger Mehrwert für Phalanx als M&A-Sell-Side-Berater *und* für die
+Kunden (Verkäufer/Käufer). Vorbild-Analyse: **folk.app** („CRM für den Vertrieb").
+folk baut auf fünf Säulen: (1) **Migrieren/Zentralisieren** aller Kontakte aus
+Mail/Kalender/Netzwerken, (2) **Erfassen** von Leads per LinkedIn-Erweiterung (folkX),
+(3) **Anreichern** fehlender Kontaktdaten per 1-Klick (Waterfall-Enrichment),
+(4) **Outreach** mit KI-Entwürfen, E-Mail-Sequenzen und automatisierten Follow-ups,
+(5) **Close** über anpassbare, kollaborative Pipelines mit Dashboards — alles auf einer
+**einheitlichen Multi-Channel-Zeitleiste** (WhatsApp/Gmail/LinkedIn), plus Rollen/Rechte,
+Mobile-App und API. Kern-Verkaufsargument: „ein CRM, das die Nachverfolgung übernimmt,
+damit man Zeit für Beziehungen hat".
+
+**Übertragung auf M&A-Sell-Side (CapitalMatch).** Der Deal-Funnel ist ein CRM-Funnel:
+Mandat gewinnen → Käuferuniversum aufbauen → anonymisiert ansprechen (Teaser) → NDA →
+IM/Exposé → Management-Call → LOI/indikatives Angebot → DD → SPA/Closing. Vieles ist
+bereits vorhanden und muss nur zu einem CRM verdichtet werden: Mandate (`projects`),
+Kontakte/Netzwerk (`connections`), Chat (`messages`), NDA-, Exposé-, Bewertungs- und
+Aktivitäts-Logs. Es fehlt die **verbindende CRM-Schicht**: Kontakt-Objekt mit Historie,
+Buyer-Longlist je Mandat, Deal-Pipeline mit Stages, Aufgaben/Wiedervorlagen und
+Reporting.
+
+**Zwei Nutzergruppen (bewusst getrennt).**
+- *Intern (Phalanx-Cockpit):* Christians Arbeits-CRM — Käuferlisten, Ansprache-Status,
+  Wiedervorlagen, Pipeline über alle Mandate, Reporting.
+- *Kunde (Mehrwert im Produkt):* Verkäufer sehen transparent den Ansprache-/Interesse-
+  Status ihrer Buyer-Longlist; Käufer sehen ihre verfolgten Deals als kleine Pipeline
+  (baut auf Merkliste/Suchprofilen auf).
+
+**Umsetzungsstufen (an CapitalMatch-Architektur angepasst: Postgres/Knex, RLS je
+`tenant_id`, Provider-Stubs für externe Dienste).**
+
+*Stufe A — CRM-Kern (hoher Nutzen, geringe Abhängigkeit):*
+- Migration `crm_contacts` (Person/Organisation, Typ Käufer/Verkäufer/Intermediär/
+  Investor, Quelle, Tags, Owner) + `crm_interactions` (append-only Zeitleiste:
+  Mail/Call/Meeting/Note, verknüpft mit Mandat & Kontakt) — beide mit RLS.
+- **Buyer-Longlist je Mandat**: `deal_buyers` (Mandat × Kontakt × Ansprache-Status:
+  identifiziert → angesprochen → NDA → IM → Q&A → LOI → raus). Speist sich aus
+  bestehenden NDA-/Exposé-Zugriffen automatisch.
+- **Deal-Pipeline (Kanban)**: Mandats-Stages als konfigurierbare Spalten; Drag&Drop
+  (das Pipeline-Muster existiert bereits aus der Projekt-Pipeline).
+- **Aufgaben/Wiedervorlagen**: `crm_tasks` (fällig am, Owner, verknüpft) + Reminder-Mail
+  über den bestehenden Digest-/Scheduler-Mechanismus.
+
+*Stufe B — Produktivität & Reporting:*
+- **Unified Timeline** je Kontakt/Deal: bündelt Interaktionen + Plattform-Events
+  (NDA signiert, IM angesehen, Frage gestellt) an einer Stelle.
+- **Dashboards**: Funnel je Mandat (wie viele Käufer je Stage), Conversion, Alter der
+  Deals, überfällige Wiedervorlagen — nutzt vorhandene Chart-/Dashboard-Kompetenz.
+- **Serien-Outreach** an Buyer-Longlist mit Vorlagen (Teaser-Versand) über den
+  bestehenden Brevo-Mailweg; Sequenzen/Follow-ups optional über Scheduler.
+
+*Stufe C — Anreicherung & Kanäle (externe Abhängigkeiten, als Provider-Stubs):*
+- **Kontakt-Anreicherung** (Firmendaten/E-Mail) über austauschbaren Enrichment-Provider
+  (Stub wie Storage/Payment) — DSGVO-konform, opt-in, Quellennachweis.
+- **Import** aus Outlook/Gmail/CSV; später leichte LinkedIn-Erfassung (Lesezeichen/
+  Bookmarklet statt Scraping — rechtlich sauber halten).
+- **Kanäle**: E-Mail zuerst; WhatsApp/LinkedIn nur, wenn rechtlich/AGB-seitig tragfähig.
+
+**Abgrenzung/Prinzipien.** Kein Vollersatz für HubSpot/Salesforce, sondern ein
+**schlankes, M&A-spezifisches Beziehungs-CRM**, eng verzahnt mit Mandat, NDA, Exposé
+und Bewertung. DSGVO: Kontaktdaten mit Rechtsgrundlage, Löschkonzept, Auftragsverarbeiter
+für Enrichment. Alles mandantenfähig (RLS) und optional hinter Billing-Flag als
+Premium-Modul für Kunden.
+
+**Empfehlung Reihenfolge.** Stufe A liefert sofort Nutzen aus vorhandenen Bausteinen und
+sollte zuerst kommen (nach Bewertung 2.0). Enrichment/Kanäle (Stufe C) zuletzt, da extern
+und rechtlich prüfpflichtig.
 
 ---
 

@@ -7,14 +7,18 @@ export const ROADMAP_INTRO =
   'Ausblick auf die nächsten geplanten Funktionen.';
 
 export const PUBLIC_ROADMAP = [
-  { status: 'progress', title: 'Käufer-Cockpit & Suchprofile',
+  { status: 'done', title: 'Käufer-Cockpit & Suchprofile',
     text: 'Tabellarische Deal-Übersicht, speicherbare Suchen und automatische Benachrichtigung, sobald ein passendes Mandat verfügbar ist.' },
-  { status: 'planned', title: 'In-App-Nachrichten & Netzwerk',
+  { status: 'done', title: 'In-App-Nachrichten & Netzwerk',
     text: 'Direkter, diskreter Austausch zwischen verifizierten Kontakten — Sie entscheiden, was Sie mit wem teilen.' },
-  { status: 'planned', title: '2-Faktor-Authentifizierung',
-    text: 'Zusätzliche Absicherung Ihres Zugangs über Ihr Mobilgerät.' },
+  { status: 'done', title: 'Mobil-optimierte Darstellung',
+    text: 'Vollständig für Smartphone und Tablet optimiert — Marktplatz, Nachrichten und Bewertung funktionieren unterwegs genauso komfortabel wie am Desktop.' },
   { status: 'planned', title: 'Datengetriebene Bewertung 2.0',
     text: 'Automatisierte, belastbarere indikative Unternehmensbewertungen inklusive Szenario- und Sensitivitätsanalyse.' },
+  { status: 'planned', title: '2-Faktor-Authentifizierung',
+    text: 'Zusätzliche Absicherung Ihres Zugangs über Ihr Mobilgerät.' },
+  { status: 'planned', title: 'Beziehungs- & Deal-Management (CRM)',
+    text: 'Behalten Sie Kontakte, Interessenten und den Fortschritt jedes Deals an einem Ort im Blick — mit Aufgaben, Wiedervorlagen und transparentem Status entlang des gesamten Prozesses.' },
 ];
 
 export const ROADMAP_STATUS = {
