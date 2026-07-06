@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import useIsMobile from '../hooks/useIsMobile';
 import {
   Search, Filter, Building2, MapPin, ChevronRight, Lock,
   CheckCircle, Clock, TrendingUp, Euro, Percent, BarChart3,
@@ -227,6 +228,7 @@ export default function Projects() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const [projects, setProjects] = useState([]);
   const [filters, setFilters] = useState({ industries: [], regions: [], deal_types: [], stages: [] });
   // Initiale Filter aus der URL übernehmen (Live-Filter über klickbare Tags,
@@ -378,7 +380,7 @@ export default function Projects() {
           <aside style={{
             background: C.card, borderRadius: 6, padding: '1.25rem',
             border: `1px solid ${C.border}`,
-            position: 'sticky', top: 80,
+            position: isMobile ? 'static' : 'sticky', top: 80,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem', color: C.text, fontWeight: 600, fontSize: '0.85rem' }}>
               <Filter size={14} /> Filter

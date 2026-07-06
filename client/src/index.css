@@ -1,0 +1,57 @@
+/* ─────────────────────────────────────────────────────────────
+   Globale Basis — Mobile-First. Fängt die häufigsten Layout-Probleme
+   ab, die durch feste Inline-Breiten entstehen (horizontales Scrollen,
+   zu breite Container, nicht umbrechende Grids/Tabellen).
+   ───────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  max-width: 100%;
+  overflow-x: hidden;                /* verhindert horizontales Scrollen */
+  -webkit-text-size-adjust: 100%;
+}
+
+body { font-family: Arial, Helvetica, sans-serif; }
+
+img, svg, video { max-width: 100%; height: auto; }
+
+/* Tabellen bekommen bei Bedarf horizontales Scrollen statt die Seite zu sprengen */
+table { max-width: 100%; }
+
+button, input, select, textarea { font-family: inherit; }
+a { -webkit-tap-highlight-color: transparent; }
+
+/* Mobile-Feinschliff */
+@media (max-width: 768px) {
+  html { font-size: 15px; }
+  /* Touch-freundliche Mindesthöhe für Bedienelemente */
+  button, a[role="button"] { min-height: 40px; }
+  /* Container mit fester großer Breite dürfen schrumpfen */
+  [data-fluid] { width: 100% !important; }
+
+  /* ── Mehrspaltige Inline-Grids stapeln auf Mobil ──
+     Die Plattform nutzt durchgehend Inline-Styles (style={{ gridTemplateColumns }}),
+     die keine Media Queries erlauben. Eine !important-Regel im Stylesheet schlägt
+     Inline-Styles und bricht sämtliche festen Mehrspalter zu einer Spalte um.
+     Ausnahmen (Grids, die mehrspaltig bleiben sollen) tragen die Klasse .cm-keep-grid. */
+  [style*="grid-template-columns"]:not(.cm-keep-grid) {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  /* Kompakte 2-Spalten-Statraster dürfen mit Opt-in erhalten bleiben,
+     werden aber auf gleichbreite Spalten normiert. */
+  .cm-grid-2-mobile { grid-template-columns: 1fr 1fr !important; }
+
+  /* Sehr große Innenabstände auf Mobil reduzieren */
+  [data-pad] { padding-left: 1rem !important; padding-right: 1rem !important; }
+
+  /* Breite Datentabellen dürfen horizontal scrollen statt abgeschnitten zu werden
+     (der Body hat overflow-x:hidden). display:block macht die Tabelle scrollbar. */
+  table:not(.cm-keep-table) { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* Nutzbar für horizontal scrollbare Bereiche (Tabellen) */
+.cm-scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }

@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.238 — 06.07.2026 · Mobile-First: responsive Darstellung
+- Navigation mit Hamburger-Menü auf Smartphone & Tablet
+- Mehrspaltige Layouts (Marktplatz, Nachrichten, ausführliche Bewertung, Admin) stapeln sich auf kleinen Bildschirmen
+- Breite Datentabellen sind auf dem Handy horizontal scrollbar statt abgeschnitten
+- Filter-Seitenleiste im Marktplatz auf Mobil optimiert (nicht mehr klebend)
+- Globale Basis: kein horizontales Verrutschen, touch-freundliche Bedienelemente, Viewport-gerechte Schriftgrößen
+- Umsetzung: `useIsMobile`-Hook + globales `index.css` (Inline-Grids brechen per `!important` auf eine Spalte um)
+
 ## v0.237 — 05.07.2026 · E-Mail-Bestätigung, Nachrichten & Paygate-Vorbereitung
 - Registrierung erst nach Bestätigung der E-Mail-Adresse abgeschlossen (Login-Gate + „erneut senden")
 - In-App-Nachrichten & Kontakte (Netzwerk) zwischen bestätigten Nutzern

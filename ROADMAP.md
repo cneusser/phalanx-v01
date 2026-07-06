@@ -21,6 +21,7 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 10 | Käufer-UX: Deal-Liste + Suchprofile + Match-Benachrichtigungen | ✅ fertig (Tabelle, Suchprofile, Sofort- + Digest-Match, Merkliste/Tags) |
 | 11 | In-App-Chat & Kontakte (Netzwerk) | ✅ Kern fertig (Kontakte, 1:1-Chat, Mail-Benachrichtigung) |
 | — | E-Mail-Verifizierung + Paygate-Vorbereitung ausf. Bewertung | ✅ (Verifizierung Pflicht; Paywall greift ab 31.08.2026) |
+| — | Mobile-First / responsive Darstellung (v0.238) | ✅ (Hamburger-Nav, stapelnde Layouts, scrollbare Tabellen) |
 | **12** | **Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking)** | ▶ als Nächstes |
 | 13 | 2-Faktor-Authentifizierung (SMS/TOTP) | geplant (Mobil-Pflicht vorbereitet) |
 

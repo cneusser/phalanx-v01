@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, LogOut, Settings, LayoutDashboard, Shield } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Shield, Menu, X } from 'lucide-react';
 import CapitalMatchLogo from './CapitalMatchLogo';
+import useIsMobile from '../hooks/useIsMobile';
 
 // CapitalMatch brand palette – exported for use across the platform
 export const C = {
@@ -19,6 +20,7 @@ export default function Navbar() {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -95,6 +97,7 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop Nav */}
+        {!isMobile && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
           {navLink('/projekte', 'Marktplatz')}
           {navLink('/unternehmenswert', 'Unternehmenswert')}
@@ -106,8 +109,17 @@ export default function Navbar() {
           {user && !isAdmin && navLink('/dashboard', 'Mein Bereich')}
           {isAdmin && navLink('/admin', 'Admin')}
         </div>
+        )}
 
-        {/* Auth area */}
+        {/* Mobile: Hamburger */}
+        {isMobile && (
+          <button onClick={() => setOpen(o => !o)} aria-label="Menü" style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 8, display: 'flex' }}>
+            {open ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        )}
+
+        {/* Auth area (Desktop) */}
+        {!isMobile && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {!user ? (
             <>
@@ -193,7 +205,36 @@ export default function Navbar() {
             </div>
           )}
         </div>
+        )}
       </div>
+
+      {/* Mobile-Menü (aufklappbar) */}
+      {isMobile && open && (
+        <div style={{ background: branding ? branding.primary_color : C.navy, borderTop: '1px solid rgba(255,255,255,0.12)', padding: '0.5rem 1.25rem 1rem' }}>
+          {[['/projekte', 'Marktplatz'], ['/unternehmenswert', 'Unternehmenswert'],
+            ...(user && !isAdmin ? [['/bewertung', 'Bewertung'], ['/nachrichten', 'Nachrichten'], ['/feedback', 'Feedback']] : []),
+            ['/kontakt', 'Kontakt'],
+            ...(user && !isAdmin ? [['/dashboard', 'Mein Bereich']] : []),
+            ...(isAdmin ? [['/admin', 'Admin']] : []),
+          ].map(([to, label]) => (
+            <Link key={to} to={to} onClick={() => setOpen(false)} style={{ display: 'block', color: '#fff', textDecoration: 'none', padding: '0.7rem 0.25rem', fontSize: '0.95rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{label}</Link>
+          ))}
+          <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {!user ? (
+              <>
+                <Link to="/login" onClick={() => setOpen(false)} style={{ color: '#fff', textDecoration: 'none', padding: '0.6rem 0.25rem', fontSize: '0.95rem' }}>Anmelden</Link>
+                <Link to="/registrieren" onClick={() => setOpen(false)} style={{ background: C.steel, color: '#fff', padding: '0.7rem', borderRadius: 8, fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>Registrieren</Link>
+              </>
+            ) : (
+              <>
+                <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.82rem', padding: '0.3rem 0.25rem' }}>{[user.title, user.first_name, user.last_name].filter(Boolean).join(' ')} · {user.email}</div>
+                <Link to="/profil" onClick={() => setOpen(false)} style={{ color: '#fff', textDecoration: 'none', padding: '0.6rem 0.25rem', fontSize: '0.95rem' }}>Mein Profil</Link>
+                <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem', cursor: 'pointer', fontSize: '0.9rem', textAlign: 'left' }}>Abmelden</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
