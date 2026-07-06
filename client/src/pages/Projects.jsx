@@ -115,7 +115,7 @@ function LoadingSpinner() {
   );
 }
 
-function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin }) {
+function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched, onToggleWatch }) {
   const isStartup = p.mandate_type === 'fundraising';
   const statusInfo = ndaStatus ? ndaStatusLabel[ndaStatus] : null;
 
@@ -139,7 +139,13 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin }) {
         }}>
           {isStartup ? 'Fundraising' : 'M&A'}
         </span>
-        <StageBadge label={p.stage || p.deal_type} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {onToggleWatch && (
+            <button title={watched ? 'Aus Merkliste entfernen' : 'Merken'} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleWatch(p.id); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, color: watched ? '#f59e0b' : '#cbd5e1', padding: 0 }}>{watched ? '★' : '☆'}</button>
+          )}
+          <StageBadge label={p.stage || p.deal_type} />
+        </span>
       </div>
 
       {/* Codename + Bild/Avatar */}
@@ -232,6 +238,8 @@ export default function Projects() {
     deal_type:    urlParams.get('deal_type')    || '',
     search:       urlParams.get('search')       || '',
     mandate_type: urlParams.get('mandate_type') || '',
+    revenue_band: urlParams.get('revenue_band') || '',
+    ebitda_band:  urlParams.get('ebitda_band')  || '',
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -242,6 +250,19 @@ export default function Projects() {
   const [totalCounts, setTotalCounts] = useState({ all: null, ma: null, fundraising: null });
   const [viewMode, setViewMode] = useState('cards'); // cards | table (Dealum-Stil)
   const [saveMsg, setSaveMsg] = useState('');
+  const [watched, setWatched] = useState([]); // gemerkte project_ids
+
+  useEffect(() => {
+    if (!user || ['super_admin', 'advisor'].includes(user.role)) return;
+    api.get('/community/watchlist/ids').then(ids => setWatched(ids || [])).catch(() => {});
+  }, [user]);
+
+  async function toggleWatch(pid) {
+    const isW = watched.includes(pid);
+    setWatched(w => isW ? w.filter(x => x !== pid) : [...w, pid]);
+    try { if (isW) await api.delete(`/community/watchlist/${pid}`); else await api.post('/community/watchlist', { project_id: pid }); }
+    catch { setWatched(w => isW ? [...w, pid] : w.filter(x => x !== pid)); }
+  }
 
   async function saveSearch() {
     const name = window.prompt('Name für dieses Suchprofil (Sie werden bei passenden neuen Mandaten benachrichtigt):');
@@ -273,9 +294,11 @@ export default function Projects() {
       if (sel.deal_type)     params.set('deal_type', sel.deal_type);
       if (sel.search)        params.set('search', sel.search);
       if (sel.mandate_type)  params.set('mandate_type', sel.mandate_type);
+      if (sel.revenue_band)  params.set('revenue_band', sel.revenue_band);
+      if (sel.ebitda_band)   params.set('ebitda_band', sel.ebitda_band);
       const data = await api.get(`/projects?${params.toString()}`);
       setProjects(data.projects);
-      if (!sel.industry && !sel.region && !sel.deal_type) setFilters(data.filters);
+      if (!sel.industry && !sel.region && !sel.deal_type && !sel.revenue_band && !sel.ebitda_band) setFilters(data.filters);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -380,6 +403,8 @@ export default function Projects() {
               { label: 'Branche',   key: 'industry',  items: filters.industries },
               { label: 'Region',    key: 'region',    items: filters.regions },
               { label: 'Deal-Typ',  key: 'deal_type', items: filters.deal_types },
+              { label: 'Umsatzband', key: 'revenue_band', items: filters.revenue_bands || [] },
+              { label: 'EBITDA-Band', key: 'ebitda_band', items: filters.ebitda_bands || [] },
             ].map(({ label, key, items }) => items.length > 0 && (
               <div key={key} style={{ marginBottom: '1.1rem' }}>
                 <div style={{ fontSize: '0.66rem', fontWeight: 700, color: C.muted, letterSpacing: '0.09em', marginBottom: '0.4rem' }}>
@@ -400,9 +425,9 @@ export default function Projects() {
               </div>
             ))}
 
-            {(sel.industry || sel.region || sel.deal_type || sel.search) && (
+            {(sel.industry || sel.region || sel.deal_type || sel.search || sel.revenue_band || sel.ebitda_band) && (
               <button
-                onClick={() => setSel({ industry: '', region: '', deal_type: '', search: '', mandate_type: sel.mandate_type })}
+                onClick={() => setSel({ industry: '', region: '', deal_type: '', search: '', mandate_type: sel.mandate_type, revenue_band: '', ebitda_band: '' })}
                 style={{
                   width: '100%', padding: '0.45rem', border: `1px solid ${C.border}`,
                   borderRadius: 6, cursor: 'pointer', fontSize: '0.77rem',
@@ -435,7 +460,8 @@ export default function Projects() {
                     {user && !isAdmin && (
                       <>
                         <button onClick={saveSearch} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', color: C.navy, border: `1px solid ${C.navy}`, borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer' }}>★ Suche speichern</button>
-                        <Link to="/suchprofile" style={{ fontSize: '0.76rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>Meine Suchprofile</Link>
+                        <Link to="/suchprofile" style={{ fontSize: '0.76rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>Suchprofile</Link>
+                        <Link to="/merkliste" style={{ fontSize: '0.76rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>★ Merkliste</Link>
                       </>
                     )}
                     {/* Ansicht: Karten ⇄ Tabelle */}
@@ -464,7 +490,10 @@ export default function Projects() {
                       <tbody>
                         {projects.map(p => (
                           <tr key={p.id} style={{ borderTop: `1px solid ${C.border}`, cursor: 'pointer' }} onClick={() => navigate(`/projekte/${p.id}`)}>
-                            <td style={{ padding: '0.6rem 0.8rem', fontWeight: 700, color: C.navy }}>{p.codename}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', fontWeight: 700, color: C.navy, whiteSpace: 'nowrap' }}>
+                              {user && !isAdmin && <button title={watched.includes(p.id) ? 'Aus Merkliste entfernen' : 'Merken'} onClick={(e) => { e.stopPropagation(); toggleWatch(p.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: watched.includes(p.id) ? '#f59e0b' : '#cbd5e1', marginRight: 6, fontSize: '0.95rem' }}>{watched.includes(p.id) ? '★' : '☆'}</button>}
+                              {p.codename}
+                            </td>
                             <td style={{ padding: '0.6rem 0.8rem' }}><span style={{ background: p.mandate_type === 'fundraising' ? '#ede9fe' : C.bg, color: p.mandate_type === 'fundraising' ? '#5b21b6' : C.navy, padding: '0.1rem 0.45rem', borderRadius: 6, fontSize: '0.66rem', fontWeight: 700 }}>{p.mandate_type === 'fundraising' ? 'Startup' : 'M&A'}</span></td>
                             <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.industry || '—'}</td>
                             <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.region || '—'}</td>
@@ -488,6 +517,8 @@ export default function Projects() {
                       onNdaRequest={handleNdaRequest}
                       ndaLoading={!!ndaLoading[p.id]}
                       isAdmin={isAdmin}
+                      watched={watched.includes(p.id)}
+                      onToggleWatch={user && !isAdmin ? toggleWatch : null}
                     />
                   ))}
                 </div>

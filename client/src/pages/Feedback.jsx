@@ -13,13 +13,16 @@ export default function Feedback() {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [changes, setChanges] = useState([]);
+  const [human, setHuman] = useState(false);
+  const [hp, setHp] = useState(''); // Honeypot
 
   useEffect(() => { api.get('/community/changelog').then(d => setChanges((d || []).slice(0, 4))).catch(() => {}); }, []);
 
   async function submit() {
     if (message.trim().length < 5) { setMsg('Bitte formulieren Sie Ihre Nachricht (mind. 5 Zeichen).'); return; }
+    if (!human) { setMsg('Bitte bestätigen Sie, dass Sie kein Roboter sind.'); return; }
     setBusy(true); setMsg('');
-    try { await api.post('/community/feedback', { category, message }); setSent(true); setMessage(''); }
+    try { await api.post('/community/feedback', { category, message, human, company_website: hp }); setSent(true); setMessage(''); setHuman(false); }
     catch (e) { setMsg('Fehler: ' + e.message); }
     finally { setBusy(false); }
   }
@@ -53,6 +56,11 @@ export default function Feedback() {
                 ))}
               </div>
               <textarea value={message} onChange={e => setMessage(e.target.value)} rows={6} placeholder="Was können wir besser machen? Welche Funktion würden Sie sich wünschen?" style={{ width: '100%', padding: '0.7rem 0.85rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.88rem', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
+              {/* Honeypot (für Menschen unsichtbar) */}
+              <input value={hp} onChange={e => setHp(e.target.value)} name="company_website" tabIndex={-1} autoComplete="off" style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }} aria-hidden="true" />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.85rem', fontSize: '0.83rem', color: C.text, cursor: 'pointer' }}>
+                <input type="checkbox" checked={human} onChange={e => setHuman(e.target.checked)} /> Ich bin kein Roboter.
+              </label>
               {msg && <div style={{ background: '#fee2e2', borderRadius: 8, padding: '0.55rem 0.85rem', margin: '0.75rem 0 0', fontSize: '0.82rem', color: '#991b1b' }}>{msg}</div>}
               <button onClick={submit} disabled={busy} style={{ marginTop: '1rem', width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', opacity: busy ? 0.6 : 1 }}><Send size={15} /> {busy ? 'Wird gesendet…' : 'Feedback senden'}</button>
             </>

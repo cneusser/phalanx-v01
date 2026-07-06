@@ -268,7 +268,7 @@ async function sendRegistrationConfirmationEmail({ to, firstName }) {
 
 // Freischaltungs-Info an den Nutzer nach Admin-Approval
 async function sendAccountApprovedEmail({ to, firstName }) {
-  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+  const loginUrl = `${process.env.FRONTEND_URL || 'https://www.capitalmatch.de'}/login`;
   return sendMail({
     to,
     subject: '[CapitalMatch] Ihr Zugang ist freigeschaltet',
@@ -298,7 +298,7 @@ async function sendRegistrationNotification({ firstName, lastName, email, compan
 
 // Generische Prozess-Benachrichtigung an den Investor (jeder Funnel-Schritt)
 async function sendProcessUpdateEmail({ to, firstName, title, message, ctaLabel, ctaPath }) {
-  const url = `${process.env.FRONTEND_URL || 'http://localhost:5173'}${ctaPath || ''}`;
+  const url = `${process.env.FRONTEND_URL || 'https://www.capitalmatch.de'}${ctaPath || ''}`;
   return sendMail({
     to,
     subject: `[CapitalMatch] ${title}`,

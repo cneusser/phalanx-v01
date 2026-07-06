@@ -18,8 +18,8 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 7 | Ausführliche Bewertung (Engine + Report) | ✅ fertig |
 | 8 | Container-Safe (Ordner-Uploads, Object Storage) | ✅ fertig |
 | 9 | Exposé-Builder (DUB-Standard, IM-Gate) | ✅ fertig |
-| **10** | **Käufer-UX: Deal-Liste + Suchprofile + Match-Benachrichtigungen** | 🟡 teilweise (Tabelle, Suchprofile, Sofort-Match ✅; Digest/Tags offen) |
-| 11 | In-App-Chat & Kontakte (Netzwerk) | geplant |
+| 10 | Käufer-UX: Deal-Liste + Suchprofile + Match-Benachrichtigungen | ✅ fertig (Tabelle, Suchprofile, Sofort- + Digest-Match, Merkliste/Tags) |
+| **11** | **In-App-Chat & Kontakte (Netzwerk)** | ▶ als Nächstes |
 | 12 | Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking) | Ausbaustufe |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
@@ -175,11 +175,14 @@ Suchen, tägliche/wöchentliche Match-Benachrichtigungen, diskretes Netzwerk).
 - ✅ **Sofort-Match-Benachrichtigung**: Wird ein Mandat veröffentlicht, erhalten Käufer
   mit passendem Suchprofil (Frequenz „sofort") eine Branded-Mail.
 
-**Noch offen (Refinement):**
-- Spaltenauswahl/Sortierung & Tags/Aufgaben je Deal (Dealum-CRM-Feeling).
-- **Digest**: täglicher/wöchentlicher Sammel-Versand (Scheduler) für Frequenz
+**Ebenfalls umgesetzt (Sprint-10-Rest):**
+- ✅ **Digest**: täglicher/wöchentlicher Sammel-Versand (Scheduler) für Frequenz
   „täglich"/„wöchentlich".
-- Feinere Kriterien (Umsatz-/EBITDA-Band, Ticketgröße) in Suchprofilen.
+- ✅ **Merkliste** mit eigenen **Tags & Notizen** je Mandat (`/merkliste`).
+- ✅ Feinere Kriterien: **Umsatz-/EBITDA-Band** im Filter, Suchprofil und Matching.
+
+**Noch offen (spätere Kür):** Spaltenauswahl/Sortierung in der Tabelle, Aufgaben je
+Deal (volles Käufer-CRM).
 
 ---
 

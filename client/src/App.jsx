@@ -13,6 +13,8 @@ import ExposeEditor from './pages/ExposeEditor';
 import ExposeView from './pages/ExposeView';
 import Feedback from './pages/Feedback';
 import SearchProfiles from './pages/SearchProfiles';
+import Watchlist from './pages/Watchlist';
+import Contact from './pages/Contact';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -73,6 +75,7 @@ function AppRoutes() {
           <Route path="/projekte/:id/expose" element={<ProtectedRoute><ExposeView /></ProtectedRoute>} />
           <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
           <Route path="/suchprofile" element={<ProtectedRoute><SearchProfiles /></ProtectedRoute>} />
+          <Route path="/merkliste" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
           <Route path="/registrieren" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/passwort-vergessen" element={<ForgotPassword />} />
@@ -83,6 +86,7 @@ function AppRoutes() {
           <Route path="/verkaeuferdashboard" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
           <Route path="/datenschutz" element={<Datenschutz />} />
           <Route path="/impressum" element={<Impressum />} />
+          <Route path="/kontakt" element={<Contact />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

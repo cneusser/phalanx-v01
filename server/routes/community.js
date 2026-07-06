@@ -3,16 +3,28 @@
 // (gespeicherte Suchen der Käufer, Sprint 10).
 // ─────────────────────────────────────────────────────────────────────────────
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const db = require('../db/database');
 const wrap = require('../utils/asyncHandler');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
 const isAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner')];
 
+// Robot-/Spam-Schutz für Nachrichten: Rate-Limit + Honeypot + Zeit-/Human-Check.
+const msgLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 8, standardHeaders: true, legacyHeaders: false,
+  message: { success: false, error: 'Zu viele Nachrichten in kurzer Zeit — bitte etwas später erneut versuchen.' } });
+// Prüft Honeypot-Feld (company_website) und die „kein Roboter"-Bestätigung.
+function robotCheck(req, res) {
+  if (req.body.company_website) { res.status(400).json({ success: false, error: 'Spam erkannt.' }); return false; } // Honeypot
+  if (req.body.human === false || req.body.human === 'false') { res.status(400).json({ success: false, error: 'Bitte bestätigen Sie, dass Sie kein Roboter sind.' }); return false; }
+  return true;
+}
+
 // ── FEEDBACK ────────────────────────────────────────────────────────────────
-router.post('/feedback', authenticate, wrap(async (req, res) => {
+router.post('/feedback', msgLimiter, authenticate, wrap(async (req, res) => {
+  if (!robotCheck(req, res)) return;
   const { category, message } = req.body;
   if (!message || message.trim().length < 5) return res.status(400).json({ success: false, error: 'Bitte formulieren Sie Ihre Nachricht (mind. 5 Zeichen).' });
   const cat = ['idea', 'bug', 'change', 'other'].includes(category) ? category : 'idea';
@@ -43,6 +55,26 @@ router.put('/feedback/:id/status', ...isAdmin, wrap(async (req, res) => {
   const s = ['open', 'planned', 'done', 'declined'].includes(req.body.status) ? req.body.status : 'open';
   await scoped(req, (t) => t.run(`UPDATE feedback SET status = ? WHERE id = ?`, [s, req.params.id]));
   res.json({ success: true, data: { status: s } });
+}));
+
+// ── KONTAKT (öffentlich, mit Robot-Schutz) ─────────────────────────────────
+router.post('/contact', msgLimiter, optionalAuth, wrap(async (req, res) => {
+  if (!robotCheck(req, res)) return;
+  const { name, email, message } = req.body;
+  if (!name || !email || !/.+@.+\..+/.test(email)) return res.status(400).json({ success: false, error: 'Bitte Name und gültige E-Mail-Adresse angeben.' });
+  if (!message || message.trim().length < 5) return res.status(400).json({ success: false, error: 'Bitte formulieren Sie Ihre Nachricht.' });
+  // In feedback ablegen (Kategorie other) + Admin per Branded-Mail informieren
+  const id = await scoped(req, (t) => t.insert(
+    `INSERT INTO feedback (tenant_id, user_id, role, category, message) VALUES (?, ?, ?, 'other', ?)`,
+    [req.tenantId || 1, req.user ? req.user.id : null, 'kontakt', `Kontakt von ${name} <${email}>:\n${message.trim()}`]));
+  const { sendProcessUpdateEmail } = require('../utils/email');
+  sendProcessUpdateEmail({
+    to: process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de', firstName: '',
+    title: `Neue Kontaktanfrage von ${name}`,
+    message: `<strong>${name}</strong> (<a href="mailto:${email}">${email}</a>) schreibt:<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${message.trim()}</span>`,
+    ctaLabel: 'Im Admin ansehen', ctaPath: '/admin',
+  }).catch(() => {});
+  res.status(201).json({ success: true, data: { id } });
 }));
 
 // ── CHANGELOG ───────────────────────────────────────────────────────────────
@@ -114,9 +146,56 @@ function matchWhere(c) {
   if (c.region) { sql.push('AND region = ?'); params.push(c.region); }
   if (c.deal_type) { sql.push('AND deal_type = ?'); params.push(c.deal_type); }
   if (c.mandate_type) { sql.push('AND mandate_type = ?'); params.push(c.mandate_type); }
+  if (c.revenue_band) { sql.push('AND revenue_band = ?'); params.push(c.revenue_band); }
+  if (c.ebitda_band) { sql.push('AND ebitda_band = ?'); params.push(c.ebitda_band); }
   if (c.search) { sql.push('AND (codename ILIKE ? OR short_description ILIKE ?)'); params.push(`%${c.search}%`, `%${c.search}%`); }
   return { sql: sql.join(' '), params };
 }
+
+// ── MERKLISTE (Watchlist, Käufer) ───────────────────────────────────────────
+router.get('/watchlist', authenticate, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT w.id, w.project_id, w.tags_json, w.note, w.created_at,
+           p.codename, p.industry, p.region, p.revenue_band, p.ebitda_band, p.deal_type, p.mandate_type, p.status
+    FROM watchlist w JOIN projects p ON p.id = w.project_id
+    WHERE w.user_id = ? ORDER BY w.created_at DESC`, [req.user.id]));
+  res.json({ success: true, data: rows.map(r => ({ ...r, tags: safeJson(r.tags_json, []) })) });
+}));
+
+router.get('/watchlist/ids', authenticate, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(`SELECT project_id FROM watchlist WHERE user_id = ?`, [req.user.id]));
+  res.json({ success: true, data: rows.map(r => r.project_id) });
+}));
+
+router.post('/watchlist', authenticate, wrap(async (req, res) => {
+  const pid = Number(req.body.project_id);
+  if (!pid) return res.status(400).json({ success: false, error: 'project_id fehlt' });
+  const exists = await scoped(req, (t) => t.get(`SELECT id FROM watchlist WHERE user_id = ? AND project_id = ?`, [req.user.id, pid]));
+  if (exists) return res.json({ success: true, data: { watched: true } });
+  await scoped(req, (t) => t.run(`INSERT INTO watchlist (tenant_id, user_id, project_id) VALUES (?, ?, ?)`, [req.tenantId || 1, req.user.id, pid]));
+  db.activityLog(req.user.id, 'WATCHLIST_ADD', 'project', pid, req.ip);
+  res.status(201).json({ success: true, data: { watched: true } });
+}));
+
+router.put('/watchlist/:projectId', authenticate, wrap(async (req, res) => {
+  const { tags, note } = req.body;
+  await scoped(req, (t) => t.run(
+    `UPDATE watchlist SET tags_json = COALESCE(?, tags_json), note = COALESCE(?, note) WHERE user_id = ? AND project_id = ?`,
+    [tags ? JSON.stringify(tags) : null, note != null ? note : null, req.user.id, req.params.projectId]));
+  res.json({ success: true, data: { message: 'Gespeichert' } });
+}));
+
+router.delete('/watchlist/:projectId', authenticate, wrap(async (req, res) => {
+  await scoped(req, (t) => t.run(`DELETE FROM watchlist WHERE user_id = ? AND project_id = ?`, [req.user.id, req.params.projectId]));
+  res.json({ success: true, data: { watched: false } });
+}));
+
+// ── DIGEST manuell auslösen (Admin/Test) ────────────────────────────────────
+router.post('/digest/run', ...isAdmin, wrap(async (req, res) => {
+  const { runDigests } = require('../utils/digest');
+  const n = await runDigests();
+  res.json({ success: true, data: { sent: n } });
+}));
 
 function safeJson(s, def) { try { return JSON.parse(s || ''); } catch { return def; } }
 

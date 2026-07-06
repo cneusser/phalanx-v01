@@ -133,7 +133,7 @@ router.post('/forgot-password', wrap(async (req, res) => {
 
     await db.run('UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?', [token, expires, user.id]);
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
     const resetUrl = `${frontendUrl}/passwort-reset?token=${token}`;
 
     console.log(`\n🔑 Password Reset angefordert für ${user.email}`);

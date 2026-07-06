@@ -608,6 +608,23 @@ export default function Admin() {
       {/* Overview */}
       {activeTab === 'overview' && (
         <>
+        {/* Schnellzugriff — alle Admin-Bereiche gruppiert auf einen Blick */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          {[
+            ['Vertrieb & Deals', [['pipeline', 'Pipeline (CRM)'], ['projects', 'Projekte'], ['ndas', 'NDA-Anfragen']]],
+            ['Nutzer & Feedback', [['users', 'Nutzer'], ['feedback', 'Feedback'], ['leads', 'Bewertungs-Leads']]],
+            ['Bewertung', [['detvals', 'Ausf. Bewertungen'], ['multiples', 'Multiples']]],
+            ['System & Protokolle', [['changelog', 'Changelog'], ['activity', 'Aktivitätslog'], ['audit', 'Audit-Trail']]],
+          ].map(([group, items]) => (
+            <div key={group} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.9rem 1rem' }}>
+              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{group}</div>
+              {items.map(([key, label]) => (
+                <button key={key} onClick={() => setActiveTab(key)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '0.35rem 0', fontSize: '0.85rem', color: C.navy, fontWeight: 600 }}>{label} →</button>
+              ))}
+            </div>
+          ))}
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
           <div style={{ background: C.card, borderRadius: 6, padding: '1.5rem', border: `1px solid ${C.border}` }}>
             <h3 style={{ fontWeight: 600, color: C.text, marginBottom: '1rem', fontSize: '0.95rem' }}>Projekt-Pipeline</h3>

@@ -67,13 +67,15 @@ router.get('/stats', wrap(async (req, res) => {
 
 // ── GET / — Public list (active projects only) ─────────────────────────────
 router.get('/', wrap(async (req, res) => {
-  const { industry, region, deal_type, search, mandate_type } = req.query;
+  const { industry, region, deal_type, search, mandate_type, revenue_band, ebitda_band } = req.query;
   let query = `SELECT ${PUBLIC_FIELDS} FROM projects WHERE status = 'active'`;
   const params = [];
   if (industry)     { query += ' AND industry = ?';     params.push(industry); }
   if (region)       { query += ' AND region = ?';       params.push(region); }
   if (deal_type)    { query += ' AND deal_type = ?';    params.push(deal_type); }
   if (mandate_type) { query += ' AND mandate_type = ?'; params.push(mandate_type); }
+  if (revenue_band) { query += ' AND revenue_band = ?'; params.push(revenue_band); }
+  if (ebitda_band)  { query += ' AND ebitda_band = ?';  params.push(ebitda_band); }
   if (search) { query += ' AND (codename ILIKE ? OR short_description ILIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
   query += ' ORDER BY created_at DESC';
 
@@ -82,8 +84,10 @@ router.get('/', wrap(async (req, res) => {
   const regions    = (await db.all(`SELECT DISTINCT region FROM projects WHERE status='active' ORDER BY region`)).map(r => r.region);
   const deal_types = (await db.all(`SELECT DISTINCT deal_type FROM projects WHERE status='active' ORDER BY deal_type`)).map(r => r.deal_type);
   const stages     = (await db.all(`SELECT DISTINCT stage FROM projects WHERE status='active' AND stage IS NOT NULL ORDER BY stage`)).map(r => r.stage);
+  const revenue_bands = (await db.all(`SELECT DISTINCT revenue_band FROM projects WHERE status='active' AND revenue_band IS NOT NULL AND revenue_band <> '—' ORDER BY revenue_band`)).map(r => r.revenue_band);
+  const ebitda_bands  = (await db.all(`SELECT DISTINCT ebitda_band FROM projects WHERE status='active' AND ebitda_band IS NOT NULL AND ebitda_band <> '—' ORDER BY ebitda_band`)).map(r => r.ebitda_band);
 
-  res.json({ success: true, data: { projects, filters: { industries, regions, deal_types, stages } } });
+  res.json({ success: true, data: { projects, filters: { industries, regions, deal_types, stages, revenue_bands, ebitda_bands } } });
 }));
 
 // ── GET /my-projects — Seller's own projects (all statuses) ───────────────

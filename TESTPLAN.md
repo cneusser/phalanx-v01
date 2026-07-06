@@ -299,6 +299,24 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
 - [ ] **P8 Match-Mail:** Neues Mandat veröffentlichen, das einem Suchprofil (Frequenz
   „sofort") entspricht → der Käufer erhält eine Branded-Mail mit Mandats-Link.
 
+## Q. Sprint-10-Rest, Kontakt & Robot-Schutz
+
+- [ ] **Q1 Merkliste:** Im Marktplatz auf den Stern ☆ klicken → Mandat unter
+  `/merkliste`; dort Tags/Notiz speichern und nach Tag filtern.
+- [ ] **Q2 Feinere Filter:** Sidebar zeigt „Umsatzband" und „EBITDA-Band"; Auswahl
+  filtert und lässt sich als Suchprofil speichern.
+- [ ] **Q3 Digest:** Suchprofil auf „Täglich"/„Wöchentlich" stellen; ein passendes
+  neues Mandat veröffentlichen → beim nächsten Digest-Lauf kommt eine Sammel-Mail
+  (manuell testbar: Admin `POST /api/community/digest/run`).
+- [ ] **Q4 Kontaktseite:** `/kontakt` (öffentlich) zeigt die Phalanx-Kontaktdaten;
+  Nachricht senden → Bestätigung; Eintrag erscheint im Admin-Tab „Feedback".
+- [ ] **Q5 Robot-Schutz:** Feedback/Kontakt ohne „Ich bin kein Roboter" → Hinweis;
+  zu viele Nachrichten in kurzer Zeit → Rate-Limit-Hinweis.
+- [ ] **Q6 Admin-Übersicht:** Der Übersichts-Tab zeigt oben einen gruppierten
+  Schnellzugriff auf alle Admin-Bereiche.
+- [ ] **Q7 Links/Domain:** E-Mail-Links verweisen auf `capitalmatch.de`
+  (Voraussetzung: `FRONTEND_URL` in Railway gesetzt, Domain verbunden).
+
 ---
 
 ## Hinweise
