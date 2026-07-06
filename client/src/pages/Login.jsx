@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
 
 const C = {
@@ -19,11 +20,13 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [resendMsg, setResendMsg] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError(''); setUnverified(false); setResendMsg('');
     try {
       const user = await login(email, password);
       if (['super_admin', 'advisor'].includes(user.role)) {
@@ -35,9 +38,16 @@ export default function Login() {
       }
     } catch (err) {
       setError(err.message);
+      if ((err.message || '').includes('bestätigen Sie zuerst Ihre E-Mail')) setUnverified(true);
     } finally {
       setLoading(false);
     }
+  };
+
+  const resend = async () => {
+    setResendMsg('');
+    try { const d = await api.post('/auth/resend-verification', { email }); setResendMsg(d.message); }
+    catch (e) { setResendMsg('Fehler: ' + e.message); }
   };
 
   return (
@@ -80,6 +90,12 @@ export default function Login() {
             border: '1px solid #fca5a5',
           }}>
             {error}
+            {unverified && (
+              <div style={{ marginTop: '0.6rem' }}>
+                <button type="button" onClick={resend} style={{ background: 'none', border: 'none', color: '#1A4D8A', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontSize: '0.83rem' }}>Bestätigungs-E-Mail erneut senden</button>
+                {resendMsg && <div style={{ marginTop: '0.4rem', color: '#065f46', fontSize: '0.8rem' }}>{resendMsg}</div>}
+              </div>
+            )}
           </div>
         )}
 

@@ -317,6 +317,23 @@ als Admin hochgeladene PDF-Datei mit Zugriffsstufe „Freigegeben" (Datenraum).
 - [ ] **Q7 Links/Domain:** E-Mail-Links verweisen auf `capitalmatch.de`
   (Voraussetzung: `FRONTEND_URL` in Railway gesetzt, Domain verbunden).
 
+## R. E-Mail-Bestätigung, Paygate & Nachrichten
+
+- [ ] **R1 Registrierung:** Nach der Registrierung erscheint „Bitte bestätigen Sie
+  Ihre E-Mail"; es kommt eine Bestätigungs-Mail mit Link auf `/email-bestaetigen`.
+- [ ] **R2 Login-Gate:** Login vor Bestätigung → Hinweis „Bitte bestätigen Sie zuerst
+  Ihre E-Mail" mit Button „erneut senden". Nach Klick auf den Link (und Admin-Freigabe)
+  ist der Login möglich.
+- [ ] **R3 Paygate-Status:** Auf `/bewertung` erscheint (bei aktiver Paywall) der
+  Hinweis „kostenlos bis 31.08.2026". Ab dem Datum blockt der Server das Anlegen/
+  Berechnen (402) mit klarer Meldung; Login ist ohnehin Pflicht.
+- [ ] **R4 Nachrichten:** `/nachrichten` → Kontakt per E-Mail anfragen → Gegenüber
+  nimmt an → beide können 1:1 chatten; neue Nachricht löst eine Mail aus.
+- [ ] **R5 Diskretion:** Ohne angenommene Verbindung ist kein Schreiben möglich (403);
+  Admin/Berater können immer schreiben.
+- [ ] **R6 Changelog vollständig:** Admin → Changelog zeigt v0.224 … v0.237 lückenlos
+  und korrekt absteigend sortiert.
+
 ---
 
 ## Hinweise

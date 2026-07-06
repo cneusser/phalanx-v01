@@ -15,6 +15,8 @@ import Feedback from './pages/Feedback';
 import SearchProfiles from './pages/SearchProfiles';
 import Watchlist from './pages/Watchlist';
 import Contact from './pages/Contact';
+import VerifyEmail from './pages/VerifyEmail';
+import Messages from './pages/Messages';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -76,10 +78,12 @@ function AppRoutes() {
           <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
           <Route path="/suchprofile" element={<ProtectedRoute><SearchProfiles /></ProtectedRoute>} />
           <Route path="/merkliste" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
+          <Route path="/nachrichten" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
           <Route path="/registrieren" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/passwort-vergessen" element={<ForgotPassword />} />
           <Route path="/passwort-reset" element={<ResetPassword />} />
+          <Route path="/email-bestaetigen" element={<VerifyEmail />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />

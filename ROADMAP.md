@@ -19,8 +19,10 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 8 | Container-Safe (Ordner-Uploads, Object Storage) | ✅ fertig |
 | 9 | Exposé-Builder (DUB-Standard, IM-Gate) | ✅ fertig |
 | 10 | Käufer-UX: Deal-Liste + Suchprofile + Match-Benachrichtigungen | ✅ fertig (Tabelle, Suchprofile, Sofort- + Digest-Match, Merkliste/Tags) |
-| **11** | **In-App-Chat & Kontakte (Netzwerk)** | ▶ als Nächstes |
-| 12 | Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking) | Ausbaustufe |
+| 11 | In-App-Chat & Kontakte (Netzwerk) | ✅ Kern fertig (Kontakte, 1:1-Chat, Mail-Benachrichtigung) |
+| — | E-Mail-Verifizierung + Paygate-Vorbereitung ausf. Bewertung | ✅ (Verifizierung Pflicht; Paywall greift ab 31.08.2026) |
+| **12** | **Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking)** | ▶ als Nächstes |
+| 13 | 2-Faktor-Authentifizierung (SMS/TOTP) | geplant (Mobil-Pflicht vorbereitet) |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →

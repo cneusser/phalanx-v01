@@ -76,13 +76,14 @@ export default function Register() {
             ✓
           </div>
           <h2 style={{ fontSize: '1.35rem', fontWeight: 700, color: C.navy, marginBottom: '0.75rem' }}>
-            Registrierung eingegangen!
+            Bitte bestätigen Sie Ihre E-Mail
           </h2>
           <p style={{ color: C.gray, fontSize: '0.9rem', lineHeight: 1.7, marginBottom: '1.5rem' }}>
-            Vielen Dank für Ihr Interesse an CapitalMatch. Ihr Konto wird von unserem Team geprüft und in Kürze freigeschaltet. Sie erhalten eine Benachrichtigung, sobald Sie Zugang haben.
+            Fast geschafft! Wir haben Ihnen einen Bestätigungslink geschickt. Erst nach Bestätigung Ihrer E-Mail-Adresse ist die Registrierung abgeschlossen — anschließend prüft unser Team Ihren Zugang und schaltet ihn frei.
           </p>
           <div style={{ background: C.xLight, borderRadius: 8, padding: '0.9rem 1rem', border: `1px solid ${C.border}`, fontSize: '0.82rem', color: C.gray, marginBottom: '1.5rem' }}>
-            <strong style={{ color: C.navy }}>Registrierte E-Mail:</strong> {form.email}
+            <strong style={{ color: C.navy }}>Bestätigungs-E-Mail an:</strong> {form.email}<br/>
+            <span style={{ fontSize: '0.76rem' }}>Keine E-Mail erhalten? Prüfen Sie den Spam-Ordner oder fordern Sie den Link auf der Anmeldeseite erneut an.</span>
           </div>
           <Link to="/login" style={{ display: 'inline-block', background: C.navy, color: '#fff', padding: '0.75rem 2rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '0.9rem' }}>
             Zur Anmeldung

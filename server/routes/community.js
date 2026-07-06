@@ -79,7 +79,7 @@ router.post('/contact', msgLimiter, optionalAuth, wrap(async (req, res) => {
 
 // ── CHANGELOG ───────────────────────────────────────────────────────────────
 router.get('/changelog', authenticate, wrap(async (req, res) => {
-  const rows = await scoped(req, (t) => t.all(`SELECT * FROM changelog ORDER BY released_on DESC, id DESC LIMIT 100`));
+  const rows = await scoped(req, (t) => t.all(`SELECT * FROM changelog ORDER BY released_on DESC, version DESC LIMIT 100`));
   res.json({ success: true, data: rows.map(r => ({ ...r, items: safeJson(r.items_json, []) })) });
 }));
 

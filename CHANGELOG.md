@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.237 — 05.07.2026 · E-Mail-Bestätigung, Nachrichten & Paygate-Vorbereitung
+- Registrierung erst nach Bestätigung der E-Mail-Adresse abgeschlossen (Login-Gate + „erneut senden")
+- In-App-Nachrichten & Kontakte (Netzwerk) zwischen bestätigten Nutzern
+- Ausführliche Bewertung: Paygate vorbereitet, kostenlos bis 31.08.2026 (`VALUATION_FREE_UNTIL`/`VALUATION_PAYWALL`)
+- Changelog-Historie vervollständigt (v0.232, v0.233, v0.235 nachgezogen)
+
 ## v0.236 — 05.07.2026 · Käufer-Cockpit, Merkliste & Kontakt
 - Marktplatz: Tabellenansicht (Dealum-Stil), Suchprofile mit Umsatz-/EBITDA-Filter
 - Merkliste mit eigenen Tags und Notizen je Mandat

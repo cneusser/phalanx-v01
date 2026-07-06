@@ -20,9 +20,28 @@ const { generateDetailedReport } = require('../valuation/detailedReport');
 const router = express.Router();
 
 const enabled = () => process.env.VALUATION_ENABLED !== '0';
-const paid = () => process.env.VALUATION_PAID === '1'; // Bezahlschranke (vorbereitet, default aus)
 const ADMIN_ROLES = ['super_admin', 'advisor', 'tenant_owner'];
 const isAdminRole = (u) => u && ADMIN_ROLES.includes(u.role);
+
+// ── Paygate (vorbereitet): kostenlos bis VALUATION_FREE_UNTIL (Default 2026-08-31).
+//    Danach greift die Bezahlschranke, sofern VALUATION_PAYWALL=1 gesetzt ist.
+//    Entitlement-Stub: berechtigte Nutzer via VALUATION_ENTITLED (E-Mail-Liste)
+//    oder Admin-Rollen. Zahlungsabwicklung folgt separat.
+const FREE_UNTIL = () => process.env.VALUATION_FREE_UNTIL || '2026-08-31';
+const paywallFlag = () => process.env.VALUATION_PAYWALL === '1';
+function entitled(user) {
+  if (isAdminRole(user)) return true;
+  const list = (process.env.VALUATION_ENTITLED || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+  return user && list.includes((user.email || '').toLowerCase());
+}
+function valuationAccess(user) {
+  const freeUntil = FREE_UNTIL();
+  const endOfDay = new Date(freeUntil + 'T23:59:59').getTime();
+  const inFreePeriod = Date.now() <= endOfDay;
+  const hasEntitlement = entitled(user);
+  const allowed = inFreePeriod || !paywallFlag() || hasEntitlement;
+  return { allowed, in_free_period: inFreePeriod, free_until: freeUntil, paywall_enabled: paywallFlag(), has_entitlement: hasEntitlement, requires_payment: !allowed };
+}
 
 // Tenant-Kontext (RLS): Default-Tenant über normale Verbindung, sonst withTenant.
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
@@ -51,10 +70,16 @@ function parseRow(row) {
   return { ...row, inputs, results, inputs_json: undefined, results_json: undefined };
 }
 
+// ── Zugriffs-/Paygate-Status (für Client-Banner) ────────────────────────────
+router.get('/access', authenticate, wrap(async (req, res) => {
+  res.json({ success: true, data: valuationAccess(req.user) });
+}));
+
 // ── Entwurf anlegen ─────────────────────────────────────────────────────────
 router.post('/', authenticate, wrap(async (req, res) => {
   if (!enabled()) return res.status(404).json({ success: false, error: 'Bewertung derzeit nicht verfügbar' });
-  if (paid()) return res.status(402).json({ success: false, error: 'Kostenpflichtige Funktion – bitte freischalten.' });
+  const acc = valuationAccess(req.user);
+  if (!acc.allowed) return res.status(402).json({ success: false, code: 'PAYWALL', error: `Die ausführliche Bewertung ist ab dem ${new Date(acc.free_until).toLocaleDateString('de-DE')} kostenpflichtig. Bitte schalten Sie sie frei oder sprechen Sie uns an.`, data: acc });
   const tenantId = req.tenantId || 1;
   const { title, inputs, project_id } = req.body;
   const id = await scoped(req, (t) => t.insert(
@@ -116,6 +141,8 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
 
 // ── Berechnen + submit ──────────────────────────────────────────────────────
 router.post('/:id/submit', authenticate, wrap(async (req, res) => {
+  const acc = valuationAccess(req.user);
+  if (!acc.allowed) return res.status(402).json({ success: false, code: 'PAYWALL', error: `Die ausführliche Bewertung ist ab dem ${new Date(acc.free_until).toLocaleDateString('de-DE')} kostenpflichtig.`, data: acc });
   const { row, err } = await getOwned(req, req.params.id);
   if (err) return res.status(err).json({ success: false, error: err === 404 ? 'Nicht gefunden' : 'Kein Zugriff' });
   const inputs = req.body && req.body.inputs ? req.body.inputs : (() => { try { return JSON.parse(row.inputs_json || '{}'); } catch { return {}; } })();

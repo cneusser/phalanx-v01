@@ -99,6 +99,7 @@ export default function Navbar() {
           {navLink('/projekte', 'Marktplatz')}
           {navLink('/unternehmenswert', 'Unternehmenswert')}
           {user && !isAdmin && navLink('/bewertung', 'Bewertung')}
+          {user && !isAdmin && navLink('/nachrichten', 'Nachrichten')}
           {user && !isAdmin && navLink('/feedback', 'Feedback')}
           {navLink('/kontakt', 'Kontakt')}
           {!user && navLink('/registrieren', 'Registrieren')}

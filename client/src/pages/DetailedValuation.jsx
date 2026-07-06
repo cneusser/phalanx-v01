@@ -42,7 +42,8 @@ export default function DetailedValuation() {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { loadList(); }, []);
+  const [access, setAccess] = useState(null);
+  useEffect(() => { loadList(); api.get('/detailed-valuations/access').then(setAccess).catch(() => {}); }, []);
   async function loadList() {
     setLoading(true);
     try { setList(await api.get('/detailed-valuations') || []); } catch (e) { console.error(e); }
@@ -138,6 +139,11 @@ export default function DetailedValuation() {
           </div>
         </div>
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.75rem 1.5rem 4rem' }}>
+          {access && (access.requires_payment
+            ? <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.7rem 1rem', marginBottom: '1rem', fontSize: '0.83rem', color: '#92400e' }}>Die ausführliche Bewertung ist seit {new Date(access.free_until).toLocaleDateString('de-DE')} kostenpflichtig. Bitte sprechen Sie uns zur Freischaltung an.</div>
+            : access.in_free_period && access.paywall_enabled
+              ? <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 8, padding: '0.7rem 1rem', marginBottom: '1rem', fontSize: '0.83rem', color: '#065f46' }}>Die ausführliche Bewertung ist bis zum <strong>{new Date(access.free_until).toLocaleDateString('de-DE')}</strong> kostenlos.</div>
+              : null)}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <div style={{ fontWeight: 700, color: C.navy }}>Ihre Bewertungen</div>
             <button onClick={startNew} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}><Plus size={15} /> Neue Bewertung</button>

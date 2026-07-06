@@ -253,6 +253,20 @@ async function sendPasswordResetEmail({ to, firstName, resetUrl, expires }) {
   });
 }
 
+// E-Mail-Verifizierung: Link zum Abschluss der Registrierung
+async function sendEmailVerification({ to, firstName, verifyUrl }) {
+  return sendMail({
+    to,
+    subject: '[CapitalMatch] Bitte bestätigen Sie Ihre E-Mail-Adresse',
+    html: mailShell('E-Mail-Adresse bestätigen', `
+      <p>Hallo ${firstName || ''},</p>
+      <p>willkommen bei CapitalMatch! Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihre Registrierung abzuschließen. Erst danach wird Ihr Zugang geprüft und freigeschaltet.</p>
+      ${ctaButton('E-Mail-Adresse bestätigen', verifyUrl)}
+      <p style="font-size:12px;color:#888;">Der Link ist 48 Stunden gültig. Falls Sie sich nicht registriert haben, ignorieren Sie diese E-Mail einfach.</p>
+    `),
+  });
+}
+
 // Bestätigung an den Nutzer direkt nach der Registrierung
 async function sendRegistrationConfirmationEmail({ to, firstName }) {
   return sendMail({
@@ -321,4 +335,5 @@ module.exports = {
   sendRegistrationConfirmationEmail,
   sendAccountApprovedEmail,
   sendProcessUpdateEmail,
+  sendEmailVerification,
 };

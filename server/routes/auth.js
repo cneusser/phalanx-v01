@@ -36,19 +36,22 @@ router.post('/register', wrap(async (req, res) => {
   // aufgelösten Tenants (Default: 1)
   const tenantId = req.tenantId || 1;
   const password_hash = bcrypt.hashSync(password, 10);
+  const crypto = require('crypto');
+  const verifyToken = crypto.randomBytes(32).toString('hex');
+  const verifyExpires = new Date(Date.now() + 48 * 3600 * 1000); // 48 h
 
   const result = await db.withTenant(tenantId, async (t) => {
     const existing = await t.get('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
     if (existing) return { conflict: true };
     const userId = await t.insert(
-      `INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, buyer_type, mobile, phone, is_approved, is_active, privacy_consent_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, now())`,
+      `INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, buyer_type, mobile, phone, is_approved, is_active, email_verified, email_verify_token, email_verify_expires, privacy_consent_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 0, ?, ?, now())`,
       [tenantId, email.toLowerCase(), password_hash, userRole,
        salutation, title || null,
        first_name, last_name,
        company || null, position || null,
        userRole === 'buyer' ? (buyer_type || null) : null,
-       mobile || null, phone || null]
+       mobile || null, phone || null, verifyToken, verifyExpires]
     );
     // Create buyer profile only for buyers
     if (userRole === 'buyer') {
@@ -61,19 +64,19 @@ router.post('/register', wrap(async (req, res) => {
 
   db.auditLog(userId, 'REGISTER', 'user', userId, `role=${userRole}`, req.ip);
 
-  console.log(`\n📬 Neue Registrierung: ${first_name} ${last_name} <${email}> (${userRole}) — wartet auf Freigabe`);
-  // Bestätigung an den Nutzer + Benachrichtigung an den Admin
-  const { sendRegistrationNotification, sendRegistrationConfirmationEmail } = require('../utils/email');
-  sendRegistrationConfirmationEmail({ to: email.toLowerCase(), firstName: first_name }).catch(() => {});
-  sendRegistrationNotification({ firstName: first_name, lastName: last_name, email, company, role: userRole })
-    .catch(() => {});
+  console.log(`\n📬 Neue Registrierung: ${first_name} ${last_name} <${email}> — E-Mail-Bestätigung ausstehend`);
+  // Verifizierungs-Mail an den Nutzer (Registrierung erst nach Bestätigung abgeschlossen).
+  const { sendEmailVerification } = require('../utils/email');
+  const verifyUrl = `${process.env.FRONTEND_URL || 'https://www.capitalmatch.de'}/email-bestaetigen?token=${verifyToken}`;
+  sendEmailVerification({ to: email.toLowerCase(), firstName: first_name, verifyUrl }).catch(() => {});
 
-  // Return pending status — NO TOKEN
+  // Return pending status — NO TOKEN (erst E-Mail bestätigen, dann Admin-Freigabe)
   return res.status(201).json({
     success: true,
     data: {
       pending: true,
-      message: 'Registrierung erfolgreich! Ihr Konto wird geprüft und in Kürze freigeschaltet.',
+      needs_verification: true,
+      message: 'Fast geschafft! Wir haben Ihnen eine E-Mail geschickt. Bitte bestätigen Sie Ihre E-Mail-Adresse, um die Registrierung abzuschließen.',
     },
   });
 }));
@@ -97,8 +100,16 @@ router.post('/login', wrap(async (req, res) => {
     return res.status(401).json({ success: false, error: 'Ungültige Anmeldedaten' });
   }
 
-  // Check approval — admins are always allowed
   const isAdmin = ['super_admin', 'advisor'].includes(user.role);
+  // E-Mail-Bestätigung ist Voraussetzung (Registrierung erst danach abgeschlossen)
+  if (!isAdmin && !user.email_verified) {
+    db.auditLog(user.id, 'LOGIN_UNVERIFIED', 'user', user.id, null, req.ip);
+    return res.status(403).json({
+      success: false, code: 'EMAIL_UNVERIFIED',
+      error: 'Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse. Wir haben Ihnen bei der Registrierung einen Bestätigungslink gesendet.',
+    });
+  }
+  // Check approval — admins are always allowed
   if (!isAdmin && !user.is_approved) {
     db.auditLog(user.id, 'LOGIN_PENDING', 'user', user.id, null, req.ip);
     return res.status(403).json({
@@ -175,6 +186,42 @@ router.post('/reset-password', wrap(async (req, res) => {
   console.log(`✅ Passwort geändert für ${user.email}`);
 
   res.json({ success: true, data: { message: 'Passwort erfolgreich geändert. Sie können sich jetzt anmelden.' } });
+}));
+
+// ── E-Mail bestätigen ───────────────────────────────────────────────────────
+router.post('/verify-email', wrap(async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ success: false, error: 'Token fehlt' });
+  const user = await db.withTenant(req.tenantId || 1, (t) => t.get('SELECT * FROM users WHERE email_verify_token = ?', [token]));
+  if (!user) return res.status(400).json({ success: false, error: 'Ungültiger oder bereits verwendeter Bestätigungslink.' });
+  if (user.email_verified) return res.json({ success: true, data: { message: 'Ihre E-Mail-Adresse ist bereits bestätigt.' } });
+  if (user.email_verify_expires && new Date(user.email_verify_expires).getTime() < Date.now()) {
+    return res.status(400).json({ success: false, error: 'Der Bestätigungslink ist abgelaufen. Bitte fordern Sie einen neuen an.', code: 'EXPIRED' });
+  }
+  await db.withTenant(req.tenantId || 1, (t) => t.run(`UPDATE users SET email_verified = 1, email_verify_token = NULL, email_verify_expires = NULL WHERE id = ?`, [user.id]));
+  db.auditLog(user.id, 'EMAIL_VERIFIED', 'user', user.id, null, req.ip);
+  // Jetzt erst den Admin über die (abgeschlossene) Registrierung informieren
+  const { sendRegistrationNotification, sendRegistrationConfirmationEmail } = require('../utils/email');
+  sendRegistrationConfirmationEmail({ to: user.email, firstName: user.first_name }).catch(() => {});
+  sendRegistrationNotification({ firstName: user.first_name, lastName: user.last_name, email: user.email, company: user.company, role: user.role }).catch(() => {});
+  res.json({ success: true, data: { message: 'E-Mail bestätigt! Ihr Konto wird nun geprüft und in Kürze freigeschaltet.' } });
+}));
+
+// ── Bestätigungs-Mail erneut senden ─────────────────────────────────────────
+router.post('/resend-verification', wrap(async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ success: false, error: 'E-Mail erforderlich' });
+  const user = await db.withTenant(req.tenantId || 1, (t) => t.get('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]));
+  // Immer generische Antwort (kein Nutzer-Enumeration-Leak)
+  if (user && !user.email_verified) {
+    const crypto = require('crypto');
+    const token = crypto.randomBytes(32).toString('hex');
+    await db.withTenant(req.tenantId || 1, (t) => t.run(`UPDATE users SET email_verify_token = ?, email_verify_expires = ? WHERE id = ?`, [token, new Date(Date.now() + 48 * 3600 * 1000), user.id]));
+    const { sendEmailVerification } = require('../utils/email');
+    const verifyUrl = `${process.env.FRONTEND_URL || 'https://www.capitalmatch.de'}/email-bestaetigen?token=${token}`;
+    sendEmailVerification({ to: user.email, firstName: user.first_name, verifyUrl }).catch(() => {});
+  }
+  res.json({ success: true, data: { message: 'Falls ein unbestätigtes Konto existiert, haben wir eine neue Bestätigungs-E-Mail gesendet.' } });
 }));
 
 module.exports = router;
