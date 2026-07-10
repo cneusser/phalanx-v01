@@ -8,7 +8,7 @@ import {
   Lock, CheckCircle, Clock, FileText, MapPin, Building2,
   ChevronRight, AlertCircle, Download, PenLine, TrendingUp,
   Users, Calendar, Shield, Euro, Percent, BarChart3,
-  Target, Briefcase, Globe, Lightbulb, PieChart, Phone, Mail,
+  Target, Briefcase, Globe, Lightbulb, PieChart, Phone, Mail, MessageSquare,
 } from 'lucide-react';
 
 const C = {
@@ -112,6 +112,7 @@ export default function ProjectDetail() {
   const [ndaId, setNdaId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
+  const [contacting, setContacting] = useState(false);
   const [showNDAModal, setShowNDAModal] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(() => {
@@ -180,6 +181,20 @@ export default function ProjectDetail() {
       else setError(e.message);
     } finally {
       setRequesting(false);
+    }
+  }
+
+  // Sprint 15: „Interesse → Chat" — Berater kontaktieren und Chat-Thread öffnen
+  async function contactAdvisor() {
+    if (!user) return navigate('/registrieren');
+    setContacting(true);
+    try {
+      const r = await api.post('/messages/contact-advisor', { project_id: parseInt(id) });
+      navigate('/nachrichten', { state: { openPartner: r.partner_id } });
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setContacting(false);
     }
   }
 
@@ -673,8 +688,15 @@ export default function ProjectDetail() {
       return (
         <div>
           <p style={{ color: '#555', fontSize: '0.875rem', lineHeight: 1.7, marginBottom: '1.25rem' }}>
-            Sie haben Fragen zu diesem Mandat? Ihr Ansprechpartner steht Ihnen gerne zur Verfügung.
+            Sie haben Fragen zu diesem Mandat? Nehmen Sie direkt und diskret über die Plattform Kontakt mit Ihrem Berater auf.
           </p>
+          <button onClick={contactAdvisor} disabled={contacting} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: C.navy, color: '#fff',
+            border: 'none', borderRadius: 8, padding: '0.7rem 1.2rem', fontSize: '0.9rem', fontWeight: 700,
+            cursor: contacting ? 'default' : 'pointer', marginBottom: '1.25rem',
+          }}>
+            <MessageSquare size={16} /> {contacting ? 'Wird geöffnet…' : 'Chat mit Ihrem Berater starten'}
+          </button>
           <div style={{ background: C.bg, borderRadius: 6, padding: '1.25rem', border: `1px solid ${C.border}` }}>
             <div style={{ fontWeight: 700, color: C.text, marginBottom: '0.15rem', fontSize: '0.95rem' }}>Christian Neusser</div>
             <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: '1rem' }}>Phalanx GmbH · Fundraising Advisory</div>

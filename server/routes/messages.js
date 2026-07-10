@@ -105,9 +105,11 @@ router.get('/thread/:userId', authenticate, wrap(async (req, res) => {
   if (!otherUser) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
   const allowed = await canMessage(req, me, other, req.user, otherUser);
   const rows = await scoped(req, (t) => t.all(
-    `SELECT id, sender_id, recipient_id, body, read_at, created_at FROM messages
-     WHERE (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)
-     ORDER BY created_at ASC LIMIT 500`, [me, other, other, me]));
+    `SELECT m.id, m.sender_id, m.recipient_id, m.body, m.read_at, m.created_at, m.type, m.project_id,
+            p.codename AS project_codename
+     FROM messages m LEFT JOIN projects p ON p.id = m.project_id
+     WHERE (m.sender_id = ? AND m.recipient_id = ?) OR (m.sender_id = ? AND m.recipient_id = ?)
+     ORDER BY m.created_at ASC LIMIT 500`, [me, other, other, me]));
   await scoped(req, (t) => t.run(`UPDATE messages SET read_at = now() WHERE recipient_id = ? AND sender_id = ? AND read_at IS NULL`, [me, other]));
   res.json({ success: true, data: { partner: { id: otherUser.id, name: `${otherUser.first_name} ${otherUser.last_name}`, company: otherUser.company }, allowed, messages: rows } });
 }));
@@ -131,6 +133,20 @@ router.post('/send', authenticate, msgLimiter, wrap(async (req, res) => {
     ctaLabel: 'Antworten', ctaPath: '/nachrichten',
   }).catch(() => {});
   res.status(201).json({ success: true, data: { id } });
+}));
+
+// ── Sprint 15: „Interesse → Chat" — Berater zum Mandat kontaktieren ─────────
+// Verbindet den Käufer mit dem Mandatsberater und öffnet den Chat-Thread
+// (auch ohne NDA). Gibt die Partner-Id (Berater) zurück, damit der Client den
+// Thread direkt öffnen kann.
+router.post('/contact-advisor', authenticate, msgLimiter, wrap(async (req, res) => {
+  const projectId = Number(req.body.project_id);
+  if (!projectId) return res.status(400).json({ success: false, error: 'project_id fehlt' });
+  const project = await db.get(`SELECT id, codename FROM projects WHERE id = ? AND status = 'active'`, [projectId]);
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  const advisorId = await require('../utils/dealChat').introduceBuyer({ project, buyer: req.user, reason: 'Kontaktaufnahme' });
+  if (!advisorId) return res.status(409).json({ success: false, error: 'Für dieses Mandat ist aktuell kein Ansprechpartner hinterlegt.' });
+  res.status(201).json({ success: true, data: { partner_id: advisorId } });
 }));
 
 module.exports = router;

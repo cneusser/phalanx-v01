@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Send, UserPlus, Check, X, MessageSquare } from 'lucide-react';
@@ -7,6 +8,7 @@ const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC',
 
 export default function Messages() {
   const { user } = useAuth();
+  const location = useLocation();
   const [threads, setThreads] = useState([]);
   const [connections, setConnections] = useState([]);
   const [active, setActive] = useState(null); // partner_id
@@ -19,6 +21,12 @@ export default function Messages() {
   const loadThreads = useCallback(() => { api.get('/messages/threads').then(setThreads).catch(() => {}); }, []);
   const loadConnections = useCallback(() => { api.get('/messages/connections').then(setConnections).catch(() => {}); }, []);
   useEffect(() => { loadThreads(); loadConnections(); }, [loadThreads, loadConnections]);
+  // Sprint 15: Thread automatisch öffnen, wenn aus einem Mandat heraus verlinkt
+  useEffect(() => {
+    const openPartner = location.state && location.state.openPartner;
+    if (openPartner) openThread(openPartner);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const openThread = useCallback((pid) => {
     setActive(pid);
@@ -111,10 +119,22 @@ export default function Messages() {
               <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', maxHeight: 440 }}>
                 {thread.messages.length === 0 ? <div style={{ color: C.muted, fontSize: '0.83rem', textAlign: 'center', marginTop: '2rem' }}>Noch keine Nachrichten. Schreiben Sie die erste.</div>
                   : thread.messages.map(m => {
+                    // Sprint 15: Systemnachrichten (Prozess-Ereignisse) als zentrierte Timeline-Einträge
+                    if (m.type === 'system') {
+                      return (
+                        <div key={m.id} style={{ display: 'flex', justifyContent: 'center', margin: '0.6rem 0' }}>
+                          <div style={{ maxWidth: '85%', background: '#EEF4FB', color: C.accent, border: `1px solid ${C.border}`, padding: '0.4rem 0.8rem', borderRadius: 20, fontSize: '0.76rem', lineHeight: 1.4, textAlign: 'center' }}>
+                            {m.body}
+                            <span style={{ opacity: 0.6, marginLeft: 6 }}>· {new Date(m.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</span>
+                          </div>
+                        </div>
+                      );
+                    }
                     const mine = m.sender_id === user.id;
                     return (
                       <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: '0.5rem' }}>
                         <div style={{ maxWidth: '75%', background: mine ? C.navy : C.bg, color: mine ? '#fff' : C.text, padding: '0.5rem 0.8rem', borderRadius: 10, fontSize: '0.85rem', lineHeight: 1.45 }}>
+                          {m.project_codename && <div style={{ fontSize: '0.64rem', fontWeight: 700, opacity: 0.75, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{m.project_codename}</div>}
                           {m.body}
                           <div style={{ fontSize: '0.62rem', opacity: 0.7, marginTop: 2, textAlign: 'right' }}>{new Date(m.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
                         </div>

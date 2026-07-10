@@ -25,7 +25,7 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | **12** | **Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking)** | ▶ als Nächstes |
 | 13 | 2-Faktor-Authentifizierung (SMS/TOTP) | geplant (Mobil-Pflicht vorbereitet) |
 | 14 | **CRM / Beziehungs- & Deal-Management (Sell-Side)** | geplant (Analyse folk.app, Konzept unten) |
-| 15 | **Connect & Interaktion Käufer ↔ Verkäufer (Chat-Vernetzung, Prozess-Trigger)** | geplant (Konzept unten) |
+| 15 | **Connect & Interaktion Käufer ↔ Verkäufer (Chat-Vernetzung, Prozess-Trigger)** | ✅ Kern fertig (Interesse→Intro→Chat, Systemnachrichten NDA/DD/LOI/Closing) |
 | 16 | **Gamification / XP-Punktesystem (Interaktion & Deal-Abwicklung)** | geplant (Konzept unten) |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,

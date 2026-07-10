@@ -41,7 +41,8 @@ router.post('/', authenticate, requireCompleteProfile(), wrap(async (req, res) =
   // Zustandsautomat: Interesse registrieren (Gate-Grundlage)
   await setStage(req.user.id, project_id, 'requested', req.user.id, req.ip);
   db.auditLog(req.user.id, 'NDA_REQUESTED', 'nda_request', ndaId, `Projekt: ${project.codename}`, req.ip);
-  console.log(`[EMAIL MOCK] NDA-Anfrage für ${project.codename} von ${req.user.email}`);
+  // Sprint 15: Interesse → Intro → Chat (Verbindung Käufer↔Berater + Systemnachricht + Intro-Mail)
+  require('../utils/dealChat').introduceBuyer({ project, buyer: req.user, reason: 'NDA angefordert' }).catch(() => {});
   res.status(201).json({ success: true, data: { id: ndaId, status: 'requested' } });
 }));
 
@@ -194,6 +195,13 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
     await setStage(req.user.id, req.params.projectId, 'im_granted', req.user.id, consentIp);
     db.auditLog(req.user.id, 'NDA_SIGNED_ONLINE', 'nda_request', nda.id,
       `Online §10 (${providerName}/FES): ${consent_name.trim()} | IP: ${consentIp} | PDF: ${pdfFilename} | SHA-256: ${auditRef.slice(0, 16)}…`, consentIp);
+
+    // Sprint 15: NDA-Unterzeichnung als Systemnachricht in die Deal-Timeline
+    require('../utils/dealChat').eventForBuyer({
+      project, buyerId: req.user.id,
+      body: `✅ NDA für „${project.codename}" unterzeichnet — das Informationsmemorandum ist jetzt freigeschaltet.`,
+      notifyAdvisorBody: `✅ ${user.first_name} ${user.last_name} hat die NDA für „${project.codename}" unterzeichnet.`,
+    }).catch(() => {});
 
     console.log(`NDA für ${project.codename} online unterzeichnet von ${user.email} (${consent_name.trim()})`);
 

@@ -221,6 +221,16 @@ router.put('/projects/:id/deal-status', ...isAdmin, wrap(async (req, res) => {
   db.activityLog(req.user.id, `DEAL_STATUS_${deal_status.toUpperCase()}`, 'deal', req.params.id, req.ip);
   db.auditLog(req.user.id, 'DEAL_STATUS_CHANGED', 'project', req.params.id, `${project.deal_status} → ${deal_status}`, req.ip);
 
+  // Sprint 15: käuferrelevante Statuswechsel als Systemnachricht in die Deal-Timeline
+  const DEAL_EVENT_MSG = {
+    in_diligence: `🔎 Das Mandat „${project.codename}" ist in die Due-Diligence-Phase eingetreten.`,
+    loi: `📝 Für „${project.codename}" liegt eine Absichtserklärung (LOI) vor.`,
+    closed: `✅ Die Transaktion zu „${project.codename}" wurde erfolgreich abgeschlossen.`,
+  };
+  if (DEAL_EVENT_MSG[deal_status]) {
+    require('../utils/dealChat').broadcastDealEvent({ project, body: DEAL_EVENT_MSG[deal_status] }).catch(() => {});
+  }
+
   // Sprint 5 — Billing-Hook: Setup-Gebühr je AKTIVIERTEM Deal-Prozess
   // (Feature-Flag: ENV BILLING_ENABLED=1 UND tenants.billing_enabled=1;
   //  doppelbuchungssicher über vorhandenes deal_setup-Event)
