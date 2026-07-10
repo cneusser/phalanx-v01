@@ -26,7 +26,8 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 13 | 2-Faktor-Authentifizierung (SMS/TOTP) | geplant (Mobil-Pflicht vorbereitet) |
 | 14 | **CRM / Beziehungs- & Deal-Management (Sell-Side)** | geplant (Analyse folk.app, Konzept unten) |
 | 15 | **Connect & Interaktion Käufer ↔ Verkäufer (Chat-Vernetzung, Prozess-Trigger)** | ✅ Kern fertig (Interesse→Intro→Chat, Systemnachrichten NDA/DD/LOI/Closing) |
-| 16 | **Gamification / XP-Punktesystem (Interaktion & Deal-Abwicklung)** | geplant (Konzept unten) |
+| **16** | **Admin-Dashboard 2.0 (Analytics, Funnel, Kennzahlen, interaktiv)** | ▶ als Nächstes (Konzept unten) |
+| 17 | **Gamification / XP-Punktesystem (Interaktion & Deal-Abwicklung)** | geplant (Konzept unten) |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →
@@ -337,7 +338,57 @@ Reminder über den bestehenden Scheduler. Alles mandantenfähig (RLS).
 
 ---
 
-## Sprint 16 — Gamification / XP-Punktesystem — geplant
+## Sprint 16 — Admin-Dashboard 2.0 (Analytics & Auswertung) — als Nächstes
+
+**Motiv.** Das aktuelle Admin-Dashboard ist funktional, aber statisch: acht KPI-Kacheln
+plus ein fixer Schnellzugriff aus vier Blöcken zu je drei Links. Es fehlen (a) eine
+weniger starre, datengetriebene Gliederung und (b) echte **statistische Auswertungen**
+für das Transaktionscontrolling. Ziel ist ein **lebendiges Cockpit**, das den
+Deal-Funnel, Trends und Engpässe auf einen Blick zeigt — als Grundlage für Steuerung
+und (später) Gamification.
+
+**A — Weg von den statischen 3er-Blöcken.**
+- Der fixe Schnellzugriff wird zu **datengetragenen Kacheln**: jeder Einstieg trägt eine
+  Live-Kennzahl/ein Badge (z. B. „NDA-Anfragen · 2 offen", „Q&A · 1 unbeantwortet",
+  „Feedback · 3 neu"), sodass die Kachel Information statt bloßer Navigation liefert.
+- Layout wird **rollen-/kontextabhängig** und priorisiert nach Handlungsbedarf
+  (offene Aufgaben zuerst), statt vier gleich aussehender Spalten.
+
+**B — Statistische Werte & Auswertungen.**
+- **Deal-Funnel (Kern):** Teaser-Ansicht → Interesse/NDA angefragt → NDA signiert →
+  Datenraum → LOI → Closing, je Mandat und aggregiert; mit **Conversion-Raten**
+  (Interesse→NDA, NDA→Datenraum, →LOI) und **Ø Verweildauer je Phase**.
+- **Zeitreihen (7/30/90 Tage, YTD):** neue Nutzer, NDA-Anfragen, Datenraum-Zugriffe,
+  Nachrichten, veröffentlichte Mandate — als kompakte Sparklines/Balken.
+- **Mandats-Ranking:** aktivste Mandate (Zugriffe/Interessenten) und **stagnierende
+  Mandate** (kein Fortschritt seit X Tagen) als Handlungssignal.
+- **Deal-Alter & Pipeline-Wert:** Alter je Deal-Phase; optionale Summe der
+  Ask-/Bewertungsbänder als indikativer Pipeline-Wert.
+- **Aktivitäts-Feed/Heatmap** aus `activity_log` (letzte Ereignisse, Aktivität je Tag).
+
+**C — Interaktivität.**
+- **Zeitraum-Filter** (7/30/90/YTD) und **Mandats-Filter** global auf dem Dashboard.
+- KPI-Kacheln sind **klickbar** und öffnen den passenden, vorgefilterten Tab.
+- **Export** der Kennzahlen (CSV/PDF) fürs Reporting/Transaktionscontrolling.
+
+**Technik.**
+- Neuer, zeitfenster-parametrisierter Aggregations-Endpoint
+  `GET /api/admin/analytics/overview?range=30d` — bündelt Kennzahlen aus
+  `activity_log`, `interests`, `nda_requests`, `messages`, `users`, `projects`
+  (effiziente `GROUP BY`/Window-Queries, RLS/mandantenfähig, nur Admin/Berater).
+- **Visualisierung bewusst leichtgewichtig:** Inline-SVG-Sparklines/Balken statt
+  schwerer Chart-Abhängigkeit (konsistent mit dem Inline-Style-Ansatz; hält das
+  Client-Bundle klein). Optional später ein kleines Chart-Modul.
+- Baut auf den in Sprint 15 eingeführten Prozess-Events auf und **liefert die
+  Datengrundlage für die XP-Gamification (Sprint 17)**.
+
+**Abgrenzung.** Kennzahlen sind indikativ/steuerungsorientiert (kein Finanz-Reporting
+im engeren Sinn). Performance im Blick behalten (Aggregate cachen/downsampeln, wenn
+Datenmengen wachsen).
+
+---
+
+## Sprint 17 — Gamification / XP-Punktesystem — geplant
 
 **Motiv.** AddedVal.io nutzt sichtbare **XP/Level** („210 XP · Level Entdecker",
 „1001 free Downloads") als Aktivierungs- und Bindungsmechanik. Für CapitalMatch soll
