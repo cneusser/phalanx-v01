@@ -30,8 +30,10 @@ const C = {
   muted:  '#64748B',
 };
 
-const KPICard = ({ label, value, sub, icon: Icon, color = C.navy }) => (
-  <div style={{ background: C.card, borderRadius: 6, padding: '1.4rem', border: `1px solid ${C.border}` }}>
+const KPICard = ({ label, value, sub, icon: Icon, color = C.navy, onClick }) => (
+  <div onClick={onClick} style={{ background: C.card, borderRadius: 6, padding: '1.4rem', border: `1px solid ${C.border}`, cursor: onClick ? 'pointer' : 'default', transition: 'box-shadow 0.15s' }}
+    onMouseEnter={onClick ? (e) => { e.currentTarget.style.boxShadow = '0 4px 14px rgba(13,27,54,0.10)'; } : undefined}
+    onMouseLeave={onClick ? (e) => { e.currentTarget.style.boxShadow = 'none'; } : undefined}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
       <div>
         <div style={{ fontSize: '2rem', fontWeight: 700, color }}>{value}</div>
@@ -44,6 +46,25 @@ const KPICard = ({ label, value, sub, icon: Icon, color = C.navy }) => (
     </div>
   </div>
 );
+
+// Sprint 16: leichtgewichtige Inline-SVG-Sparkline (keine Chart-Abhängigkeit)
+const Sparkline = ({ data = [], color = C.accent, w = 240, h = 40 }) => {
+  const vals = data.map(d => d.v);
+  const max = Math.max(1, ...vals);
+  const n = vals.length;
+  if (!n) return <svg width={w} height={h} />;
+  const step = n > 1 ? w / (n - 1) : w;
+  const pts = vals.map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * (h - 4) - 2).toFixed(1)}`);
+  const area = `0,${h} ${pts.join(' ')} ${w},${h}`;
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: 'block' }}>
+      <polygon points={area} fill={`${color}18`} />
+      <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+};
+
+const sum = (arr = []) => arr.reduce((a, b) => a + (b.v || 0), 0);
 
 const statusMap = {
   requested: { label: 'Angefordert', color: '#f59e0b', bg: '#fef3c7' },
@@ -82,6 +103,9 @@ export default function Admin() {
   const [activity, setActivity] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
+  // Sprint 16: Analytics-Cockpit
+  const [analytics, setAnalytics] = useState(null);
+  const [range, setRange] = useState('30d');
 
   // Audit-Trail state
   const [auditLogs, setAuditLogs] = useState([]);
@@ -192,6 +216,11 @@ export default function Admin() {
   }
 
   useEffect(() => { loadAll(); }, []);
+  // Sprint 16: Analytics beim Wechsel des Zeitraums nachladen
+  const loadAnalytics = React.useCallback(async (r) => {
+    try { setAnalytics(await api.get(`/admin/analytics?range=${r || range}`)); } catch (e) { console.error(e); }
+  }, [range]);
+  useEffect(() => { loadAnalytics(range); }, [range, loadAnalytics]);
 
   async function loadAll() {
     try {
@@ -204,6 +233,21 @@ export default function Admin() {
       setStats(s); setProjects(p); setNdas(n); setUsers(u);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
+  }
+
+  // Sprint 16: Kennzahlen als CSV exportieren (Funnel + Mandats-Ranking)
+  function exportAnalyticsCSV() {
+    if (!analytics) return;
+    const rows = [['Bereich', 'Kennzahl', 'Wert']];
+    (analytics.funnel || []).forEach(f => rows.push(['Funnel', f.label, f.value]));
+    rows.push(['', '', '']);
+    rows.push(['Mandat', 'Interessenten / NDAs / signiert / Alter(Tage) / idle(Tage) / Status', '']);
+    (analytics.mandates || []).forEach(m => rows.push([m.codename, `${m.interested} / ${m.ndas} / ${m.signed} / ${m.age_days} / ${m.idle_days} / ${m.deal_status}`, '']));
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `CapitalMatch_Analytics_${range}_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function loadActivity() {
@@ -552,19 +596,19 @@ export default function Admin() {
       {/* KPIs */}
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
-          <KPICard label="Aktive Projekte" value={stats.projects.active} sub={`${stats.projects.total} gesamt · ${stats.projects.draft} Entwurf`} icon={Building2} />
-          <KPICard label="Registrierte Nutzer" value={stats.users.total} sub={stats.users.pending > 0 ? `⚠️ ${stats.users.pending} ausstehend` : `+${stats.users.this_week} diese Woche`} icon={Users} color={stats.users.pending > 0 ? '#f59e0b' : '#8b5cf6'} />
-          <KPICard label="NDA-Anfragen" value={stats.ndas.total} sub={`${stats.ndas.requested} offen`} icon={FileText} color="#f59e0b" />
-          <KPICard label="Freigaben" value={stats.ndas.approved} sub={`${stats.ndas.signed} unterschrieben`} icon={CheckCircle} color="#10b981" />
+          <KPICard label="Aktive Projekte" value={stats.projects.active} sub={`${stats.projects.total} gesamt · ${stats.projects.draft} Entwurf`} icon={Building2} onClick={() => setActiveTab('projects')} />
+          <KPICard label="Registrierte Nutzer" value={stats.users.total} sub={stats.users.pending > 0 ? `⚠️ ${stats.users.pending} ausstehend` : `+${stats.users.this_week} diese Woche`} icon={Users} color={stats.users.pending > 0 ? '#f59e0b' : '#8b5cf6'} onClick={() => setActiveTab('users')} />
+          <KPICard label="NDA-Anfragen" value={stats.ndas.total} sub={`${stats.ndas.requested} offen`} icon={FileText} color="#f59e0b" onClick={() => setActiveTab('ndas')} />
+          <KPICard label="Freigaben" value={stats.ndas.approved} sub={`${stats.ndas.signed} unterschrieben`} icon={CheckCircle} color="#10b981" onClick={() => setActiveTab('ndas')} />
         </div>
       )}
       {/* Sprint 4: Datenraum-/CRM-KPIs */}
       {stats && stats.dataroom && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-          <KPICard label="Datenraum-Zugriffe (7 Tage)" value={stats.dataroom.accesses_7d} sub="Ansichten & Downloads" icon={Eye} color="#0ea5e9" />
+          <KPICard label="Datenraum-Zugriffe (7 Tage)" value={stats.dataroom.accesses_7d} sub="Ansichten & Downloads" icon={Eye} color="#0ea5e9" onClick={() => setActiveTab('activity')} />
           <KPICard label="Offene Aufgaben" value={stats.tasks.open} sub={stats.tasks.due > 0 ? `⚠️ ${stats.tasks.due} fällig` : 'keine fällig'} icon={ClipboardList} color={stats.tasks.due > 0 ? '#ef4444' : '#8b5cf6'} />
-          <KPICard label="Offene Q&A-Fragen" value={stats.qa.open} sub="warten auf Antwort" icon={FileText} color={stats.qa.open > 0 ? '#f59e0b' : '#10b981'} />
-          <KPICard label="Pipeline" value={stats.projects.active} sub="Deals im Prozess — Tab Pipeline" icon={Activity} color="#1D4E89" />
+          <KPICard label="Offene Q&A-Fragen" value={stats.qa.open} sub="warten auf Antwort" icon={FileText} color={stats.qa.open > 0 ? '#f59e0b' : '#10b981'} onClick={() => setActiveTab('projects')} />
+          <KPICard label="Pipeline" value={stats.projects.active} sub="Deals im Prozess — Tab Pipeline" icon={Activity} color="#1D4E89" onClick={() => setActiveTab('pipeline')} />
         </div>
       )}
 
@@ -608,22 +652,157 @@ export default function Admin() {
       {/* Overview */}
       {activeTab === 'overview' && (
         <>
-        {/* Schnellzugriff — alle Admin-Bereiche gruppiert auf einen Blick */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-          {[
-            ['Vertrieb & Deals', [['pipeline', 'Pipeline (CRM)'], ['projects', 'Projekte'], ['ndas', 'NDA-Anfragen']]],
-            ['Nutzer & Feedback', [['users', 'Nutzer'], ['feedback', 'Feedback'], ['leads', 'Bewertungs-Leads']]],
-            ['Bewertung', [['detvals', 'Ausf. Bewertungen'], ['multiples', 'Multiples']]],
-            ['System & Protokolle', [['changelog', 'Changelog'], ['activity', 'Aktivitätslog'], ['audit', 'Audit-Trail']]],
-          ].map(([group, items]) => (
-            <div key={group} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.9rem 1rem' }}>
-              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{group}</div>
-              {items.map(([key, label]) => (
-                <button key={key} onClick={() => setActiveTab(key)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '0.35rem 0', fontSize: '0.85rem', color: C.navy, fontWeight: 600 }}>{label} →</button>
+        {/* Sprint 16: Cockpit-Toolbar — Zeitraum + Export */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.3rem', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.25rem' }}>
+            {[['7d', '7 Tage'], ['30d', '30 Tage'], ['90d', '90 Tage'], ['ytd', 'YTD']].map(([k, lbl]) => (
+              <button key={k} onClick={() => setRange(k)} style={{
+                border: 'none', cursor: 'pointer', borderRadius: 6, padding: '0.35rem 0.8rem', fontSize: '0.8rem', fontWeight: 600,
+                background: range === k ? C.navy : 'transparent', color: range === k ? '#fff' : C.muted,
+              }}>{lbl}</button>
+            ))}
+          </div>
+          <button onClick={exportAnalyticsCSV} disabled={!analytics} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: C.card, color: C.navy,
+            border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.4rem 0.9rem', fontSize: '0.8rem', fontWeight: 600,
+            cursor: analytics ? 'pointer' : 'default',
+          }}><Download size={14} /> Kennzahlen exportieren (CSV)</button>
+        </div>
+
+        {/* Datengetragene Schnellzugriff-Kacheln (Live-Kennzahl statt statischer Links) */}
+        {(() => {
+          const B = (analytics && analytics.badges) || {};
+          const tiles = [
+            ['pipeline', 'Pipeline (CRM)', B.pipeline, 'in Prozess', C.accent],
+            ['ndas', 'NDA-Anfragen', B.ndas, 'offen', '#f59e0b'],
+            ['users', 'Nutzer', B.users, 'z. Freigabe', '#8b5cf6'],
+            ['feedback', 'Feedback', B.feedback, 'neu', '#0ea5e9'],
+            ['detvals', 'Ausf. Bewertungen', B.detvals, 'eingereicht', '#10b981'],
+            ['leads', 'Bewertungs-Leads', B.leads, 'gesamt', C.accent],
+            ['projects', 'Projekte', B.projects, 'aktiv', C.navy],
+            ['activity', 'Aktivität heute', B.activity_today, 'Ereignisse', C.muted],
+          ];
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.8rem', marginBottom: '1.5rem' }}>
+              {tiles.map(([key, label, val, suffix, color]) => (
+                <button key={key} onClick={() => setActiveTab(key)} style={{
+                  textAlign: 'left', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.85rem 1rem',
+                  cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '0.15rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
+                    <span style={{ fontSize: '1.5rem', fontWeight: 800, color: (val > 0 ? color : C.muted) }}>{val ?? '–'}</span>
+                    <span style={{ fontSize: '0.7rem', color: C.muted }}>{suffix}</span>
+                  </div>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: C.navy }}>{label} →</span>
+                </button>
               ))}
             </div>
-          ))}
-        </div>
+          );
+        })()}
+
+        {/* Deal-Funnel + Conversion */}
+        {analytics && analytics.funnel && analytics.funnel.length > 0 && (
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '1.25rem', marginBottom: '1.5rem' }}>
+            <h3 style={{ fontWeight: 700, color: C.text, marginBottom: '1rem', fontSize: '0.95rem' }}>Deal-Funnel <span style={{ fontWeight: 400, color: C.muted, fontSize: '0.8rem' }}>· gesamter Bestand</span></h3>
+            {(() => {
+              const f = analytics.funnel;
+              const max = Math.max(1, ...f.map(x => x.value));
+              return f.map((s, i) => {
+                const prev = i > 0 ? f[i - 1].value : null;
+                const conv = prev ? Math.round((s.value / Math.max(prev, 1)) * 100) : null;
+                const colors = ['#1D4E89', '#2563eb', '#8b5cf6', '#0ea5e9', '#f59e0b', '#10b981'];
+                return (
+                  <div key={s.key} style={{ marginBottom: '0.6rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 3 }}>
+                      <span style={{ color: C.text, fontWeight: 600 }}>{s.label}</span>
+                      <span style={{ color: C.muted }}>{s.value}{conv !== null && <span style={{ marginLeft: 8, color: conv >= 50 ? '#059669' : conv >= 25 ? '#d97706' : '#dc2626' }}>({conv}%)</span>}</span>
+                    </div>
+                    <div style={{ background: C.bg, borderRadius: 5, height: 12, overflow: 'hidden' }}>
+                      <div style={{ width: `${Math.max(2, (s.value / max) * 100)}%`, height: '100%', background: colors[i % colors.length], borderRadius: 5 }} />
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        )}
+
+        {/* Zeitreihen (Sparklines) im gewählten Zeitraum */}
+        {analytics && analytics.timeseries && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+            {[
+              ['new_users', 'Neue Nutzer', '#8b5cf6'],
+              ['ndas', 'NDA-Anfragen', '#f59e0b'],
+              ['dataroom', 'Datenraum-Zugriffe', '#0ea5e9'],
+              ['messages', 'Nachrichten', '#10b981'],
+            ].map(([key, label, color]) => {
+              const series = (analytics.timeseries[key] || []).slice(range === 'ytd' ? -90 : 0);
+              return (
+                <div key={key} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.9rem 1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.4rem' }}>
+                    <span style={{ fontSize: '0.8rem', color: C.muted, fontWeight: 600 }}>{label}</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 800, color }}>{sum(series)}</span>
+                  </div>
+                  <Sparkline data={series} color={color} />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Mandats-Ranking */}
+        {analytics && analytics.mandates && analytics.mandates.length > 0 && (
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '1.25rem', marginBottom: '1.5rem', overflowX: 'auto' }}>
+            <h3 style={{ fontWeight: 700, color: C.text, marginBottom: '0.9rem', fontSize: '0.95rem' }}>Mandats-Ranking <span style={{ fontWeight: 400, color: C.muted, fontSize: '0.8rem' }}>· nach Interessenten</span></h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+              <thead>
+                <tr style={{ color: C.muted, textAlign: 'left' }}>
+                  <th style={{ padding: '0.3rem 0.5rem' }}>Mandat</th>
+                  <th style={{ padding: '0.3rem 0.5rem', textAlign: 'right' }}>Interess.</th>
+                  <th style={{ padding: '0.3rem 0.5rem', textAlign: 'right' }}>NDAs</th>
+                  <th style={{ padding: '0.3rem 0.5rem', textAlign: 'right' }}>signiert</th>
+                  <th style={{ padding: '0.3rem 0.5rem' }}>Status</th>
+                  <th style={{ padding: '0.3rem 0.5rem', textAlign: 'right' }}>Alter</th>
+                  <th style={{ padding: '0.3rem 0.5rem' }}>Aktivität</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analytics.mandates.map(m => (
+                  <tr key={m.id} onClick={() => setActiveTab('pipeline')} style={{ borderTop: `1px solid ${C.border}`, cursor: 'pointer' }}>
+                    <td style={{ padding: '0.45rem 0.5rem' }}><span style={{ fontWeight: 700, color: C.navy }}>{m.codename}</span><div style={{ fontSize: '0.68rem', color: C.muted }}>{m.industry}</div></td>
+                    <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', fontWeight: 700 }}>{m.interested}</td>
+                    <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right' }}>{m.ndas}</td>
+                    <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right' }}>{m.signed}</td>
+                    <td style={{ padding: '0.45rem 0.5rem' }}><span style={{ fontSize: '0.7rem', fontWeight: 600, color: C.accent }}>{DEAL_STATUS_LABELS[m.deal_status] || m.deal_status}</span></td>
+                    <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', color: C.muted }}>{m.age_days} T</td>
+                    <td style={{ padding: '0.45rem 0.5rem' }}>
+                      {m.stagnating
+                        ? <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.1rem 0.5rem', borderRadius: 20, fontSize: '0.68rem', fontWeight: 700 }}>⚠ stagniert · {m.idle_days} T</span>
+                        : <span style={{ color: '#059669', fontSize: '0.72rem' }}>aktiv · vor {m.idle_days} T</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Aktivitäts-Feed */}
+        {analytics && analytics.recent && analytics.recent.length > 0 && (
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '1.25rem', marginBottom: '1.5rem' }}>
+            <h3 style={{ fontWeight: 700, color: C.text, marginBottom: '0.8rem', fontSize: '0.95rem' }}>Letzte Aktivitäten</h3>
+            {analytics.recent.map((a, i) => {
+              const st = auditActionStyle(a.action);
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.35rem 0', borderTop: i ? `1px solid ${C.border}` : 'none' }}>
+                  <span style={{ background: st.bg, color: st.color, padding: '0.1rem 0.5rem', borderRadius: 5, fontSize: '0.66rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{a.action}</span>
+                  <span style={{ fontSize: '0.78rem', color: C.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.actor}{a.resource ? ` · ${a.resource}${a.resource_id ? ' #' + a.resource_id : ''}` : ''}</span>
+                  <span style={{ fontSize: '0.7rem', color: C.muted, whiteSpace: 'nowrap' }}>{new Date(a.ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
           <div style={{ background: C.card, borderRadius: 6, padding: '1.5rem', border: `1px solid ${C.border}` }}>

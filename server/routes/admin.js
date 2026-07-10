@@ -90,6 +90,119 @@ router.get('/stats', ...isAdmin, wrap(async (req, res) => {
   });
 }));
 
+// ── Sprint 16: Analytics-Overview (Funnel, Zeitreihen, Ranking, Badges) ─────
+// Zeitfenster-parametrisiert (?range=7d|30d|90d|ytd). Nur Admin/Berater.
+// Jeder Block ist defensiv gekapselt: ein fehlschlagendes Aggregat darf das
+// Dashboard nicht als Ganzes killen.
+router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
+  const RANGES = { '7d': 7, '30d': 30, '90d': 90 };
+  const rangeKey = ['7d', '30d', '90d', 'ytd'].includes(req.query.range) ? req.query.range : '30d';
+  const days = rangeKey === 'ytd' ? null : RANGES[rangeKey];
+  // Fensterbedingung für Spalten unterschiedlicher Tabellen
+  const since = (col) => days === null
+    ? `${col} >= date_trunc('year', now())`
+    : `${col} >= now() - interval '${days} days'`;
+  const safe = async (fn, fallback) => { try { return await fn(); } catch (e) { console.warn('[analytics]', e.message); return fallback; } };
+
+  // 1) Funnel — robuste Quellen (interests + nda_requests + projects.deal_status)
+  const funnel = await safe(async () => {
+    const i = await db.get(`SELECT
+        COUNT(*) FILTER (WHERE stage <> 'rejected')::int AS interested,
+        COUNT(*) FILTER (WHERE stage = 'loi')::int       AS loi
+      FROM interests`);
+    const n = await db.get(`SELECT
+        COUNT(*)::int AS requested,
+        COUNT(*) FILTER (WHERE status IN ('signed','approved'))::int AS signed,
+        COUNT(*) FILTER (WHERE status = 'approved')::int             AS dataroom
+      FROM nda_requests`);
+    const c = await db.get(`SELECT COUNT(*) FILTER (WHERE deal_status = 'closed')::int AS closed FROM projects`);
+    return [
+      { key: 'interested', label: 'Interesse bekundet', value: i.interested },
+      { key: 'nda_requested', label: 'NDA angefragt', value: n.requested },
+      { key: 'nda_signed', label: 'NDA unterzeichnet', value: n.signed },
+      { key: 'dataroom', label: 'Datenraum frei', value: n.dataroom },
+      { key: 'loi', label: 'LOI', value: i.loi },
+      { key: 'closed', label: 'Closing', value: c.closed },
+    ];
+  }, []);
+
+  // 2) Zeitreihen (täglich, im Fenster) — mit Lückenfüllung via generate_series
+  const daySpan = days === null ? 365 : days;
+  const seriesFor = (sql) => db.all(`
+    WITH d AS (
+      SELECT generate_series(date_trunc('day', now()) - interval '${daySpan - 1} days',
+                             date_trunc('day', now()), interval '1 day')::date AS day
+    )
+    SELECT to_char(d.day,'YYYY-MM-DD') AS day, COALESCE(x.c,0)::int AS v
+    FROM d LEFT JOIN (${sql}) x ON x.day = d.day
+    ORDER BY d.day ASC`);
+  const timeseries = await safe(async () => ({
+    new_users:  await seriesFor(`SELECT created_at::date AS day, COUNT(*) c FROM users WHERE role NOT IN ('super_admin','advisor') GROUP BY 1`),
+    ndas:       await seriesFor(`SELECT requested_at::date AS day, COUNT(*) c FROM nda_requests GROUP BY 1`),
+    dataroom:   await seriesFor(`SELECT ts::date AS day, COUNT(*) c FROM activity_log WHERE action IN ('DOWNLOAD_DOCUMENT','DOWNLOAD_SIGNED_LINK','ACCESS_DETAILS','ACCESS_DOCLIST') GROUP BY 1`),
+    messages:   await seriesFor(`SELECT created_at::date AS day, COUNT(*) c FROM messages WHERE type = 'user' GROUP BY 1`),
+  }), { new_users: [], ndas: [], dataroom: [], messages: [] });
+
+  // 3) Mandats-Ranking (aktive Mandate) — Interessenten, NDAs, Alter, letzte Aktivität, Stagnation
+  const mandates = await safe(() => db.all(`
+    SELECT p.id, p.codename, p.industry, p.deal_status, p.mandate_type,
+      EXTRACT(DAY FROM now() - p.created_at)::int AS age_days,
+      (SELECT COUNT(*)::int FROM interests i WHERE i.project_id = p.id AND i.stage <> 'rejected') AS interested,
+      (SELECT COUNT(*)::int FROM nda_requests nr WHERE nr.project_id = p.id) AS ndas,
+      (SELECT COUNT(*)::int FROM nda_requests nr WHERE nr.project_id = p.id AND nr.status IN ('signed','approved')) AS signed,
+      GREATEST(
+        COALESCE((SELECT MAX(updated_at) FROM interests i WHERE i.project_id = p.id), p.created_at),
+        COALESCE((SELECT MAX(created_at) FROM messages m WHERE m.project_id = p.id), p.created_at),
+        COALESCE((SELECT MAX(requested_at) FROM nda_requests nr WHERE nr.project_id = p.id), p.created_at)
+      ) AS last_activity
+    FROM projects p
+    WHERE p.status = 'active'
+    ORDER BY interested DESC, ndas DESC, last_activity DESC
+    LIMIT 20`), []);
+  // Stagnations-Flag anreichern (kein Fortschritt seit > 14 Tagen)
+  const now = Date.now();
+  (mandates || []).forEach(m => {
+    const la = m.last_activity ? new Date(m.last_activity).getTime() : now;
+    m.idle_days = Math.max(0, Math.floor((now - la) / 86400000));
+    m.stagnating = m.idle_days > 14 && !['closed', 'withdrawn'].includes(m.deal_status);
+  });
+
+  // 4) Letzte Aktivitäten (Feed)
+  const recent = await safe(() => db.all(`
+    SELECT a.action, a.resource, a.resource_id, a.ts,
+           COALESCE(u.first_name || ' ' || u.last_name, 'System') AS actor
+    FROM activity_log a LEFT JOIN users u ON u.id = a.actor_id
+    ORDER BY a.ts DESC LIMIT 15`), []);
+
+  // 5) Badges für die Schnellzugriff-Kacheln (Live-Kennzahlen statt statischer Links)
+  const badges = await safe(async () => {
+    const g = async (sql, fb = 0) => { try { const r = await db.get(sql); return r ? Number(Object.values(r)[0]) || 0 : fb; } catch { return fb; } };
+    return {
+      pipeline: await g(`SELECT COUNT(*)::int c FROM projects WHERE deal_status IN ('in_diligence','loi')`),
+      projects: await g(`SELECT COUNT(*)::int c FROM projects WHERE status='active'`),
+      ndas: await g(`SELECT COUNT(*)::int c FROM nda_requests WHERE status IN ('requested','sent')`),
+      users: await g(`SELECT COUNT(*)::int c FROM users WHERE is_approved=0 AND role NOT IN ('super_admin','advisor')`),
+      feedback: await g(`SELECT COUNT(*)::int c FROM feedback WHERE status='new'`),
+      qa: await g(`SELECT COUNT(*)::int c FROM qa_threads WHERE status='open'`),
+      detvals: await g(`SELECT COUNT(*)::int c FROM detailed_valuations WHERE status='submitted'`),
+      leads: await g(`SELECT COUNT(*)::int c FROM valuation_leads`),
+      activity_today: await g(`SELECT COUNT(*)::int c FROM activity_log WHERE ts >= date_trunc('day', now())`),
+    };
+  }, {});
+
+  // 6) Conversion-Kennzahlen (im Fenster: neue Interessen/NDAs)
+  const conv = await safe(async () => {
+    const r = await db.get(`SELECT
+        (SELECT COUNT(*)::int FROM nda_requests WHERE ${since('requested_at')}) AS nda_new,
+        (SELECT COUNT(*)::int FROM nda_requests WHERE status IN ('signed','approved') AND ${since('COALESCE(signed_at, requested_at)')}) AS signed_new,
+        (SELECT COUNT(*)::int FROM users WHERE role NOT IN ('super_admin','advisor') AND ${since('created_at')}) AS users_new,
+        (SELECT COUNT(*)::int FROM messages WHERE type='user' AND ${since('created_at')}) AS msgs_new`);
+    return r || {};
+  }, {});
+
+  res.json({ success: true, data: { range: rangeKey, funnel, timeseries, mandates, recent, badges, conversions: conv } });
+}));
+
 // ── Projects ──────────────────────────────────────────────────────────────
 router.get('/projects', ...isAdmin, wrap(async (req, res) => {
   const projects = (await db.all(`

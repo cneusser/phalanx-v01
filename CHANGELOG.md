@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.242 — 10.07.2026 · Sprint 16: Admin-Dashboard 2.0 (Analytics)
+- Statische Schnellzugriff-Blöcke → datengetragene Kacheln mit Live-Kennzahlen (offene NDAs, Feedback, Q&A, …)
+- Deal-Funnel mit Conversion-Raten (Interesse → NDA → signiert → Datenraum → LOI → Closing)
+- Zeitreihen-Sparklines (7/30/90 Tage, YTD): neue Nutzer, NDAs, Datenraum-Zugriffe, Nachrichten
+- Mandats-Ranking mit Stagnations-Warnung; klickbare KPIs; CSV-Export fürs Transaktionscontrolling
+- Backend: `GET /api/admin/analytics?range=…` (Funnel, Zeitreihen, Ranking, Badges, Feed)
+
 ## v0.241 — 10.07.2026 · Sprint 15: Vernetzung Käufer ↔ Berater (Chat)
 - Interesse/NDA verbindet Käufer automatisch mit dem Mandatsberater und legt einen mandatsbezogenen Chat-Thread an
 - Neuer Einstieg „Chat mit Ihrem Berater starten" im Mandat (`POST /api/messages/contact-advisor`)
