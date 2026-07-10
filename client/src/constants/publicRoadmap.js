@@ -19,6 +19,10 @@ export const PUBLIC_ROADMAP = [
     text: 'Zusätzliche Absicherung Ihres Zugangs über Ihr Mobilgerät.' },
   { status: 'planned', title: 'Beziehungs- & Deal-Management (CRM)',
     text: 'Behalten Sie Kontakte, Interessenten und den Fortschritt jedes Deals an einem Ort im Blick — mit Aufgaben, Wiedervorlagen und transparentem Status entlang des gesamten Prozesses.' },
+  { status: 'planned', title: 'Direkte Vernetzung Käufer & Verkäufer',
+    text: 'Aus Interesse wird mit einem Klick eine kuratierte Vorstellung und ein mandatsbezogener Chat — begleitet von automatischen Hinweisen zu neuen passenden Mandaten und Prozessschritten (NDA, Datenraum, LOI).' },
+  { status: 'planned', title: 'XP & Level – Belohnung für Aktivität und Abschlüsse',
+    text: 'Sammeln Sie Punkte für echte Prozessschritte und für Deals, die Sie über die Plattform abwickeln — dezent dargestellt und ganz auf Vertraulichkeit ausgelegt.' },
 ];
 
 export const ROADMAP_STATUS = {

@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.240 — 10.07.2026 · Zwei neue M&A-Mandate & erweiterte Roadmap
+- Neues Mandat „Betongold" — Nachfolge/Komplettverkauf einer Architekturbeton-Manufaktur (3. Gen., € 3,46 Mio. Umsatz 2024)
+- Neues Mandat „Cudd" — Transformations-/Turnaround-Case einer Premium-Kindermarke (2025: € 13,1 Mio., 2026e ~€ 10 Mio. Run-Rate)
+- Roadmap Sprint 15: Vernetzung Käufer↔Verkäufer über Chat (Interesse → Intro → mandatsbezogener Chat, Prozess-Trigger)
+- Roadmap Sprint 16: XP-/Level-Gamification für Prozessschritte (NDA, DD, LOI) und Deal-Abschluss über die Plattform
+- Öffentliche Roadmap um beide Punkte ergänzt
+
 ## v0.239 — 06.07.2026 · Roadmap aktualisiert & CRM aufgenommen
 - Öffentliche Roadmap: Käufer-Cockpit, In-App-Nachrichten & Mobil-Optimierung auf „Verfügbar" gesetzt
 - Neuer geplanter Punkt: Beziehungs- & Deal-Management (CRM) — Analyse folk.app, Konzept in ROADMAP.md (Sprint 14)

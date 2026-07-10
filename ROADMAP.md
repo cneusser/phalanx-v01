@@ -25,6 +25,8 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | **12** | **Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking)** | ▶ als Nächstes |
 | 13 | 2-Faktor-Authentifizierung (SMS/TOTP) | geplant (Mobil-Pflicht vorbereitet) |
 | 14 | **CRM / Beziehungs- & Deal-Management (Sell-Side)** | geplant (Analyse folk.app, Konzept unten) |
+| 15 | **Connect & Interaktion Käufer ↔ Verkäufer (Chat-Vernetzung, Prozess-Trigger)** | geplant (Konzept unten) |
+| 16 | **Gamification / XP-Punktesystem (Interaktion & Deal-Abwicklung)** | geplant (Konzept unten) |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →
@@ -294,6 +296,85 @@ Premium-Modul für Kunden.
 **Empfehlung Reihenfolge.** Stufe A liefert sofort Nutzen aus vorhandenen Bausteinen und
 sollte zuerst kommen (nach Bewertung 2.0). Enrichment/Kanäle (Stufe C) zuletzt, da extern
 und rechtlich prüfpflichtig.
+
+---
+
+## Sprint 15 — Connect & Interaktion Käufer ↔ Verkäufer — geplant
+
+**Motiv.** Der bestehende In-App-Chat (Sprint 11) wird zum Herzstück der Vernetzung
+zwischen Käufer und Verkäufer entlang des gesamten Deal-Prozesses — statt loser
+Nachrichten ein geführter, prozessgetriebener Austausch. Vorbild ist die **AddedVal.io-
+Strecke**: Der Interessent lädt ein Pitch Deck / bekundet Interesse → das System stellt
+per E-Mail eine **Intro** her („Get to know each other", Reply-all) → beide Seiten sind
+verbunden. Zusätzlich erhalten Nutzer **regelmäßige E-Mails über neue Pitch Decks/Mandate**
+(bei uns bereits als Digest vorhanden). Diese Mechanik übertragen wir sauber auf beide
+Fokusstränge der Plattform: **Transaktion (M&A)** *und* **Startup-Finanzierung**
+(letzteres bereits mit Beispielen bestückt: Projekt Umami, Nexora — sowie neu Betongold
+[Nachfolge/Skalierung] und Cudd [Transformation] im M&A-Strang).
+
+**Kernidee: „Interesse → Intro → Chat".** Aus einer Interessens-/Deck-Anfrage wird
+automatisiert eine Verbindung + ein Chat-Thread, kontextbezogen zum Mandat.
+
+*Bausteine:*
+- **Interesse-→-Connect-Trigger:** „Interesse bekunden"/„Deck anfordern" erzeugt (nach
+  Freigabe/NDA-Logik) automatisch eine Verbindungsanfrage **und** einen mandats-
+  gebundenen Chat-Thread; begleitende Intro-Mail an beide Seiten (Muster AddedVal).
+- **Mandatsbezogener Chat:** Threads sind an ein Projekt gekoppelt (nicht nur 1:1),
+  sodass Verkäufer/Berater und Interessent im Deal-Kontext sprechen; Sichtbarkeit/
+  Freigabe gestuft (anonym → nach NDA Klarname).
+- **Prozess-Trigger & Statuswechsel im Chat:** Systemnachrichten bei Meilensteinen
+  (NDA angefragt/signiert, IM freigegeben, Q&A gestellt, LOI) — der Chat wird zur
+  Deal-Timeline. Baut auf `deal_status` (teaser_live→in_diligence→loi→closed) auf.
+- **Benachrichtigungen:** E-Mail + In-App bei neuer Nachricht/Statuswechsel; Opt-in
+  „neue passende Mandate" nutzt die bestehende Digest-/Match-Engine.
+- **Moderation/Diskretion:** Berater (Admin) kann Intros kuratieren/freigeben, bevor
+  Klarnamen geteilt werden — passend zum vertraulichen M&A-Kontext (Unterschied zu
+  AddedVal, wo Intros offener sind).
+
+*Technik:* nutzt vorhandene `connections`/`messages` (Sprint 11); Erweiterung um
+`project_id`-Bezug am Thread, Systemnachrichten-Typ, Trigger aus Interesse/NDA/QA/LOI,
+Reminder über den bestehenden Scheduler. Alles mandantenfähig (RLS).
+
+---
+
+## Sprint 16 — Gamification / XP-Punktesystem — geplant
+
+**Motiv.** AddedVal.io nutzt sichtbare **XP/Level** („210 XP · Level Entdecker",
+„1001 free Downloads") als Aktivierungs- und Bindungsmechanik. Für CapitalMatch soll
+Gamification **echte Prozessfortschritte** belohnen — nicht bloßes Klicken —, um
+Interaktion und vor allem **abgeschlossene Deals über die Plattform** zu fördern.
+
+**Prinzip: Punkte für werthaltige Interaktion, große Boni für Abwicklung über die
+Plattform.** Beispiel-Wertung (final zu kalibrieren):
+
+| Aktion | XP (Idee) | Ziel |
+|-------|-----------|------|
+| Profil vollständig, E-Mail verifiziert | 10 | Onboarding |
+| Suchprofil angelegt / Mandat gemerkt | 5 | Aktivierung |
+| Interesse bekundet / Intro angenommen | 15 | Vernetzung |
+| NDA signiert | 40 | Ernsthaftigkeit |
+| Am Q&A/Datenraum aktiv teilgenommen | 25 | Due Diligence |
+| LOI abgegeben/erhalten | 75 | Deal-Fortschritt |
+| **Deal über die Plattform abgewickelt (Closing)** | **300+** | **Kernziel** |
+
+*Bausteine:*
+- **Event-basierte Vergabe:** XP hängen an denselben Prozess-Events wie Sprint 15
+  (NDA, DD/Q&A, LOI, Closing) — eine `xp_events`-Tabelle (append-only, idempotent je
+  Event) + aggregierter Punktestand je Nutzer; Level-Schwellen (z. B. Entdecker →
+  Insider → Dealmaker).
+- **Anzeige:** dezenter XP-/Level-Badge im „Mein Bereich" und Navbar (mobil-tauglich);
+  optionale (anonymisierte) Bestenliste — im vertraulichen M&A-Kontext bewusst
+  zurückhaltend/opt-in.
+- **Anti-Gaming:** Punkte nur für verifizierte, nicht rückgängig gemachte Prozess-
+  schritte; Missbrauchsschutz (kein XP für selbst ausgelöste Dummy-NDAs etc.).
+- **Belohnung real koppeln (optional, später):** XP schalten Vorteile frei (z. B.
+  Freischaltungen, Sichtbarkeit, Rabatte auf kostenpflichtige Bewertungen) — analog
+  AddedVals „free Downloads"/Virtual Shares, aber M&A-gerecht.
+
+*Abwägung/Prinzipien:* Gamification darf Seriosität und Vertraulichkeit nicht
+untergraben. Daher Fokus auf **prozess-echte** Punkte, dezente Darstellung, Opt-in bei
+öffentlicher Sichtbarkeit. Technisch schlank (ein Eventlog + Aggregat), verzahnt mit
+Sprint 15 (Prozess-Trigger) und dem CRM (Sprint 14).
 
 ---
 
