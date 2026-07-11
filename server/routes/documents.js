@@ -338,4 +338,36 @@ router.patch('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Dokument aktualisiert', access_level: newLevel, category: newCategory } });
 }));
 
+// ── POST /api/documents/:projectId/:docId/file  (Admin: Datei nachreichen/ersetzen) ──
+// Hängt eine echte Datei an eine BESTEHENDE Dokumentzeile (z. B. vorbereitete
+// Teaser-/IM-Einträge ohne Datei). Bezeichnung, Beschreibung und Zugangslevel
+// bleiben erhalten; Dateityp/-größe werden aktualisiert, alte Datei entfernt.
+router.post('/:projectId/:docId/file', ...isAdmin, upload.single('file'), wrap(async (req, res) => {
+  const { projectId, docId } = req.params;
+  if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen' });
+
+  const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
+  if (!doc) {
+    fs.unlink(req.file.path, () => {});
+    return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
+  }
+
+  const oldPath = doc.file_path;
+  await db.run(
+    `UPDATE documents
+     SET file_path = ?, file_type = ?, file_size = ?, storage_ref = ?, version = COALESCE(version, 1) + 1
+     WHERE id = ?`,
+    [req.file.path, req.file.mimetype, req.file.size, req.file.path, docId]
+  );
+  // Alte Datei aufräumen (falls vorhanden und nicht identisch)
+  if (oldPath && oldPath !== req.file.path) fs.unlink(oldPath, () => {});
+
+  db.auditLog(req.user.id, 'UPLOAD_DOCUMENT_FILE', 'document', docId,
+    `${doc.filename}: Datei hinterlegt (${req.file.originalname}, ${(req.file.size / 1024 / 1024).toFixed(2)} MB)`, req.ip);
+  res.status(201).json({
+    success: true,
+    data: { id: Number(docId), filename: doc.filename, file_size: req.file.size, file_type: req.file.mimetype, has_file: 1 },
+  });
+}));
+
 module.exports = router;

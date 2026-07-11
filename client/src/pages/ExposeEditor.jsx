@@ -43,6 +43,8 @@ export default function ExposeEditor() {
   const [saved, setSaved] = useState('');
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(true);
+  const [pdfItemId, setPdfItemId] = useState(null);   // hochgeladenes Exposé-PDF (im Safe)
+  const [pdfBusy, setPdfBusy] = useState(false);
   const dirty = useRef(false); const timer = useRef();
 
   const load = useCallback(async () => {
@@ -53,6 +55,7 @@ export default function ExposeEditor() {
       setKeyfacts(d.expose.keyfacts || {}); setSections(d.expose.sections || []);
       setGallery(d.expose.gallery || []); setHeroId(d.expose.hero_image_id || null);
       setAck(!!d.expose.anonymized_ack); setSafeImages(d.safeImages || []);
+      setPdfItemId(d.expose.pdf_item_id || null);
     } catch (e) { setMsg('Fehler: ' + e.message); }
     finally { setLoading(false); }
   }, [pid]);
@@ -95,6 +98,27 @@ export default function ExposeEditor() {
     catch (e) { setMsg('PDF-Fehler: ' + e.message); }
   }
 
+  // Fertiges Exposé-PDF in den Safe hochladen — wird dann statt der Generierung ausgeliefert
+  async function uploadExposePdf(file) {
+    if (!file) return;
+    setPdfBusy(true); setMsg('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const d = await api.upload(`/exposes/${pid}/pdf-upload`, fd);
+      setPdfItemId(d.pdf_item_id);
+      setMsg(`Exposé-PDF „${d.name}" hochgeladen — es liegt im Safe und wird ab sofort als Exposé-PDF ausgeliefert.`);
+    } catch (e) { setMsg('Upload-Fehler: ' + e.message); }
+    finally { setPdfBusy(false); }
+  }
+  async function removeExposePdf() {
+    if (!window.confirm('Hochgeladenes Exposé-PDF entfernen? Das PDF wird danach wieder automatisch aus Eckdaten und Sektionen generiert. Die Datei bleibt im Safe erhalten.')) return;
+    setPdfBusy(true);
+    try { await api.post(`/exposes/${pid}/pdf-remove`, {}); setPdfItemId(null); setMsg('Hochgeladenes PDF entfernt — das Exposé-PDF wird wieder generiert.'); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+    finally { setPdfBusy(false); }
+  }
+
   if (loading) return <div style={{ padding: '4rem', textAlign: 'center', color: C.muted }}>Wird geladen…</div>;
 
   return (
@@ -112,6 +136,19 @@ export default function ExposeEditor() {
               <span style={{ background: status === 'published' ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', padding: '0.2rem 0.6rem', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700 }}>{status === 'published' ? 'VERÖFFENTLICHT' : 'ENTWURF'}</span>
               <Link to={`/projekte/${pid}/expose`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.78rem', textDecoration: 'none', fontWeight: 600 }}><Eye size={14} /> Vorschau</Link>
               <button onClick={downloadPdf} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.steel, color: C.navy, border: 'none', borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}><Download size={14} /> PDF</button>
+              {/* Fertiges Exposé-PDF hochladen (landet im Safe, ersetzt die Generierung) */}
+              {pdfItemId ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(34,197,94,0.22)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 7, padding: '0.35rem 0.7rem', fontSize: '0.74rem', fontWeight: 700 }}>
+                  <CheckCircle size={13} /> PDF hinterlegt
+                  <button onClick={removeExposePdf} disabled={pdfBusy} title="Hochgeladenes PDF entfernen" style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.85)', cursor: 'pointer', fontSize: '0.72rem', textDecoration: 'underline', padding: 0 }}>entfernen</button>
+                </span>
+              ) : (
+                <label title="Fertiges Exposé als PDF hochladen (wird im Safe abgelegt)" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.78rem', fontWeight: 600, cursor: pdfBusy ? 'default' : 'pointer', color: '#fff' }}>
+                  <UploadIcon size={14} /> {pdfBusy ? 'Wird hochgeladen…' : 'Exposé-PDF hochladen'}
+                  <input type="file" accept="application/pdf,.pdf" disabled={pdfBusy} style={{ display: 'none' }}
+                    onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; uploadExposePdf(f); }} />
+                </label>
+              )}
             </div>
           </div>
         </div>

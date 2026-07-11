@@ -9,6 +9,10 @@
 //   GET  /api/exposes/:projectId/pdf        Exposé-PDF mit Empfänger-Wasserzeichen
 // ─────────────────────────────────────────────────────────────────────────────
 const express = require('express');
+const path = require('path');
+const crypto = require('crypto');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
 const db = require('../db/database');
 const wrap = require('../utils/asyncHandler');
 const { authenticate } = require('../middleware/auth');
@@ -17,6 +21,16 @@ const { stageAllows } = require('../utils/dealStateMachine');
 const { getStorage } = require('../providers/storage');
 const { generateExposeReport } = require('../valuation/exposeReport');
 const router = express.Router();
+
+// Upload eines fertigen Exposé-PDFs (landet im Safe, wird von dort ausgeliefert)
+const pdfUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = file.mimetype === 'application/pdf' || path.extname(file.originalname).toLowerCase() === '.pdf';
+    cb(ok ? null : new Error('Nur PDF-Dateien erlaubt'), ok);
+  },
+});
 
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
 const ADMIN_ROLES = ['super_admin', 'advisor', 'tenant_owner'];
@@ -54,7 +68,8 @@ function parseExpose(row) {
   try { gallery = JSON.parse(row.gallery_json || '[]'); } catch {}
   if (!sections.length) sections = DEFAULT_SECTIONS;
   return { id: row.id, status: row.status, keyfacts, sections, hero_image_id: row.hero_image_id,
-    gallery, anonymized_ack: !!row.anonymized_ack, published_at: row.published_at, updated_at: row.updated_at };
+    gallery, anonymized_ack: !!row.anonymized_ack, published_at: row.published_at, updated_at: row.updated_at,
+    pdf_item_id: row.pdf_item_id || null };
 }
 
 // Neuesten geprüften Bewertungskorridor des Mandats holen (optional)
@@ -195,13 +210,79 @@ router.get('/:projectId/image/:safeId', authenticate, wrap(async (req, res) => {
   res.send(buf);
 }));
 
-// ── PDF-Export mit Empfänger-Wasserzeichen ──────────────────────────────────
+// ── Fertiges Exposé-PDF hochladen (in den Safe) ─────────────────────────────
+// Legt die Datei über den StorageProvider im Safe ab, erzeugt ein safe_items-
+// Element und verknüpft es mit dem Exposé. Danach liefert /pdf diese Datei aus.
+router.post('/:projectId/pdf-upload', authenticate, pdfUpload.single('file'), wrap(async (req, res) => {
+  const projectId = req.params.projectId;
+  if (!(await canManage(req, projectId))) return res.status(403).json({ success: false, error: 'Kein Zugriff' });
+  if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen' });
+
+  const project = await scoped(req, (t) => t.get('SELECT id, codename FROM projects WHERE id = ?', [projectId]));
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+
+  const name = req.file.originalname && req.file.originalname.toLowerCase().endsWith('.pdf')
+    ? req.file.originalname
+    : `Expose_${String(project.codename).replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+  const key = `project_${projectId}/${uuidv4()}.pdf`;
+  await getStorage().put(key, req.file.buffer, 'application/pdf');
+  const checksum = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+
+  const safeId = await scoped(req, (t) => t.insert(
+    `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, storage_key, size, mime, checksum_sha256, version, uploaded_by)
+     VALUES (?, ?, NULL, ?, 0, ?, ?, 'application/pdf', ?, 1, ?)`,
+    [req.tenantId || 1, projectId, name, key, req.file.size, checksum, req.user.id]));
+
+  // Exposé-Zeile sicherstellen und verknüpfen
+  const existing = await loadExpose(req, projectId);
+  if (existing) {
+    await scoped(req, (t) => t.run(`UPDATE exposes SET pdf_item_id = ?, updated_by = ?, updated_at = now() WHERE project_id = ?`,
+      [safeId, req.user.id, projectId]));
+  } else {
+    await scoped(req, (t) => t.insert(
+      `INSERT INTO exposes (tenant_id, project_id, status, keyfacts_json, sections_json, gallery_json, anonymized_ack, pdf_item_id, updated_by)
+       VALUES (?, ?, 'draft', '{}', ?, '[]', 0, ?, ?)`,
+      [req.tenantId || 1, projectId, JSON.stringify(DEFAULT_SECTIONS), safeId, req.user.id]));
+  }
+
+  db.auditLog(req.user.id, 'EXPOSE_PDF_UPLOAD', 'expose', Number(projectId), `${name} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`, req.ip);
+  res.status(201).json({ success: true, data: { pdf_item_id: safeId, name, size: req.file.size } });
+}));
+
+// ── Hochgeladenes Exposé-PDF wieder entfernen (zurück zur Generierung) ──────
+router.post('/:projectId/pdf-remove', authenticate, wrap(async (req, res) => {
+  const projectId = req.params.projectId;
+  if (!(await canManage(req, projectId))) return res.status(403).json({ success: false, error: 'Kein Zugriff' });
+  await scoped(req, (t) => t.run(`UPDATE exposes SET pdf_item_id = NULL, updated_by = ?, updated_at = now() WHERE project_id = ?`, [req.user.id, projectId]));
+  db.auditLog(req.user.id, 'EXPOSE_PDF_REMOVE', 'expose', Number(projectId), null, req.ip);
+  res.json({ success: true, data: { message: 'Hochgeladenes PDF entfernt — es wird wieder generiert.' } });
+}));
+
+// ── PDF-Export: hochgeladenes PDF bevorzugt, sonst generiert (Wasserzeichen) ─
 router.get('/:projectId/pdf', authenticate, wrap(async (req, res) => {
   const projectId = req.params.projectId;
   const acc = await exposeAccess(req, projectId);
   if (!acc.ok) return res.status(403).json({ success: false, error: 'Exposé nicht verfügbar' });
   const project = await scoped(req, (t) => t.get('SELECT codename FROM projects WHERE id = ?', [projectId]));
   const expose = acc.expose;
+
+  // Vorrang: fertig hochgeladenes Exposé-PDF aus dem Safe ausliefern
+  if (expose && expose.pdf_item_id) {
+    const item = await scoped(req, (t) => t.get(
+      'SELECT * FROM safe_items WHERE id = ? AND project_id = ? AND is_folder = 0 AND deleted_at IS NULL',
+      [expose.pdf_item_id, projectId]));
+    if (item && item.storage_key) {
+      try {
+        const buf = await getStorage().get(item.storage_key);
+        db.activityLog(req.user.id, 'EXPOSE_PDF', 'expose', expose.id || null, req.ip);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(item.name)}"`);
+        return res.send(buf);
+      } catch (e) {
+        console.warn('[expose pdf upload] Fallback auf Generierung:', e.message);
+      }
+    }
+  }
   const corridor = await reviewedCorridor(req, projectId);
   let heroBuffer = null;
   if (expose && expose.hero_image_id) {

@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.244 — 11.07.2026 · Dokument-Upload, vollständige Exposés & Exposé-PDF
+- Neuer Endpoint `POST /api/documents/:projectId/:docId/file`: Datei an ein **bestehendes** Dokument hängen (Nachreichen/Ersetzen)
+- Admin-Dokumentliste: Badge „keine Datei" + Upload-/Ersetzen-Button je Eintrag
+- Exposés für „Betongold" und „Cudd" vollständig befüllt (14 DUB-Eckdaten + alle Sektionen, anonymisiert, veröffentlicht)
+- Exposé-PDF-Upload: `POST /api/exposes/:projectId/pdf-upload` legt ein fertiges PDF im Safe ab; `GET /pdf` liefert es dann statt der Generierung (`pdf-remove` schaltet zurück)
+- Schema: `exposes.pdf_item_id` → `safe_items`
+
 ## v0.243 — 10.07.2026 · Sprint 17: Gamification (XP & Level)
 - XP für echte Prozessschritte: Interesse (15), NDA signiert (40), Datenraum (25), LOI (75), Watchlist (5), Kontakt (10)
 - Großer Bonus für Deal-Abschluss über die Plattform (300) an die beteiligten Käufer

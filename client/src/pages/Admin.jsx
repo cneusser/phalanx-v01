@@ -523,6 +523,21 @@ export default function Admin() {
     }
   }
 
+  // Datei an ein BESTEHENDES Dokument hängen (z. B. vorbereitete Teaser-/IM-Einträge)
+  async function attachDocFile(projectId, docId, file) {
+    if (!file) return;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      await api.upload(`/documents/${projectId}/${docId}/file`, fd);
+      showMsg('Datei hinterlegt ✓');
+      const docs = await api.get(`/documents/${projectId}`);
+      setUploadState(s => ({ ...s, existingDocs: docs }));
+    } catch (err) {
+      showMsg('Fehler: ' + err.message, 'error');
+    }
+  }
+
   if (loading) return (
     <div style={{ padding: '3rem', textAlign: 'center', color: C.muted }}>
       <div style={{ width: 32, height: 32, margin: '0 auto 1rem', border: `3px solid ${C.border}`, borderTop: `3px solid ${C.navy}`, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -1737,9 +1752,32 @@ export default function Admin() {
                         <div style={{ fontSize: '0.68rem', color: C.muted }}>
                           {doc.description ? `${doc.description} · ` : ''}
                           {doc.file_size ? `${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : ''}
+                          {doc.has_file === 0 && (
+                            <span style={{ marginLeft: 6, background: '#fef3c7', color: '#92400e', padding: '0.05rem 0.4rem', borderRadius: 20, fontWeight: 700, fontSize: '0.64rem' }}>
+                              keine Datei
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
+                    {/* Datei hinterlegen / ersetzen (füllt vorbereitete Einträge) */}
+                    <label
+                      title={doc.has_file === 0 ? 'Datei hinterlegen' : 'Datei ersetzen'}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.3rem', flexShrink: 0, cursor: 'pointer',
+                        background: doc.has_file === 0 ? '#dbeafe' : '#f1f5f9',
+                        color: doc.has_file === 0 ? '#1e40af' : C.muted,
+                        border: 'none', padding: '0.3rem 0.55rem', borderRadius: 5, fontSize: '0.7rem', fontWeight: 600,
+                      }}
+                    >
+                      <Upload size={12} /> {doc.has_file === 0 ? 'Datei' : 'Ersetzen'}
+                      <input
+                        type="file"
+                        accept=".pdf,.pptx,.ppt,.docx,.doc,.xlsx,.xls,.jpg,.jpeg,.png,.webp"
+                        style={{ display: 'none' }}
+                        onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; attachDocFile(uploadProject.id, doc.id, f); }}
+                      />
+                    </label>
                     {/* Zugangslevel nachträglich änderbar */}
                     <select
                       value={doc.access_level}
