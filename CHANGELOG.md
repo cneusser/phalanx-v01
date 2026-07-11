@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.245 — 11.07.2026 · Exposé-PDF: dynamisches Layout
+- Eckdaten-Raster jetzt **dynamisch vermessen** (`heightOfString`): Zeilenhöhe = max. Höhe beider Spalten
+- Label über Wert gestapelt → beliebig lange Werte brechen sauber um, keine Überlappung mehr (vorher fixe 22-pt-Boxen)
+- Überschriften nie allein am Seitenende; Vertraulichkeitshinweis wird vor dem Zeichnen vermessen
+- Typografie: Zahl + Einheit werden nicht getrennt („60 %", „€ 3,46 Mio.", „p. a.")
+
 ## v0.244 — 11.07.2026 · Dokument-Upload, vollständige Exposés & Exposé-PDF
 - Neuer Endpoint `POST /api/documents/:projectId/:docId/file`: Datei an ein **bestehendes** Dokument hängen (Nachreichen/Ersetzen)
 - Admin-Dokumentliste: Badge „keine Datei" + Upload-/Ersetzen-Button je Eintrag
