@@ -45,8 +45,12 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  // Sprint 18: Benachrichtigungs-Einstellungen (eigener Endpoint, echtes Opt-out möglich)
+  const [notif, setNotif] = useState({ newsletter: true, newsletter_freq: 'instant', follow_updates: true, similar_suggestions: true });
 
   const isBuyer = user?.role === 'buyer';
+
+  useEffect(() => { api.get('/community/notifications').then(setNotif).catch(() => {}); }, []);
 
   useEffect(() => {
     api.get('/profile').then(d => {
@@ -77,6 +81,8 @@ export default function Profile() {
         ...contact,
         industries, regions, deal_types: dealTypes, revenue_min: revenueMin, revenue_max: revenueMax,
       });
+      // Benachrichtigungs-Einstellungen separat speichern (booleans dürfen 0 sein)
+      await api.put('/community/notifications', notif).catch(() => {});
       const d = await api.get('/profile');
       setMissingFields(d.missing_fields || []);
       setMsg('Profil gespeichert ✓');
@@ -210,6 +216,32 @@ export default function Profile() {
             </div>
           </div>
         )}
+
+        {/* Sprint 18: Benachrichtigungen — granulares Opt-in/Opt-out (DSGVO) */}
+        <div style={card}>
+          <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '0.5rem', fontSize: '1rem' }}>Benachrichtigungen</h2>
+          <p style={{ color: '#888', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
+            Sie entscheiden, worüber wir Sie per E-Mail informieren. Alle Optionen sind jederzeit abwählbar.
+          </p>
+          {[
+            ['newsletter', 'Newsletter: neue Mandate', 'Ein Hinweis, sobald ein neues Mandat im Marktplatz veröffentlicht wird.'],
+            ['follow_updates', 'Updates zu Mandaten, denen ich folge', 'Änderungen, neue Unterlagen, Exposé und Statuswechsel (Due Diligence, LOI, Abschluss). Sie folgen einem Mandat automatisch, sobald Sie Interesse bekunden — oder manuell über den Stern.'],
+            ['similar_suggestions', 'Hinweise auf ähnliche Mandate', 'Passende neue Mandate auf Basis der Mandate, für die Sie sich bisher interessiert haben.'],
+          ].map(([key, label, hint]) => (
+            <label key={key} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', padding: '0.75rem 0', borderTop: '1px solid #eef4f9', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={!!notif[key]}
+                onChange={(e) => setNotif(n => ({ ...n, [key]: e.target.checked }))}
+                style={{ marginTop: 3, width: 16, height: 16, cursor: 'pointer', flexShrink: 0 }}
+              />
+              <span>
+                <span style={{ display: 'block', fontSize: '0.87rem', fontWeight: 600, color: '#333' }}>{label}</span>
+                <span style={{ display: 'block', fontSize: '0.76rem', color: '#888', lineHeight: 1.5, marginTop: 2 }}>{hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           {/* DSGVO-Transparenz: eigener Audit-Trail */}

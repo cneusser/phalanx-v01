@@ -23,8 +23,8 @@ export const PUBLIC_ROADMAP = [
     text: 'Aus Interesse wird mit einem Klick ein direkter, mandatsbezogener Chat mit Ihrem Berater — begleitet von automatischen Hinweisen zu Prozessschritten (NDA, Due Diligence, LOI, Closing).' },
   { status: 'done', title: 'XP & Level – Belohnung für Aktivität und Abschlüsse',
     text: 'Sammeln Sie Punkte für echte Prozessschritte (NDA, Datenraum, Due Diligence) und für Deals, die Sie über die Plattform abwickeln — sichtbar in Ihrem Bereich, dezent und auf Vertraulichkeit ausgelegt.' },
-  { status: 'planned', title: 'Newsletter, Folgen & Ähnlichkeits-Vorschläge',
-    text: 'Abonnieren Sie neue passende Mandate, folgen Sie einzelnen Mandaten (automatisch bei Interesse oder manuell) und erhalten Sie Hinweise auf ähnliche Mandate — mit voller Kontrolle über Ihre Benachrichtigungen.' },
+  { status: 'done', title: 'Newsletter, Folgen & Ähnlichkeits-Vorschläge',
+    text: 'Abonnieren Sie neue Mandate, folgen Sie einzelnen Mandaten (automatisch bei Interesse oder manuell per Stern) und erhalten Sie Hinweise auf ähnliche Mandate — mit voller Kontrolle über Ihre Benachrichtigungen im Profil.' },
 ];
 
 export const ROADMAP_STATUS = {

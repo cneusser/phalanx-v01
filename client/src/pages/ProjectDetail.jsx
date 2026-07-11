@@ -113,6 +113,9 @@ export default function ProjectDetail() {
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [contacting, setContacting] = useState(false);
+  // Sprint 18: Folgen (Stern) + ähnliche Mandate
+  const [watched, setWatched] = useState(false);
+  const [similar, setSimilar] = useState([]);
   const [showNDAModal, setShowNDAModal] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(() => {
@@ -182,6 +185,21 @@ export default function ProjectDetail() {
     } finally {
       setRequesting(false);
     }
+  }
+
+  // Sprint 18: ähnliche Mandate + Folgen-Status laden
+  useEffect(() => {
+    api.get(`/community/similar/${id}`).then(setSimilar).catch(() => {});
+    if (user) api.get('/community/watchlist/ids').then(ids => setWatched((ids || []).includes(Number(id)))).catch(() => {});
+  }, [id, user]);
+
+  // Sprint 18: Mandat folgen / entfolgen (Stern)
+  async function toggleFollow() {
+    if (!user) return navigate('/registrieren');
+    try {
+      if (watched) { await api.delete(`/community/watchlist/${id}`); setWatched(false); }
+      else { await api.post('/community/watchlist', { project_id: Number(id) }); setWatched(true); }
+    } catch (e) { setError(e.message); }
   }
 
   // Sprint 15: „Interesse → Chat" — Berater kontaktieren und Chat-Thread öffnen
@@ -330,6 +348,28 @@ export default function ProjectDetail() {
                 </div>
               )}
             </>
+          )}
+
+          {/* Sprint 18: Ähnliche Mandate — Cross-Discovery, auch ohne NDA sichtbar */}
+          {similar.length > 0 && (
+            <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: `1px solid ${C.border}` }}>
+              <h4 style={{ fontWeight: 700, color: C.text, marginBottom: '0.9rem', fontSize: '0.88rem' }}>Ähnliche Mandate</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                {similar.map(s => (
+                  <Link key={s.id} to={`/projekte/${s.id}`} style={{ textDecoration: 'none', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.85rem 1rem', display: 'block' }}>
+                    <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.88rem', marginBottom: 2 }}>
+                      {s.sector_emoji ? `${s.sector_emoji} ` : ''}{s.codename}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: C.muted, marginBottom: 4 }}>
+                      {[s.industry, s.region].filter(Boolean).join(' · ')}
+                    </div>
+                    {s.revenue_band && s.revenue_band !== '—' && (
+                      <div style={{ fontSize: '0.72rem', color: C.text, fontWeight: 600 }}>Umsatz {s.revenue_band}</div>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       );
@@ -731,6 +771,20 @@ export default function ProjectDetail() {
           <div>
             {/* Header-Karte */}
             <div style={{ background: C.card, borderRadius: 6, padding: '2rem', border: `1px solid ${C.border}`, marginBottom: '1.5rem' }}>
+              {/* Sprint 18: Folgen (Stern) — bei Interesse ohnehin automatisch */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+                <button
+                  onClick={toggleFollow}
+                  title={watched ? 'Diesem Mandat nicht mehr folgen' : 'Diesem Mandat folgen — Sie werden über Änderungen informiert'}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
+                    background: watched ? '#fef3c7' : C.bg, color: watched ? '#92400e' : C.muted,
+                    border: `1px solid ${watched ? '#fcd34d' : C.border}`, borderRadius: 20,
+                    padding: '0.3rem 0.75rem', fontSize: '0.75rem', fontWeight: 700,
+                  }}>
+                  {watched ? '★ Sie folgen' : '☆ Folgen'}
+                </button>
+              </div>
               {/* Badges: Typ + Branche + Region + Status — klickbar als Live-Filter im Marktplatz */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
                 <span

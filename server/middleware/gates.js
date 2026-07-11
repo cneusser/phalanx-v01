@@ -61,6 +61,11 @@ async function setStage(userId, projectId, stage, actorId, ip) {
   if (stage === 'dataroom_granted') {
     await grantDefaultPermissions(userId, projectId);
   }
+  // Sprint 18: Bei Interesse automatisch dem Mandat folgen (Watchlist, source='auto').
+  // Zentrale Stelle für ALLE Interesse-Übergänge — kein Doppelaufruf nötig.
+  if (stage !== 'rejected') {
+    require('../utils/notify').autoFollow(userId, projectId).catch(() => {});
+  }
   db.activityLog(actorId, `INTEREST_STAGE_${stage.toUpperCase()}`, 'interest', projectId, ip);
 }
 

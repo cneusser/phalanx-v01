@@ -139,6 +139,12 @@ router.post('/:projectId/publish', authenticate, wrap(async (req, res) => {
   if (!row) return res.status(400).json({ success: false, error: 'Bitte zuerst Inhalte speichern.' });
   await scoped(req, (t) => t.run(`UPDATE exposes SET status = 'published', anonymized_ack = 1, published_at = now(), updated_at = now() WHERE project_id = ?`, [projectId]));
   db.auditLog(req.user.id, 'EXPOSE_PUBLISH', 'expose', row.id, null, req.ip);
+  // Sprint 18: Follower über das neue Exposé informieren
+  require('../utils/notify').notifyFollowers(projectId, {
+    title: 'Exposé verfügbar',
+    message: 'zu einem Mandat, dem Sie folgen, ist jetzt das ausführliche Exposé verfügbar (nach unterzeichneter Vertraulichkeitsvereinbarung einsehbar).',
+    ctaLabel: 'Exposé ansehen',
+  }).catch(() => {});
   res.json({ success: true, data: { message: 'Exposé veröffentlicht' } });
 }));
 

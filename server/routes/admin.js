@@ -14,11 +14,14 @@ const isSuperAdmin = [authenticate, requireRole('super_admin')];
 const isAuditorOrAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner', 'auditor')];
 
 // Sprint 10: Käufer mit passendem Suchprofil (Sofort-Frequenz) benachrichtigen.
+// Sprint 18: gibt die Menge der benachrichtigten Nutzer zurück — Grundlage der
+// Anti-Doppel-Mail-Kaskade (Suchprofil → Ähnlichkeit → Newsletter).
 async function notifyMatchingBuyers(projectId) {
+  const notified = new Set();
   const p = await db.get(`SELECT id, codename, industry, region, deal_type, mandate_type, short_description FROM projects WHERE id = ?`, [projectId]);
-  if (!p) return;
+  if (!p) return notified;
   const profiles = await db.all(`
-    SELECT sp.id, sp.name, sp.criteria_json, u.email, u.first_name
+    SELECT sp.id, sp.name, sp.criteria_json, u.id AS user_id, u.email, u.first_name
     FROM search_profiles sp JOIN users u ON u.id = sp.user_id
     WHERE sp.notify_frequency = 'instant' AND u.is_active = 1`);
   const matches = (c) => {
@@ -39,8 +42,10 @@ async function notifyMatchingBuyers(projectId) {
       message: `zu Ihrem Suchprofil <strong>„${prof.name}"</strong> ist ein neues Mandat verfügbar: <strong>${p.codename}</strong> (${[p.industry, p.region].filter(Boolean).join(', ')}). Sehen Sie sich das Kurzprofil an und fordern Sie bei Interesse die vertraulichen Unterlagen an.`,
       ctaLabel: 'Mandat ansehen', ctaPath: `/projekte/${p.id}`,
     }).catch(() => {});
+    notified.add(prof.user_id);
     db.run(`UPDATE search_profiles SET last_notified_at = now() WHERE id = ?`, [prof.id]).catch(() => {});
   }
+  return notified;
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────
@@ -241,7 +246,10 @@ router.post('/projects', ...isAdmin, wrap(async (req, res) => {
 router.put('/projects/:id', ...isAdmin, wrap(async (req, res) => {
   const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status,
           mandate_type, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city } = req.body;
-  const project = await db.get('SELECT id FROM projects WHERE id = ?', [req.params.id]);
+  // Sprint 18: alten Stand laden, um Änderungen zu erkennen (Follower-Mail / Publish-Kaskade)
+  const project = await db.get(
+    `SELECT id, codename, status, industry, region, revenue_band, ebitda_band, deal_type, short_description
+     FROM projects WHERE id = ?`, [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
   await db.run(`
     UPDATE projects SET
@@ -262,6 +270,31 @@ router.put('/projects/:id', ...isAdmin, wrap(async (req, res) => {
     req.params.id,
   ]);
   db.auditLog(req.user.id, 'UPDATE_PROJECT', 'project', req.params.id, null, req.ip);
+
+  // Sprint 18: Veröffentlichung auch über den generischen Update-Weg abfangen …
+  const notify = require('../utils/notify');
+  if (status === 'active' && project.status !== 'active') {
+    (async () => {
+      const notified = await notifyMatchingBuyers(req.params.id).catch(() => new Set());
+      await notify.notifyProjectPublished(req.params.id, notified);
+    })().catch(() => {});
+  } else if (project.status === 'active') {
+    // … und inhaltliche Änderungen an einem LIVE-Mandat den Followern melden.
+    const changed = [];
+    const cmp = (val, oldVal, label) => { if (val != null && String(val) !== String(oldVal ?? '')) changed.push(label); };
+    cmp(industry, project.industry, 'Branche');
+    cmp(region, project.region, 'Region');
+    cmp(revenue_band, project.revenue_band, 'Umsatzband');
+    cmp(ebitda_band, project.ebitda_band, 'Ergebnisband');
+    cmp(deal_type, project.deal_type, 'Transaktionsart');
+    cmp(short_description, project.short_description, 'Kurzbeschreibung');
+    if (changed.length) {
+      notify.notifyFollowers(req.params.id, {
+        title: 'Mandat aktualisiert',
+        message: `zu einem Mandat, dem Sie folgen, gibt es Neuigkeiten. Aktualisiert wurde: <strong>${changed.join(', ')}</strong>.`,
+      }).catch(() => {});
+    }
+  }
   res.json({ success: true, data: { message: 'Aktualisiert' } });
 }));
 
@@ -272,8 +305,12 @@ router.put('/projects/:id/publish', ...isAdmin, wrap(async (req, res) => {
   await db.run(`UPDATE projects SET status = 'active', deal_status = CASE WHEN deal_status = 'draft' THEN 'teaser_live' ELSE deal_status END, updated_at = now() WHERE id = ?`, [req.params.id]);
   db.auditLog(req.user.id, 'PROJECT_PUBLISHED', 'project', req.params.id, project.codename, req.ip);
   db.activityLog(req.user.id, 'DEAL_STATUS_TEASER_LIVE', 'deal', req.params.id, req.ip);
-  // Sprint 10: passende Käufer-Suchprofile (Sofort-Benachrichtigung) informieren
-  notifyMatchingBuyers(req.params.id).catch(() => {});
+  // Sprint 10 + 18: Benachrichtigungs-Kaskade — jeder Nutzer erhält höchstens EINE Mail:
+  //   1) Suchprofil-Treffer  2) Ähnlichkeitsvorschlag  3) Newsletter
+  (async () => {
+    const notified = await notifyMatchingBuyers(req.params.id).catch(() => new Set());
+    await require('../utils/notify').notifyProjectPublished(req.params.id, notified);
+  })().catch(() => {});
   res.json({ success: true, data: { message: 'Projekt veröffentlicht' } });
 }));
 
@@ -342,6 +379,12 @@ router.put('/projects/:id/deal-status', ...isAdmin, wrap(async (req, res) => {
   };
   if (DEAL_EVENT_MSG[deal_status]) {
     require('../utils/dealChat').broadcastDealEvent({ project, body: DEAL_EVENT_MSG[deal_status] }).catch(() => {});
+    // Sprint 18: zusätzlich per E-Mail an alle Follower des Mandats
+    const STATUS_LABEL = { in_diligence: 'Due-Diligence-Phase', loi: 'Absichtserklärung (LOI)', closed: 'erfolgreich abgeschlossen' };
+    require('../utils/notify').notifyFollowers(req.params.id, {
+      title: 'Neuer Status',
+      message: `ein Mandat, dem Sie folgen, hat einen neuen Stand erreicht: <strong>${STATUS_LABEL[deal_status]}</strong>.`,
+    }).catch(() => {});
   }
   // Sprint 17: XP-Boni bei Deal-Fortschritt/Abschluss an die beteiligten Käufer
   if (deal_status === 'loi' || deal_status === 'closed') {

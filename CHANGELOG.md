@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.246 — 11.07.2026 · Sprint 18: Engagement-Mailings
+- **Newsletter** zu neuen Mandaten (opt-in, jederzeit abbestellbar)
+- **Folgen**: automatisch bei Interesse/NDA (`watchlist.source='auto'`), zusätzlich manuell per Stern auf der Mandatsseite
+- **Änderungs-Mails** an Follower: Mandatspflege, Exposé veröffentlicht, Deal-Status (Due Diligence, LOI, Abschluss)
+- **Ähnlichkeits-Matching** aus dem Interesse-Funnel (Score: Branche 3, Region 2, Mandatstyp/Umsatz/Deal-Art je 1)
+- **Anti-Doppel-Mail-Kaskade** bei Publish: Suchprofil → Ähnlichkeit → Newsletter; jeder Nutzer erhält höchstens EINE Mail
+- Neuer Profil-Bereich „Benachrichtigungen" (granulares Opt-in/Opt-out, DSGVO); „Ähnliche Mandate" auf der Mandatsseite
+- Schema: `notification_prefs` (RLS), `watchlist.source`; Endpoints `/api/community/notifications`, `/api/community/similar/:projectId`
+
 ## v0.245 — 11.07.2026 · Exposé-PDF: dynamisches Layout
 - Eckdaten-Raster jetzt **dynamisch vermessen** (`heightOfString`): Zeilenhöhe = max. Höhe beider Spalten
 - Label über Wert gestapelt → beliebig lange Werte brechen sauber um, keine Überlappung mehr (vorher fixe 22-pt-Boxen)

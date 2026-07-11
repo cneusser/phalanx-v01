@@ -198,6 +198,50 @@ router.post('/digest/run', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { sent: n } });
 }));
 
+// ── Sprint 18: Benachrichtigungs-Einstellungen (DSGVO: jederzeit abwählbar) ──
+router.get('/notifications', authenticate, wrap(async (req, res) => {
+  const { prefsFor } = require('../utils/notify');
+  const p = await prefsFor(req.user.id);
+  res.json({
+    success: true,
+    data: {
+      newsletter: !!p.newsletter,
+      newsletter_freq: p.newsletter_freq || 'instant',
+      follow_updates: !!p.follow_updates,
+      similar_suggestions: !!p.similar_suggestions,
+    },
+  });
+}));
+
+router.put('/notifications', authenticate, wrap(async (req, res) => {
+  const b = (v, fallback) => (v === true || v === 1 || v === '1' ? 1 : (v === false || v === 0 || v === '0' ? 0 : fallback));
+  const cur = await require('../utils/notify').prefsFor(req.user.id);
+  const newsletter = b(req.body.newsletter, cur.newsletter);
+  const follow_updates = b(req.body.follow_updates, cur.follow_updates);
+  const similar_suggestions = b(req.body.similar_suggestions, cur.similar_suggestions);
+  const freq = ['instant', 'off'].includes(req.body.newsletter_freq) ? req.body.newsletter_freq : (cur.newsletter_freq || 'instant');
+
+  await scoped(req, (t) => t.run(
+    `INSERT INTO notification_prefs (tenant_id, user_id, newsletter, newsletter_freq, follow_updates, similar_suggestions, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, now())
+     ON CONFLICT (user_id) DO UPDATE SET
+       newsletter = EXCLUDED.newsletter,
+       newsletter_freq = EXCLUDED.newsletter_freq,
+       follow_updates = EXCLUDED.follow_updates,
+       similar_suggestions = EXCLUDED.similar_suggestions,
+       updated_at = now()`,
+    [req.tenantId || 1, req.user.id, newsletter, freq, follow_updates, similar_suggestions]));
+
+  db.activityLog(req.user.id, 'NOTIFICATION_PREFS_UPDATE', 'user', req.user.id, req.ip);
+  res.json({ success: true, data: { newsletter: !!newsletter, newsletter_freq: freq, follow_updates: !!follow_updates, similar_suggestions: !!similar_suggestions } });
+}));
+
+// ── Sprint 18: Ähnliche Mandate zu einem Mandat (Cross-Discovery) ───────────
+router.get('/similar/:projectId', optionalAuth, wrap(async (req, res) => {
+  const list = await require('../utils/notify').similarProjects(Number(req.params.projectId), 4);
+  res.json({ success: true, data: list });
+}));
+
 function safeJson(s, def) { try { return JSON.parse(s || ''); } catch { return def; } }
 
 module.exports = router;
