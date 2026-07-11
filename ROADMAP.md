@@ -28,6 +28,13 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 15 | **Connect & Interaktion Käufer ↔ Verkäufer (Chat-Vernetzung, Prozess-Trigger)** | ✅ Kern fertig (Interesse→Intro→Chat, Systemnachrichten NDA/DD/LOI/Closing) |
 | **16** | **Admin-Dashboard 2.0 (Analytics, Funnel, Kennzahlen, interaktiv)** | ✅ Kern fertig (Funnel, Sparklines, Ranking, Badges, CSV-Export) |
 | 17 | **Gamification / XP-Punktesystem (Interaktion & Deal-Abwicklung)** | ✅ Kern fertig (XP-Events, Level, Vergabe an NDA/DD/LOI/Closing, „Mein Bereich"-Badge) |
+| 18 | **Engagement-Mailings: Newsletter, Folgen-Option, Änderungs-Mails, Ähnlichkeits-Matching** | geplant (Konzept unten) |
+| 19 | **CRM I — Unternehmen & Kontakte** (Stammdaten, Dubletten, Verknüpfungen, Import) | geplant (Sell-Side-CRM, Konzept unten) |
+| 20 | **CRM II — Transaktionen, Beteiligtenrollen & konfigurierbarer Kanban-Funnel** | geplant |
+| 21 | **CRM III — Aufgaben/Wiedervorlagen & Kommunikation** (E-Mail-Versand, BCC-Ingest, Vorlagen) | geplant |
+| 22 | **CRM IV — Dokumente, Suche/Auswertungen & Kontakt-Selbstpflege-Portal** | geplant |
+| 23 | **CRM V — Rollen/Rechte granular, API/Webhooks, Multi-Tenant, DSGVO-Härtung + 2FA** | geplant |
+| 24 | **CRM VI — Ausbaustufen** (Anreicherung, Käufer-Matching, E-Signatur, Datenraum, Mobile, Portal) | geplant |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →
@@ -426,6 +433,123 @@ Plattform.** Beispiel-Wertung (final zu kalibrieren):
 untergraben. Daher Fokus auf **prozess-echte** Punkte, dezente Darstellung, Opt-in bei
 öffentlicher Sichtbarkeit. Technisch schlank (ein Eventlog + Aggregat), verzahnt mit
 Sprint 15 (Prozess-Trigger) und dem CRM (Sprint 14).
+
+---
+
+## Sprint 18 — Engagement-Mailings: Newsletter, Folgen, Änderungs-Mails, Ähnlichkeit — geplant
+
+**Motiv.** Käufer aktiv und automatisiert an passende Mandate heranführen (Vorbild
+AddedVal-Strecke „neue Pitch Decks per E-Mail"). Baut auf Digest-/Match-Engine (Sprint 10),
+Merkliste/Watchlist und Suchprofilen auf.
+
+- **Newsletter zu neuen Mandaten:** opt-in Abo (alle neuen / gefiltert nach Branche,
+  Region, Umsatz-/EBITDA-Band, Mandatstyp). Versand über den bestehenden Scheduler/Brevo;
+  Frequenz sofort/täglich/wöchentlich; Abmeldelink (DSGVO).
+- **Folgen-Option je Mandat:** „Folgen"-Stern (baut auf Watchlist auf) — **automatisch bei
+  Interesse/NDA** gesetzt, zusätzlich **manuell** per Sternchen. Wer folgt, erhält Updates.
+- **Änderungs-Mails bei Mandats-Updates:** Benachrichtigung an Follower/Interessenten bei
+  relevanten Änderungen (neuer Teaser/IM, neue Dokumente, Preis-/Status-Änderung, neues Q&A).
+  Ereignisgesteuert, gebündelt (kein Spam), je Nutzer konfigurierbar.
+- **Ähnlichkeits-Matching (tag-basiert):** aus dem Interesse-Funnel eines Nutzers (welche
+  Branchen/Regionen/Größen er via Interesse/NDA/Watchlist zeigt) automatisch **„ähnliche
+  Mandate"** vorschlagen und per Mail/In-App anstoßen. Nutzt Projekt-Tags/Kategorien
+  (in CRM I formalisiert) + Suchprofil-Signale; einfache Scoring-Heuristik zuerst, KI später.
+- **Zentrale Benachrichtigungs-Einstellungen:** ein Ort für alle E-Mail-/In-App-Präferenzen
+  (Newsletter, Folgen, Änderungen, Digest) mit granularem Opt-in/Opt-out.
+
+---
+
+## Sell-Side-CRM — mehrstufiger Ausbau (Sprint 19–24)
+
+**Zielbild.** Eine webbasierte, in CapitalMatch integrierte CRM-Anwendung für die
+Sell-Side-M&A-Beratung: modular, mit offenen Schnittstellen, schnell bedienbar (kein
+überladenes CRM), zentrale Verwaltung von **Unternehmen, Kontakten, Transaktionen und
+Kommunikation**, rollen-/rechtebasiert für vertrauliche M&A-Daten. **Multi-User** und
+perspektivisch **durch Dritte nutzbar** → Mandantenfähigkeit (RLS ist bereits Fundament)
+und **DSGVO-Konformität** sind durchgängig verbindlich. Bewusst in kleinen, lauffähigen
+Stufen, damit nach und nach implementierbar.
+
+**Prinzipien (in jeder Stufe):** neue Tabellen mit `tenant_id` + RLS (fail closed);
+revisionsfähige Änderungsprotokolle (`audit_logs`/`activity_log`); Verschlüsselung
+sensibler Daten; EU-Hosting; SSO über das bestehende Nutzerkonto; Übernahme des
+vorhandenen Rollen-/Rechtesystems; keine doppelte Datenhaltung; offene API + Webhooks.
+
+### Sprint 19 — CRM I: Unternehmen & Kontakte (Fundament)
+Entspricht Spec §1, §2 (+ Basis §10). **Mindestumfang-Kern.**
+- **Unternehmen** (`crm_companies`): Firmenname, Anschrift, Website, Branche, Umsatz,
+  Mitarbeiterzahl, Region, Unternehmensart, Käuferkategorie, Investitionskriterien,
+  Beschreibung, Notizen; frei definierbare Schlagwörter/Kategorien; Dubletten-Erkennung;
+  Verknüpfung Mutter/Tochter/Beteiligung.
+- **Kontakte** (`crm_contacts` + n:m `crm_company_contacts`): mehrere Ansprechpartner je
+  Unternehmen, ein Kontakt in mehreren Unternehmen; Name, Position, E-Mail, Tel./Mobil,
+  LinkedIn, Standort, Verantwortungsbereich, Beziehung, persönliche Notizen; Kennzeichnung
+  Entscheider; Positions-/Wechsel-Historie; Einwilligungen/Kontaktstatus (DSGVO).
+- **Import/Export:** CSV/Excel (nutzt vorhandene xlsx-Kompetenz).
+- Aggregierte Ansicht: alle Kontakte, Transaktionen, Aufgaben, Kommunikation je Unternehmen.
+
+### Sprint 20 — CRM II: Transaktionen, Beteiligte & Kanban-Funnel
+Entspricht Spec §4, §5. Baut auf vorhandener Projekt-/Deal-Pipeline auf.
+- **Transaktionen/Mandate** (Erweiterung des `projects`-Modells oder `crm_deals`):
+  Projektname, interne Nr., Branche, Region, Umsatz, EBITDA, Kaufpreisvorstellung,
+  Transaktionsart, Status, Verantwortlicher, Vertraulichkeitsstufe.
+- **Beteiligtenrollen** (`crm_deal_parties`): Zielunternehmen, Verkäufer, Käufer,
+  Interessent, Berater, Bank, Anwalt … je Unternehmen/Kontakt und Transaktion.
+- **Konfigurierbare Kanban-Boards** je Transaktion/Mandat/Nutzer; Sell-Side-Funnel
+  (Longlist → nicht angesprochen → Ansprache vorbereitet → kontaktiert → Rückmeldung offen
+  → Interesse → NDA versandt/unterzeichnet → Teaser → IM → Management-Gespräch → indikatives
+  Angebot → DD → verbindliches Angebot → Vertragsverhandlung → abgeschlossen/abgesagt);
+  Drag-and-drop, automatische Status-/Zeitstempel, **Verweildauer je Stufe**, Warnung bei
+  inaktiven/überfälligen Vorgängen; getrennte Funnel für Käuferansprache/Akquise/Investorenpflege.
+
+### Sprint 21 — CRM III: Aufgaben/Wiedervorlagen & Kommunikation
+Entspricht Spec §6, §7. **Mindestumfang-Kern für Kommunikation.**
+- **Aktivitäten/Aufgaben/Wiedervorlagen** (`crm_tasks`): Zuordnung zu Kontakt/Unternehmen/
+  Transaktion; Fälligkeit, Priorität, Verantwortlicher; Erinnerungen (Rückrufe, offene NDAs,
+  Rückmeldungen, Angebotsfristen, Datenraum, Folgeansprachen); persönliche + Team-Ansicht;
+  automatische Aufgaben bei Funnel-Wechseln; Kalender-Integration (später).
+- **Kommunikation:** E-Mail-Versand aus dem CRM (persönliche/zentrale Absender), Vorlagen
+  (Erstansprache, NDA-Versand, Teaser, IM, Erinnerung, Termin, Absage) mit Platzhaltern;
+  **E-Mail-Ingest zuerst über BCC-/Weiterleitungsadresse** (M365/Gmail/IMAP/API später),
+  automatische Zuordnung zu Kontakt/Unternehmen/Projekt; vollständige Historie; Kennzeichnung
+  vertraulich/intern; Vermeidung doppelter Ansprache; Serienansprache mit Freigabeprozess.
+
+### Sprint 22 — CRM IV: Dokumente, Auswertungen & Selbstpflege-Portal
+Entspricht Spec §3, §8, §9.
+- **Dokumentenmanagement:** Zuordnung zu Unternehmen/Kontakt/Transaktion, Versionierung,
+  Versand-/Empfangsstatus, Vertraulichkeitskennzeichen, rollenabhängiger Zugriff, gängige
+  Formate; Anschluss an bestehenden Container-Safe/Datenraum; Zugriffsprotokoll.
+- **Suche/Filter/Auswertungen:** globale Suche (Unternehmen, Kontakte, Projekte, E-Mails,
+  Dokumente); kombinierbare, gespeicherte Filter; KPI-Auswertungen (angesprochene Käufer,
+  Rücklauf-, NDA-, Interessenten-, Angebots-, Abschlussquote; Ø Dauer je Funnel-Stufe;
+  Aktivität je Mitarbeiter; Käuferaktivität je Branche); Export Excel/CSV. (Nutzt Sprint-16-Analytics.)
+- **Kontakt-Selbstpflege-Portal:** gesicherter persönlicher Link für externe Kontakte zur
+  Prüfung/Aktualisierung ihrer Daten (Kontakt, Position, Unternehmen, Investitionsschwerpunkte,
+  Brancheninteressen, geografischer Fokus, Ticketgrößen, Kommunikationspräferenzen);
+  Protokollierung; direkte Übernahme oder interne Freigabe; Abmeldung/Einschränkung der
+  Kontaktaufnahme; automatische Aktualisierungs-Erinnerung. **DSGVO-zentral.**
+
+### Sprint 23 — CRM V: Rechte, Integration, Multi-Tenant, DSGVO + 2FA
+Entspricht Spec §10, §11, §12. **Voraussetzung für Nutzung durch Dritte.**
+- **Rollen/Rechte granular:** Administrator, Projektleiter, Projektmitarbeiter, externer
+  Berater, Leseberechtigter, externer Kontakt; Rechte auf Modul-/Unternehmens-/Kontakt-/
+  Transaktions-/Dokument-/Kommunikationsebene; besonders vertrauliche Projekte nur für
+  freigegebene Nutzer sichtbar; lückenlose Protokollierung.
+- **Integration/API:** eigenständiges, integrierbares Modul; REST-API + Webhooks;
+  SSO über bestehendes Konto; Übernahme Stammdaten; Import bestehender CRM-/Excel-Kontakte.
+- **Mandantenfähigkeit aktiv schalten** (RLS-Fundament vorhanden) — echte Trennung je
+  Kanzlei/Beratung als Voraussetzung für Dritte.
+- **DSGVO-Härtung + 2FA** (vorm. Sprint 13): Zwei-Faktor (SMS/TOTP, Mobil-Pflicht bereits
+  vorbereitet), Auftragsverarbeitung/Einwilligungen, Löschkonzept, Verschlüsselung, EU-Hosting,
+  automatische Datensicherung, revisionsfähige Protokolle.
+
+### Sprint 24 — CRM VI: Ausbaustufen (später)
+Entspricht Spec §14. Nach Bedarf und Datenlage:
+- Datenanreicherung aus öffentlichen Quellen; Erkennung von Unternehmenswechseln bei Kontakten;
+  KI-Zusammenfassung von Kommunikation; Next-Best-Action-Vorschläge; automatische E-Mail-
+  Kategorisierung; Kaufwahrscheinlichkeits-Scoring; **Käufer-Matching auf Investitionskriterien**
+  und automatische **Longlist-Erstellung**; Serienansprachen mit Freigabe; E-Signatur-Integration;
+  tiefere Datenraum-Integration; Auswertung der Ansprachequalität; **Mobile App**;
+  **Portalfunktion für Verkäufer und Käufer**.
 
 ---
 
