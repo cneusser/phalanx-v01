@@ -21,8 +21,8 @@ export const PUBLIC_ROADMAP = [
     text: 'Behalten Sie Kontakte, Interessenten und den Fortschritt jedes Deals an einem Ort im Blick — mit Aufgaben, Wiedervorlagen und transparentem Status entlang des gesamten Prozesses.' },
   { status: 'done', title: 'Direkte Vernetzung Käufer & Verkäufer',
     text: 'Aus Interesse wird mit einem Klick ein direkter, mandatsbezogener Chat mit Ihrem Berater — begleitet von automatischen Hinweisen zu Prozessschritten (NDA, Due Diligence, LOI, Closing).' },
-  { status: 'planned', title: 'XP & Level – Belohnung für Aktivität und Abschlüsse',
-    text: 'Sammeln Sie Punkte für echte Prozessschritte und für Deals, die Sie über die Plattform abwickeln — dezent dargestellt und ganz auf Vertraulichkeit ausgelegt.' },
+  { status: 'done', title: 'XP & Level – Belohnung für Aktivität und Abschlüsse',
+    text: 'Sammeln Sie Punkte für echte Prozessschritte (NDA, Datenraum, Due Diligence) und für Deals, die Sie über die Plattform abwickeln — sichtbar in Ihrem Bereich, dezent und auf Vertraulichkeit ausgelegt.' },
 ];
 
 export const ROADMAP_STATUS = {

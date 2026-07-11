@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User } from 'lucide-react';
+import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User, Award } from 'lucide-react';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB', lightBg: '#EDF4FA', gray: '#878787' };
 
@@ -18,6 +18,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [ndas, setNdas] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [xp, setXp] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function Dashboard() {
       setNdas(ndasData);
       setProjects(projectsData.projects.slice(0, 3));
     }).catch(console.error).finally(() => setLoading(false));
+    api.get('/gamification/me').then(setXp).catch(() => {});
   }, []);
 
   const approved = ndas.filter(n => n.status === 'approved').length;
@@ -42,6 +44,32 @@ export default function Dashboard() {
         <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.navy }}>Willkommen, {user?.first_name}</h1>
         <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>Ihr persönlicher M&A-Bereich</p>
       </div>
+
+      {/* Sprint 17: XP / Level */}
+      {xp && (
+        <div style={{ background: `linear-gradient(135deg, ${C.navy}, #1d4e89)`, color: '#fff', borderRadius: 12, padding: '1.25rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+          <div style={{ width: 52, height: 52, background: 'rgba(255,255,255,0.15)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Award size={26} color="#fff" />
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '1.4rem', fontWeight: 800 }}>{xp.total} XP</span>
+              <span style={{ fontSize: '0.85rem', background: 'rgba(255,255,255,0.18)', padding: '0.15rem 0.6rem', borderRadius: 20, fontWeight: 600 }}>Level {xp.level} · {xp.name}</span>
+            </div>
+            <div style={{ marginTop: '0.5rem' }}>
+              <div style={{ height: 7, background: 'rgba(255,255,255,0.2)', borderRadius: 5, overflow: 'hidden' }}>
+                <div style={{ width: `${xp.progress_pct}%`, height: '100%', background: '#29ABE2', borderRadius: 5 }} />
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>
+                {xp.next ? `Noch ${xp.to_next} XP bis „${xp.next}"` : 'Höchstes Level erreicht 🎉'}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.75)', maxWidth: 200, lineHeight: 1.5 }}>
+            Punkte sammeln Sie für echte Schritte: NDA, Datenraum, Due Diligence — und den Abschluss über die Plattform.
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>

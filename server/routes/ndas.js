@@ -43,6 +43,8 @@ router.post('/', authenticate, requireCompleteProfile(), wrap(async (req, res) =
   db.auditLog(req.user.id, 'NDA_REQUESTED', 'nda_request', ndaId, `Projekt: ${project.codename}`, req.ip);
   // Sprint 15: Interesse → Intro → Chat (Verbindung Käufer↔Berater + Systemnachricht + Intro-Mail)
   require('../utils/dealChat').introduceBuyer({ project, buyer: req.user, reason: 'NDA angefordert' }).catch(() => {});
+  // Sprint 17: XP für Interesse
+  require('../utils/xp').award(req.user.id, 'INTEREST_EXPRESSED', { refType: 'project', refId: project.id }).catch(() => {});
   res.status(201).json({ success: true, data: { id: ndaId, status: 'requested' } });
 }));
 
@@ -202,6 +204,8 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
       body: `✅ NDA für „${project.codename}" unterzeichnet — das Informationsmemorandum ist jetzt freigeschaltet.`,
       notifyAdvisorBody: `✅ ${user.first_name} ${user.last_name} hat die NDA für „${project.codename}" unterzeichnet.`,
     }).catch(() => {});
+    // Sprint 17: XP für NDA-Unterzeichnung
+    require('../utils/xp').award(req.user.id, 'NDA_SIGNED', { refType: 'project', refId: project.id }).catch(() => {});
 
     console.log(`NDA für ${project.codename} online unterzeichnet von ${user.email} (${consent_name.trim()})`);
 

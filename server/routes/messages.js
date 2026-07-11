@@ -77,6 +77,12 @@ router.put('/connections/:id', authenticate, wrap(async (req, res) => {
   if (!c) return res.status(404).json({ success: false, error: 'Anfrage nicht gefunden' });
   await scoped(req, (t) => t.run(`UPDATE connections SET status = ?, decided_at = now() WHERE id = ?`, [action, req.params.id]));
   db.activityLog(req.user.id, action === 'accepted' ? 'CONNECTION_ACCEPT' : 'CONNECTION_DECLINE', 'connection', c.id, req.ip);
+  if (action === 'accepted') {
+    // Sprint 17: XP für zustande gekommenen Kontakt (beide Seiten)
+    const xp = require('../utils/xp');
+    xp.award(c.requester_id, 'CONNECTION_MADE', { refType: 'connection', refId: c.id }).catch(() => {});
+    xp.award(c.addressee_id, 'CONNECTION_MADE', { refType: 'connection', refId: c.id }).catch(() => {});
+  }
   res.json({ success: true, data: { status: action } });
 }));
 

@@ -343,6 +343,16 @@ router.put('/projects/:id/deal-status', ...isAdmin, wrap(async (req, res) => {
   if (DEAL_EVENT_MSG[deal_status]) {
     require('../utils/dealChat').broadcastDealEvent({ project, body: DEAL_EVENT_MSG[deal_status] }).catch(() => {});
   }
+  // Sprint 17: XP-Boni bei Deal-Fortschritt/Abschluss an die beteiligten Käufer
+  if (deal_status === 'loi' || deal_status === 'closed') {
+    (async () => {
+      try {
+        const xp = require('../utils/xp');
+        const buyers = await xp.activeBuyerIds(req.params.id);
+        await xp.awardMany(buyers, deal_status === 'closed' ? 'DEAL_CLOSED' : 'DEAL_LOI', { refType: 'project', refId: Number(req.params.id) });
+      } catch (e) { console.warn('[xp deal]', e.message); }
+    })();
+  }
 
   // Sprint 5 — Billing-Hook: Setup-Gebühr je AKTIVIERTEM Deal-Prozess
   // (Feature-Flag: ENV BILLING_ENABLED=1 UND tenants.billing_enabled=1;
@@ -563,6 +573,8 @@ router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {
   // Zustandsautomat: Datenraum-Gate öffnen
   await setStage(nda.user_id, nda.project_id, 'dataroom_granted', req.user.id, req.ip);
   db.auditLog(req.user.id, 'NDA_APPROVED', 'nda_request', nda.id, null, req.ip);
+  // Sprint 17: XP für Datenraum-Freigabe
+  require('../utils/xp').award(nda.user_id, 'DATAROOM_GRANTED', { refType: 'project', refId: nda.project_id }).catch(() => {});
   // Investor informieren: Vollzugriff freigeschaltet
   {
     const buyer = await db.get('SELECT email, first_name FROM users WHERE id = ?', [nda.user_id]);

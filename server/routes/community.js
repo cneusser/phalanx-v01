@@ -174,6 +174,7 @@ router.post('/watchlist', authenticate, wrap(async (req, res) => {
   if (exists) return res.json({ success: true, data: { watched: true } });
   await scoped(req, (t) => t.run(`INSERT INTO watchlist (tenant_id, user_id, project_id) VALUES (?, ?, ?)`, [req.tenantId || 1, req.user.id, pid]));
   db.activityLog(req.user.id, 'WATCHLIST_ADD', 'project', pid, req.ip);
+  require('../utils/xp').award(req.user.id, 'WATCHLIST_ADD', { refType: 'project', refId: pid }).catch(() => {});
   res.status(201).json({ success: true, data: { watched: true } });
 }));
 

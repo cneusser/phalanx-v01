@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.243 — 10.07.2026 · Sprint 17: Gamification (XP & Level)
+- XP für echte Prozessschritte: Interesse (15), NDA signiert (40), Datenraum (25), LOI (75), Watchlist (5), Kontakt (10)
+- Großer Bonus für Deal-Abschluss über die Plattform (300) an die beteiligten Käufer
+- Level Entdecker → Insider → Dealmaker → Power-/Elite-Dealmaker; Fortschrittsanzeige im „Mein Bereich"
+- Idempotentes Eventlog `xp_events` (RLS); Endpoint `GET /api/gamification/me`; Vergabe an denselben Events wie die Deal-Timeline
+
 ## v0.242 — 10.07.2026 · Sprint 16: Admin-Dashboard 2.0 (Analytics)
 - Statische Schnellzugriff-Blöcke → datengetragene Kacheln mit Live-Kennzahlen (offene NDAs, Feedback, Q&A, …)
 - Deal-Funnel mit Conversion-Raten (Interesse → NDA → signiert → Datenraum → LOI → Closing)
