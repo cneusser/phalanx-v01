@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.252 — 14.07.2026 · CRM IV: Kontakt-Selbstpflege-Portal
+- **Persönlicher, befristeter Link** (60 Tage, widerrufbar): Der Kontakt sieht genau, was gespeichert ist, und korrigiert es selbst — neue Seite `/profil-pflege`
+- Pflegbar: Kontaktdaten, Position, Standort, **Brancheninteressen**, **geografischer Fokus**, **Ticketgröße (von/bis)**, Investitionsschwerpunkt, **Kommunikationswunsch**
+- **DSGVO**: „Keine E-Mails mehr" oder vollständiger Widerspruch — jederzeit, ohne Begründung; Widerspruch entwertet alle Links und sperrt jede weitere Ansprache
+- **Revisionssicheres Änderungsprotokoll** (`crm_profile_changes`, Vorher/Nachher); je Link wahlweise **direkte Übernahme oder interne Freigabe** (Review-Kasten im CRM)
+- **Sicherheit:** Über die öffentliche Route sind ausschließlich Profilfelder änderbar — Einwilligungsstatus, Kontaktstatus, Entscheider-Flag, IDs und Rollen sind unangreifbar (verifiziert)
+- Schema: `crm_profile_links`, `crm_profile_changes` (RLS) + Profilfelder auf `crm_contacts`
+
 ## v0.251 — 13.07.2026 · Birdview + CRM: Zusammenführen & Kontaktpflege
 - **Birdview**: Super-Admin kann die Plattform aus Sicht eines Nutzers ansehen (`POST /api/admin/impersonate/:userId`)
   - JWT trägt den Claim `imp`; die Auth-Middleware erzwingt **strikte Leserechte**: alle schreibenden Methoden werden blockiert, Admin- und CRM-Bereich sind komplett gesperrt (auch über `optionalAuth` — kein Schlupfloch)

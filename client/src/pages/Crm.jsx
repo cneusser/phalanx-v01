@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api, getToken } from '../api/client';
 import {
   Building2, Users, Search, Plus, X, Upload, Download, Trash2, Star,
-  Mail, Phone, Linkedin, AlertCircle, ChevronRight, KanbanSquare,
+  Mail, Phone, Linkedin, AlertCircle, ChevronRight, KanbanSquare, Send,
 } from 'lucide-react';
 import DealFunnelBoard from '../components/DealFunnelBoard';
 
@@ -33,6 +33,7 @@ export default function Crm() {
   const [assign, setAssign] = useState(null);        // Kontakt, der einem Mandat zugeordnet wird
   const [projects, setProjects] = useState([]);      // Mandate für die Zuordnung
   const [stages, setStages] = useState([]);
+  const [changes, setChanges] = useState([]);        // offene Selbstpflege-Änderungen
 
   const load = useCallback(async () => {
     try {
@@ -50,6 +51,32 @@ export default function Crm() {
   useEffect(() => {
     api.get('/crm/deals').then(d => { setProjects(d.deals || []); setStages(d.stages || []); }).catch(() => {});
   }, []);
+
+  // CRM IV: offene Selbstpflege-Änderungen (Freigabe-Workflow)
+  const loadChanges = useCallback(() => {
+    api.get('/crm/profile-changes').then(setChanges).catch(() => {});
+  }, []);
+  useEffect(() => { loadChanges(); }, [loadChanges]);
+
+  // Selbstpflege-Link an einen Kontakt senden
+  async function sendProfileLink(k) {
+    if (!window.confirm(
+      `Selbstpflege-Link an ${[k.first_name, k.last_name].filter(Boolean).join(' ')} (${k.email}) senden?\n\n` +
+      `Der Kontakt sieht dann, welche Daten wir gespeichert haben, und kann sie selbst korrigieren — ` +
+      `inklusive Branchen-/Regionenfokus, Ticketgröße und Kommunikationswunsch.`)) return;
+    try {
+      await api.post(`/crm/contacts/${k.id}/profile-link`, { requires_approval: false });
+      show('Selbstpflege-Link versendet ✓');
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  async function decideChange(id, action) {
+    try {
+      await api.post(`/crm/profile-changes/${id}/${action}`, {});
+      show(action === 'approve' ? 'Änderung übernommen ✓' : 'Änderung abgelehnt');
+      loadChanges(); load();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
 
   const show = (m) => { setMsg(m); setTimeout(() => setMsg(''), 3500); };
 
@@ -167,6 +194,40 @@ export default function Crm() {
         </div>
       )}
 
+      {/* CRM IV: Offene Selbstpflege-Änderungen zur Freigabe */}
+      {tab === 'contacts' && changes.length > 0 && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '1rem', marginBottom: '1rem' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#92400e', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
+            {changes.length} SELBSTPFLEGE-ÄNDERUNG(EN) WARTEN AUF FREIGABE
+          </div>
+          {changes.map(ch => {
+            const diffs = Object.keys(ch.after || {}).filter(k => JSON.stringify(ch.after[k]) !== JSON.stringify((ch.before || {})[k]));
+            return (
+              <div key={ch.id} style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.7rem 0.85rem', marginBottom: '0.4rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.6rem', flexWrap: 'wrap' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: C.navy }}>
+                      {[ch.first_name, ch.last_name].filter(Boolean).join(' ')} <span style={{ fontWeight: 400, color: C.muted }}>{ch.email}</span>
+                    </div>
+                    {diffs.map(k => (
+                      <div key={k} style={{ fontSize: '0.74rem', color: C.text, marginTop: 2 }}>
+                        <strong>{k}:</strong>{' '}
+                        <span style={{ color: '#991b1b', textDecoration: 'line-through' }}>{JSON.stringify((ch.before || {})[k]) || '—'}</span>{' → '}
+                        <span style={{ color: '#065f46', fontWeight: 700 }}>{JSON.stringify(ch.after[k])}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    <button onClick={() => decideChange(ch.id, 'approve')} style={{ background: '#d1fae5', color: '#065f46', border: 'none', borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>Übernehmen</button>
+                    <button onClick={() => decideChange(ch.id, 'reject')} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>Ablehnen</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Kontakte */}
       {tab === 'contacts' && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflowX: 'auto' }}>
@@ -204,12 +265,21 @@ export default function Crm() {
                   </td>
                   {/* Sprint 20: Kontakt einem Mandat mit Rolle & Funnel-Stufe zuordnen */}
                   <td style={{ padding: '0.7rem 0.5rem' }}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setAssign(k); }}
-                      title="Diesem Kontakt ein Mandat zuordnen (Rolle & Funnel-Stufe)"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EEF4FB', color: C.accent, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.28rem 0.55rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                      <KanbanSquare size={12} /> Zuordnen
-                    </button>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setAssign(k); }}
+                        title="Diesem Kontakt ein Mandat zuordnen (Rolle & Funnel-Stufe)"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EEF4FB', color: C.accent, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.28rem 0.55rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <KanbanSquare size={12} /> Zuordnen
+                      </button>
+                      {/* CRM IV: Kontakt seine Daten selbst pflegen lassen */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); sendProfileLink(k); }}
+                        title="Selbstpflege-Link senden — der Kontakt prüft und aktualisiert seine Daten selbst"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#ECFDF5', color: '#065f46', border: '1px solid #a7f3d0', borderRadius: 6, padding: '0.28rem 0.55rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <Send size={12} /> Pflege-Link
+                      </button>
+                    </div>
                   </td>
                   <td style={{ padding: '0.7rem 1rem', textAlign: 'right' }}><ChevronRight size={14} color={C.muted} /></td>
                 </tr>

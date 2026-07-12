@@ -20,6 +20,7 @@ import InvitationAccept from './pages/InvitationAccept';
 import Crm from './pages/Crm';
 import ConsentInvite from './pages/ConsentInvite';
 import BirdviewBanner from './components/BirdviewBanner';
+import ContactSelfService from './pages/ContactSelfService';
 import Messages from './pages/Messages';
 import Register from './pages/Register';
 import Login from './pages/Login';
@@ -91,6 +92,7 @@ function AppRoutes() {
           <Route path="/email-bestaetigen" element={<VerifyEmail />} />
           <Route path="/einladung" element={<InvitationAccept />} />
           <Route path="/einwilligung" element={<ConsentInvite />} />
+          <Route path="/profil-pflege" element={<ContactSelfService />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />

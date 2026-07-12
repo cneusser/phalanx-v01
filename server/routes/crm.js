@@ -834,6 +834,246 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
   res.status(201).json({ success: true, data: { token, user } });
 }));
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CRM IV — Kontakt-Selbstpflege-Portal
+//
+// Der Kontakt bekommt einen persönlichen, befristeten Link und pflegt seine
+// Daten selbst. Jede Änderung wird protokolliert (Vorher/Nachher). Je nach Link
+// wird sie direkt übernommen oder muss intern freigegeben werden. Abmeldung und
+// Einschränkung der Kontaktaufnahme sind jederzeit möglich (DSGVO).
+// ═══════════════════════════════════════════════════════════════════════════
+const PROFILE_DAYS = 60;
+// Nur diese Felder darf der Kontakt selbst ändern — nichts anderes.
+const SELF_FIELDS = ['salutation', 'title', 'first_name', 'last_name', 'email', 'phone', 'mobile',
+  'linkedin_url', 'location', 'responsibility', 'investment_focus', 'comm_preference'];
+const SELF_JSON_FIELDS = ['focus_industries', 'focus_regions'];
+const SELF_NUM_FIELDS = ['ticket_min', 'ticket_max'];
+
+function pickSelf(contact) {
+  const out = {};
+  SELF_FIELDS.forEach(f => { out[f] = contact[f] ?? null; });
+  SELF_JSON_FIELDS.forEach(f => { out[f] = safeJson(contact[f], []); });
+  SELF_NUM_FIELDS.forEach(f => { out[f] = contact[f] ?? null; });
+  return out;
+}
+
+// Link erzeugen und per Mail versenden
+router.post('/contacts/:id/profile-link', ...isStaff, wrap(async (req, res) => {
+  const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [req.params.id]));
+  if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+  if (!contact.email) return res.status(400).json({ success: false, error: 'Kontakt hat keine E-Mail-Adresse.' });
+  if (contact.contact_status === 'do_not_contact' || contact.consent_status === 'opt_out') {
+    return res.status(403).json({ success: false, error: 'Dieser Kontakt hat der Kontaktaufnahme widersprochen.' });
+  }
+
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + PROFILE_DAYS * 24 * 3600 * 1000);
+  // Bestehende aktive Links entwerten (nur ein gültiger Link je Kontakt)
+  await scoped(req, (t) => t.run(`UPDATE crm_profile_links SET status = 'revoked' WHERE contact_id = ? AND status = 'active'`, [contact.id])).catch(() => {});
+  const id = await scoped(req, (t) => t.insert(`
+    INSERT INTO crm_profile_links (tenant_id, contact_id, token, requires_approval, created_by, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+    [req.tenantId || 1, contact.id, token, req.body.requires_approval ? 1 : 0, req.user.id, expires]));
+
+  const { sendProcessUpdateEmail } = require('../utils/email');
+  sendProcessUpdateEmail({
+    to: contact.email, firstName: contact.first_name || '',
+    title: 'Ihre Angaben bei der Phalanx GmbH — bitte kurz prüfen',
+    message:
+      `damit wir Sie nur mit wirklich passenden Transaktionen ansprechen, bitten wir Sie um eine kurze Prüfung ` +
+      `Ihrer bei uns gespeicherten Angaben — Kontaktdaten, Position, Branchen- und Regionenfokus sowie Ticketgröße.` +
+      `<br/><br/>Über den Button sehen Sie <strong>genau, was wir gespeichert haben</strong>, und können es selbst ` +
+      `korrigieren. Der Link ist persönlich und ${PROFILE_DAYS} Tage gültig.` +
+      `<br/><br/><span style="font-size:12px;color:#888;">Sie können dort auch festlegen, wie (oder ob) wir Sie ` +
+      `künftig kontaktieren dürfen — bis hin zur vollständigen Abmeldung.</span>`,
+    ctaLabel: 'Angaben prüfen', ctaPath: `/profil-pflege?token=${token}`,
+  }).catch(() => {});
+
+  db.auditLog(req.user.id, 'CRM_PROFILE_LINK_SENT', 'crm_contact', contact.id, contact.email, req.ip);
+  res.status(201).json({ success: true, data: { id, expires_at: expires } });
+}));
+
+// Sammel-Versand (max. 50)
+router.post('/profile-links/bulk', ...isStaff, wrap(async (req, res) => {
+  const ids = (req.body.contact_ids || []).slice(0, 50).map(Number).filter(Boolean);
+  let sent = 0, blocked = 0;
+  for (const cid of ids) {
+    const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [cid]));
+    if (!contact || !contact.email || contact.contact_status === 'do_not_contact' || contact.consent_status === 'opt_out') { blocked++; continue; }
+    req.params = { id: String(cid) };   // createProfileLink wiederverwenden wäre unsauber → direkt anlegen
+    const crypto = require('crypto');
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + PROFILE_DAYS * 24 * 3600 * 1000);
+    await scoped(req, (t) => t.run(`UPDATE crm_profile_links SET status = 'revoked' WHERE contact_id = ? AND status = 'active'`, [cid])).catch(() => {});
+    await scoped(req, (t) => t.insert(`
+      INSERT INTO crm_profile_links (tenant_id, contact_id, token, requires_approval, created_by, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.tenantId || 1, cid, token, req.body.requires_approval ? 1 : 0, req.user.id, expires]));
+    const { sendProcessUpdateEmail } = require('../utils/email');
+    sendProcessUpdateEmail({
+      to: contact.email, firstName: contact.first_name || '',
+      title: 'Ihre Angaben bei der Phalanx GmbH — bitte kurz prüfen',
+      message: `damit wir Sie nur mit passenden Transaktionen ansprechen, bitten wir Sie um eine kurze Prüfung Ihrer gespeicherten Angaben. Der Link ist persönlich und ${PROFILE_DAYS} Tage gültig.`,
+      ctaLabel: 'Angaben prüfen', ctaPath: `/profil-pflege?token=${token}`,
+    }).catch(() => {});
+    sent++;
+  }
+  db.auditLog(req.user.id, 'CRM_PROFILE_LINK_BULK', 'crm_contact', null, `${sent} versendet, ${blocked} übersprungen`, req.ip);
+  res.json({ success: true, data: { sent, blocked } });
+}));
+
+// ── Öffentlich: Selbstpflege ────────────────────────────────────────────────
+async function loadLink(token) {
+  const link = await db.get('SELECT * FROM crm_profile_links WHERE token = ?', [token]);
+  if (!link) return { error: 'Link nicht gefunden' };
+  if (link.status !== 'active') return { error: 'Dieser Link ist nicht mehr gültig.' };
+  if (link.expires_at && new Date(link.expires_at).getTime() < Date.now()) {
+    await db.run(`UPDATE crm_profile_links SET status = 'expired' WHERE id = ?`, [link.id]).catch(() => {});
+    return { error: 'Dieser Link ist abgelaufen. Bitte fordern Sie einen neuen an.' };
+  }
+  return { link };
+}
+
+router.get('/profile/:token', wrap(async (req, res) => {
+  const { link, error } = await loadLink(req.params.token);
+  if (error) return res.status(404).json({ success: false, error });
+  const contact = await db.get('SELECT * FROM crm_contacts WHERE id = ?', [link.contact_id]);
+  if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+  await db.run(`UPDATE crm_profile_links SET last_opened_at = now() WHERE id = ?`, [link.id]).catch(() => {});
+
+  const companies = await db.all(`
+    SELECT c.name, cc.position FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
+    WHERE cc.contact_id = ? AND cc.ended_on IS NULL`, [link.contact_id]).catch(() => []);
+
+  res.json({
+    success: true,
+    data: {
+      profile: pickSelf(contact),
+      companies,
+      contact_status: contact.contact_status,
+      consent_status: contact.consent_status,
+      requires_approval: !!link.requires_approval,
+      expires_at: link.expires_at,
+    },
+  });
+}));
+
+router.put('/profile/:token', wrap(async (req, res) => {
+  const { link, error } = await loadLink(req.params.token);
+  if (error) return res.status(404).json({ success: false, error });
+  const contact = await db.get('SELECT * FROM crm_contacts WHERE id = ?', [link.contact_id]);
+  if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+
+  // Nur erlaubte Felder übernehmen — alles andere wird ignoriert
+  const after = {};
+  for (const f of SELF_FIELDS) if (req.body[f] !== undefined) after[f] = req.body[f] || null;
+  for (const f of SELF_JSON_FIELDS) if (req.body[f] !== undefined) after[f] = Array.isArray(req.body[f]) ? req.body[f] : [];
+  for (const f of SELF_NUM_FIELDS) if (req.body[f] !== undefined) after[f] = req.body[f] === '' || req.body[f] === null ? null : Number(req.body[f]);
+  if (after.comm_preference && !['email', 'phone', 'none'].includes(after.comm_preference)) delete after.comm_preference;
+  if (!Object.keys(after).length) return res.status(400).json({ success: false, error: 'Keine Änderungen übermittelt.' });
+
+  const before = {};
+  for (const f of Object.keys(after)) {
+    before[f] = SELF_JSON_FIELDS.includes(f) ? safeJson(contact[f], []) : (contact[f] ?? null);
+  }
+
+  const pending = !!link.requires_approval;
+  await db.insert(`
+    INSERT INTO crm_profile_changes (tenant_id, contact_id, link_id, before_json, after_json, status, ip)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [link.tenant_id || 1, contact.id, link.id, JSON.stringify(before), JSON.stringify(after),
+     pending ? 'pending' : 'applied', req.ip]);
+
+  if (!pending) {
+    const sets = []; const params = [];
+    for (const [f, v] of Object.entries(after)) {
+      sets.push(`${f} = ?`);
+      params.push(SELF_JSON_FIELDS.includes(f) ? JSON.stringify(v) : v);
+    }
+    sets.push('profile_updated_at = now()', 'updated_at = now()');
+    params.push(contact.id);
+    await db.run(`UPDATE crm_contacts SET ${sets.join(', ')} WHERE id = ?`, params);
+  }
+  await db.run(`UPDATE crm_profile_links SET last_saved_at = now() WHERE id = ?`, [link.id]).catch(() => {});
+  db.auditLog(null, pending ? 'CRM_PROFILE_SELF_PENDING' : 'CRM_PROFILE_SELF_UPDATED', 'crm_contact', contact.id,
+    `Selbstpflege: ${Object.keys(after).join(', ')}`, req.ip);
+
+  res.json({
+    success: true,
+    data: {
+      status: pending ? 'pending' : 'applied',
+      message: pending
+        ? 'Vielen Dank! Ihre Änderungen werden von uns geprüft und dann übernommen.'
+        : 'Vielen Dank! Ihre Angaben wurden übernommen.',
+    },
+  });
+}));
+
+// Kommunikation einschränken / vollständig abmelden (DSGVO)
+router.post('/profile/:token/unsubscribe', wrap(async (req, res) => {
+  const { link, error } = await loadLink(req.params.token);
+  if (error) return res.status(404).json({ success: false, error });
+  const full = req.body.full === true;
+  if (full) {
+    await db.run(
+      `UPDATE crm_contacts SET consent_status = 'opt_out', contact_status = 'do_not_contact', comm_preference = 'none', updated_at = now() WHERE id = ?`,
+      [link.contact_id]);
+    await db.run(`UPDATE crm_profile_links SET status = 'revoked' WHERE contact_id = ?`, [link.contact_id]).catch(() => {});
+  } else {
+    await db.run(`UPDATE crm_contacts SET comm_preference = 'none', updated_at = now() WHERE id = ?`, [link.contact_id]);
+  }
+  db.auditLog(null, full ? 'CRM_PROFILE_OPT_OUT' : 'CRM_PROFILE_COMM_LIMITED', 'crm_contact', link.contact_id, null, req.ip);
+  res.json({
+    success: true,
+    data: {
+      message: full
+        ? 'Ihr Widerspruch wurde vermerkt. Wir werden Sie nicht mehr kontaktieren.'
+        : 'Vermerkt — wir kontaktieren Sie vorerst nicht mehr per E-Mail.',
+    },
+  });
+}));
+
+// ── Intern: Freigabe-Workflow für Selbstpflege-Änderungen ───────────────────
+router.get('/profile-changes', ...isStaff, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT pc.*, k.first_name, k.last_name, k.email
+    FROM crm_profile_changes pc JOIN crm_contacts k ON k.id = pc.contact_id
+    WHERE pc.status = 'pending' ORDER BY pc.created_at DESC LIMIT 100`)).catch(() => []);
+  res.json({
+    success: true,
+    data: rows.map(r => ({ ...r, before: safeJson(r.before_json, {}), after: safeJson(r.after_json, {}) })),
+  });
+}));
+
+router.post('/profile-changes/:id/:action', ...isStaff, wrap(async (req, res) => {
+  const action = req.params.action === 'approve' ? 'applied' : req.params.action === 'reject' ? 'rejected' : null;
+  if (!action) return res.status(400).json({ success: false, error: 'Ungültige Aktion' });
+  const change = await scoped(req, (t) => t.get('SELECT * FROM crm_profile_changes WHERE id = ? AND status = ?', [req.params.id, 'pending']));
+  if (!change) return res.status(404).json({ success: false, error: 'Änderung nicht gefunden' });
+
+  if (action === 'applied') {
+    const after = safeJson(change.after_json, {});
+    const sets = []; const params = [];
+    for (const [f, v] of Object.entries(after)) {
+      if (![...SELF_FIELDS, ...SELF_JSON_FIELDS, ...SELF_NUM_FIELDS].includes(f)) continue;
+      sets.push(`${f} = ?`);
+      params.push(SELF_JSON_FIELDS.includes(f) ? JSON.stringify(v) : v);
+    }
+    if (sets.length) {
+      sets.push('profile_updated_at = now()', 'updated_at = now()');
+      params.push(change.contact_id);
+      await scoped(req, (t) => t.run(`UPDATE crm_contacts SET ${sets.join(', ')} WHERE id = ?`, params));
+    }
+  }
+  await scoped(req, (t) => t.run(
+    `UPDATE crm_profile_changes SET status = ?, reviewed_by = ?, reviewed_at = now() WHERE id = ?`,
+    [action, req.user.id, req.params.id]));
+  db.auditLog(req.user.id, action === 'applied' ? 'CRM_PROFILE_CHANGE_APPROVED' : 'CRM_PROFILE_CHANGE_REJECTED',
+    'crm_contact', change.contact_id, null, req.ip);
+  res.json({ success: true, data: { status: action } });
+}));
+
 // Kennzahlen fürs Dashboard ─────────────────────────────────────────────────
 router.get('/stats', ...isStaff, wrap(async (req, res) => {
   const c = await scoped(req, (t) => t.get('SELECT COUNT(*)::int AS n FROM crm_companies'));
