@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api, getToken } from '../api/client';
 import {
   Building2, Users, Search, Plus, X, Upload, Download, Trash2, Star,
-  Mail, Phone, Linkedin, AlertCircle, ChevronRight,
+  Mail, Phone, Linkedin, AlertCircle, ChevronRight, KanbanSquare,
 } from 'lucide-react';
+import DealFunnelBoard from '../components/DealFunnelBoard';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.55rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
@@ -71,12 +72,14 @@ export default function Crm() {
           <button onClick={() => setImportOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
             <Upload size={14} /> Import (CSV)
           </button>
-          <button onClick={() => exportCsv(tab)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={() => exportCsv(tab === 'contacts' ? 'contacts' : 'companies')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
             <Download size={14} /> Export
           </button>
-          <button onClick={() => (tab === 'companies' ? setEditCompany({}) : setEditContact({}))} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
-            <Plus size={14} /> {tab === 'companies' ? 'Unternehmen' : 'Kontakt'}
-          </button>
+          {tab !== 'funnel' && (
+            <button onClick={() => (tab === 'companies' ? setEditCompany({}) : setEditContact({}))} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+              <Plus size={14} /> {tab === 'companies' ? 'Unternehmen' : 'Kontakt'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -105,7 +108,7 @@ export default function Crm() {
       {/* Tabs + Suche */}
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
         <div style={{ display: 'flex', gap: '0.15rem', borderBottom: `1px solid ${C.border}`, flex: 1, minWidth: 240 }}>
-          {[['companies', 'Unternehmen', Building2], ['contacts', 'Kontakte', Users]].map(([key, label, Icon]) => (
+          {[['companies', 'Unternehmen', Building2], ['contacts', 'Kontakte', Users], ['funnel', 'Deal-Funnel', KanbanSquare]].map(([key, label, Icon]) => (
             <button key={key} onClick={() => { setTab(key); setDetail(null); }} style={{
               display: 'inline-flex', alignItems: 'center', gap: 5, padding: '0.6rem 1.1rem', border: 'none', background: 'transparent',
               cursor: 'pointer', fontSize: '0.875rem', fontWeight: tab === key ? 700 : 400,
@@ -198,6 +201,9 @@ export default function Crm() {
           </table>
         </div>
       )}
+
+      {/* Sprint 20: Sell-Side-Funnel je Mandat (Longlist → Closing) */}
+      {tab === 'funnel' && <DealFunnelBoard show={show} />}
 
       {detail && <CompanyDetail data={detail} onClose={() => setDetail(null)} onChanged={() => { openCompany(detail.company.id); load(); }} onEdit={() => setEditCompany(detail.company)} contactsAll={contacts} show={show} />}
       {editCompany && <CompanyForm company={editCompany} companies={companies} onClose={() => setEditCompany(null)} onSaved={() => { setEditCompany(null); load(); show('Gespeichert ✓'); }} />}

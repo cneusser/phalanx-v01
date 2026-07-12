@@ -57,50 +57,89 @@ function generateTeaserReport(opts) {
       .text([isStartup ? 'Startup-Finanzierung' : 'M&A / Nachfolge', project.industry, project.region].filter(Boolean).join('  ·  '), L, doc.y, { width: PAGE_W });
     doc.moveDown(0.7);
 
-    // Eckdaten-Grid
+    // ── Eckdaten-Grid — DYNAMISCH vermessen (Label über Wert) ───────────────
+    // Feste Zeilenhöhen führten bei langen Werten (z. B. „Ø EBITDA-Marge 9,5 %
+    // (2021–24)") zu Überlappungen. Jede Zelle wird jetzt gemessen.
+    const nb = (t) => String(t == null ? '' : t).replace(/(\d)\s+(%|€|Mio\.|Mrd\.)/g, '$1 $2');
     const facts = isStartup
       ? [['Branche', project.industry], ['Region', project.region], ['Runde', project.investment_needed], ['Investoren-Stake', project.equity_stake], ['Post-Money', project.post_money_valuation], ['Deal-Typ', project.deal_type]]
-      : [['Branche', project.industry], ['Region', project.region], ['Umsatzband', project.revenue_band], ['EBITDA-Band', project.ebitda_band], ['Deal-Typ', project.deal_type], ['Standort', project.location_city || project.region]];
+      : [['Branche', project.industry], ['Region', project.region], ['Umsatzband', project.revenue_band], ['Operatives Ergebnis', project.ebitda_band], ['Deal-Typ', project.deal_type], ['Standort', project.location_city || project.region]];
     const shown = facts.filter(([, v]) => v != null && String(v).trim() !== '');
-    const colW = (PAGE_W - 16) / 2;
+
+    const GAP = 16, PAD = 7;
+    const colW = (PAGE_W - GAP) / 2;
+    const innerW = colW - PAD * 2;
+    const labelH = (l) => { doc.font('Helvetica').fontSize(7.2); return doc.heightOfString(String(l).toUpperCase(), { width: innerW }); };
+    const valueH = (v) => { doc.font('Helvetica-Bold').fontSize(9); return doc.heightOfString(nb(v), { width: innerW, lineGap: 1 }); };
+    const cellH = (f) => (f ? PAD + labelH(f[0]) + 2 + valueH(f[1]) + PAD : 0);
+
     for (let i = 0; i < shown.length; i += 2) {
+      const pair = [shown[i], shown[i + 1]];
+      const rowH = Math.max(24, cellH(pair[0]), cellH(pair[1]));
       const rowY = doc.y;
-      [shown[i], shown[i + 1]].forEach((f, c) => {
+      pair.forEach((f, c) => {
         if (!f) return;
-        const x = L + c * (colW + 16);
-        doc.rect(x, rowY, colW, 24).fillAndStroke(LIGHT, '#DDE8F3');
-        doc.font('Helvetica').fontSize(7.5).fillColor(GRAY).text(String(f[0]).toUpperCase(), x + 8, rowY + 5, { width: colW - 100 });
-        doc.font('Helvetica-Bold').fontSize(9.5).fillColor(NAVY).text(String(f[1]), x + colW - 160, rowY + 7, { width: 152, align: 'right' });
+        const x = L + c * (colW + GAP);
+        doc.rect(x, rowY, colW, rowH).fillAndStroke(LIGHT, '#DDE8F3');
+        const lh = labelH(f[0]);
+        doc.font('Helvetica').fontSize(7.2).fillColor(GRAY).text(String(f[0]).toUpperCase(), x + PAD, rowY + PAD, { width: innerW });
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY).text(nb(f[1]), x + PAD, rowY + PAD + lh + 2, { width: innerW, lineGap: 1 });
       });
-      doc.y = rowY + 30; doc.x = L;
+      doc.y = rowY + rowH + 5; doc.x = L;
     }
-    doc.moveDown(0.4);
+    doc.moveDown(0.3);
 
-    // Kurzbeschreibung
+    // ── One-Pager-Budget: was noch auf die Seite passt ──────────────────────
+    // Unterkante minus Platz für die CTA-Box (60) und etwas Luft.
+    const CTA_H = 58;
+    const bottomLimit = doc.page.height - 104 - CTA_H - 14;
+    const fits = (h) => doc.y + h <= bottomLimit;
+
+    // Kurzbeschreibung (bei Bedarf sauber am Satzende gekürzt)
     if (project.short_description) {
-      doc.font('Helvetica-Bold').fontSize(11).fillColor(NAVY).text('Kurzbeschreibung', L, doc.y);
-      doc.moveDown(0.3);
-      doc.font('Helvetica').fontSize(9.5).fillColor(BLACK).text(String(project.short_description), L, doc.y, { width: PAGE_W, align: 'justify', lineGap: 3 });
-      doc.moveDown(0.6);
+      doc.font('Helvetica-Bold').fontSize(10.5).fillColor(NAVY).text('Kurzbeschreibung', L, doc.y);
+      doc.moveDown(0.25);
+      let text = String(project.short_description).trim();
+      doc.font('Helvetica').fontSize(9.2);
+      const avail = bottomLimit - doc.y - 8;
+      if (doc.heightOfString(text, { width: PAGE_W, lineGap: 2.5 }) > avail) {
+        // schrittweise am Satzende kürzen, statt mitten im Wort abzuschneiden
+        const sentences = text.split(/(?<=\.)\s+/);
+        let acc = '';
+        for (const s of sentences) {
+          const next = acc ? `${acc} ${s}` : s;
+          if (doc.heightOfString(next, { width: PAGE_W, lineGap: 2.5 }) > avail) break;
+          acc = next;
+        }
+        text = acc || text.slice(0, 400) + '…';
+      }
+      doc.fillColor(BLACK).text(text, L, doc.y, { width: PAGE_W, align: 'justify', lineGap: 2.5 });
+      doc.moveDown(0.45);
     }
 
-    // Highlights
-    const highlights = Array.isArray(project.highlights) ? project.highlights : [];
-    if (highlights.length) {
-      doc.font('Helvetica-Bold').fontSize(11).fillColor(NAVY).text('Investment-Highlights', L, doc.y);
-      doc.moveDown(0.3);
-      highlights.forEach(h => {
+    // Highlights — nur so viele, wie auf die Seite passen (max. 6)
+    const highlights = (Array.isArray(project.highlights) ? project.highlights : []).slice(0, 6);
+    if (highlights.length && fits(30)) {
+      doc.font('Helvetica-Bold').fontSize(10.5).fillColor(NAVY).text('Investment-Highlights', L, doc.y);
+      doc.moveDown(0.25);
+      for (const h of highlights) {
+        doc.font('Helvetica').fontSize(9.2);
+        const hh = doc.heightOfString(nb(h), { width: PAGE_W - 14, lineGap: 1.5 });
+        if (!fits(hh + 4)) break;                 // Rest weglassen → One-Pager bleibt gewahrt
         const yy = doc.y;
         doc.circle(L + 3, yy + 5, 2).fill(STEEL);
-        doc.font('Helvetica').fontSize(9.5).fillColor(BLACK).text(String(h), L + 14, yy, { width: PAGE_W - 14, lineGap: 2 });
-        doc.moveDown(0.25); doc.x = L;
-      });
-      doc.moveDown(0.4);
+        doc.font('Helvetica').fontSize(9.2).fillColor(BLACK).text(nb(h), L + 14, yy, { width: PAGE_W - 14, lineGap: 1.5 });
+        doc.y = yy + hh + 3; doc.x = L;
+      }
+      doc.moveDown(0.3);
     }
+
+    // CTA-Box immer an den unteren Rand setzen → sauberer One-Pager
+    doc.y = Math.max(doc.y, bottomLimit);
 
     // Kontakt-/CTA-Box
     doc.x = L;
-    const ctaY = doc.y, ctaH = 60;
+    const ctaY = doc.y, ctaH = CTA_H;
     doc.rect(L, ctaY, PAGE_W, ctaH).fillAndStroke(NAVY, NAVY);
     doc.font('Helvetica-Bold').fontSize(11).fillColor('#fff').text('Interesse? Vertrauliche Details nach NDA', L + 16, ctaY + 12, { width: PAGE_W - 32 });
     doc.font('Helvetica').fontSize(8.7).fillColor('rgba(255,255,255,0.88)').text(

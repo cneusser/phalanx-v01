@@ -30,7 +30,7 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 17 | **Gamification / XP-Punktesystem (Interaktion & Deal-Abwicklung)** | ✅ Kern fertig (XP-Events, Level, Vergabe an NDA/DD/LOI/Closing, „Mein Bereich"-Badge) |
 | 18 | **Engagement-Mailings: Newsletter, Folgen-Option, Änderungs-Mails, Ähnlichkeits-Matching** | ✅ Kern fertig (Newsletter, Auto-/Manuell-Folgen, Follower-Mails, Ähnlichkeits-Score, Opt-out-Center) |
 | 19 | **CRM I — Unternehmen & Kontakte** (Stammdaten, Dubletten, Verknüpfungen, Import) | ✅ Kern fertig (Unternehmen, Kontakte, n:m + Historie, Konzern, Dubletten, CSV; + Mandats-Einladungen) |
-| 20 | **CRM II — Transaktionen, Beteiligtenrollen & konfigurierbarer Kanban-Funnel** | geplant |
+| 20 | **CRM II — Transaktionen, Beteiligtenrollen & konfigurierbarer Kanban-Funnel** | ✅ Kern fertig (Funnel-Board, Rollen, Verweildauer, Stagnation; Import echter Kontakte) |
 | 21 | **CRM III — Aufgaben/Wiedervorlagen & Kommunikation** (E-Mail-Versand, BCC-Ingest, Vorlagen) | geplant |
 | 22 | **CRM IV — Dokumente, Suche/Auswertungen & Kontakt-Selbstpflege-Portal** | geplant |
 | 23 | **CRM V — Rollen/Rechte granular, API/Webhooks, Multi-Tenant, DSGVO-Härtung + 2FA** | geplant |

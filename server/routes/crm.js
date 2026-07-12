@@ -447,7 +447,322 @@ router.post('/import/contacts', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { created, skipped, linked, total: rows.length } });
 }));
 
-// ── Kennzahlen fürs Dashboard ───────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 20 — CRM II: Beteiligtenrollen & Sell-Side-Funnel je Mandat
+// ═══════════════════════════════════════════════════════════════════════════
+const FUNNEL_STAGES = [
+  { key: 0, label: 'Longlist' },
+  { key: 1, label: 'Angesprochen' },
+  { key: 2, label: 'Rückmeldung' },
+  { key: 3, label: 'NDA' },
+  { key: 4, label: 'IM / Unterlagen' },
+  { key: 5, label: 'Gespräch' },
+  { key: 6, label: 'Angebot / LOI' },
+  { key: 7, label: 'Due Diligence' },
+  { key: 8, label: 'Abgeschlossen' },
+];
+const PARTY_ROLES = ['buyer', 'advisor', 'seller', 'bank', 'lawyer', 'target', 'other'];
+const PARTY_STATUS = ['active', 'dropped', 'open', 'unclear'];
+const STAGNANT_DAYS = 30;
+
+// Mandate mit Funnel-Zahlen (Auswahl fürs Board)
+router.get('/deals', ...isStaff, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT p.id, p.codename, p.status, p.industry, p.region,
+           (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.project_id = p.id) AS parties,
+           (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.project_id = p.id AND dp.party_status = 'active') AS active,
+           (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.project_id = p.id AND dp.party_status = 'open') AS open
+    FROM projects p
+    WHERE EXISTS (SELECT 1 FROM crm_deal_parties dp WHERE dp.project_id = p.id) OR p.status = 'active'
+    ORDER BY parties DESC, p.codename`));
+  res.json({ success: true, data: { deals: rows, stages: FUNNEL_STAGES } });
+}));
+
+// Board eines Mandats: alle Beteiligten je Funnel-Stufe (inkl. Verweildauer)
+router.get('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT dp.*,
+           k.first_name, k.last_name, k.email, k.consent_status, k.contact_status, k.is_decision_maker,
+           c.name AS company_name,
+           (SELECT status FROM crm_invitations i WHERE i.contact_id = dp.contact_id ORDER BY i.invited_at DESC LIMIT 1) AS invite_status
+    FROM crm_deal_parties dp
+    LEFT JOIN crm_contacts k ON k.id = dp.contact_id
+    LEFT JOIN crm_companies c ON c.id = dp.company_id
+    WHERE dp.project_id = ?
+    ORDER BY dp.funnel_stage DESC, dp.last_contact DESC NULLS LAST`, [req.params.projectId]));
+
+  const now = Date.now();
+  const parties = rows.map(r => {
+    const since = r.stage_changed_at ? new Date(r.stage_changed_at).getTime() : now;
+    const days = Math.max(0, Math.floor((now - since) / 86400000));
+    return {
+      ...r,
+      days_in_stage: days,
+      // Stagnation nur bei noch laufenden Vorgängen melden
+      stagnant: days > STAGNANT_DAYS && ['open', 'active', 'unclear'].includes(r.party_status) && r.funnel_stage > 0,
+    };
+  });
+
+  // Funnel-Kennzahlen (Conversion je Stufe)
+  const counts = {};
+  FUNNEL_STAGES.forEach(s => { counts[s.key] = parties.filter(p => p.funnel_stage === s.key).length; });
+  const reached = {};
+  FUNNEL_STAGES.forEach(s => { reached[s.key] = parties.filter(p => p.funnel_stage >= s.key).length; });
+
+  res.json({ success: true, data: { parties, stages: FUNNEL_STAGES, counts, reached } });
+}));
+
+router.post('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
+  const contactId = Number(req.body.contact_id);
+  if (!contactId) return res.status(400).json({ success: false, error: 'contact_id fehlt' });
+  const dup = await scoped(req, (t) => t.get(
+    'SELECT id FROM crm_deal_parties WHERE project_id = ? AND contact_id = ?', [req.params.projectId, contactId]));
+  if (dup) return res.status(409).json({ success: false, error: 'Kontakt ist diesem Mandat bereits zugeordnet.' });
+
+  const role = PARTY_ROLES.includes(req.body.party_role) ? req.body.party_role : 'buyer';
+  const stage = Number.isInteger(Number(req.body.funnel_stage)) ? Number(req.body.funnel_stage) : 0;
+  const id = await scoped(req, (t) => t.insert(`
+    INSERT INTO crm_deal_parties (tenant_id, project_id, company_id, contact_id, party_role, funnel_stage, party_status, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`,
+    [req.tenantId || 1, req.params.projectId, req.body.company_id || null, contactId, role, stage, req.user.id]));
+  db.auditLog(req.user.id, 'CRM_PARTY_ADDED', 'project', req.params.projectId, `Kontakt #${contactId} (${role})`, req.ip);
+  res.status(201).json({ success: true, data: { id } });
+}));
+
+// Stufe/Status ändern (Drag & Drop) — Verweildauer wird bei Stufenwechsel neu gestartet
+router.put('/parties/:id', ...isStaff, wrap(async (req, res) => {
+  const party = await scoped(req, (t) => t.get('SELECT * FROM crm_deal_parties WHERE id = ?', [req.params.id]));
+  if (!party) return res.status(404).json({ success: false, error: 'Eintrag nicht gefunden' });
+
+  const sets = []; const params = [];
+  if (req.body.funnel_stage !== undefined) {
+    const stage = Number(req.body.funnel_stage);
+    if (!FUNNEL_STAGES.some(s => s.key === stage)) return res.status(400).json({ success: false, error: 'Ungültige Funnel-Stufe' });
+    sets.push('funnel_stage = ?'); params.push(stage);
+    if (stage !== party.funnel_stage) { sets.push('stage_changed_at = now()'); }
+  }
+  if (req.body.party_status !== undefined) {
+    if (!PARTY_STATUS.includes(req.body.party_status)) return res.status(400).json({ success: false, error: 'Ungültiger Status' });
+    sets.push('party_status = ?'); params.push(req.body.party_status);
+  }
+  if (req.body.party_role !== undefined && PARTY_ROLES.includes(req.body.party_role)) { sets.push('party_role = ?'); params.push(req.body.party_role); }
+  for (const f of ['next_step', 'notes']) {
+    if (req.body[f] !== undefined) { sets.push(`${f} = ?`); params.push(req.body[f] || null); }
+  }
+  if (!sets.length) return res.json({ success: true, data: { message: 'Nichts zu ändern' } });
+
+  params.push(req.params.id);
+  await scoped(req, (t) => t.run(`UPDATE crm_deal_parties SET ${sets.join(', ')} WHERE id = ?`, params));
+  db.auditLog(req.user.id, 'CRM_PARTY_UPDATED', 'project', party.project_id, `Eintrag #${req.params.id}`, req.ip);
+  res.json({ success: true, data: { message: 'Gespeichert' } });
+}));
+
+router.delete('/parties/:id', ...isStaff, wrap(async (req, res) => {
+  await scoped(req, (t) => t.run('DELETE FROM crm_deal_parties WHERE id = ?', [req.params.id]));
+  res.json({ success: true, data: { message: 'Entfernt' } });
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DSGVO-konforme Plattform-Einladung von CRM-Kontakten (DOUBLE-OPT-IN)
+//
+// Bestandskontakte aus dem Mailverkehr haben KEINE Einwilligung für die
+// Plattform-Ansprache. Deshalb: Einladung → Empfänger bestätigt die Einwilligung
+// aktiv (Nachweis: Zeitpunkt, IP, Text-Version) → erst DANN Kontoanlage.
+// Wer widerspricht oder auf „nicht kontaktieren" steht, wird nie angeschrieben.
+// ═══════════════════════════════════════════════════════════════════════════
+const CONSENT_TEXT_VERSION = '2026-07-v1';
+const INVITE_DAYS = 21;
+
+async function createInvite(req, contact) {
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + INVITE_DAYS * 24 * 3600 * 1000);
+  const id = await scoped(req, (t) => t.insert(`
+    INSERT INTO crm_invitations (tenant_id, contact_id, email, token, message, invited_by, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [req.tenantId || 1, contact.id, contact.email, token, req.body.message || null, req.user.id, expires]));
+
+  const { sendProcessUpdateEmail } = require('../utils/email');
+  const inviter = [req.user.title, req.user.first_name, req.user.last_name].filter(Boolean).join(' ');
+  sendProcessUpdateEmail({
+    to: contact.email,
+    firstName: contact.first_name || '',
+    title: 'Einladung zu CapitalMatch — Ihre Bestätigung erforderlich',
+    message:
+      `<strong>${inviter}</strong> (Phalanx GmbH) lädt Sie zu <strong>CapitalMatch</strong> ein — der Plattform, über die wir ` +
+      `unsere M&A-Mandate künftig strukturiert und vertraulich bereitstellen: Kurzprofile, Unterlagen nach NDA, ` +
+      `Datenraum und direkte Kommunikation an einem Ort.` +
+      (req.body.message ? `<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${req.body.message}</span>` : '') +
+      `<br/><br/><strong>Wichtig (DSGVO):</strong> Wir legen kein Konto für Sie an und senden Ihnen keine weiteren ` +
+      `Informationen, solange Sie nicht ausdrücklich zustimmen. Bitte bestätigen Sie Ihre Einwilligung über den Button. ` +
+      `Sie können sie jederzeit mit Wirkung für die Zukunft widerrufen.` +
+      `<br/><br/><span style="font-size:12px;color:#888;">Möchten Sie nicht kontaktiert werden, ignorieren Sie diese E-Mail einfach — ` +
+      `oder klicken Sie auf der Bestätigungsseite auf „Nicht kontaktieren". Die Einladung verfällt nach ${INVITE_DAYS} Tagen.</span>`,
+    ctaLabel: 'Einwilligung bestätigen',
+    ctaPath: `/einwilligung?token=${token}`,
+  }).catch(() => {});
+
+  db.auditLog(req.user.id, 'CRM_INVITE_SENT', 'crm_contact', contact.id, contact.email, req.ip);
+  return id;
+}
+
+// Einzelne Einladung
+router.post('/contacts/:id/invite', ...isStaff, wrap(async (req, res) => {
+  const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [req.params.id]));
+  if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+  if (!contact.email) return res.status(400).json({ success: false, error: 'Kontakt hat keine E-Mail-Adresse.' });
+  if (contact.contact_status === 'do_not_contact' || contact.consent_status === 'opt_out') {
+    return res.status(403).json({ success: false, error: 'Dieser Kontakt hat der Kontaktaufnahme widersprochen.' });
+  }
+  const open = await scoped(req, (t) => t.get(
+    `SELECT id FROM crm_invitations WHERE contact_id = ? AND status IN ('invited','opened','consented')`, [contact.id]));
+  if (open) return res.status(409).json({ success: false, error: 'Für diesen Kontakt läuft bereits eine Einladung.' });
+
+  const id = await createInvite(req, contact);
+  res.status(201).json({ success: true, data: { id } });
+}));
+
+// Sammel-Einladung (bewusst limitiert — kein Massenversand aus Versehen)
+router.post('/invite/bulk', ...isStaff, wrap(async (req, res) => {
+  const ids = (req.body.contact_ids || []).slice(0, 50).map(Number).filter(Boolean);
+  if (!ids.length) return res.status(400).json({ success: false, error: 'Keine Kontakte ausgewählt' });
+
+  const sent = [], blocked = [], already = [];
+  for (const cid of ids) {
+    const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [cid]));
+    if (!contact || !contact.email) { blocked.push({ id: cid, reason: 'keine E-Mail' }); continue; }
+    if (contact.contact_status === 'do_not_contact' || contact.consent_status === 'opt_out') {
+      blocked.push({ id: cid, email: contact.email, reason: 'Widerspruch' }); continue;
+    }
+    const open = await scoped(req, (t) => t.get(
+      `SELECT id FROM crm_invitations WHERE contact_id = ? AND status IN ('invited','opened','consented','registered')`, [cid]));
+    if (open) { already.push({ id: cid, email: contact.email }); continue; }
+    await createInvite(req, contact);
+    sent.push({ id: cid, email: contact.email });
+  }
+  res.json({ success: true, data: { sent: sent.length, blocked: blocked.length, already: already.length, details: { sent, blocked, already } } });
+}));
+
+// Einladungs-Übersicht (Funnel)
+router.get('/invitations', ...isStaff, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT i.*, k.first_name, k.last_name
+    FROM crm_invitations i LEFT JOIN crm_contacts k ON k.id = i.contact_id
+    ORDER BY i.invited_at DESC LIMIT 300`));
+  const now = Date.now();
+  const list = rows.map(i => ({
+    ...i,
+    status: (i.expires_at && new Date(i.expires_at).getTime() < now && ['invited', 'opened'].includes(i.status)) ? 'expired' : i.status,
+  }));
+  const funnel = {};
+  for (const s of ['invited', 'opened', 'consented', 'registered', 'declined', 'expired', 'revoked']) {
+    funnel[s] = list.filter(i => i.status === s).length;
+  }
+  res.json({ success: true, data: { invitations: list, funnel } });
+}));
+
+// ── Öffentlich: Einwilligungsseite (Double-Opt-in) ──────────────────────────
+router.get('/invite/:token', wrap(async (req, res) => {
+  const inv = await db.get('SELECT * FROM crm_invitations WHERE token = ?', [req.params.token]);
+  if (!inv) return res.status(404).json({ success: false, error: 'Einladung nicht gefunden' });
+  const expired = inv.expires_at && new Date(inv.expires_at).getTime() < Date.now();
+  if (inv.status === 'invited' && !expired) {
+    await db.run(`UPDATE crm_invitations SET status = 'opened', opened_at = now() WHERE id = ?`, [inv.id]).catch(() => {});
+  }
+  const contact = inv.contact_id ? await db.get('SELECT first_name, last_name FROM crm_contacts WHERE id = ?', [inv.contact_id]) : null;
+  const inviter = await db.get('SELECT first_name, last_name, company FROM users WHERE id = ?', [inv.invited_by]);
+  const account = await db.get('SELECT id FROM users WHERE lower(email) = ?', [String(inv.email).toLowerCase()]);
+  res.json({
+    success: true,
+    data: {
+      status: expired && ['invited', 'opened'].includes(inv.status) ? 'expired' : (inv.status === 'invited' ? 'opened' : inv.status),
+      email: inv.email,
+      name: contact ? [contact.first_name, contact.last_name].filter(Boolean).join(' ') : null,
+      message: inv.message,
+      inviter: inviter ? `${inviter.first_name} ${inviter.last_name}${inviter.company ? ' · ' + inviter.company : ''}` : 'Phalanx GmbH',
+      consent_version: CONSENT_TEXT_VERSION,
+      has_account: !!account,
+      expires_at: inv.expires_at,
+    },
+  });
+}));
+
+// Einwilligung erteilen (Double-Opt-in) — mit Nachweis
+router.post('/invite/:token/consent', wrap(async (req, res) => {
+  const inv = await db.get('SELECT * FROM crm_invitations WHERE token = ?', [req.params.token]);
+  if (!inv) return res.status(404).json({ success: false, error: 'Einladung nicht gefunden' });
+  if (['declined', 'revoked'].includes(inv.status)) return res.status(400).json({ success: false, error: 'Diese Einladung ist nicht mehr gültig.' });
+  if (inv.expires_at && new Date(inv.expires_at).getTime() < Date.now()) {
+    return res.status(400).json({ success: false, error: 'Diese Einladung ist abgelaufen.' });
+  }
+  if (req.body.accepted !== true) return res.status(400).json({ success: false, error: 'Bitte bestätigen Sie die Einwilligung.' });
+
+  const ip = req.ip;
+  await db.run(
+    `UPDATE crm_invitations SET status = 'consented', consent_at = now(), consent_ip = ?, consent_text_version = ? WHERE id = ?`,
+    [ip, CONSENT_TEXT_VERSION, inv.id]);
+  if (inv.contact_id) {
+    await db.run(
+      `UPDATE crm_contacts SET consent_status = 'opt_in', consent_at = now(), updated_at = now() WHERE id = ?`,
+      [inv.contact_id]).catch(() => {});
+  }
+  db.auditLog(null, 'CRM_CONSENT_GIVEN', 'crm_contact', inv.contact_id, `${inv.email} · ${CONSENT_TEXT_VERSION} · IP ${ip}`, ip);
+  res.json({ success: true, data: { status: 'consented' } });
+}));
+
+// Widerspruch — Kontakt wird dauerhaft auf „nicht kontaktieren" gesetzt
+router.post('/invite/:token/decline', wrap(async (req, res) => {
+  const inv = await db.get('SELECT * FROM crm_invitations WHERE token = ?', [req.params.token]);
+  if (!inv) return res.status(404).json({ success: false, error: 'Einladung nicht gefunden' });
+  await db.run(`UPDATE crm_invitations SET status = 'declined' WHERE id = ?`, [inv.id]);
+  if (inv.contact_id) {
+    await db.run(
+      `UPDATE crm_contacts SET consent_status = 'opt_out', contact_status = 'do_not_contact', updated_at = now() WHERE id = ?`,
+      [inv.contact_id]).catch(() => {});
+  }
+  db.auditLog(null, 'CRM_CONSENT_DECLINED', 'crm_contact', inv.contact_id, inv.email, req.ip);
+  res.json({ success: true, data: { message: 'Ihr Widerspruch wurde vermerkt. Wir kontaktieren Sie nicht erneut.' } });
+}));
+
+// Konto anlegen — NUR nach erteilter Einwilligung (Double-Opt-in erfüllt)
+router.post('/invite/:token/register', wrap(async (req, res) => {
+  const inv = await db.get('SELECT * FROM crm_invitations WHERE token = ?', [req.params.token]);
+  if (!inv) return res.status(404).json({ success: false, error: 'Einladung nicht gefunden' });
+  if (inv.status !== 'consented') {
+    return res.status(403).json({ success: false, error: 'Bitte bestätigen Sie zuerst Ihre Einwilligung.' });
+  }
+  const existing = await db.get('SELECT id FROM users WHERE lower(email) = ?', [String(inv.email).toLowerCase()]);
+  if (existing) return res.status(409).json({ success: false, error: 'Für diese E-Mail besteht bereits ein Konto. Bitte melden Sie sich an.' });
+
+  const { password, first_name, last_name, salutation, title, company, position, mobile } = req.body;
+  if (!password || String(password).length < 8) return res.status(400).json({ success: false, error: 'Passwort muss mindestens 8 Zeichen haben' });
+  if (!first_name || !last_name) return res.status(400).json({ success: false, error: 'Bitte Vor- und Nachnamen angeben' });
+  if (!['Herr', 'Frau', 'Divers'].includes(salutation)) return res.status(400).json({ success: false, error: 'Bitte wählen Sie eine Anrede' });
+  if (!mobile || String(mobile).trim().length < 6) return res.status(400).json({ success: false, error: 'Bitte geben Sie eine Mobilnummer an' });
+
+  const bcrypt = require('bcryptjs');
+  const jwt = require('jsonwebtoken');
+  const password_hash = bcrypt.hashSync(String(password), 10);
+  // Einwilligung + Token belegen die E-Mail-Adresse → direkt freigeschaltet & verifiziert
+  const userId = await db.insert(`
+    INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, mobile,
+                       is_approved, is_active, email_verified, privacy_consent_at)
+    VALUES (?, ?, ?, 'buyer', ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, now())`,
+    [inv.tenant_id || 1, String(inv.email).toLowerCase(), password_hash, salutation, title || null,
+     first_name, last_name, company || null, position || null, mobile]);
+  await db.run(`INSERT INTO buyer_profiles (tenant_id, user_id, industries, regions, deal_types) VALUES (?, ?, '[]', '[]', '[]')`,
+    [inv.tenant_id || 1, userId]).catch(() => {});
+
+  await db.run(`UPDATE crm_invitations SET status = 'registered', registered_at = now(), user_id = ? WHERE id = ?`, [userId, inv.id]);
+  if (inv.contact_id) await db.run(`UPDATE crm_contacts SET user_id = ? WHERE id = ?`, [userId, inv.contact_id]).catch(() => {});
+  db.auditLog(userId, 'REGISTER_VIA_CRM_INVITE', 'user', userId, `${inv.email} · Einwilligung ${inv.consent_text_version}`, req.ip);
+
+  const token = jwt.sign({ userId }, process.env.JWT_SECRET || 'phalanx-secret', { expiresIn: '7d' });
+  const user = await db.get('SELECT id, email, role, salutation, title, first_name, last_name, company FROM users WHERE id = ?', [userId]);
+  res.status(201).json({ success: true, data: { token, user } });
+}));
+
+// Kennzahlen fürs Dashboard ─────────────────────────────────────────────────
 router.get('/stats', ...isStaff, wrap(async (req, res) => {
   const c = await scoped(req, (t) => t.get('SELECT COUNT(*)::int AS n FROM crm_companies'));
   const k = await scoped(req, (t) => t.get(`

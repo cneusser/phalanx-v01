@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.249 — 13.07.2026 · Sprint 20: Deal-Funnel, Kontakt-Import & DSGVO-Einladung
+- **Teaser-One-Pager**: `teaserReport.js` auf gemessene Zeilenhöhen umgebaut (kein Überlauf mehr) und hart auf **eine Seite** begrenzt (Beschreibung wird am Satzende gekürzt, Highlights nur soweit sie passen). Download nach Login (`GET /api/projects/:id/teaser.pdf`)
+- **Sell-Side-Funnel je Mandat** (`crm_deal_parties`): Longlist → Angesprochen → Rückmeldung → NDA → IM → Gespräch → LOI → DD → Abschluss; Kanban mit Drag & Drop, Rolle (Käufer/Berater/Verkäufer/Bank/Anwalt), Status (aktiv/offen/unklar/ausgestiegen)
+- **Verweildauer je Stufe** + Stagnations-Warnung (> 30 Tage ohne Fortschritt); Conversion je Stufe
+- **Import des ersten Schwungs echter Phalanx-Kontakte** aus dem Exchange-Funnel: 189 Unternehmen, 222 Kontakte, 233 Funnel-Einträge über 5 Mandate; RENOVAPRESS/FARADAY/Defacto als **Entwurf** angelegt (nicht im Marktplatz)
+- **DSGVO: Double-Opt-in-Einladung** (`crm_invitations`) — Einladung → Empfänger bestätigt Einwilligung **aktiv** (Nachweis: Zeitpunkt, IP, Textversion) → **erst dann** Kontoanlage. Widerspruch setzt den Kontakt dauerhaft auf „nicht kontaktieren"; Sammel-Einladung überspringt Widersprüche automatisch
+- Neue Seite `/einwilligung`; CRM-Tab „Deal-Funnel" mit Mehrfachauswahl für die Einladung
+
 ## v0.248 — 12.07.2026 · Sprint 19: CRM I — Unternehmen & Kontakte
 - Zentrale **Unternehmensdatenbank**: Stammdaten, Website, Branche, Region, Umsatz, Mitarbeiter, Unternehmensart, Käuferkategorie, Investitionskriterien, Notizen, Tags
 - **Kontakte** mit Entscheider-Kennzeichnung, Verantwortungsbereich, Beziehung sowie **DSGVO-Einwilligung** (`consent_status` + Zeitstempel) und Kontaktstatus (aktiv / nicht kontaktieren / unzustellbar)
