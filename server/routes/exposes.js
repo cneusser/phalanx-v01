@@ -47,14 +47,16 @@ const DEFAULT_SECTIONS = [
   { key: 'process', title: 'Prozess & nächste Schritte', enabled: true, body: '' },
 ];
 
+// Sprint 19 — Rollentrennung: „Betrachter" dürfen das Exposé sehen, aber nicht
+// bearbeiten oder veröffentlichen.
+const access = require('../utils/projectAccess');
+const getFn = (req) => (sql, p) => scoped(req, (t) => t.get(sql, p));
+
 async function canManage(req, projectId) {
-  const u = req.user;
-  if (ADMIN_ROLES.includes(u.role)) return true;
-  const p = await scoped(req, (t) => t.get('SELECT created_by FROM projects WHERE id = ?', [projectId]));
-  if (!p) return false;
-  if (p.created_by === u.id) return true;
-  const m = await scoped(req, (t) => t.get('SELECT id FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, u.id]));
-  return !!m;
+  return access.canManage(getFn(req), req.user, projectId);
+}
+async function canViewProject(req, projectId) {
+  return access.canView(getFn(req), req.user, projectId);
 }
 
 async function loadExpose(req, projectId) {
@@ -94,6 +96,10 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
     const safeImages = await scoped(req, (t) => t.all(
       `SELECT id, name, mime FROM safe_items WHERE project_id = ? AND is_folder = 0 AND deleted_at IS NULL AND mime LIKE 'image/%' ORDER BY created_at DESC`, [projectId]));
     return res.json({ success: true, data: { expose, project, corridor, safeImages, can_manage: true } });
+  }
+  // Sprint 19: „Betrachter" sehen das Exposé (auch im Entwurf), aber schreibgeschützt
+  if (await canViewProject(req, projectId)) {
+    return res.json({ success: true, data: { expose, project, corridor, safeImages: [], can_manage: false, read_only: true } });
   }
   // Käufer: nur veröffentlicht + IM-Gate passiert
   const stage = await getStage(req.user.id, projectId);

@@ -13,14 +13,18 @@ const router = express.Router();
 
 const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type, (image_path IS NOT NULL)::int AS has_image';
 
-// ── Pflege-Berechtigung: Admin, Ersteller ODER zugeordnetes Projektmitglied ──
+// ── Pflege-Berechtigung (Sprint 19: rollenbewusst) ──────────────────────────
+// Admin/Berater/Tenant-Owner, Ersteller oder Mitglied mit member_role='editor'.
+// Ein „Betrachter" (member_role='viewer') darf NICHT pflegen.
+const access = require('../utils/projectAccess');
+const _get = (sql, p) => db.get(sql, p);
+
 async function canManageProject(user, projectId) {
-  if (['super_admin', 'advisor'].includes(user.role)) return true;
-  const p = await db.get('SELECT created_by FROM projects WHERE id = ?', [projectId]);
-  if (!p) return false;
-  if (p.created_by === user.id) return true;
-  const member = await db.get('SELECT id FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, user.id]);
-  return !!member;
+  return access.canManage(_get, user, projectId);
+}
+// Rolle auflösen: 'manager' | 'viewer' | null
+async function projectRole(user, projectId) {
+  return access.roleFor(_get, user, projectId);
 }
 
 // ── Projektbild-Upload (Teaser-Ebene, persistent: Railway-Volume bevorzugt) ──
@@ -137,13 +141,22 @@ router.post('/my-project', authenticate, requireCompleteProfile(), wrap(async (r
 router.get('/:id/teaser', optionalAuth, wrap(async (req, res) => {
   // Pfleger (Admin/Ersteller/Mitglied) sehen den Teaser auch im Entwurfsstatus
   let project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
-  let canManage = false;
-  if (req.user) canManage = await canManageProject(req.user, req.params.id);
-  if (!project && canManage) {
+  // Sprint 19: Rolle auflösen — Pflegende UND Betrachter sehen das Mandat auch im Entwurf
+  const role = req.user ? await projectRole(req.user, req.params.id) : null;
+  const canManage = role === 'manager';
+  if (!project && role) {
     project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ?`, [req.params.id]);
   }
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
-  res.json({ success: true, data: { ...project, highlights: JSON.parse(project.highlights || '[]'), can_manage: canManage } });
+  res.json({
+    success: true,
+    data: {
+      ...project,
+      highlights: JSON.parse(project.highlights || '[]'),
+      can_manage: canManage,
+      project_role: role,          // 'manager' | 'viewer' | null
+    },
+  });
 }));
 
 // ── GET /:id/teaser.pdf — Kurzprofil als PDF (mit Audit-Trail & Markierung) ──

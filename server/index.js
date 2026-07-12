@@ -50,6 +50,7 @@ app.use('/api/exposes', require('./routes/exposes'));
 app.use('/api/community', require('./routes/community'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/gamification', require('./routes/gamification'));
+app.use('/api/invitations', require('./routes/invitations'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/ndas', require('./routes/ndas'));

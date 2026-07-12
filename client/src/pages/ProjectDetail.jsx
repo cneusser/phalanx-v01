@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import ProjectEditModal from '../components/ProjectEditModal';
+import TeamModal from '../components/TeamModal';
 import { api, getToken } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import NDASignModal from '../components/NDASignModal';
@@ -116,6 +117,8 @@ export default function ProjectDetail() {
   // Sprint 18: Folgen (Stern) + ähnliche Mandate
   const [watched, setWatched] = useState(false);
   const [similar, setSimilar] = useState([]);
+  // Sprint 19: Team & Einladungen
+  const [showTeam, setShowTeam] = useState(false);
   const [showNDAModal, setShowNDAModal] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(() => {
@@ -839,6 +842,7 @@ export default function ProjectDetail() {
                 </h1>
                 {teaser.can_manage && (
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button onClick={() => setShowTeam(true)} style={{ padding: '0.5rem 0.9rem', borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.navy, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>👥 Team</button>
                     <button onClick={() => setShowEdit(true)} style={{ padding: '0.5rem 0.9rem', borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.navy, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>✎ Pflegen</button>
                     <Link to={`/mandat/${teaser.id}/expose`} style={{ padding: '0.5rem 0.9rem', borderRadius: 6, border: 'none', background: C.accent, color: '#fff', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap', textDecoration: 'none' }}>📄 Exposé</Link>
                     <Link to={`/mandat/${teaser.id}/safe`} style={{ padding: '0.5rem 0.9rem', borderRadius: 6, border: 'none', background: C.navy, color: '#fff', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap', textDecoration: 'none' }}>🔒 Safe</Link>
@@ -1047,6 +1051,11 @@ export default function ProjectDetail() {
           onClose={() => setShowNDAModal(false)}
           onSigned={() => { setNdaStatus('signed'); setShowNDAModal(false); }}
         />
+      )}
+
+      {/* Sprint 19: Team & Einladungen (Betrachter / Pflegende) */}
+      {showTeam && (
+        <TeamModal projectId={teaser.id} codename={teaser.codename} onClose={() => setShowTeam(false)} />
       )}
 
       {/* Mandats-Pflege über den Marktplatz (Admin/Ersteller/zugeordnete Nutzer) */}

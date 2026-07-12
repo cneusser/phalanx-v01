@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
@@ -16,6 +16,9 @@ const C = {
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  // Sprint 19: Rücksprung nach dem Login (z. B. aus einer Mandats-Einladung)
+  const [params] = useSearchParams();
+  const redirect = params.get('redirect');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -29,7 +32,10 @@ export default function Login() {
     setError(''); setUnverified(false); setResendMsg('');
     try {
       const user = await login(email, password);
-      if (['super_admin', 'advisor'].includes(user.role)) {
+      // Rücksprung hat Vorrang (nur interne Pfade zulassen — kein Open Redirect)
+      if (redirect && redirect.startsWith('/')) {
+        navigate(redirect);
+      } else if (['super_admin', 'advisor'].includes(user.role)) {
         navigate('/admin');
       } else if (user.role === 'seller') {
         navigate('/verkaeuferdashboard');

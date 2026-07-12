@@ -16,6 +16,7 @@ import SearchProfiles from './pages/SearchProfiles';
 import Watchlist from './pages/Watchlist';
 import Contact from './pages/Contact';
 import VerifyEmail from './pages/VerifyEmail';
+import InvitationAccept from './pages/InvitationAccept';
 import Messages from './pages/Messages';
 import Register from './pages/Register';
 import Login from './pages/Login';
@@ -84,6 +85,7 @@ function AppRoutes() {
           <Route path="/passwort-vergessen" element={<ForgotPassword />} />
           <Route path="/passwort-reset" element={<ResetPassword />} />
           <Route path="/email-bestaetigen" element={<VerifyEmail />} />
+          <Route path="/einladung" element={<InvitationAccept />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />

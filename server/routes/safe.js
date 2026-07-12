@@ -18,18 +18,27 @@ const router = express.Router();
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
 const TRASH_DAYS = 30;
 
-// Pflege-Berechtigung (wie projects.js): Admin/Berater, Ersteller oder Mitglied.
+// Sprint 19 — Rollentrennung: Pflegende dürfen alles, BETRACHTER nur lesen.
+const access = require('../utils/projectAccess');
+const getFn = (req) => (sql, p) => scoped(req, (t) => t.get(sql, p));
+
 async function canManage(req, projectId) {
-  const u = req.user;
-  if (['super_admin', 'advisor', 'tenant_owner'].includes(u.role)) return true;
-  const p = await scoped(req, (t) => t.get('SELECT created_by FROM projects WHERE id = ?', [projectId]));
-  if (!p) return false;
-  if (p.created_by === u.id) return true;
-  const m = await scoped(req, (t) => t.get('SELECT id FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, u.id]));
-  return !!m;
+  return access.canManage(getFn(req), req.user, projectId);
 }
+// Schreib-/Löschzugriff (Upload, Ordner, Papierkorb, Publish) — nur Pflegende.
 async function guard(req, res) {
-  if (!(await canManage(req, req.params.projectId))) { res.status(403).json({ success: false, error: 'Kein Zugriff auf den Safe dieses Mandats' }); return false; }
+  if (!(await canManage(req, req.params.projectId))) {
+    res.status(403).json({ success: false, error: 'Kein Schreibzugriff auf den Safe dieses Mandats' });
+    return false;
+  }
+  return true;
+}
+// Lesezugriff (Liste, Baum, Download, Speicherverbrauch) — auch Betrachter.
+async function guardRead(req, res) {
+  if (!(await access.canView(getFn(req), req.user, req.params.projectId))) {
+    res.status(403).json({ success: false, error: 'Kein Zugriff auf den Safe dieses Mandats' });
+    return false;
+  }
   return true;
 }
 
@@ -61,7 +70,7 @@ async function ensureFolderPath(req, projectId, parentId, segments) {
 
 // ── Liste (ein Ordner) + Breadcrumb + Mandats-Info ──────────────────────────
 router.get('/:projectId', authenticate, wrap(async (req, res) => {
-  if (!(await guard(req, res))) return;
+  if (!(await guardRead(req, res))) return;
   const project = await scoped(req, (t) => t.get('SELECT id, codename, mandate_type, industry, status FROM projects WHERE id = ?', [req.params.projectId]));
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
   const pid = req.query.parent_id ? Number(req.query.parent_id) : null;
@@ -83,7 +92,7 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
 
 // ── Ordnerbaum (alle Ordner, für Sidebar) ───────────────────────────────────
 router.get('/:projectId/tree', authenticate, wrap(async (req, res) => {
-  if (!(await guard(req, res))) return;
+  if (!(await guardRead(req, res))) return;
   const folders = await scoped(req, (t) => t.all(
     `SELECT id, name, parent_id FROM safe_items WHERE project_id = ? AND is_folder = 1 AND deleted_at IS NULL ORDER BY name`,
     [req.params.projectId]));
@@ -143,7 +152,7 @@ router.post('/:projectId/upload', authenticate, upload.array('files', 500), wrap
 
 // ── Download / Inline-Vorschau ──────────────────────────────────────────────
 router.get('/:projectId/item/:id/download', authenticate, wrap(async (req, res) => {
-  if (!(await guard(req, res))) return;
+  if (!(await guardRead(req, res))) return;
   const item = await scoped(req, (t) => t.get('SELECT * FROM safe_items WHERE id = ? AND project_id = ?', [req.params.id, req.params.projectId]));
   if (!item || item.is_folder || !item.storage_key) return res.status(404).json({ success: false, error: 'Datei nicht gefunden' });
   const buf = await getStorage().get(item.storage_key);
@@ -243,7 +252,7 @@ router.post('/:projectId/item/:id/publish', authenticate, wrap(async (req, res) 
 
 // ── Speicherverbrauch (Mandat) ──────────────────────────────────────────────
 router.get('/:projectId/usage', authenticate, wrap(async (req, res) => {
-  if (!(await guard(req, res))) return;
+  if (!(await guardRead(req, res))) return;
   const r = await scoped(req, (t) => t.get(
     `SELECT COUNT(*) FILTER (WHERE is_folder = 0)::int AS files,
             COUNT(*) FILTER (WHERE is_folder = 1)::int AS folders,

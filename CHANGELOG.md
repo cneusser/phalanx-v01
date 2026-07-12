@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.247 — 12.07.2026 · Sprint 19a: Mandats-Einladungen (Betrachter / Pflegender)
+- Pflegende laden Kontakte per E-Mail zum Mandat ein — als **Betrachter** (nur lesen) oder **Pflegender** (bearbeiten)
+- **Einladungs-Funnel**: eingeladen → geöffnet → angenommen (+ abgelehnt/widerrufen/abgelaufen), mit Erinnerung & Widerruf
+- Eingeladene ohne Konto registrieren sich über den Token und sind **sofort freigeschaltet** (Token belegt die E-Mail-Adresse) — keine Wartezeit in der Admin-Freigabeschlange
+- Rollen jederzeit änderbar (Betrachter ↔ Pflegender), Zugriff entziehbar; „👥 Team"-Panel im Mandat
+- **Sicherheitsfix:** bis dato galt *jede* `project_members`-Zeile als Vollzugriff. Neue zentrale Rollenauflösung (`utils/projectAccess.js`) trennt `manager` / `viewer` — Betrachter können Safe-Dateien nicht mehr schreiben/löschen und Exposés nicht veröffentlichen
+- Login unterstützt jetzt Rücksprung (`?redirect=`), damit eingeladene Nutzer ihren Token nicht verlieren
+- Schema: `project_invitations` (RLS); Endpoints unter `/api/invitations`
+
 ## v0.246 — 11.07.2026 · Sprint 18: Engagement-Mailings
 - **Newsletter** zu neuen Mandaten (opt-in, jederzeit abbestellbar)
 - **Folgen**: automatisch bei Interesse/NDA (`watchlist.source='auto'`), zusätzlich manuell per Stern auf der Mandatsseite
