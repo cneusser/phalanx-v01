@@ -3,6 +3,19 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.251 — 13.07.2026 · Birdview + CRM: Zusammenführen & Kontaktpflege
+- **Birdview**: Super-Admin kann die Plattform aus Sicht eines Nutzers ansehen (`POST /api/admin/impersonate/:userId`)
+  - JWT trägt den Claim `imp`; die Auth-Middleware erzwingt **strikte Leserechte**: alle schreibenden Methoden werden blockiert, Admin- und CRM-Bereich sind komplett gesperrt (auch über `optionalAuth` — kein Schlupfloch)
+  - Unübersehbares Banner mit Ein-Klick-Rückweg; Token nur 2 h gültig
+  - Revisionssicher: `impersonation_log` (wer, wen, wann, IP) + `IMPERSONATE_START/END` im Audit-Trail
+  - Ansicht anderer Super-Admins ausgeschlossen
+- **CRM: Unternehmen zusammenführen** (`POST /api/crm/companies/:id/merge`) — Kontakte, Funnel-Einträge und Konzern-Verweise wandern mit, leere Felder werden aufgefüllt, Notizen und Tags zusammengeführt, Dublette gelöscht
+- **CRM: Kontaktpflege aus der Unternehmensansicht** — Ansprechpartner direkt anklicken und bearbeiten; Unternehmens-Kontaktdaten (Anschrift, Website, Umsatz, Mitarbeiter) auf einen Blick
+
+## v0.250 — 13.07.2026 · Kontakte Mandaten zuordnen + Deployment-Fix
+- Kontakte lassen sich Mandaten zuordnen: Rolle (Käufer/Berater/Verkäufer/Bank/Anwalt/Ziel) + Funnel-Stufe — aus der Kontaktliste und direkt im Funnel-Board
+- **Fix:** `client/dist` ist im Repo eingecheckt und wird ausgeliefert, wurde aber nicht mitcommittet → Server lief auf v0.249, Oberfläche kam aus v0.248. Der Client-Build wird ab sofort mitcommittet.
+
 ## v0.249 — 13.07.2026 · Sprint 20: Deal-Funnel, Kontakt-Import & DSGVO-Einladung
 - **Teaser-One-Pager**: `teaserReport.js` auf gemessene Zeilenhöhen umgebaut (kein Überlauf mehr) und hart auf **eine Seite** begrenzt (Beschreibung wird am Satzende gekürzt, Highlights nur soweit sie passen). Download nach Login (`GET /api/projects/:id/teaser.pdf`)
 - **Sell-Side-Funnel je Mandat** (`crm_deal_parties`): Longlist → Angesprochen → Rückmeldung → NDA → IM → Gespräch → LOI → DD → Abschluss; Kanban mit Drag & Drop, Rolle (Käufer/Berater/Verkäufer/Bank/Anwalt), Status (aktiv/offen/unklar/ausgestiegen)

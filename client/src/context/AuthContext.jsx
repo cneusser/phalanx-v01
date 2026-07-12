@@ -40,14 +40,46 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('phalanx_token');
+    localStorage.removeItem('phalanx_admin_token');
     setUser(null);
   };
 
-  const isAdmin = user && ['super_admin', 'advisor'].includes(user.role);
+  // ── Birdview: Ansicht als anderer Nutzer ──────────────────────────────────
+  // Das eigene Admin-Token wird beiseitegelegt und beim Beenden wiederhergestellt.
+  const startBirdview = async (userId) => {
+    const data = await api.post(`/admin/impersonate/${userId}`, {});
+    const adminToken = localStorage.getItem('phalanx_token');
+    if (adminToken) localStorage.setItem('phalanx_admin_token', adminToken);
+    localStorage.setItem('phalanx_token', data.token);
+    // Vollständiger Neustart der App, damit wirklich JEDER geladene Zustand
+    // aus der Perspektive des Zielnutzers kommt.
+    window.location.href = '/dashboard';
+  };
+
+  const endBirdview = async () => {
+    try { await api.post('/auth/impersonate/end', {}); } catch (_) { /* trotzdem zurück */ }
+    const adminToken = localStorage.getItem('phalanx_admin_token');
+    if (adminToken) {
+      localStorage.setItem('phalanx_token', adminToken);
+      localStorage.removeItem('phalanx_admin_token');
+      window.location.href = '/admin';
+    } else {
+      // Kein Rückweg vorhanden → sauber abmelden
+      logout();
+      window.location.href = '/login';
+    }
+  };
+
+  const isImpersonating = !!(user && user.impersonated_by);
+  // Im Birdview ist die eigene Admin-Rolle NICHT die des Zielnutzers
+  const isAdmin = user && !isImpersonating && ['super_admin', 'advisor'].includes(user.role);
   const isSeller = user && user.role === 'seller';
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, isAdmin, isSeller }}>
+    <AuthContext.Provider value={{
+      user, loading, login, register, logout, isAdmin, isSeller,
+      isImpersonating, startBirdview, endBirdview,
+    }}>
       {children}
     </AuthContext.Provider>
   );

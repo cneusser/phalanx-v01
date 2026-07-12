@@ -208,6 +208,57 @@ router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { range: rangeKey, funnel, timeseries, mandates, recent, badges, conversions: conv } });
 }));
 
+// ── Birdview: Ansicht als anderer Nutzer öffnen ────────────────────────────
+// Nur Super-Admin. Das ausgestellte Token trägt den Claim `imp` (eigene Id) —
+// damit ist der Zugriff serverseitig schreibgeschützt (siehe middleware/auth.js).
+router.post('/impersonate/:userId', ...isSuperAdmin, wrap(async (req, res) => {
+  const targetId = Number(req.params.userId);
+  if (targetId === req.user.id) return res.status(400).json({ success: false, error: 'Sie sind bereits Sie selbst.' });
+
+  const target = await db.get(
+    'SELECT id, email, role, first_name, last_name, is_active FROM users WHERE id = ?', [targetId]);
+  if (!target) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+  if (!target.is_active) return res.status(400).json({ success: false, error: 'Nutzer ist deaktiviert.' });
+  if (target.role === 'super_admin') {
+    return res.status(403).json({ success: false, error: 'Die Ansicht eines anderen Super-Admins ist nicht möglich.' });
+  }
+
+  // Revisionssicherer Nachweis: wer sieht wessen Ansicht
+  const logId = await db.insert(
+    `INSERT INTO impersonation_log (tenant_id, admin_id, target_user_id, reason, ip)
+     VALUES (?, ?, ?, ?, ?)`,
+    [req.tenantId || 1, req.user.id, targetId, req.body.reason || null, req.ip]).catch(() => null);
+  db.auditLog(req.user.id, 'IMPERSONATE_START', 'user', targetId,
+    `Birdview als ${target.email} (${target.role})`, req.ip);
+
+  const jwt = require('jsonwebtoken');
+  const token = jwt.sign(
+    { userId: targetId, imp: req.user.id, log: logId },
+    process.env.JWT_SECRET || 'phalanx-secret',
+    { expiresIn: '2h' },     // bewusst kurzlebig
+  );
+  res.json({
+    success: true,
+    data: {
+      token,
+      user: { id: target.id, email: target.email, role: target.role, first_name: target.first_name, last_name: target.last_name },
+    },
+  });
+}));
+
+// Birdview-Protokoll (wer hat wann wessen Ansicht geöffnet)
+router.get('/impersonations', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(`
+    SELECT il.id, il.started_at, il.ended_at, il.ip, il.reason,
+           a.first_name || ' ' || a.last_name AS admin_name, a.email AS admin_email,
+           t.first_name || ' ' || t.last_name AS target_name, t.email AS target_email
+    FROM impersonation_log il
+    JOIN users a ON a.id = il.admin_id
+    JOIN users t ON t.id = il.target_user_id
+    ORDER BY il.started_at DESC LIMIT 200`).catch(() => []);
+  res.json({ success: true, data: rows });
+}));
+
 // ── Projects ──────────────────────────────────────────────────────────────
 router.get('/projects', ...isAdmin, wrap(async (req, res) => {
   const projects = (await db.all(`

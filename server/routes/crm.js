@@ -165,6 +165,69 @@ router.put('/companies/:id', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Gespeichert' } });
 }));
 
+// ── Unternehmen zusammenführen (Dubletten aufräumen) ───────────────────────
+// Alles von `source` wandert zu `target`: Kontakte, Funnel-Einträge, Töchter.
+// Leere Felder in `target` werden aus `source` aufgefüllt (nichts geht verloren).
+router.post('/companies/:id/merge', ...isStaff, wrap(async (req, res) => {
+  const targetId = Number(req.params.id);
+  const sourceId = Number(req.body.source_id);
+  if (!sourceId || sourceId === targetId) {
+    return res.status(400).json({ success: false, error: 'Bitte ein anderes Unternehmen zum Zusammenführen wählen.' });
+  }
+  const target = await scoped(req, (t) => t.get('SELECT * FROM crm_companies WHERE id = ?', [targetId]));
+  const source = await scoped(req, (t) => t.get('SELECT * FROM crm_companies WHERE id = ?', [sourceId]));
+  if (!target || !source) return res.status(404).json({ success: false, error: 'Unternehmen nicht gefunden' });
+
+  // 1) Leere Felder im Ziel aus der Quelle auffüllen
+  const FILLABLE = ['street', 'postal_code', 'city', 'country', 'website', 'industry', 'region',
+    'revenue_band', 'employees', 'company_type', 'buyer_category', 'investment_criteria', 'description'];
+  const sets = []; const params = [];
+  for (const f of FILLABLE) {
+    if ((target[f] === null || target[f] === '' || target[f] === undefined) && source[f]) {
+      sets.push(`${f} = ?`); params.push(source[f]);
+    }
+  }
+  // Notizen zusammenführen statt überschreiben
+  if (source.notes) {
+    const merged = [target.notes, `— aus „${source.name}": ${source.notes}`].filter(Boolean).join('\n');
+    sets.push('notes = ?'); params.push(merged);
+  }
+  // Tags vereinigen
+  const tTags = safeJson(target.tags_json, []); const sTags = safeJson(source.tags_json, []);
+  const allTags = [...new Set([...tTags, ...sTags])];
+  if (allTags.length !== tTags.length) { sets.push('tags_json = ?'); params.push(JSON.stringify(allTags)); }
+  if (sets.length) {
+    sets.push('updated_at = now()');
+    params.push(targetId);
+    await scoped(req, (t) => t.run(`UPDATE crm_companies SET ${sets.join(', ')} WHERE id = ?`, params));
+  }
+
+  // 2) Kontaktzuordnungen umhängen (Dubletten vermeiden)
+  const srcLinks = await scoped(req, (t) => t.all('SELECT * FROM crm_company_contacts WHERE company_id = ?', [sourceId]));
+  let movedContacts = 0;
+  for (const l of srcLinks) {
+    const dup = await scoped(req, (t) => t.get(
+      'SELECT id FROM crm_company_contacts WHERE company_id = ? AND contact_id = ?', [targetId, l.contact_id]));
+    if (dup) {
+      await scoped(req, (t) => t.run('DELETE FROM crm_company_contacts WHERE id = ?', [l.id]));
+    } else {
+      await scoped(req, (t) => t.run('UPDATE crm_company_contacts SET company_id = ? WHERE id = ?', [targetId, l.id]));
+      movedContacts++;
+    }
+  }
+
+  // 3) Funnel-Einträge und Konzern-Verweise umhängen
+  await scoped(req, (t) => t.run('UPDATE crm_deal_parties SET company_id = ? WHERE company_id = ?', [targetId, sourceId])).catch(() => {});
+  await scoped(req, (t) => t.run('UPDATE crm_companies SET parent_company_id = ? WHERE parent_company_id = ?', [targetId, sourceId])).catch(() => {});
+
+  // 4) Quelle löschen
+  await scoped(req, (t) => t.run('DELETE FROM crm_companies WHERE id = ?', [sourceId]));
+
+  db.auditLog(req.user.id, 'CRM_COMPANY_MERGED', 'crm_company', targetId,
+    `„${source.name}" → „${target.name}" (${movedContacts} Kontakte übernommen)`, req.ip);
+  res.json({ success: true, data: { merged_into: targetId, moved_contacts: movedContacts } });
+}));
+
 router.delete('/companies/:id', ...isStaff, wrap(async (req, res) => {
   await scoped(req, (t) => t.run('DELETE FROM crm_companies WHERE id = ?', [req.params.id]));
   db.auditLog(req.user.id, 'CRM_COMPANY_DELETED', 'crm_company', req.params.id, null, req.ip);

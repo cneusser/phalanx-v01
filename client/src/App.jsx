@@ -19,6 +19,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import InvitationAccept from './pages/InvitationAccept';
 import Crm from './pages/Crm';
 import ConsentInvite from './pages/ConsentInvite';
+import BirdviewBanner from './components/BirdviewBanner';
 import Messages from './pages/Messages';
 import Register from './pages/Register';
 import Login from './pages/Login';
@@ -67,6 +68,7 @@ function Footer() {
 function AppRoutes() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <BirdviewBanner />
       <Navbar />
       <main style={{ flex: 1 }}>
         <Routes>

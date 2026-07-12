@@ -223,7 +223,19 @@ export default function Crm() {
       {/* Sprint 20: Sell-Side-Funnel je Mandat (Longlist → Closing) */}
       {tab === 'funnel' && <DealFunnelBoard show={show} />}
 
-      {detail && <CompanyDetail data={detail} onClose={() => setDetail(null)} onChanged={() => { openCompany(detail.company.id); load(); }} onEdit={() => setEditCompany(detail.company)} contactsAll={contacts} show={show} />}
+      {detail && (
+        <CompanyDetail
+          data={detail}
+          companies={companies}
+          onClose={() => setDetail(null)}
+          onChanged={() => { openCompany(detail.company.id); load(); }}
+          onMerged={() => { setDetail(null); load(); }}
+          onEdit={() => setEditCompany(detail.company)}
+          onEditContact={(k) => setEditContact(k)}
+          contactsAll={contacts}
+          show={show}
+        />
+      )}
       {editCompany && <CompanyForm company={editCompany} companies={companies} onClose={() => setEditCompany(null)} onSaved={() => { setEditCompany(null); load(); show('Gespeichert ✓'); }} />}
       {editContact && <ContactForm contact={editContact} companies={companies} onClose={() => setEditContact(null)} onSaved={() => { setEditContact(null); load(); show('Gespeichert ✓'); }} />}
       {importOpen && <ImportModal onClose={() => setImportOpen(false)} onDone={(r) => { setImportOpen(false); load(); show(`Import: ${r.created} angelegt, ${r.skipped} übersprungen (Dubletten)`); }} />}
@@ -342,10 +354,12 @@ function AssignDealModal({ contact, projects, stages, onClose, show }) {
 }
 
 // ── Unternehmens-Detail: Kontakte, Konzern, Historie ─────────────────────────
-function CompanyDetail({ data, onClose, onChanged, onEdit, contactsAll, show }) {
+function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, onEditContact, contactsAll, show }) {
   const { company, contacts, history, subsidiaries } = data;
   const [addId, setAddId] = useState('');
   const [pos, setPos] = useState('');
+  const [mergeId, setMergeId] = useState('');
+  const [merging, setMerging] = useState(false);
 
   async function link() {
     if (!addId) return;
@@ -353,6 +367,24 @@ function CompanyDetail({ data, onClose, onChanged, onEdit, contactsAll, show }) 
       await api.post(`/crm/companies/${company.id}/contacts`, { contact_id: Number(addId), position: pos });
       setAddId(''); setPos(''); onChanged();
     } catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  // Dublette in dieses Unternehmen zusammenführen
+  async function merge() {
+    if (!mergeId) return;
+    const src = companies.find(c => String(c.id) === String(mergeId));
+    if (!window.confirm(
+      `„${src?.name}" in „${company.name}" zusammenführen?\n\n` +
+      `• Alle Kontakte und Funnel-Einträge wandern zu „${company.name}".\n` +
+      `• Leere Felder werden aus der Dublette aufgefüllt, Notizen zusammengeführt.\n` +
+      `• „${src?.name}" wird danach gelöscht.\n\nDas lässt sich nicht rückgängig machen.`)) return;
+    setMerging(true);
+    try {
+      const r = await api.post(`/crm/companies/${company.id}/merge`, { source_id: Number(mergeId) });
+      show(`Zusammengeführt ✓ (${r.moved_contacts} Kontakt(e) übernommen)`);
+      onMerged();
+    } catch (e) { show('Fehler: ' + e.message); }
+    finally { setMerging(false); }
   }
   async function endPosition(linkId) {
     if (!window.confirm('Position beenden? Der Eintrag wandert in die Historie (Unternehmenswechsel).')) return;
@@ -376,7 +408,30 @@ function CompanyDetail({ data, onClose, onChanged, onEdit, contactsAll, show }) 
           </div>
         </div>
 
-        {company.website && <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: C.accent }}>{company.website}</a>}
+        {/* Kontaktdaten des Unternehmens */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.8rem 1rem', margin: '0.75rem 0' }}>
+          {[
+            ['Anschrift', [company.street, [company.postal_code, company.city].filter(Boolean).join(' '), company.country].filter(Boolean).join(', ')],
+            ['Website', company.website],
+            ['Umsatz', company.revenue_band],
+            ['Mitarbeiter', company.employees],
+            ['Käuferkategorie', company.buyer_category],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <div style={{ fontSize: '0.64rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+              {label === 'Website' && value ? (
+                <a href={String(value).startsWith('http') ? value : `https://${value}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: C.accent, wordBreak: 'break-all' }}>{value}</a>
+              ) : (
+                <div style={{ fontSize: '0.8rem', color: value ? C.text : '#cbd5e1' }}>{value || '—'}</div>
+              )}
+            </div>
+          ))}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <button onClick={onEdit} style={{ background: 'none', border: 'none', color: C.accent, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+              ✎ Unternehmensdaten ergänzen
+            </button>
+          </div>
+        </div>
         {company.investment_criteria && (
           <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.75rem 1rem', margin: '0.75rem 0', fontSize: '0.83rem' }}>
             <strong style={{ color: C.navy }}>Investitionskriterien: </strong>{company.investment_criteria}
@@ -398,11 +453,18 @@ function CompanyDetail({ data, onClose, onChanged, onEdit, contactsAll, show }) 
         {contacts.map(k => (
           <div key={k.link_id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.75rem', border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: '0.35rem' }}>
             {k.is_decision_maker === 1 && <Star size={13} color="#f59e0b" fill="#f59e0b" />}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: C.text }}>{[k.title, k.first_name, k.last_name].filter(Boolean).join(' ')}</div>
-              <div style={{ fontSize: '0.72rem', color: C.muted }}>{[k.position, k.email].filter(Boolean).join(' · ')}</div>
+            {/* Klick → Kontakt direkt aus der Unternehmensansicht pflegen */}
+            <div
+              onClick={() => onEditContact({ ...k, id: k.id })}
+              title="Kontakt bearbeiten"
+              style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: C.navy }}>{[k.title, k.first_name, k.last_name].filter(Boolean).join(' ')}</div>
+              <div style={{ fontSize: '0.72rem', color: C.muted }}>
+                {[k.position, k.email, k.mobile || k.phone].filter(Boolean).join(' · ') || 'Keine Kontaktdaten — klicken zum Ergänzen'}
+              </div>
             </div>
             <Badge map={CONSENT} value={k.consent_status} />
+            <button onClick={() => onEditContact({ ...k, id: k.id })} title="Kontakt bearbeiten" style={{ background: '#EEF4FB', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.25rem 0.5rem', fontSize: '0.7rem', cursor: 'pointer', color: C.accent, fontWeight: 700 }}>✎</button>
             <button onClick={() => endPosition(k.link_id)} title="Position beenden (Historie)" style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.25rem 0.5rem', fontSize: '0.7rem', cursor: 'pointer', color: C.muted }}>beenden</button>
           </div>
         ))}
@@ -416,6 +478,29 @@ function CompanyDetail({ data, onClose, onChanged, onEdit, contactsAll, show }) 
           </select>
           <input value={pos} onChange={e => setPos(e.target.value)} placeholder="Position" style={INPUT} />
           <button onClick={link} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0 0.9rem', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}>+</button>
+        </div>
+
+        {/* Dublette zusammenführen */}
+        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '0.9rem 1rem', marginTop: '1.25rem' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#92400e', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>DUBLETTE ZUSAMMENFÜHREN</div>
+          <p style={{ fontSize: '0.75rem', color: '#92400e', margin: '0 0 0.6rem', lineHeight: 1.5 }}>
+            Wählen Sie das doppelte Unternehmen — dessen Kontakte, Funnel-Einträge und Angaben wandern
+            in <strong>{company.name}</strong>, danach wird es gelöscht.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.4rem' }}>
+            <select value={mergeId} onChange={e => setMergeId(e.target.value)} style={INPUT}>
+              <option value="">Doppeltes Unternehmen wählen…</option>
+              {companies.filter(c => c.id !== company.id).map(c => (
+                <option key={c.id} value={c.id}>{c.name}{c.city ? ` · ${c.city}` : ''} ({c.contact_count} Kontakte)</option>
+              ))}
+            </select>
+            <button onClick={merge} disabled={!mergeId || merging} style={{
+              background: mergeId ? '#92400e' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: 8,
+              padding: '0 1rem', fontWeight: 700, fontSize: '0.8rem', cursor: mergeId ? 'pointer' : 'default', whiteSpace: 'nowrap',
+            }}>
+              {merging ? 'Führe zusammen…' : 'Zusammenführen'}
+            </button>
+          </div>
         </div>
 
         {/* Historie */}

@@ -125,9 +125,32 @@ router.post('/login', wrap(async (req, res) => {
 }));
 
 // ── GET /me ────────────────────────────────────────────────────────────────
+// req.user trägt im Birdview zusätzlich `impersonated_by` → der Client zeigt
+// darauf das Warn-Banner an.
 router.get('/me', authenticate, wrap(async (req, res) => {
   const profile = await db.get('SELECT * FROM buyer_profiles WHERE user_id = ?', [req.user.id]);
   res.json({ success: true, data: { user: req.user, profile } });
+}));
+
+// ── POST /impersonate/end — Birdview beenden ───────────────────────────────
+// Muss auch im schreibgeschützten Zustand erlaubt sein (Ausnahme im Guard).
+router.post('/impersonate/end', authenticate, wrap(async (req, res) => {
+  if (!req.impersonatedBy) {
+    return res.status(400).json({ success: false, error: 'Es ist keine Birdview-Sitzung aktiv.' });
+  }
+  const jwtLib = require('jsonwebtoken');
+  let logId = null;
+  try {
+    const decoded = jwtLib.decode((req.headers.authorization || '').split(' ')[1]);
+    logId = decoded && decoded.log ? decoded.log : null;
+  } catch (_) { /* egal */ }
+
+  if (logId) {
+    await db.run(`UPDATE impersonation_log SET ended_at = now() WHERE id = ? AND ended_at IS NULL`, [logId]).catch(() => {});
+  }
+  db.auditLog(req.impersonatedBy, 'IMPERSONATE_END', 'user', req.user.id,
+    `Birdview beendet (${req.user.email})`, req.ip);
+  res.json({ success: true, data: { message: 'Birdview beendet' } });
 }));
 
 // ── POST /forgot-password ──────────────────────────────────────────────────

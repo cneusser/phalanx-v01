@@ -16,7 +16,10 @@ async function request(method, path, body = null) {
   const data = await res.json();
 
   if (!res.ok) {
-    throw new Error(data.error || 'Ein Fehler ist aufgetreten');
+    const err = new Error(data.error || 'Ein Fehler ist aufgetreten');
+    err.status = res.status;
+    err.code = data.code || null;   // z. B. IMPERSONATION_READONLY, EMAIL_UNVERIFIED
+    throw err;
   }
   return data.data;
 }

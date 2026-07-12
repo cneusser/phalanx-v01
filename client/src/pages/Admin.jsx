@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import {
   BarChart3, Users, FileText, CheckCircle, Plus, Eye, X, Building2,
   Edit2, Activity, Send, Download, Upload, Trash2, Lock, Globe, Shield,
@@ -96,6 +97,7 @@ const INPUT_STYLE = {
 };
 
 export default function Admin() {
+  const { startBirdview } = useAuth();
   const [stats, setStats] = useState(null);
   const [projects, setProjects] = useState([]);
   const [ndas, setNdas] = useState([]);
@@ -178,6 +180,19 @@ export default function Admin() {
       const d = await api.get(`/admin/users/${id}`);
       setUserDetail(d);
     } catch (e) { showMsg(e.message, 'error'); }
+  }
+
+  // Birdview — Plattform aus Sicht eines Nutzers ansehen (schreibgeschützt, protokolliert)
+  async function birdview(u) {
+    const name = `${u.first_name} ${u.last_name}`.trim();
+    if (!window.confirm(
+      `Plattform als „${name}" (${u.email}) ansehen?\n\n` +
+      `• Die Ansicht ist SCHREIBGESCHÜTZT — Sie können nichts verändern.\n` +
+      `• Admin- und CRM-Bereich sind währenddessen gesperrt.\n` +
+      `• Der Vorgang wird revisionssicher protokolliert.\n\n` +
+      `Sie können jederzeit über das Banner oben zurückkehren.`)) return;
+    try { await startBirdview(u.id); }
+    catch (e) { showMsg(e.message, 'error'); }
   }
 
   function exportUserAudit(id) {
@@ -1153,6 +1168,15 @@ export default function Admin() {
                       <button onClick={() => openUserDetail(u.id)} style={{ background: C.bg, color: C.navy, border: `1px solid ${C.border}`, padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
                         Details
                       </button>
+                      {/* Birdview: Plattform mit den Augen dieses Nutzers sehen (schreibgeschützt) */}
+                      {u.is_active === 1 && u.role !== 'super_admin' && (
+                        <button
+                          onClick={() => birdview(u)}
+                          title="Ansicht als dieser Nutzer (schreibgeschützt, wird protokolliert)"
+                          style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
+                          👁 Birdview
+                        </button>
+                      )}
                       {!u.is_approved && (
                         <button onClick={() => approveUser(u.id)} style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
                           ✓ Freigeben
