@@ -10,6 +10,7 @@ import {
 import GroupedSelect from '../components/GroupedSelect';
 import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES } from '../constants/projectOptions';
 import DealCrmModal, { DEAL_STATUS_LABELS, DEAL_TRANSITIONS } from '../components/DealCrmModal';
+import ContactDrawer from '../components/ContactDrawer';
 
 // Auswahllisten je Formularfeld (statt Freitext) — abhängig vom Mandatstyp
 const fieldOptions = (key, mandateType) => {
@@ -103,6 +104,10 @@ export default function Admin() {
   const [ndas, setNdas] = useState([]);
   const [users, setUsers] = useState([]);
   const [activity, setActivity] = useState([]);
+  // CRM-Kontakte im Dashboard (360°-Ansicht: Stammdaten, Mandate, Aktivitäten)
+  const [crmContacts, setCrmContacts] = useState([]);
+  const [contactSearch, setContactSearch] = useState('');
+  const [drawerContact, setDrawerContact] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   // Sprint 16: Analytics-Cockpit
@@ -365,6 +370,13 @@ export default function Admin() {
     finally { setAuditLoading(false); }
   }
 
+  async function loadCrmContacts() {
+    try {
+      const d = await api.get(`/crm/contacts/search?q=${encodeURIComponent(contactSearch)}`);
+      setCrmContacts(d.contacts || []);
+    } catch { /* CRM ggf. leer */ }
+  }
+
   useEffect(() => {
     if (activeTab === 'activity') loadActivity();
     if (activeTab === 'audit') loadAuditLogs(1);
@@ -373,7 +385,16 @@ export default function Admin() {
     if (activeTab === 'detvals') loadDetVals();
     if (activeTab === 'changelog') loadChangelog();
     if (activeTab === 'feedback') loadFeedback();
+    if (activeTab === 'contacts') loadCrmContacts();
   }, [activeTab]);
+
+  // Suche im Kontakte-Tab (entprellt)
+  useEffect(() => {
+    if (activeTab !== 'contacts') return;
+    const t = setTimeout(loadCrmContacts, 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactSearch]);
 
   useEffect(() => {
     if (activeTab === 'audit') loadAuditLogs(auditPage);
@@ -561,13 +582,14 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'contacts', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
     projects: 'Projekte',
     ndas:     'NDA-Anfragen',
     users:    'Nutzer',
+    contacts: 'Kontakte',
     leads:    'Bewertungs-Leads',
     detvals:  'Ausf. Bewertungen',
     multiples: 'Multiples',
@@ -1118,6 +1140,73 @@ export default function Admin() {
       )}
 
       {/* Users Tab */}
+      {activeTab === 'contacts' && (
+        <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+          <div style={{ padding: '0.9rem 1rem', borderBottom: `1px solid ${C.border}`, background: C.bg, display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              value={contactSearch}
+              onChange={e => setContactSearch(e.target.value)}
+              placeholder="Kontakt suchen (Name, E-Mail, Unternehmen)…"
+              style={{ flex: 1, minWidth: 240, maxWidth: 420, padding: '0.5rem 0.75rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.83rem', outline: 'none', boxSizing: 'border-box' }}
+            />
+            <span style={{ fontSize: '0.78rem', color: C.muted }}>{crmContacts.length} Kontakt(e) · Klick öffnet die 360°-Ansicht</span>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
+              <thead>
+                <tr style={{ background: C.bg, textAlign: 'left', color: C.muted, fontSize: '0.7rem', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '0.6rem 1rem' }}>Name</th>
+                  <th style={{ padding: '0.6rem' }}>Unternehmen</th>
+                  <th style={{ padding: '0.6rem' }}>Einwilligung</th>
+                  <th style={{ padding: '0.6rem' }}>Mandate</th>
+                  <th style={{ padding: '0.6rem' }}>Letzte Ansprache</th>
+                  <th style={{ padding: '0.6rem' }}>Konto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {crmContacts.map(k => {
+                  const blocked = k.consent_status === 'opt_out' || k.contact_status === 'do_not_contact';
+                  return (
+                    <tr key={k.id} onClick={() => setDrawerContact(k.id)}
+                        style={{ borderTop: `1px solid ${C.border}`, cursor: 'pointer' }}>
+                      <td style={{ padding: '0.6rem 1rem' }}>
+                        <div style={{ fontWeight: 700, color: C.navy }}>
+                          {k.is_decision_maker === 1 ? '★ ' : ''}{[k.title, k.first_name, k.last_name].filter(Boolean).join(' ')}
+                        </div>
+                        <div style={{ color: C.muted, fontSize: '0.75rem' }}>{k.email || '—'}</div>
+                      </td>
+                      <td style={{ padding: '0.6rem', color: C.muted }}>{k.companies || '—'}</td>
+                      <td style={{ padding: '0.6rem' }}>
+                        {blocked
+                          ? <span style={{ background: '#fee2e2', color: '#991b1b', padding: '0.1rem 0.45rem', borderRadius: 10, fontSize: '0.7rem', fontWeight: 700 }}>Widerspruch</span>
+                          : k.consent_status === 'opt_in'
+                            ? <span style={{ background: '#d1fae5', color: '#065f46', padding: '0.1rem 0.45rem', borderRadius: 10, fontSize: '0.7rem', fontWeight: 700 }}>erteilt</span>
+                            : <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.1rem 0.45rem', borderRadius: 10, fontSize: '0.7rem', fontWeight: 700 }}>offen</span>}
+                      </td>
+                      <td style={{ padding: '0.6rem', color: C.muted }}>{k.deals || 0}</td>
+                      <td style={{ padding: '0.6rem', color: C.muted }}>{k.last_mail ? new Date(k.last_mail).toLocaleDateString('de-DE') : '—'}</td>
+                      <td style={{ padding: '0.6rem', color: k.user_id ? '#059669' : C.muted, fontWeight: k.user_id ? 700 : 400 }}>{k.user_id ? 'aktiv' : '—'}</td>
+                    </tr>
+                  );
+                })}
+                {!crmContacts.length && (
+                  <tr><td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: C.muted }}>Keine Kontakte gefunden.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {drawerContact && (
+        <ContactDrawer
+          contactId={drawerContact}
+          onClose={() => setDrawerContact(null)}
+          onChanged={loadCrmContacts}
+          show={showMsg}
+        />
+      )}
+
       {activeTab === 'users' && (
         <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
           {/* Nutzer-Suche */}

@@ -340,6 +340,15 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
     FROM crm_deal_parties dp JOIN projects p ON p.id = dp.project_id
     WHERE dp.contact_id = ? ORDER BY dp.funnel_stage DESC`, [req.params.id])).catch(() => []);
 
+  // Aktivitäten-Timeline: Einladungen, Mailings, Reminder, Pflege-Links, Selbstpflege
+  const activity = await contactActivity(req, req.params.id);
+
+  // Plattform-Konto (falls der Kontakt registriert ist)
+  const account = contact.user_id
+    ? await db.get(`SELECT id, email, role, is_approved, is_active, email_verified, created_at, last_login
+                      FROM users WHERE id = ?`, [contact.user_id]).catch(() => null)
+    : null;
+
   res.json({
     success: true,
     data: {
@@ -347,8 +356,75 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
       current: links.filter(l => !l.ended_on),
       history: links.filter(l => l.ended_on),   // frühere Positionen / Unternehmenswechsel
       deals,
+      activity,
+      account,
     },
   });
+}));
+
+// Aktivitäten eines Kontakts, chronologisch — was ist wann rausgegangen, was kam zurück?
+async function contactActivity(req, contactId) {
+  const ev = [];
+  const push = (ts, type, label, detail) => { if (ts) ev.push({ ts, type, label, detail: detail || null }); };
+
+  const invites = await scoped(req, (t) => t.all(
+    `SELECT i.*, p.codename FROM crm_invitations i LEFT JOIN projects p ON p.id = i.project_id
+      WHERE i.contact_id = ? ORDER BY i.invited_at DESC LIMIT 30`, [contactId])).catch(() => []);
+  for (const i of invites) {
+    push(i.invited_at, 'invite', 'Einladung versendet', i.codename ? `Mandat ${i.codename}` : 'Plattform-Einladung');
+    push(i.opened_at, 'open', 'Einladung geöffnet', null);
+    push(i.consent_at, 'consent', 'Einwilligung erteilt', `Nachweis: ${i.consent_text_version || '—'} · IP ${i.consent_ip || '—'}`);
+    push(i.registered_at, 'register', 'Konto angelegt', i.email);
+    if (i.status === 'declined') push(i.invited_at, 'decline', 'Widerspruch erklärt', 'Kontakt wird nicht mehr angeschrieben');
+  }
+
+  const mails = await scoped(req, (t) => t.all(`
+    SELECT r.*, c.name AS campaign_name, c.purpose, p.codename
+    FROM crm_campaign_recipients r
+    JOIN crm_campaigns c ON c.id = r.campaign_id
+    LEFT JOIN projects p ON p.id = c.project_id
+    WHERE r.contact_id = ? ORDER BY r.sent_at DESC LIMIT 30`, [contactId])).catch(() => []);
+  for (const m of mails) {
+    const what = m.purpose === 'update' ? 'Prozess-Update' : 'Mandats-Mailing';
+    push(m.sent_at, 'mail', `${what} versendet`, m.codename ? `Mandat ${m.codename}` : m.campaign_name);
+    push(m.last_reminder_at, 'reminder', `Erinnerung ${m.reminder_count}/2 versendet`, m.codename ? `Mandat ${m.codename}` : null);
+    push(m.responded_at, 'response', 'Reaktion erfasst', m.skip_reason || null);
+  }
+
+  const plinks = await scoped(req, (t) => t.all(
+    `SELECT * FROM crm_profile_links WHERE contact_id = ? ORDER BY id DESC LIMIT 10`, [contactId])).catch(() => []);
+  for (const l of plinks) {
+    push(l.created_at, 'link', 'Pflege-Link versendet', l.requires_approval ? 'Änderungen nur nach Freigabe' : 'Änderungen werden direkt übernommen');
+    push(l.last_opened_at, 'open', 'Pflege-Link geöffnet', null);
+    push(l.last_saved_at, 'selfcare', 'Kontakt hat Daten gespeichert', null);
+  }
+
+  const changes = await scoped(req, (t) => t.all(
+    `SELECT * FROM crm_profile_changes WHERE contact_id = ? ORDER BY id DESC LIMIT 20`, [contactId])).catch(() => []);
+  for (const c of changes) {
+    const fields = Object.keys(safeJson(c.after_json, {})).join(', ');
+    push(c.created_at, 'selfcare', c.status === 'pending' ? 'Selbstpflege — wartet auf Freigabe' : 'Selbstpflege übernommen', fields || null);
+  }
+
+  return ev.sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 60);
+}
+
+// Kompakte Kontaktliste fürs Admin-Dashboard (Suche über Name, E-Mail, Unternehmen)
+router.get('/contacts/search', ...isStaff, wrap(async (req, res) => {
+  const q = `%${String(req.query.q || '').toLowerCase()}%`;
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT k.id, k.salutation, k.title, k.first_name, k.last_name, k.email, k.phone, k.mobile,
+           k.consent_status, k.contact_status, k.is_decision_maker, k.user_id, k.profile_updated_at,
+           (SELECT string_agg(c.name, ', ') FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
+             WHERE cc.contact_id = k.id AND cc.ended_on IS NULL) AS companies,
+           (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.contact_id = k.id) AS deals,
+           (SELECT MAX(r.sent_at) FROM crm_campaign_recipients r WHERE r.contact_id = k.id) AS last_mail
+    FROM crm_contacts k
+    WHERE (? = '%%' OR lower(coalesce(k.first_name,'') || ' ' || coalesce(k.last_name,'') || ' ' || coalesce(k.email,'')) LIKE ?
+           OR EXISTS (SELECT 1 FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
+                       WHERE cc.contact_id = k.id AND lower(c.name) LIKE ?))
+    ORDER BY k.last_name, k.first_name LIMIT 200`, [q, q, q]));
+  res.json({ success: true, data: { contacts: rows } });
 }));
 
 // ── Zuordnung Kontakt ↔ Unternehmen ─────────────────────────────────────────

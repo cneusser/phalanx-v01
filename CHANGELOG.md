@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.254 — 16.07.2026 · Mandat FARADAY live + Kontakt-360°-Ansicht
+- **FARADAY vollständig online**: Elektrotechnik-/Energiedienstleister (Bayern, Metropolregion Nürnberg), Umsatz € 1,65 Mio., EBIT-Marge 14,4 %, 260+ Ladepunkte, Pflichtnehmer-Stellung bei einem Messe-/Kongressstandort. Eckdaten, Detailseite, **vollständiges Exposé** (9 Sektionen + Keyfacts) und Dokumenten-Slots (Teaser öffentlich, IM + Finanzplanung nach NDA) — durchgängig **anonymisiert** (kein Klar-, Inhaber- oder Kundenname)
+- **Kontakt-360°-Ansicht** (`ContactDrawer`): Klick auf einen Namen im Deal-Funnel, in der CRM-Kontaktliste oder im Admin-Dashboard öffnet Stammdaten (editierbar), Mandats-Zuordnungen und die vollständige Historie
+- **Aktivitäten-Timeline** je Kontakt: Einladung versendet/geöffnet, Einwilligung erteilt (mit Nachweis), Konto angelegt, Mandats-Mailing, Erinnerung 1/2 bzw. 2/2, Pflege-Link versendet/geöffnet, Selbstpflege gespeichert, Widerspruch
+- Funnel-Stufe und Beteiligten-Status direkt aus der Kontaktansicht änderbar; Pflege-Link und DSGVO-Einladung mit einem Klick
+- Neuer Admin-Tab **„Kontakte"** mit Suche über Name, E-Mail und Unternehmen (Einwilligungs-Ampel, Mandatszahl, letzte Ansprache, Konto-Status)
+
 ## v0.253 — 15.07.2026 · CRM III: Mandats-Mailings & automatisches Nachfassen
 - **„Alle auswählen"** im Deal-Funnel — global oder je Funnel-Stufe (Klick auf die Spaltenüberschrift). Kontakte mit Widerspruch werden gar nicht erst angehakt
 - **Massenmailing je Mandat** (`crm_campaigns`): eine professionell aufgebaute M&A-Ansprache mit anonymem Kurzprofil (Branche, Region, Umsatz-/EBITDA-Band, Transaktionsart), Prozessablauf (Teaser → NDA → IM/Datenraum → Gespräch/LOI), Beraterunterschrift und Rechtshinweis

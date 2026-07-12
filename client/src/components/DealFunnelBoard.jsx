@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
 import { Star, AlertTriangle, Mail, ShieldCheck, ShieldOff, Send, CheckSquare, Square, BellRing, Megaphone } from 'lucide-react';
+import ContactDrawer from './ContactDrawer';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const SELECT = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
@@ -26,6 +27,7 @@ export default function DealFunnelBoard({ show }) {
   const [campaign, setCampaign] = useState(false);      // Massenmailing-Modal
   const [updateMail, setUpdateMail] = useState(false);  // Projekt-Update-Modal
   const [camps, setCamps] = useState([]);               // versendete Kampagnen
+  const [openContact, setOpenContact] = useState(null); // Kontakt-360°-Ansicht
   // Kontakt direkt zum Mandat hinzufügen
   const [allContacts, setAllContacts] = useState([]);
   const [addContact, setAddContact] = useState('');
@@ -317,7 +319,12 @@ export default function DealFunnelBoard({ show }) {
                             style={{ marginTop: 2, flexShrink: 0 }}
                           />
                           <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ fontWeight: 700, fontSize: '0.78rem', color: C.text, display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <div
+                              onClick={(e) => { e.stopPropagation(); setOpenContact(p.contact_id); }}
+                              title="Kontakt öffnen, pflegen und Aktivitäten sehen"
+                              style={{ fontWeight: 700, fontSize: '0.78rem', color: C.accent, display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'transparent' }}
+                              onMouseEnter={e => { e.currentTarget.style.textDecorationColor = C.accent; }}
+                              onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; }}>
                               {p.is_decision_maker === 1 && <Star size={10} color="#f59e0b" fill="#f59e0b" />}
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {[p.first_name, p.last_name].filter(Boolean).join(' ')}
@@ -380,6 +387,15 @@ export default function DealFunnelBoard({ show }) {
             setCampaign(false); setSelected([]); loadBoard();
             show(`Mailing versendet: ${r.sent} Kontakt(e) · ${r.skipped} übersprungen`);
           }}
+          show={show}
+        />
+      )}
+
+      {openContact && (
+        <ContactDrawer
+          contactId={openContact}
+          onClose={() => setOpenContact(null)}
+          onChanged={loadBoard}
           show={show}
         />
       )}

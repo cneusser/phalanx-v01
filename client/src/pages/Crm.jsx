@@ -5,6 +5,7 @@ import {
   Mail, Phone, Linkedin, AlertCircle, ChevronRight, KanbanSquare, Send,
 } from 'lucide-react';
 import DealFunnelBoard from '../components/DealFunnelBoard';
+import ContactDrawer from '../components/ContactDrawer';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.55rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
@@ -30,6 +31,7 @@ export default function Crm() {
   const [editCompany, setEditCompany] = useState(null);
   const [editContact, setEditContact] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [drawerContact, setDrawerContact] = useState(null); // Kontakt-360°-Ansicht
   const [assign, setAssign] = useState(null);        // Kontakt, der einem Mandat zugeordnet wird
   const [projects, setProjects] = useState([]);      // Mandate für die Zuordnung
   const [stages, setStages] = useState([]);
@@ -244,7 +246,7 @@ export default function Crm() {
             </thead>
             <tbody>
               {contacts.map(k => (
-                <tr key={k.id} onClick={() => setEditContact(k)} style={{ borderTop: `1px solid ${C.border}`, cursor: 'pointer' }}>
+                <tr key={k.id} onClick={() => setDrawerContact(k.id)} style={{ borderTop: `1px solid ${C.border}`, cursor: 'pointer' }}>
                   <td style={{ padding: '0.7rem 1rem' }}>
                     <div style={{ fontWeight: 700, color: C.navy, display: 'flex', alignItems: 'center', gap: 5 }}>
                       {k.is_decision_maker === 1 && <Star size={12} color="#f59e0b" fill="#f59e0b" />}
@@ -305,6 +307,9 @@ export default function Crm() {
           contactsAll={contacts}
           show={show}
         />
+      )}
+      {drawerContact && (
+        <ContactDrawer contactId={drawerContact} onClose={() => setDrawerContact(null)} onChanged={load} show={show} />
       )}
       {editCompany && <CompanyForm company={editCompany} companies={companies} onClose={() => setEditCompany(null)} onSaved={() => { setEditCompany(null); load(); show('Gespeichert ✓'); }} />}
       {editContact && <ContactForm contact={editContact} companies={companies} onClose={() => setEditContact(null)} onSaved={() => { setEditContact(null); load(); show('Gespeichert ✓'); }} />}
