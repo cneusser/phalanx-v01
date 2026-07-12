@@ -262,15 +262,36 @@ export default function DealFunnelBoard({ show }) {
                     minWidth: 210, flex: '1 0 210px', background: overStage === s.key ? '#EEF4FB' : C.bg,
                     border: `1px solid ${overStage === s.key ? C.accent : C.border}`, borderRadius: 10, padding: '0.6rem',
                   }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 800, color: C.navy, marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
-                    <span
-                      onClick={() => toggleColumn(s.key)}
-                      title="Alle Kontakte dieser Stufe auswählen"
-                      style={{ cursor: cards.length ? 'pointer' : 'default', userSelect: 'none' }}>
-                      {s.label}
-                    </span>
-                    <span style={{ color: C.muted }}>{cards.length}</span>
-                  </div>
+                  {(() => {
+                    const colIds = cards.filter(p => selectable.includes(p.contact_id)).map(p => p.contact_id);
+                    const colSel = colIds.filter(id => selected.includes(id)).length;
+                    const colAll = colIds.length > 0 && colSel === colIds.length;
+                    return (
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: C.navy, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
+                          <span>{s.label}</span>
+                          <span style={{ color: C.muted }}>{cards.length}</span>
+                        </div>
+                        {colIds.length > 0 && (
+                          <label
+                            title={`Alle ${colIds.length} Kontakte der Stufe „${s.label}" auswählen`}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, cursor: 'pointer',
+                              fontSize: '0.65rem', fontWeight: 700, color: colSel ? C.accent : C.muted, userSelect: 'none',
+                            }}>
+                            <input
+                              type="checkbox"
+                              checked={colAll}
+                              ref={el => { if (el) el.indeterminate = colSel > 0 && !colAll; }}
+                              onChange={() => toggleColumn(s.key)}
+                              style={{ margin: 0 }}
+                            />
+                            {colSel ? `${colSel}/${colIds.length} ausgewählt` : `Stufe auswählen (${colIds.length})`}
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {cards.map(p => {
                     const st = STATUS_STYLE[p.party_status] || STATUS_STYLE.open;
