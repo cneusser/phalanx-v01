@@ -17,6 +17,7 @@ import Watchlist from './pages/Watchlist';
 import Contact from './pages/Contact';
 import VerifyEmail from './pages/VerifyEmail';
 import InvitationAccept from './pages/InvitationAccept';
+import Crm from './pages/Crm';
 import Messages from './pages/Messages';
 import Register from './pages/Register';
 import Login from './pages/Login';
@@ -89,6 +90,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
+          <Route path="/crm" element={<ProtectedRoute adminOnly><Crm /></ProtectedRoute>} />
           <Route path="/verkaeuferdashboard" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
           <Route path="/datenschutz" element={<Datenschutz />} />
           <Route path="/impressum" element={<Impressum />} />

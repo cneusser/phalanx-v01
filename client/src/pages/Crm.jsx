@@ -1,0 +1,539 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { api, getToken } from '../api/client';
+import {
+  Building2, Users, Search, Plus, X, Upload, Download, Trash2, Star,
+  Mail, Phone, Linkedin, AlertCircle, ChevronRight,
+} from 'lucide-react';
+
+const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
+const INPUT = { width: '100%', padding: '0.55rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
+const LABEL = { display: 'block', fontSize: '0.72rem', fontWeight: 600, color: C.muted, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.03em' };
+
+const COMPANY_TYPES = ['Stratege', 'Private Equity', 'Family Office', 'MBI/MBO-Kandidat', 'Bank/Finanzierer', 'Berater', 'Zielunternehmen', 'Sonstige'];
+const CONSENT = { unknown: { label: 'Unbekannt', bg: '#f1f5f9', color: '#475569' }, opt_in: { label: 'Einwilligung', bg: '#d1fae5', color: '#065f46' }, opt_out: { label: 'Widerspruch', bg: '#fee2e2', color: '#991b1b' } };
+const STATUS = { active: { label: 'Aktiv', bg: '#e0f2fe', color: '#0369a1' }, do_not_contact: { label: 'Nicht kontaktieren', bg: '#fee2e2', color: '#991b1b' }, bounced: { label: 'Unzustellbar', bg: '#fef3c7', color: '#92400e' } };
+
+const Badge = ({ map, value }) => {
+  const s = map[value] || map.unknown || { label: value, bg: '#f1f5f9', color: '#475569' };
+  return <span style={{ background: s.bg, color: s.color, padding: '0.1rem 0.5rem', borderRadius: 20, fontSize: '0.68rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{s.label}</span>;
+};
+
+export default function Crm() {
+  const [tab, setTab] = useState('companies');
+  const [stats, setStats] = useState(null);
+  const [companies, setCompanies] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [q, setQ] = useState('');
+  const [msg, setMsg] = useState('');
+  const [detail, setDetail] = useState(null);        // Unternehmens-Detail
+  const [editCompany, setEditCompany] = useState(null);
+  const [editContact, setEditContact] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [s, c, k] = await Promise.all([
+        api.get('/crm/stats'),
+        api.get(`/crm/companies${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+        api.get(`/crm/contacts${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+      ]);
+      setStats(s); setCompanies(c); setContacts(k);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+  }, [q]);
+  useEffect(() => { load(); }, [load]);
+
+  const show = (m) => { setMsg(m); setTimeout(() => setMsg(''), 3500); };
+
+  async function openCompany(id) {
+    try { setDetail(await api.get(`/crm/companies/${id}/detail`)); }
+    catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  function exportCsv(kind) {
+    fetch(`/api/crm/export/${kind}`, { headers: { Authorization: `Bearer ${getToken()}` } })
+      .then(r => r.ok ? r.blob() : Promise.reject(new Error('Export fehlgeschlagen')))
+      .then(b => {
+        const u = URL.createObjectURL(b); const a = document.createElement('a');
+        a.href = u; a.download = kind === 'companies' ? 'CRM_Unternehmen.csv' : 'CRM_Kontakte.csv'; a.click();
+        URL.revokeObjectURL(u);
+      })
+      .catch(e => show('Fehler: ' + e.message));
+  }
+
+  return (
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2.5rem 1.5rem', background: C.bg, minHeight: '100vh' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.text, margin: 0 }}>CRM</h1>
+          <p style={{ color: C.muted, fontSize: '0.875rem', margin: 0 }}>Unternehmen, Kontakte & Beziehungen</p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setImportOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
+            <Upload size={14} /> Import (CSV)
+          </button>
+          <button onClick={() => exportCsv(tab)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
+            <Download size={14} /> Export
+          </button>
+          <button onClick={() => (tab === 'companies' ? setEditCompany({}) : setEditContact({}))} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+            <Plus size={14} /> {tab === 'companies' ? 'Unternehmen' : 'Kontakt'}
+          </button>
+        </div>
+      </div>
+
+      {msg && (
+        <div style={{ background: msg.startsWith('Fehler') ? '#fee2e2' : '#d1fae5', color: msg.startsWith('Fehler') ? '#991b1b' : '#065f46', borderRadius: 8, padding: '0.7rem 1rem', fontSize: '0.85rem', marginBottom: '1rem' }}>{msg}</div>
+      )}
+
+      {/* Kennzahlen */}
+      {stats && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem', marginBottom: '1.5rem' }}>
+          {[
+            ['Unternehmen', stats.companies, C.navy],
+            ['Kontakte', stats.contacts, C.accent],
+            ['Entscheider', stats.decision_makers, '#8b5cf6'],
+            ['Einwilligung', stats.opt_in, '#10b981'],
+            ['Nicht kontaktieren', stats.blocked, '#ef4444'],
+          ].map(([label, val, color]) => (
+            <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.9rem 1rem' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color }}>{val}</div>
+              <div style={{ fontSize: '0.75rem', color: C.muted, fontWeight: 600 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tabs + Suche */}
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', gap: '0.15rem', borderBottom: `1px solid ${C.border}`, flex: 1, minWidth: 240 }}>
+          {[['companies', 'Unternehmen', Building2], ['contacts', 'Kontakte', Users]].map(([key, label, Icon]) => (
+            <button key={key} onClick={() => { setTab(key); setDetail(null); }} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5, padding: '0.6rem 1.1rem', border: 'none', background: 'transparent',
+              cursor: 'pointer', fontSize: '0.875rem', fontWeight: tab === key ? 700 : 400,
+              color: tab === key ? C.navy : C.muted, borderBottom: tab === key ? `2px solid ${C.navy}` : '2px solid transparent',
+            }}>
+              <Icon size={14} /> {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ position: 'relative', minWidth: 240 }}>
+          <Search size={14} color={C.muted} style={{ position: 'absolute', left: 10, top: 11 }} />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Suchen…" style={{ ...INPUT, paddingLeft: 30 }} />
+        </div>
+      </div>
+
+      {/* Unternehmen */}
+      {tab === 'companies' && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
+            <thead>
+              <tr style={{ color: C.muted, textAlign: 'left' }}>
+                <th style={{ padding: '0.7rem 1rem' }}>Unternehmen</th>
+                <th style={{ padding: '0.7rem 0.5rem' }}>Art</th>
+                <th style={{ padding: '0.7rem 0.5rem' }}>Branche / Region</th>
+                <th style={{ padding: '0.7rem 0.5rem', textAlign: 'right' }}>Kontakte</th>
+                <th style={{ padding: '0.7rem 1rem' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {companies.map(c => (
+                <tr key={c.id} onClick={() => openCompany(c.id)} style={{ borderTop: `1px solid ${C.border}`, cursor: 'pointer' }}>
+                  <td style={{ padding: '0.7rem 1rem' }}>
+                    <div style={{ fontWeight: 700, color: C.navy }}>{c.name}</div>
+                    <div style={{ fontSize: '0.72rem', color: C.muted }}>
+                      {[c.city, c.website].filter(Boolean).join(' · ')}
+                      {c.parent_name && <> · Teil von <strong>{c.parent_name}</strong></>}
+                    </div>
+                  </td>
+                  <td style={{ padding: '0.7rem 0.5rem', color: C.text }}>{c.company_type || '—'}</td>
+                  <td style={{ padding: '0.7rem 0.5rem', color: C.muted }}>{[c.industry, c.region].filter(Boolean).join(' · ') || '—'}</td>
+                  <td style={{ padding: '0.7rem 0.5rem', textAlign: 'right', fontWeight: 700 }}>{c.contact_count}</td>
+                  <td style={{ padding: '0.7rem 1rem', textAlign: 'right' }}><ChevronRight size={14} color={C.muted} /></td>
+                </tr>
+              ))}
+              {!companies.length && <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: C.muted }}>Noch keine Unternehmen. Legen Sie eines an oder importieren Sie eine CSV-Datei.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Kontakte */}
+      {tab === 'contacts' && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
+            <thead>
+              <tr style={{ color: C.muted, textAlign: 'left' }}>
+                <th style={{ padding: '0.7rem 1rem' }}>Name</th>
+                <th style={{ padding: '0.7rem 0.5rem' }}>Unternehmen</th>
+                <th style={{ padding: '0.7rem 0.5rem' }}>Kontakt</th>
+                <th style={{ padding: '0.7rem 0.5rem' }}>DSGVO</th>
+                <th style={{ padding: '0.7rem 1rem' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {contacts.map(k => (
+                <tr key={k.id} onClick={() => setEditContact(k)} style={{ borderTop: `1px solid ${C.border}`, cursor: 'pointer' }}>
+                  <td style={{ padding: '0.7rem 1rem' }}>
+                    <div style={{ fontWeight: 700, color: C.navy, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {k.is_decision_maker === 1 && <Star size={12} color="#f59e0b" fill="#f59e0b" />}
+                      {[k.title, k.first_name, k.last_name].filter(Boolean).join(' ')}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: C.muted }}>{k.responsibility || '—'}</div>
+                  </td>
+                  <td style={{ padding: '0.7rem 0.5rem', color: C.text }}>{k.companies || '—'}</td>
+                  <td style={{ padding: '0.7rem 0.5rem', color: C.muted, fontSize: '0.76rem' }}>
+                    {k.email && <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Mail size={11} /> {k.email}</div>}
+                    {(k.mobile || k.phone) && <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Phone size={11} /> {k.mobile || k.phone}</div>}
+                  </td>
+                  <td style={{ padding: '0.7rem 0.5rem' }}>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      <Badge map={CONSENT} value={k.consent_status} />
+                      {k.contact_status !== 'active' && <Badge map={STATUS} value={k.contact_status} />}
+                    </div>
+                  </td>
+                  <td style={{ padding: '0.7rem 1rem', textAlign: 'right' }}><ChevronRight size={14} color={C.muted} /></td>
+                </tr>
+              ))}
+              {!contacts.length && <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: C.muted }}>Noch keine Kontakte.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {detail && <CompanyDetail data={detail} onClose={() => setDetail(null)} onChanged={() => { openCompany(detail.company.id); load(); }} onEdit={() => setEditCompany(detail.company)} contactsAll={contacts} show={show} />}
+      {editCompany && <CompanyForm company={editCompany} companies={companies} onClose={() => setEditCompany(null)} onSaved={() => { setEditCompany(null); load(); show('Gespeichert ✓'); }} />}
+      {editContact && <ContactForm contact={editContact} companies={companies} onClose={() => setEditContact(null)} onSaved={() => { setEditContact(null); load(); show('Gespeichert ✓'); }} />}
+      {importOpen && <ImportModal onClose={() => setImportOpen(false)} onDone={(r) => { setImportOpen(false); load(); show(`Import: ${r.created} angelegt, ${r.skipped} übersprungen (Dubletten)`); }} />}
+    </div>
+  );
+}
+
+// ── Unternehmens-Detail: Kontakte, Konzern, Historie ─────────────────────────
+function CompanyDetail({ data, onClose, onChanged, onEdit, contactsAll, show }) {
+  const { company, contacts, history, subsidiaries } = data;
+  const [addId, setAddId] = useState('');
+  const [pos, setPos] = useState('');
+
+  async function link() {
+    if (!addId) return;
+    try {
+      await api.post(`/crm/companies/${company.id}/contacts`, { contact_id: Number(addId), position: pos });
+      setAddId(''); setPos(''); onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
+  async function endPosition(linkId) {
+    if (!window.confirm('Position beenden? Der Eintrag wandert in die Historie (Unternehmenswechsel).')) return;
+    try { await api.put(`/crm/links/${linkId}`, { ended_on: new Date().toISOString().slice(0, 10) }); onChanged(); }
+    catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(13,27,54,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: '1rem' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: C.card, borderRadius: 12, width: '100%', maxWidth: 760, maxHeight: '88vh', overflowY: 'auto', padding: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: C.navy, margin: 0 }}>{company.name}</h2>
+            <div style={{ fontSize: '0.8rem', color: C.muted }}>
+              {[company.company_type, company.industry, company.region, company.city].filter(Boolean).join(' · ')}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button onClick={onEdit} style={{ background: C.bg, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>Bearbeiten</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={20} /></button>
+          </div>
+        </div>
+
+        {company.website && <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: C.accent }}>{company.website}</a>}
+        {company.investment_criteria && (
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.75rem 1rem', margin: '0.75rem 0', fontSize: '0.83rem' }}>
+            <strong style={{ color: C.navy }}>Investitionskriterien: </strong>{company.investment_criteria}
+          </div>
+        )}
+        {company.notes && <p style={{ fontSize: '0.83rem', color: C.text, lineHeight: 1.6 }}>{company.notes}</p>}
+
+        {/* Konzernstruktur */}
+        {(company.parent_name || subsidiaries.length > 0) && (
+          <div style={{ marginTop: '1rem' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, letterSpacing: '0.06em', marginBottom: '0.4rem' }}>KONZERNSTRUKTUR</div>
+            {company.parent_name && <div style={{ fontSize: '0.83rem' }}>Mutter: <strong>{company.parent_name}</strong>{company.relation_to_parent ? ` (${company.relation_to_parent})` : ''}</div>}
+            {subsidiaries.map(s => <div key={s.id} style={{ fontSize: '0.83rem', color: C.text }}>↳ {s.name}{s.relation_to_parent ? ` (${s.relation_to_parent})` : ''}</div>)}
+          </div>
+        )}
+
+        {/* Kontakte */}
+        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, letterSpacing: '0.06em', margin: '1.25rem 0 0.5rem' }}>ANSPRECHPARTNER</div>
+        {contacts.map(k => (
+          <div key={k.link_id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.75rem', border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: '0.35rem' }}>
+            {k.is_decision_maker === 1 && <Star size={13} color="#f59e0b" fill="#f59e0b" />}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: C.text }}>{[k.title, k.first_name, k.last_name].filter(Boolean).join(' ')}</div>
+              <div style={{ fontSize: '0.72rem', color: C.muted }}>{[k.position, k.email].filter(Boolean).join(' · ')}</div>
+            </div>
+            <Badge map={CONSENT} value={k.consent_status} />
+            <button onClick={() => endPosition(k.link_id)} title="Position beenden (Historie)" style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.25rem 0.5rem', fontSize: '0.7rem', cursor: 'pointer', color: C.muted }}>beenden</button>
+          </div>
+        ))}
+        {!contacts.length && <div style={{ fontSize: '0.82rem', color: C.muted }}>Noch keine Ansprechpartner zugeordnet.</div>}
+
+        {/* Kontakt zuordnen */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr auto', gap: '0.4rem', marginTop: '0.6rem' }}>
+          <select value={addId} onChange={e => setAddId(e.target.value)} style={INPUT}>
+            <option value="">Kontakt zuordnen…</option>
+            {contactsAll.map(k => <option key={k.id} value={k.id}>{[k.first_name, k.last_name].filter(Boolean).join(' ')}</option>)}
+          </select>
+          <input value={pos} onChange={e => setPos(e.target.value)} placeholder="Position" style={INPUT} />
+          <button onClick={link} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0 0.9rem', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}>+</button>
+        </div>
+
+        {/* Historie */}
+        {history.length > 0 && (
+          <>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, letterSpacing: '0.06em', margin: '1.25rem 0 0.5rem' }}>FRÜHERE ANSPRECHPARTNER (HISTORIE)</div>
+            {history.map(k => (
+              <div key={k.link_id} style={{ fontSize: '0.8rem', color: C.muted, padding: '0.35rem 0.75rem', borderLeft: `2px solid ${C.border}` }}>
+                {[k.first_name, k.last_name].filter(Boolean).join(' ')} — {k.position || 'Position unbekannt'} (bis {new Date(k.ended_on).toLocaleDateString('de-DE')})
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Unternehmens-Formular ────────────────────────────────────────────────────
+function CompanyForm({ company, companies, onClose, onSaved }) {
+  const isNew = !company.id;
+  const [f, setF] = useState({
+    name: '', street: '', postal_code: '', city: '', country: '', website: '', industry: '', region: '',
+    revenue_band: '', employees: '', company_type: '', buyer_category: '', investment_criteria: '',
+    description: '', notes: '', parent_company_id: '', relation_to_parent: '', ...company,
+  });
+  const [dupes, setDupes] = useState([]);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setF(s => ({ ...s, [k]: e.target.value }));
+
+  async function save(force = false) {
+    setBusy(true); setErr(''); setDupes([]);
+    try {
+      const body = { ...f, employees: f.employees || null, parent_company_id: f.parent_company_id || null, force };
+      if (isNew) await api.post('/crm/companies', body);
+      else await api.put(`/crm/companies/${company.id}`, body);
+      onSaved();
+    } catch (e) {
+      // Dubletten-Warnung des Servers auswerten
+      if (e.message?.includes('Dublette')) {
+        try { const d = await api.get(`/crm/companies/duplicates?name=${encodeURIComponent(f.name)}`); setDupes(d); } catch { /* egal */ }
+        setErr('Mögliche Dublette gefunden — bitte prüfen.');
+      } else setErr(e.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title={isNew ? 'Unternehmen anlegen' : 'Unternehmen bearbeiten'} onClose={onClose}>
+      {err && <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e', borderRadius: 8, padding: '0.7rem 0.9rem', fontSize: '0.83rem', marginBottom: '0.75rem' }}>
+        <AlertCircle size={14} style={{ verticalAlign: -2 }} /> {err}
+      </div>}
+      {dupes.length > 0 && (
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.75rem', marginBottom: '0.75rem' }}>
+          {dupes.map(d => <div key={d.id} style={{ fontSize: '0.82rem', color: C.text }}>• <strong>{d.name}</strong>{d.city ? ` · ${d.city}` : ''}</div>)}
+          <button onClick={() => save(true)} style={{ marginTop: '0.5rem', background: '#92400e', color: '#fff', border: 'none', borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+            Trotzdem als neues Unternehmen anlegen
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+        <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Firmenname *</label><input value={f.name} onChange={set('name')} style={INPUT} /></div>
+        <div><label style={LABEL}>Unternehmensart</label>
+          <select value={f.company_type || ''} onChange={set('company_type')} style={INPUT}>
+            <option value="">—</option>{COMPANY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div><label style={LABEL}>Käuferkategorie</label><input value={f.buyer_category || ''} onChange={set('buyer_category')} style={INPUT} /></div>
+        <div><label style={LABEL}>Branche</label><input value={f.industry || ''} onChange={set('industry')} style={INPUT} /></div>
+        <div><label style={LABEL}>Region</label><input value={f.region || ''} onChange={set('region')} style={INPUT} /></div>
+        <div><label style={LABEL}>Umsatz</label><input value={f.revenue_band || ''} onChange={set('revenue_band')} placeholder="z. B. € 10–20 Mio." style={INPUT} /></div>
+        <div><label style={LABEL}>Mitarbeiter</label><input type="number" value={f.employees || ''} onChange={set('employees')} style={INPUT} /></div>
+        <div><label style={LABEL}>Website</label><input value={f.website || ''} onChange={set('website')} style={INPUT} /></div>
+        <div><label style={LABEL}>Straße</label><input value={f.street || ''} onChange={set('street')} style={INPUT} /></div>
+        <div><label style={LABEL}>PLZ</label><input value={f.postal_code || ''} onChange={set('postal_code')} style={INPUT} /></div>
+        <div><label style={LABEL}>Ort</label><input value={f.city || ''} onChange={set('city')} style={INPUT} /></div>
+        <div><label style={LABEL}>Land</label><input value={f.country || ''} onChange={set('country')} style={INPUT} /></div>
+        <div><label style={LABEL}>Muttergesellschaft</label>
+          <select value={f.parent_company_id || ''} onChange={set('parent_company_id')} style={INPUT}>
+            <option value="">—</option>
+            {companies.filter(c => c.id !== company.id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Investitionskriterien</label><textarea value={f.investment_criteria || ''} onChange={set('investment_criteria')} rows={2} style={{ ...INPUT, resize: 'vertical' }} /></div>
+        <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Notizen</label><textarea value={f.notes || ''} onChange={set('notes')} rows={3} style={{ ...INPUT, resize: 'vertical' }} /></div>
+      </div>
+
+      <button onClick={() => save(false)} disabled={busy || !f.name} style={{ marginTop: '1rem', width: '100%', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer' }}>
+        {busy ? 'Speichert…' : 'Speichern'}
+      </button>
+    </Modal>
+  );
+}
+
+// ── Kontakt-Formular ─────────────────────────────────────────────────────────
+function ContactForm({ contact, companies, onClose, onSaved }) {
+  const isNew = !contact.id;
+  const [f, setF] = useState({
+    salutation: '', title: '', first_name: '', last_name: '', email: '', phone: '', mobile: '',
+    linkedin_url: '', location: '', responsibility: '', relationship: '', notes: '',
+    is_decision_maker: 0, consent_status: 'unknown', contact_status: 'active',
+    company_id: '', position: '', ...contact,
+  });
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setF(s => ({ ...s, [k]: e.target.type === 'checkbox' ? (e.target.checked ? 1 : 0) : e.target.value }));
+
+  async function save(force = false) {
+    setBusy(true); setErr('');
+    try {
+      if (isNew) await api.post('/crm/contacts', { ...f, force });
+      else await api.put(`/crm/contacts/${contact.id}`, f);
+      onSaved();
+    } catch (e) { setErr(e.message); setBusy(false); }
+  }
+  async function remove() {
+    if (!window.confirm('Kontakt endgültig löschen?')) return;
+    try { await api.delete(`/crm/contacts/${contact.id}`); onSaved(); } catch (e) { setErr(e.message); }
+  }
+
+  return (
+    <Modal title={isNew ? 'Kontakt anlegen' : 'Kontakt bearbeiten'} onClose={onClose}>
+      {err && <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 8, padding: '0.7rem 0.9rem', fontSize: '0.83rem', marginBottom: '0.75rem' }}>
+        {err}
+        {err.includes('existiert bereits') && (
+          <button onClick={() => save(true)} style={{ marginLeft: 8, background: '#991b1b', color: '#fff', border: 'none', borderRadius: 6, padding: '0.25rem 0.6rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>Trotzdem anlegen</button>
+        )}
+      </div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+        <div><label style={LABEL}>Anrede</label>
+          <select value={f.salutation || ''} onChange={set('salutation')} style={INPUT}>
+            <option value="">—</option><option>Herr</option><option>Frau</option><option>Divers</option>
+          </select>
+        </div>
+        <div><label style={LABEL}>Titel</label><input value={f.title || ''} onChange={set('title')} style={INPUT} /></div>
+        <div><label style={LABEL}>Vorname</label><input value={f.first_name || ''} onChange={set('first_name')} style={INPUT} /></div>
+        <div><label style={LABEL}>Nachname *</label><input value={f.last_name || ''} onChange={set('last_name')} style={INPUT} /></div>
+        <div><label style={LABEL}>E-Mail</label><input value={f.email || ''} onChange={set('email')} style={INPUT} /></div>
+        <div><label style={LABEL}>Mobil</label><input value={f.mobile || ''} onChange={set('mobile')} style={INPUT} /></div>
+        <div><label style={LABEL}>Telefon</label><input value={f.phone || ''} onChange={set('phone')} style={INPUT} /></div>
+        <div><label style={LABEL}>LinkedIn</label><input value={f.linkedin_url || ''} onChange={set('linkedin_url')} style={INPUT} /></div>
+        <div><label style={LABEL}>Standort</label><input value={f.location || ''} onChange={set('location')} style={INPUT} /></div>
+        <div><label style={LABEL}>Verantwortungsbereich</label><input value={f.responsibility || ''} onChange={set('responsibility')} style={INPUT} /></div>
+        <div><label style={LABEL}>Beziehung</label><input value={f.relationship || ''} onChange={set('relationship')} placeholder="persönlich bekannt / kalt …" style={INPUT} /></div>
+
+        {isNew && (
+          <>
+            <div><label style={LABEL}>Unternehmen</label>
+              <select value={f.company_id || ''} onChange={set('company_id')} style={INPUT}>
+                <option value="">—</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div><label style={LABEL}>Position</label><input value={f.position || ''} onChange={set('position')} style={INPUT} /></div>
+          </>
+        )}
+
+        {/* DSGVO */}
+        <div><label style={LABEL}>Einwilligung (DSGVO)</label>
+          <select value={f.consent_status} onChange={set('consent_status')} style={INPUT}>
+            <option value="unknown">Unbekannt</option>
+            <option value="opt_in">Einwilligung erteilt</option>
+            <option value="opt_out">Widerspruch</option>
+          </select>
+        </div>
+        <div><label style={LABEL}>Kontaktstatus</label>
+          <select value={f.contact_status} onChange={set('contact_status')} style={INPUT}>
+            <option value="active">Aktiv</option>
+            <option value="do_not_contact">Nicht kontaktieren</option>
+            <option value="bounced">Unzustellbar</option>
+          </select>
+        </div>
+
+        <label style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.85rem', color: C.text, cursor: 'pointer' }}>
+          <input type="checkbox" checked={!!f.is_decision_maker} onChange={set('is_decision_maker')} />
+          <Star size={13} color="#f59e0b" fill={f.is_decision_maker ? '#f59e0b' : 'none'} /> Entscheider
+        </label>
+        <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Notizen</label><textarea value={f.notes || ''} onChange={set('notes')} rows={3} style={{ ...INPUT, resize: 'vertical' }} /></div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+        <button onClick={() => save(false)} disabled={busy || !f.last_name} style={{ flex: 1, background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer' }}>
+          {busy ? 'Speichert…' : 'Speichern'}
+        </button>
+        {!isNew && (
+          <button onClick={remove} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: 8, padding: '0.7rem 1rem', fontWeight: 700, cursor: 'pointer' }}><Trash2 size={15} /></button>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ── CSV-Import ───────────────────────────────────────────────────────────────
+function ImportModal({ onClose, onDone }) {
+  const [kind, setKind] = useState('companies');
+  const [csv, setCsv] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  function onFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => setCsv(String(r.result || ''));
+    r.readAsText(file, 'utf-8');
+  }
+  async function run() {
+    setBusy(true); setErr('');
+    try { onDone(await api.post(`/crm/import/${kind}`, { csv })); }
+    catch (e) { setErr(e.message); setBusy(false); }
+  }
+
+  return (
+    <Modal title="CSV-Import" onClose={onClose}>
+      <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
+        {[['companies', 'Unternehmen'], ['contacts', 'Kontakte']].map(([k, l]) => (
+          <button key={k} onClick={() => setKind(k)} style={{
+            flex: 1, padding: '0.5rem', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem',
+            border: `1.5px solid ${kind === k ? C.navy : C.border}`, background: kind === k ? C.navy : '#fff', color: kind === k ? '#fff' : C.muted,
+          }}>{l}</button>
+        ))}
+      </div>
+      <p style={{ fontSize: '0.78rem', color: C.muted, lineHeight: 1.6, marginBottom: '0.75rem' }}>
+        Erste Zeile = Spaltenüberschriften (Semikolon oder Komma). Erkannt werden u. a.:{' '}
+        {kind === 'companies'
+          ? <code>Name, Strasse, PLZ, Ort, Land, Website, Branche, Region, Umsatz, Mitarbeiter, Unternehmensart, Notizen</code>
+          : <code>Anrede, Titel, Vorname, Nachname, Email, Telefon, Mobil, LinkedIn, Unternehmen, Position, Entscheider, Notizen</code>}
+        . <strong>Dubletten werden automatisch übersprungen.</strong>
+        {kind === 'contacts' && ' Genannte Unternehmen werden bei Bedarf angelegt und verknüpft.'}
+      </p>
+      <input type="file" accept=".csv,text/csv" onChange={onFile} style={{ marginBottom: '0.5rem', fontSize: '0.8rem' }} />
+      <textarea value={csv} onChange={e => setCsv(e.target.value)} rows={8} placeholder="…oder CSV-Inhalt hier einfügen" style={{ ...INPUT, fontFamily: 'monospace', fontSize: '0.75rem', resize: 'vertical' }} />
+      {err && <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 8, padding: '0.6rem 0.8rem', fontSize: '0.8rem', marginTop: '0.5rem' }}>{err}</div>}
+      <button onClick={run} disabled={busy || !csv.trim()} style={{ marginTop: '0.75rem', width: '100%', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>
+        {busy ? 'Importiert…' : 'Import starten'}
+      </button>
+    </Modal>
+  );
+}
+
+function Modal({ title, children, onClose }) {
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(13,27,54,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: '1rem' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: C.card, borderRadius: 12, width: '100%', maxWidth: 640, maxHeight: '88vh', overflowY: 'auto', padding: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: C.navy, margin: 0 }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={20} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}

@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.248 — 12.07.2026 · Sprint 19: CRM I — Unternehmen & Kontakte
+- Zentrale **Unternehmensdatenbank**: Stammdaten, Website, Branche, Region, Umsatz, Mitarbeiter, Unternehmensart, Käuferkategorie, Investitionskriterien, Notizen, Tags
+- **Kontakte** mit Entscheider-Kennzeichnung, Verantwortungsbereich, Beziehung sowie **DSGVO-Einwilligung** (`consent_status` + Zeitstempel) und Kontaktstatus (aktiv / nicht kontaktieren / unzustellbar)
+- **n:m-Zuordnung**: ein Kontakt in mehreren Unternehmen — mit **Historie** früherer Positionen und Unternehmenswechsel (`ended_on`)
+- **Konzernverknüpfung** (Mutter / Tochter / Beteiligung) inkl. Anzeige der Tochtergesellschaften
+- **Dubletten-Erkennung** über normalisierte Namen (erkennt „GmbH" ↔ „G.m.b.H.", „Müller" ↔ „Mueller", Holding-Zusätze); Anlegen nur mit bewusster Bestätigung
+- **CSV-Import/Export** für Unternehmen und Kontakte; beim Kontakt-Import werden genannte Unternehmen automatisch angelegt und verknüpft, Dubletten übersprungen
+- Neue Seite `/crm` (Admin/Berater), Schema `crm_companies`, `crm_contacts`, `crm_company_contacts` (alle mit RLS)
+
 ## v0.247 — 12.07.2026 · Sprint 19a: Mandats-Einladungen (Betrachter / Pflegender)
 - Pflegende laden Kontakte per E-Mail zum Mandat ein — als **Betrachter** (nur lesen) oder **Pflegender** (bearbeiten)
 - **Einladungs-Funnel**: eingeladen → geöffnet → angenommen (+ abgelehnt/widerrufen/abgelaufen), mit Erinnerung & Widerruf

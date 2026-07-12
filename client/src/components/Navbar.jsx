@@ -107,6 +107,7 @@ export default function Navbar() {
           {navLink('/kontakt', 'Kontakt')}
           {!user && navLink('/registrieren', 'Registrieren')}
           {user && !isAdmin && navLink('/dashboard', 'Mein Bereich')}
+          {isAdmin && navLink('/crm', 'CRM')}
           {isAdmin && navLink('/admin', 'Admin')}
         </div>
         )}
@@ -215,7 +216,7 @@ export default function Navbar() {
             ...(user && !isAdmin ? [['/bewertung', 'Bewertung'], ['/nachrichten', 'Nachrichten'], ['/feedback', 'Feedback']] : []),
             ['/kontakt', 'Kontakt'],
             ...(user && !isAdmin ? [['/dashboard', 'Mein Bereich']] : []),
-            ...(isAdmin ? [['/admin', 'Admin']] : []),
+            ...(isAdmin ? [['/crm', 'CRM'], ['/admin', 'Admin']] : []),
           ].map(([to, label]) => (
             <Link key={to} to={to} onClick={() => setOpen(false)} style={{ display: 'block', color: '#fff', textDecoration: 'none', padding: '0.7rem 0.25rem', fontSize: '0.95rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{label}</Link>
           ))}
