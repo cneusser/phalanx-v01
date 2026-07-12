@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { Star, AlertTriangle, Mail, ShieldCheck, ShieldOff } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
+const SELECT = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
 
 const ROLE_LABEL = { buyer: 'Käufer', advisor: 'Berater', seller: 'Verkäufer', bank: 'Bank', lawyer: 'Anwalt', target: 'Ziel', other: 'Sonstige' };
 const STATUS_STYLE = {
@@ -22,6 +23,25 @@ export default function DealFunnelBoard({ show }) {
   const [hideDropped, setHideDropped] = useState(true);
   const [selected, setSelected] = useState([]);   // Kontakt-IDs für Sammel-Einladung
   const [inviting, setInviting] = useState(false);
+  // Kontakt direkt zum Mandat hinzufügen
+  const [allContacts, setAllContacts] = useState([]);
+  const [addContact, setAddContact] = useState('');
+  const [addRole, setAddRole] = useState('buyer');
+  const [addStage, setAddStage] = useState(0);
+
+  useEffect(() => { api.get('/crm/contacts').then(setAllContacts).catch(() => {}); }, []);
+
+  async function addParty() {
+    if (!addContact || !active) return;
+    try {
+      await api.post(`/crm/deals/${active}/parties`, {
+        contact_id: Number(addContact), party_role: addRole, funnel_stage: Number(addStage),
+      });
+      setAddContact('');
+      await loadBoard();
+      show('Kontakt zum Mandat hinzugefügt ✓');
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
 
   useEffect(() => {
     api.get('/crm/deals').then(d => {
@@ -84,6 +104,32 @@ export default function DealFunnelBoard({ show }) {
           </button>
         ))}
       </div>
+
+      {/* Kontakt direkt zum Mandat hinzufügen */}
+      {active && (
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.2fr auto', gap: '0.4rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.7rem', marginBottom: '0.8rem' }}>
+          <select value={addContact} onChange={e => setAddContact(e.target.value)} style={SELECT}>
+            <option value="">Kontakt zum Mandat hinzufügen…</option>
+            {allContacts
+              .filter(k => !(board?.parties || []).some(p => p.contact_id === k.id))
+              .map(k => (
+                <option key={k.id} value={k.id}>
+                  {[k.first_name, k.last_name].filter(Boolean).join(' ')}{k.companies ? ` — ${k.companies}` : ''}
+                </option>
+              ))}
+          </select>
+          <select value={addRole} onChange={e => setAddRole(e.target.value)} style={SELECT}>
+            {Object.entries(ROLE_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+          <select value={addStage} onChange={e => setAddStage(e.target.value)} style={SELECT}>
+            {stages.map(s => <option key={s.key} value={s.key}>{s.key} — {s.label}</option>)}
+          </select>
+          <button onClick={addParty} disabled={!addContact} style={{
+            background: addContact ? C.navy : '#cbd5e1', color: '#fff', border: 'none', borderRadius: 8,
+            padding: '0 1rem', fontWeight: 700, fontSize: '0.82rem', cursor: addContact ? 'pointer' : 'default', whiteSpace: 'nowrap',
+          }}>+ Hinzufügen</button>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.8rem' }}>

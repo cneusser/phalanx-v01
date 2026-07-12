@@ -269,12 +269,21 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
            c.id AS company_id, c.name AS company_name, c.city
     FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
     WHERE cc.contact_id = ? ORDER BY cc.ended_on NULLS FIRST, cc.started_on DESC`, [req.params.id]));
+
+  // Sprint 20: Mandats-Zuordnungen dieses Kontakts (Rolle + Funnel-Stufe)
+  const deals = await scoped(req, (t) => t.all(`
+    SELECT dp.id AS party_id, dp.project_id, dp.party_role, dp.funnel_stage, dp.party_status, dp.next_step,
+           p.codename, p.status AS project_status
+    FROM crm_deal_parties dp JOIN projects p ON p.id = dp.project_id
+    WHERE dp.contact_id = ? ORDER BY dp.funnel_stage DESC`, [req.params.id])).catch(() => []);
+
   res.json({
     success: true,
     data: {
       contact: { ...contact, tags: safeJson(contact.tags_json, []) },
       current: links.filter(l => !l.ended_on),
       history: links.filter(l => l.ended_on),   // frühere Positionen / Unternehmenswechsel
+      deals,
     },
   });
 }));

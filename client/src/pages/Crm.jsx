@@ -30,6 +30,9 @@ export default function Crm() {
   const [editCompany, setEditCompany] = useState(null);
   const [editContact, setEditContact] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [assign, setAssign] = useState(null);        // Kontakt, der einem Mandat zugeordnet wird
+  const [projects, setProjects] = useState([]);      // Mandate für die Zuordnung
+  const [stages, setStages] = useState([]);
 
   const load = useCallback(async () => {
     try {
@@ -42,6 +45,11 @@ export default function Crm() {
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }, [q]);
   useEffect(() => { load(); }, [load]);
+
+  // Mandate + Funnel-Stufen einmalig laden (für die Zuordnung)
+  useEffect(() => {
+    api.get('/crm/deals').then(d => { setProjects(d.deals || []); setStages(d.stages || []); }).catch(() => {});
+  }, []);
 
   const show = (m) => { setMsg(m); setTimeout(() => setMsg(''), 3500); };
 
@@ -169,6 +177,7 @@ export default function Crm() {
                 <th style={{ padding: '0.7rem 0.5rem' }}>Unternehmen</th>
                 <th style={{ padding: '0.7rem 0.5rem' }}>Kontakt</th>
                 <th style={{ padding: '0.7rem 0.5rem' }}>DSGVO</th>
+                <th style={{ padding: '0.7rem 0.5rem' }}>Mandat</th>
                 <th style={{ padding: '0.7rem 1rem' }}></th>
               </tr>
             </thead>
@@ -193,10 +202,19 @@ export default function Crm() {
                       {k.contact_status !== 'active' && <Badge map={STATUS} value={k.contact_status} />}
                     </div>
                   </td>
+                  {/* Sprint 20: Kontakt einem Mandat mit Rolle & Funnel-Stufe zuordnen */}
+                  <td style={{ padding: '0.7rem 0.5rem' }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setAssign(k); }}
+                      title="Diesem Kontakt ein Mandat zuordnen (Rolle & Funnel-Stufe)"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EEF4FB', color: C.accent, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.28rem 0.55rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <KanbanSquare size={12} /> Zuordnen
+                    </button>
+                  </td>
                   <td style={{ padding: '0.7rem 1rem', textAlign: 'right' }}><ChevronRight size={14} color={C.muted} /></td>
                 </tr>
               ))}
-              {!contacts.length && <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: C.muted }}>Noch keine Kontakte.</td></tr>}
+              {!contacts.length && <tr><td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: C.muted }}>Noch keine Kontakte.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -209,7 +227,117 @@ export default function Crm() {
       {editCompany && <CompanyForm company={editCompany} companies={companies} onClose={() => setEditCompany(null)} onSaved={() => { setEditCompany(null); load(); show('Gespeichert ✓'); }} />}
       {editContact && <ContactForm contact={editContact} companies={companies} onClose={() => setEditContact(null)} onSaved={() => { setEditContact(null); load(); show('Gespeichert ✓'); }} />}
       {importOpen && <ImportModal onClose={() => setImportOpen(false)} onDone={(r) => { setImportOpen(false); load(); show(`Import: ${r.created} angelegt, ${r.skipped} übersprungen (Dubletten)`); }} />}
+      {assign && <AssignDealModal contact={assign} projects={projects} stages={stages} onClose={() => setAssign(null)} show={show} />}
     </div>
+  );
+}
+
+// ── Kontakt einem Mandat zuordnen (Rolle + Funnel-Stufe) ─────────────────────
+const PARTY_ROLES = [
+  ['buyer', 'Käufer / Investor'],
+  ['advisor', 'Berater / Intermediär'],
+  ['seller', 'Verkäufer / Mandant'],
+  ['bank', 'Bank / Finanzierer'],
+  ['lawyer', 'Rechtsanwalt'],
+  ['target', 'Zielunternehmen'],
+  ['other', 'Sonstige'],
+];
+const PARTY_STATUS_LABEL = { open: 'offen', active: 'aktiv', unclear: 'unklar', dropped: 'ausgestiegen' };
+
+function AssignDealModal({ contact, projects, stages, onClose, show }) {
+  const [detail, setDetail] = useState(null);
+  const [projectId, setProjectId] = useState('');
+  const [role, setRole] = useState('buyer');
+  const [stage, setStage] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const load = useCallback(async () => {
+    try { setDetail(await api.get(`/crm/contacts/${contact.id}/detail`)); }
+    catch (e) { setErr(e.message); }
+  }, [contact.id]);
+  useEffect(() => { load(); }, [load]);
+
+  async function add() {
+    if (!projectId) { setErr('Bitte ein Mandat wählen.'); return; }
+    setBusy(true); setErr('');
+    try {
+      await api.post(`/crm/deals/${projectId}/parties`, {
+        contact_id: contact.id,
+        company_id: detail?.current?.[0]?.company_id || null,
+        party_role: role,
+        funnel_stage: Number(stage),
+      });
+      setProjectId('');
+      await load();
+      show('Kontakt dem Mandat zugeordnet ✓');
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  }
+
+  async function remove(partyId) {
+    if (!window.confirm('Zuordnung zu diesem Mandat entfernen?')) return;
+    try { await api.delete(`/crm/parties/${partyId}`); await load(); show('Zuordnung entfernt ✓'); }
+    catch (e) { setErr(e.message); }
+  }
+
+  const name = [contact.title, contact.first_name, contact.last_name].filter(Boolean).join(' ');
+  const stageLabel = (k) => (stages.find(s => s.key === k) || {}).label || k;
+
+  return (
+    <Modal title={`Mandats-Zuordnung — ${name}`} onClose={onClose}>
+      {err && <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 8, padding: '0.7rem 0.9rem', fontSize: '0.83rem', marginBottom: '0.75rem' }}>{err}</div>}
+
+      {/* Bestehende Zuordnungen */}
+      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, letterSpacing: '0.06em', marginBottom: '0.5rem' }}>AKTUELLE MANDATE</div>
+      {detail?.deals?.length ? detail.deals.map(d => (
+        <div key={d.party_id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.75rem', border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: '0.35rem' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: C.navy }}>
+              {d.codename}
+              {d.project_status === 'draft' && <span style={{ fontSize: '0.65rem', color: C.muted, marginLeft: 5 }}>(Entwurf)</span>}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: C.muted }}>
+              {(PARTY_ROLES.find(r => r[0] === d.party_role) || [, d.party_role])[1]} · {stageLabel(d.funnel_stage)} · {PARTY_STATUS_LABEL[d.party_status] || d.party_status}
+            </div>
+          </div>
+          <button onClick={() => remove(d.party_id)} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: 6, padding: '0.3rem 0.45rem', cursor: 'pointer' }}>
+            <Trash2 size={13} />
+          </button>
+        </div>
+      )) : <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: '0.5rem' }}>Dieser Kontakt ist noch keinem Mandat zugeordnet.</div>}
+
+      {/* Neue Zuordnung */}
+      <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1rem', marginTop: '1rem' }}>
+        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, letterSpacing: '0.06em', marginBottom: '0.6rem' }}>MANDAT ZUORDNEN</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={LABEL}>Mandat *</label>
+            <select value={projectId} onChange={e => setProjectId(e.target.value)} style={INPUT}>
+              <option value="">Bitte wählen…</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.codename}{p.status === 'draft' ? ' (Entwurf)' : ''}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={LABEL}>Rolle im Mandat</label>
+            <select value={role} onChange={e => setRole(e.target.value)} style={INPUT}>
+              {PARTY_ROLES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={LABEL}>Funnel-Stufe</label>
+            <select value={stage} onChange={e => setStage(e.target.value)} style={INPUT}>
+              {stages.map(s => <option key={s.key} value={s.key}>{s.key} — {s.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <button onClick={add} disabled={busy || !projectId} style={{ marginTop: '0.75rem', width: '100%', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.65rem', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
+          {busy ? 'Wird zugeordnet…' : 'Zum Mandat hinzufügen'}
+        </button>
+      </div>
+    </Modal>
   );
 }
 
