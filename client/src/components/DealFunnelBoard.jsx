@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
-import { Star, AlertTriangle, Mail, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Star, AlertTriangle, Mail, ShieldCheck, ShieldOff, Send, CheckSquare, Square, BellRing, Megaphone } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const SELECT = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
@@ -23,6 +23,9 @@ export default function DealFunnelBoard({ show }) {
   const [hideDropped, setHideDropped] = useState(true);
   const [selected, setSelected] = useState([]);   // Kontakt-IDs für Sammel-Einladung
   const [inviting, setInviting] = useState(false);
+  const [campaign, setCampaign] = useState(false);      // Massenmailing-Modal
+  const [updateMail, setUpdateMail] = useState(false);  // Projekt-Update-Modal
+  const [camps, setCamps] = useState([]);               // versendete Kampagnen
   // Kontakt direkt zum Mandat hinzufügen
   const [allContacts, setAllContacts] = useState([]);
   const [addContact, setAddContact] = useState('');
@@ -53,10 +56,18 @@ export default function DealFunnelBoard({ show }) {
 
   const loadBoard = useCallback(async () => {
     if (!active) return;
-    try { setBoard(await api.get(`/crm/deals/${active}/parties`)); }
-    catch (e) { show('Fehler: ' + e.message); }
+    try {
+      setBoard(await api.get(`/crm/deals/${active}/parties`));
+      const c = await api.get(`/crm/deals/${active}/campaigns`).catch(() => ({ campaigns: [] }));
+      setCamps(c.campaigns || []);
+    } catch (e) { show('Fehler: ' + e.message); }
   }, [active, show]);
   useEffect(() => { loadBoard(); setSelected([]); }, [loadBoard]);
+
+  async function toggleReminders(campId, on) {
+    try { await api.put(`/crm/campaigns/${campId}`, { reminders_enabled: on }); await loadBoard(); }
+    catch (e) { show('Fehler: ' + e.message); }
+  }
 
   async function moveTo(partyId, stage) {
     try { await api.put(`/crm/parties/${partyId}`, { funnel_stage: stage }); await loadBoard(); }
@@ -87,6 +98,18 @@ export default function DealFunnelBoard({ show }) {
 
   const parties = (board?.parties || []).filter(p => hideDropped ? p.party_status !== 'dropped' : true);
   const deal = deals.find(d => d.id === active);
+
+  // „Alle auswählen" — Kontakte mit Widerspruch werden gar nicht erst angehakt.
+  const selectable = parties.filter(p => p.contact_id
+    && p.consent_status !== 'opt_out' && p.contact_status !== 'do_not_contact').map(p => p.contact_id);
+  const allSelected = selectable.length > 0 && selectable.every(id => selected.includes(id));
+  const toggleAll = () => setSelected(allSelected ? [] : selectable);
+  const toggleColumn = (stageKey) => {
+    const ids = parties.filter(p => p.funnel_stage === stageKey && selectable.includes(p.contact_id)).map(p => p.contact_id);
+    if (!ids.length) return;
+    const on = ids.every(id => selected.includes(id));
+    setSelected(s => on ? s.filter(x => !ids.includes(x)) : [...new Set([...s, ...ids])]);
+  };
 
   return (
     <div>
@@ -133,19 +156,79 @@ export default function DealFunnelBoard({ show }) {
 
       {/* Toolbar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.8rem' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: C.muted, cursor: 'pointer' }}>
-          <input type="checkbox" checked={hideDropped} onChange={e => setHideDropped(e.target.checked)} />
-          Ausgestiegene ausblenden
-        </label>
-        {selected.length > 0 && (
-          <button onClick={inviteSelected} disabled={inviting} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, background: C.navy, color: '#fff', border: 'none',
-            borderRadius: 8, padding: '0.5rem 1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flexWrap: 'wrap' }}>
+          <button onClick={toggleAll} disabled={!selectable.length} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: C.navy,
+            border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '0.42rem 0.8rem',
+            fontSize: '0.8rem', fontWeight: 700, cursor: selectable.length ? 'pointer' : 'default',
           }}>
-            <Mail size={14} /> {inviting ? 'Wird versendet…' : `${selected.length} Kontakt(e) einladen (DSGVO)`}
+            {allSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+            {allSelected ? 'Auswahl aufheben' : `Alle auswählen (${selectable.length})`}
           </button>
-        )}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: C.muted, cursor: 'pointer' }}>
+            <input type="checkbox" checked={hideDropped} onChange={e => setHideDropped(e.target.checked)} />
+            Ausgestiegene ausblenden
+          </label>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          {active && (
+            <button onClick={() => setUpdateMail(true)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: C.navy,
+              border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem',
+              fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+            }}>
+              <BellRing size={14} /> Prozess-Update
+            </button>
+          )}
+          {selected.length > 0 && (
+            <>
+              <button onClick={inviteSelected} disabled={inviting} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: C.navy,
+                border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem',
+                fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+              }}>
+                <Mail size={14} /> {inviting ? 'Wird versendet…' : 'Nur Einwilligung anfragen'}
+              </button>
+              <button onClick={() => setCampaign(true)} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, background: C.navy, color: '#fff', border: 'none',
+                borderRadius: 8, padding: '0.5rem 1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+              }}>
+                <Megaphone size={14} /> {selected.length} anschreiben (Mandats-Mailing)
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Kampagnen des Mandats — Reaktionen und Reminder-Automatik */}
+      {!!camps.length && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.7rem 0.9rem', marginBottom: '0.9rem' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 800, color: C.navy, marginBottom: '0.5rem' }}>Versendete Mailings</div>
+          {camps.slice(0, 5).map(c => (
+            <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', padding: '0.35rem 0', borderTop: '1px solid #F1F5F9' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: C.text }}>
+                  {c.name} <span style={{ fontWeight: 500, color: C.muted }}>· {c.purpose === 'update' ? 'Prozess-Update' : 'Ansprache'}</span>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: C.muted }}>
+                  {new Date(c.sent_at || c.created_at).toLocaleDateString('de-DE')} · {c.recipients} Empfänger ·{' '}
+                  <span style={{ color: '#059669', fontWeight: 700 }}>{c.responded} Reaktion(en)</span>
+                  {c.reminded > 0 && <> · {c.reminded} erinnert</>}
+                  {c.no_response > 0 && <> · {c.no_response} ohne Rückmeldung</>}
+                  {c.skipped > 0 && <> · {c.skipped} gesperrt</>}
+                </div>
+              </div>
+              {c.purpose !== 'update' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.7rem', color: C.muted, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  <input type="checkbox" checked={!!c.reminders_enabled} onChange={e => toggleReminders(c.id, e.target.checked)} />
+                  Reminder Tag 7 / 21
+                </label>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {deal && board && (
         <>
@@ -179,8 +262,14 @@ export default function DealFunnelBoard({ show }) {
                     minWidth: 210, flex: '1 0 210px', background: overStage === s.key ? '#EEF4FB' : C.bg,
                     border: `1px solid ${overStage === s.key ? C.accent : C.border}`, borderRadius: 10, padding: '0.6rem',
                   }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 800, color: C.navy, marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{s.label}</span><span style={{ color: C.muted }}>{cards.length}</span>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 800, color: C.navy, marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
+                    <span
+                      onClick={() => toggleColumn(s.key)}
+                      title="Alle Kontakte dieser Stufe auswählen"
+                      style={{ cursor: cards.length ? 'pointer' : 'default', userSelect: 'none' }}>
+                      {s.label}
+                    </span>
+                    <span style={{ color: C.muted }}>{cards.length}</span>
                   </div>
 
                   {cards.map(p => {
@@ -260,6 +349,169 @@ export default function DealFunnelBoard({ show }) {
       )}
 
       {!deals.length && <div style={{ padding: '2rem', textAlign: 'center', color: C.muted }}>Noch keine Mandate mit Beteiligten.</div>}
+
+      {campaign && deal && (
+        <CampaignModal
+          project={deal}
+          contactIds={selected}
+          onClose={() => setCampaign(false)}
+          onSent={(r) => {
+            setCampaign(false); setSelected([]); loadBoard();
+            show(`Mailing versendet: ${r.sent} Kontakt(e) · ${r.skipped} übersprungen`);
+          }}
+          show={show}
+        />
+      )}
+
+      {updateMail && deal && (
+        <UpdateMailModal
+          project={deal}
+          onClose={() => setUpdateMail(false)}
+          onSent={(r) => { setUpdateMail(false); loadBoard(); show(r.sent ? `Prozess-Update an ${r.sent} Beteiligte versendet` : `Nicht versendet: ${r.reason}`); }}
+          show={show}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Massenmailing: Mandats-Ansprache mit Einwilligung + Pflege-Link ──────────
+function CampaignModal({ project, contactIds, onClose, onSent, show }) {
+  const [subject, setSubject] = useState(`[Vertraulich] ${project.codename} — vertrauliche Vorabinformation`);
+  const [intro, setIntro] = useState('');
+  const [reminders, setReminders] = useState(true);
+  const [preview, setPreview] = useState(null);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    api.post(`/crm/deals/${project.id}/campaign/preview`, { contact_ids: contactIds })
+      .then(setPreview).catch(e => show('Fehler: ' + e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function send() {
+    if (!window.confirm(
+      `${preview?.send || 0} Kontakt(e) zum Mandat „${project.codename}" anschreiben?\n\n` +
+      `Kontakte ohne Einwilligung erhalten eine Double-Opt-in-Anfrage — Unterlagen gibt es erst nach Zustimmung. ` +
+      `Widersprüche werden übersprungen.${reminders ? '\n\nReminder laufen automatisch an Tag 7 und Tag 21.' : ''}`)) return;
+    setSending(true);
+    try {
+      const r = await api.post(`/crm/deals/${project.id}/campaign`, {
+        contact_ids: contactIds, subject, intro, reminders_enabled: reminders,
+      });
+      onSent(r);
+    } catch (e) { show('Fehler: ' + e.message); setSending(false); }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(13,27,54,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.4rem', width: 'min(640px, 100%)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <h3 style={{ margin: '0 0 0.3rem', color: C.navy, fontSize: '1.05rem' }}>Mandats-Mailing — {project.codename}</h3>
+        <p style={{ margin: '0 0 1rem', fontSize: '0.8rem', color: C.muted, lineHeight: 1.5 }}>
+          Eine Mail, drei Zwecke: anonymes Kurzprofil des Mandats, Einwilligung nach DSGVO (Double-Opt-in)
+          und ein persönlicher Link zur Pflege der Kontaktdaten.
+        </p>
+
+        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.text }}>Betreff</label>
+        <input value={subject} onChange={e => setSubject(e.target.value)} style={{ ...SELECT, margin: '0.3rem 0 0.9rem' }} />
+
+        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.text }}>Persönliche Einleitung (optional)</label>
+        <textarea
+          value={intro} onChange={e => setIntro(e.target.value)} rows={5}
+          placeholder="Leer lassen für den Standardtext: sachliche Vorstellung des Mandats, Hinweis auf Anonymität bis zum NDA."
+          style={{ ...SELECT, margin: '0.3rem 0 0.5rem', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} />
+        <div style={{ fontSize: '0.7rem', color: C.muted, marginBottom: '0.9rem' }}>
+          Eckdaten (Branche, Region, Umsatz-/EBITDA-Band), Prozessablauf, Unterschrift und Rechtshinweis werden automatisch ergänzt.
+        </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: C.text, cursor: 'pointer', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem 0.7rem' }}>
+          <input type="checkbox" checked={reminders} onChange={e => setReminders(e.target.checked)} />
+          <span>
+            <strong>Automatisch nachfassen</strong> — höfliche Erinnerung an <strong>Tag 7</strong>, abschließende Nachfrage an <strong>Tag 21</strong>.
+            <span style={{ display: 'block', fontSize: '0.72rem', color: C.muted, marginTop: 2 }}>
+              Jede Reaktion (Zustimmung, Absage, Statuswechsel im Funnel) stoppt die Serie sofort. Danach keine weitere Ansprache.
+            </span>
+          </span>
+        </label>
+
+        {preview && (
+          <div style={{ marginTop: '1rem', border: `1px solid ${C.border}`, borderRadius: 8, maxHeight: 180, overflowY: 'auto' }}>
+            <div style={{ padding: '0.5rem 0.7rem', background: C.bg, fontSize: '0.75rem', fontWeight: 700, color: C.navy, position: 'sticky', top: 0 }}>
+              {preview.send} Empfänger · {preview.skip} übersprungen
+            </div>
+            {preview.recipients.map(r => (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '0.35rem 0.7rem', fontSize: '0.74rem', borderTop: '1px solid #F1F5F9', opacity: r.skip ? 0.55 : 1 }}>
+                <span style={{ color: C.text }}>{r.name} <span style={{ color: C.muted }}>{r.email}</span></span>
+                <span style={{ whiteSpace: 'nowrap', color: r.skip ? '#dc2626' : (r.needs_consent ? '#d97706' : '#059669'), fontWeight: 700 }}>
+                  {r.skip || (r.needs_consent ? 'Einwilligung nötig' : 'eingewilligt')}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.2rem' }}>
+          <button onClick={onClose} style={{ background: '#fff', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>Abbrechen</button>
+          <button onClick={send} disabled={sending || !preview?.send} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: sending || !preview?.send ? '#cbd5e1' : C.navy, color: '#fff', border: 'none', borderRadius: 8,
+            padding: '0.55rem 1.2rem', fontSize: '0.82rem', fontWeight: 700, cursor: sending || !preview?.send ? 'default' : 'pointer',
+          }}>
+            <Send size={14} /> {sending ? 'Wird versendet…' : `An ${preview?.send || 0} versenden`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Prozess-Update an die aktiven, eingewilligten Beteiligten ────────────────
+function UpdateMailModal({ project, onClose, onSent, show }) {
+  const [note, setNote] = useState('');
+  const [list, setList] = useState(null);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    api.get(`/crm/deals/${project.id}/active-participants`)
+      .then(d => setList(d.participants || [])).catch(() => setList([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function send() {
+    setSending(true);
+    try { onSent(await api.post(`/crm/deals/${project.id}/update-mail`, { note })); }
+    catch (e) { show('Fehler: ' + e.message); setSending(false); }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(13,27,54,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.4rem', width: 'min(560px, 100%)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <h3 style={{ margin: '0 0 0.3rem', color: C.navy, fontSize: '1.05rem' }}>Prozess-Update — {project.codename}</h3>
+        <p style={{ margin: '0 0 1rem', fontSize: '0.8rem', color: C.muted, lineHeight: 1.5 }}>
+          Geht ausschließlich an Beteiligte, die eingewilligt haben und noch im Prozess sind
+          ({list === null ? '…' : list.length} Empfänger). Ausgestiegene und Widersprüche bleiben außen vor.
+        </p>
+        <textarea
+          value={note} onChange={e => setNote(e.target.value)} rows={5}
+          placeholder={'z. B.: Der Zeitplan wurde angepasst — indikative Angebote werden bis zum 15.08. erbeten. Das Information Memorandum liegt in aktualisierter Fassung im Datenraum.'}
+          style={{ ...SELECT, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} />
+        {list !== null && !!list.length && (
+          <div style={{ marginTop: '0.7rem', fontSize: '0.74rem', color: C.muted, lineHeight: 1.6 }}>
+            {list.map(p => p.name).join(' · ')}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.2rem' }}>
+          <button onClick={onClose} style={{ background: '#fff', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>Abbrechen</button>
+          <button onClick={send} disabled={sending || note.trim().length < 10 || !(list || []).length} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: sending || note.trim().length < 10 || !(list || []).length ? '#cbd5e1' : C.navy,
+            color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 1.2rem', fontSize: '0.82rem', fontWeight: 700,
+            cursor: sending ? 'default' : 'pointer',
+          }}>
+            <Send size={14} /> {sending ? 'Wird versendet…' : 'Update versenden'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

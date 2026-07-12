@@ -84,6 +84,7 @@ initialize().then(() => {
     console.log(`📧 Download-Notifications → ${process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de'} ${process.env.SMTP_HOST ? '(SMTP aktiv)' : '(nur Logs – SMTP nicht konfiguriert)'}\n`);
     // Sprint 10: Digest-Scheduler (daily/weekly Match-Benachrichtigungen)
     try { require('./utils/digest').startScheduler(); } catch (e) { console.warn('Digest-Scheduler nicht gestartet:', e.message); }
+    try { require('./utils/campaigns').startScheduler(); } catch (e) { console.warn('Kampagnen-Scheduler nicht gestartet:', e.message); }
   });
 }).catch(err => {
   console.error('Failed to initialize database:', err);

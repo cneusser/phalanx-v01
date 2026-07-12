@@ -3,6 +3,16 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.253 — 15.07.2026 · CRM III: Mandats-Mailings & automatisches Nachfassen
+- **„Alle auswählen"** im Deal-Funnel — global oder je Funnel-Stufe (Klick auf die Spaltenüberschrift). Kontakte mit Widerspruch werden gar nicht erst angehakt
+- **Massenmailing je Mandat** (`crm_campaigns`): eine professionell aufgebaute M&A-Ansprache mit anonymem Kurzprofil (Branche, Region, Umsatz-/EBITDA-Band, Transaktionsart), Prozessablauf (Teaser → NDA → IM/Datenraum → Gespräch/LOI), Beraterunterschrift und Rechtshinweis
+- Drei Zwecke in **einer** Mail: Einladung zum Mandat, **DSGVO-Einwilligung (Double-Opt-in)** und **persönlicher Pflege-Link** für Kontaktdaten/Suchprofil
+- Kontakte mit bestehender Einwilligung erhalten dieselbe Mail ohne Consent-Schleife — direkt mit Link auf das Mandat
+- **Reminder-Automatik**: höfliche Erinnerung an **Tag 7**, abschließende Nachfrage an **Tag 21** — danach endgültig Schluss. Jede Reaktion (Zustimmung, Absage, Statuswechsel im Funnel, Widerspruch) stoppt die Serie sofort; je Kampagne abschaltbar
+- **Prozess-Updates**: freie Nachricht an alle **aktiven, eingewilligten** Beteiligten; **wesentliche Änderungen am Mandat** (Branche, Region, Bänder, Transaktionsart, Kurzbeschreibung, Phase) lösen sie automatisch aus — mit 24-h-Bremse gegen Mail-Fluten
+- Reaktionsquote je Mailing im Board sichtbar; Funnel zieht automatisch auf „Angesprochen" nach
+- Verifiziert: 25 Unit-Tests (Reminder-Fälligkeit, Stopp-Bedingungen, Opt-out-Sperre, Änderungserkennung, Mailaufbau)
+
 ## v0.252 — 14.07.2026 · CRM IV: Kontakt-Selbstpflege-Portal
 - **Persönlicher, befristeter Link** (60 Tage, widerrufbar): Der Kontakt sieht genau, was gespeichert ist, und korrigiert es selbst — neue Seite `/profil-pflege`
 - Pflegbar: Kontaktdaten, Position, Standort, **Brancheninteressen**, **geografischer Fokus**, **Ticketgröße (von/bis)**, Investitionsschwerpunkt, **Kommunikationswunsch**

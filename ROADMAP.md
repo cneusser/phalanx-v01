@@ -31,7 +31,7 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 18 | **Engagement-Mailings: Newsletter, Folgen-Option, Änderungs-Mails, Ähnlichkeits-Matching** | ✅ Kern fertig (Newsletter, Auto-/Manuell-Folgen, Follower-Mails, Ähnlichkeits-Score, Opt-out-Center) |
 | 19 | **CRM I — Unternehmen & Kontakte** (Stammdaten, Dubletten, Verknüpfungen, Import) | ✅ Kern fertig (Unternehmen, Kontakte, n:m + Historie, Konzern, Dubletten, CSV; + Mandats-Einladungen) |
 | 20 | **CRM II — Transaktionen, Beteiligtenrollen & konfigurierbarer Kanban-Funnel** | ✅ Kern fertig (Funnel-Board, Rollen, Verweildauer, Stagnation; Import echter Kontakte) |
-| 21 | **CRM III — Aufgaben/Wiedervorlagen & Kommunikation** (E-Mail-Versand, BCC-Ingest, Vorlagen) | geplant |
+| 21 | **CRM III — Kommunikation & Aufgaben** (Mandats-Mailings, Reminder, BCC-Ingest, Vorlagen) | ✅ Kern fertig (Massenmailing je Mandat, Double-Opt-in + Pflege-Link in einer Mail, Reminder Tag 7/21, Prozess-Updates automatisch); BCC-Ingest, Vorlagen & Wiedervorlagen offen |
 | 22 | **CRM IV — Dokumente, Suche/Auswertungen & Kontakt-Selbstpflege-Portal** | ▶ Selbstpflege-Portal ✅ fertig (Link, Protokoll, Freigabe, Abmeldung); Dokumente/Auswertungen offen |
 | 23 | **CRM V — Rollen/Rechte granular, API/Webhooks, Multi-Tenant, DSGVO-Härtung + 2FA** | geplant |
 | 24 | **CRM VI — Ausbaustufen** (Anreicherung, Käufer-Matching, E-Signatur, Datenraum, Mobile, Portal) | geplant |

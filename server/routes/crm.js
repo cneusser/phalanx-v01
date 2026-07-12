@@ -1074,6 +1074,176 @@ router.post('/profile-changes/:id/:action', ...isStaff, wrap(async (req, res) =>
   res.json({ success: true, data: { status: action } });
 }));
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CRM III — Mandats-Kampagnen (Massenmailing) + Reminder
+//
+// Eine Kampagne ist eine Ansprache-Welle zu EINEM Mandat. Je Empfänger wird —
+// falls nötig — ein Einwilligungs-Token (Double-Opt-in) und ein Pflege-Link
+// erzeugt; beides steckt in derselben, professionell aufgebauten Mail.
+// Wer widersprochen hat, wird niemals angeschrieben.
+// ═══════════════════════════════════════════════════════════════════════════
+const campaigns = require('../utils/campaigns');
+
+// Empfänger-Vorschau: wer bekommt die Mail — und wer nicht (mit Begründung)
+router.post('/deals/:projectId/campaign/preview', ...isStaff, wrap(async (req, res) => {
+  const ids = (req.body.contact_ids || []).slice(0, 200).map(Number).filter(Boolean);
+  const rows = [];
+  for (const cid of ids) {
+    const k = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [cid]));
+    if (!k) continue;
+    const name = [k.first_name, k.last_name].filter(Boolean).join(' ');
+    let skip = null;
+    if (!k.email) skip = 'keine E-Mail-Adresse';
+    else if (k.contact_status === 'do_not_contact' || k.consent_status === 'opt_out') skip = 'Widerspruch — wird nie angeschrieben';
+    rows.push({
+      id: cid, name, email: k.email, skip,
+      needs_consent: k.consent_status !== 'opt_in',
+    });
+  }
+  res.json({ success: true, data: { recipients: rows, send: rows.filter(r => !r.skip).length, skip: rows.filter(r => r.skip).length } });
+}));
+
+// Kampagne versenden
+router.post('/deals/:projectId/campaign', ...isStaff, wrap(async (req, res) => {
+  const projectId = Number(req.params.projectId);
+  const project = await scoped(req, (t) => t.get('SELECT * FROM projects WHERE id = ?', [projectId]));
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+
+  const ids = (req.body.contact_ids || []).slice(0, 200).map(Number).filter(Boolean);
+  if (!ids.length) return res.status(400).json({ success: false, error: 'Keine Empfänger ausgewählt' });
+
+  const crypto = require('crypto');
+  const { sendCampaignEmail } = require('../utils/email');
+  const remind = req.body.reminders_enabled === false ? 0 : 1;
+  const tenant = req.tenantId || 1;
+
+  const campaignId = await scoped(req, (t) => t.insert(`
+    INSERT INTO crm_campaigns (tenant_id, project_id, name, purpose, subject, intro, reminders_enabled, status, created_by, sent_at)
+    VALUES (?, ?, ?, 'invite', ?, ?, ?, 'sent', ?, now())`,
+    [tenant, projectId, req.body.name || `Ansprache ${project.codename}`,
+     req.body.subject || null, req.body.intro || null, remind, req.user.id]));
+
+  const sent = [], skipped = [];
+  for (const cid of ids) {
+    const k = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [cid]));
+    if (!k || !k.email) { skipped.push({ id: cid, reason: 'keine E-Mail' }); continue; }
+    if (k.contact_status === 'do_not_contact' || k.consent_status === 'opt_out') {
+      skipped.push({ id: cid, email: k.email, reason: 'Widerspruch' });
+      await scoped(req, (t) => t.run(`
+        INSERT INTO crm_campaign_recipients (tenant_id, campaign_id, contact_id, email, status, skip_reason)
+        VALUES (?, ?, ?, ?, 'skipped', 'Widerspruch') ON CONFLICT (campaign_id, contact_id) DO NOTHING`,
+        [tenant, campaignId, cid, k.email])).catch(() => {});
+      continue;
+    }
+
+    const needsConsent = k.consent_status !== 'opt_in';
+
+    // Einwilligungs-Token: bestehenden offenen Vorgang wiederverwenden, sonst neu
+    let inviteId = null, inviteToken = null;
+    if (needsConsent) {
+      const open = await scoped(req, (t) => t.get(
+        `SELECT id, token FROM crm_invitations WHERE contact_id = ? AND status IN ('invited','opened')
+          AND (expires_at IS NULL OR expires_at > now()) ORDER BY id DESC LIMIT 1`, [cid]));
+      if (open) { inviteId = open.id; inviteToken = open.token; }
+      else {
+        inviteToken = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + INVITE_DAYS * 24 * 3600 * 1000);
+        inviteId = await scoped(req, (t) => t.insert(`
+          INSERT INTO crm_invitations (tenant_id, contact_id, project_id, email, token, message, invited_by, expires_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [tenant, cid, projectId, k.email, inviteToken, req.body.intro || null, req.user.id, expires]));
+      }
+    }
+
+    // Pflege-Link (Selbstpflege / Abmeldung) — immer beilegen
+    let profileId = null, profileToken = null;
+    const activeLink = await scoped(req, (t) => t.get(
+      `SELECT id, token FROM crm_profile_links WHERE contact_id = ? AND status = 'active'
+        AND (expires_at IS NULL OR expires_at > now()) ORDER BY id DESC LIMIT 1`, [cid]));
+    if (activeLink) { profileId = activeLink.id; profileToken = activeLink.token; }
+    else {
+      profileToken = crypto.randomBytes(32).toString('hex');
+      const pExp = new Date(Date.now() + PROFILE_DAYS * 24 * 3600 * 1000);
+      profileId = await scoped(req, (t) => t.insert(`
+        INSERT INTO crm_profile_links (tenant_id, contact_id, token, requires_approval, created_by, expires_at)
+        VALUES (?, ?, ?, 0, ?, ?)`, [tenant, cid, profileToken, req.user.id, pExp]));
+    }
+
+    sendCampaignEmail(campaigns.buildInviteMail({
+      contact: k, project, inviter: req.user,
+      intro: req.body.intro, subject: req.body.subject,
+      inviteToken, profileToken, needsConsent,
+    })).catch(() => {});
+
+    await scoped(req, (t) => t.run(`
+      INSERT INTO crm_campaign_recipients (tenant_id, campaign_id, contact_id, email, invitation_id, profile_link_id, status, sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'sent', now())
+      ON CONFLICT (campaign_id, contact_id) DO NOTHING`,
+      [tenant, campaignId, cid, k.email, inviteId, profileId])).catch(() => {});
+
+    // Funnel mitziehen: „angesprochen" ist mindestens Stufe 1
+    await scoped(req, (t) => t.run(`
+      UPDATE crm_deal_parties
+         SET mails_sent = COALESCE(mails_sent,0) + 1,
+             last_contact = CURRENT_DATE,
+             first_contact = COALESCE(first_contact, CURRENT_DATE),
+             funnel_stage = GREATEST(funnel_stage, 1),
+             stage_changed_at = CASE WHEN funnel_stage < 1 THEN now() ELSE stage_changed_at END
+       WHERE project_id = ? AND contact_id = ?`, [projectId, cid])).catch(() => {});
+
+    sent.push({ id: cid, email: k.email });
+  }
+
+  db.auditLog(req.user.id, 'CRM_CAMPAIGN_SENT', 'project', projectId,
+    `Kampagne #${campaignId} · ${sent.length} versendet · ${skipped.length} übersprungen · Reminder ${remind ? 'an' : 'aus'}`, req.ip);
+  res.status(201).json({
+    success: true,
+    data: { campaign_id: campaignId, sent: sent.length, skipped: skipped.length, details: { sent, skipped } },
+  });
+}));
+
+// Kampagnen eines Mandats (mit Reaktionsquote)
+router.get('/deals/:projectId/campaigns', ...isStaff, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT c.*,
+           (SELECT COUNT(*)::int FROM crm_campaign_recipients r WHERE r.campaign_id = c.id) AS recipients,
+           (SELECT COUNT(*)::int FROM crm_campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'responded') AS responded,
+           (SELECT COUNT(*)::int FROM crm_campaign_recipients r WHERE r.campaign_id = c.id AND r.reminder_count > 0) AS reminded,
+           (SELECT COUNT(*)::int FROM crm_campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'no_response') AS no_response,
+           (SELECT COUNT(*)::int FROM crm_campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'skipped') AS skipped
+    FROM crm_campaigns c WHERE c.project_id = ? ORDER BY c.created_at DESC LIMIT 50`, [req.params.projectId]));
+  res.json({ success: true, data: { campaigns: rows, reminder_days: campaigns.REMINDER_DAYS } });
+}));
+
+// Reminder-Automatik einer Kampagne an-/abschalten
+router.put('/campaigns/:id', ...isStaff, wrap(async (req, res) => {
+  await scoped(req, (t) => t.run(`UPDATE crm_campaigns SET reminders_enabled = ? WHERE id = ?`,
+    [req.body.reminders_enabled ? 1 : 0, req.params.id]));
+  db.auditLog(req.user.id, 'CRM_CAMPAIGN_UPDATED', 'crm_campaign', req.params.id,
+    `Reminder ${req.body.reminders_enabled ? 'aktiviert' : 'deaktiviert'}`, req.ip);
+  res.json({ success: true, data: { message: 'Kampagne aktualisiert' } });
+}));
+
+// Fällige Reminder sofort laufen lassen (sonst stündlich automatisch)
+router.post('/campaigns/run-reminders', ...isStaff, wrap(async (req, res) => {
+  const n = await campaigns.runReminders();
+  res.json({ success: true, data: { sent: n } });
+}));
+
+// Projekt-Update manuell an die aktiven, eingewilligten Beteiligten senden
+router.post('/deals/:projectId/update-mail', ...isStaff, wrap(async (req, res) => {
+  const note = String(req.body.note || '').trim();
+  if (note.length < 10) return res.status(400).json({ success: false, error: 'Bitte formulieren Sie die Aktualisierung (mind. 10 Zeichen).' });
+  const r = await campaigns.notifyProjectChange(req.params.projectId, [], { actorId: req.user.id, note, force: true });
+  res.json({ success: true, data: r });
+}));
+
+// Wer würde ein Projekt-Update erhalten?
+router.get('/deals/:projectId/active-participants', ...isStaff, wrap(async (req, res) => {
+  const rows = await campaigns.activeParticipants(req.params.projectId);
+  res.json({ success: true, data: { participants: rows.map(r => ({ contact_id: r.contact_id, name: [r.first_name, r.last_name].filter(Boolean).join(' '), email: r.email })) } });
+}));
+
 // Kennzahlen fürs Dashboard ─────────────────────────────────────────────────
 router.get('/stats', ...isStaff, wrap(async (req, res) => {
   const c = await scoped(req, (t) => t.get('SELECT COUNT(*)::int AS n FROM crm_companies'));

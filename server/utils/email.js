@@ -327,8 +327,33 @@ async function sendProcessUpdateEmail({ to, firstName, title, message, ctaLabel,
   });
 }
 
+// ── CRM-Kampagnen-Mail (M&A-Ansprache) ──────────────────────────────────────
+// Vollständige Anrede, sachlicher Fließtext, ein klarer Haupt-CTA, optionaler
+// Sekundär-Link, Beraterunterschrift und ein rechtlicher Abbinder (Herkunft der
+// Daten, Widerspruchsmöglichkeit). Bewusst ohne Werbeblock — eine Erstansprache
+// im M&A-Kontext ist eine geschäftliche Mitteilung, keine Kampagnen-Werbung.
+async function sendCampaignEmail({ to, subject, title, salutation, bodyHtml, ctaLabel, ctaPath, secondaryHtml, signatureHtml, legalHtml }) {
+  const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
+  const url = ctaPath ? `${base}${ctaPath}` : null;
+  return sendMail({
+    to,
+    subject,
+    html: mailShell(title, `
+      <p style="margin:0 0 14px;">${salutation || 'Guten Tag,'}</p>
+      ${bodyHtml}
+      ${ctaLabel && url ? `<p style="text-align:center; margin: 26px 0 10px;">
+        <a href="${url}" style="background:#0D2A4A;color:#fff;padding:13px 30px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block;">${ctaLabel}</a>
+      </p>` : ''}
+      ${secondaryHtml ? `<p style="text-align:center;margin:0 0 18px;font-size:12.5px;color:#5B8FC9;">${secondaryHtml}</p>` : ''}
+      ${signatureHtml ? `<div style="margin-top:22px;padding-top:14px;border-top:1px solid #E6EDF5;font-size:13.5px;color:#333;">${signatureHtml}</div>` : ''}
+      ${legalHtml ? `<div style="margin-top:16px;font-size:11.5px;color:#8A8A8A;line-height:1.6;">${legalHtml}</div>` : ''}
+    `, { promo: false }),
+  });
+}
+
 module.exports = {
   sendDownloadNotification,
+  sendCampaignEmail,
   sendMail,
   sendPasswordResetEmail,
   sendRegistrationNotification,

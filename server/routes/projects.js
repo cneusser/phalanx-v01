@@ -192,6 +192,9 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
     if (dupe) return res.status(409).json({ success: false, error: 'Name/Codename bereits vergeben' });
   }
 
+  // Vorher-Stand für die Änderungs-Mail an aktive Beteiligte (CRM III)
+  const before = await db.get('SELECT * FROM projects WHERE id = ?', [req.params.id]);
+
   await db.run(`
     UPDATE projects SET
       codename=COALESCE(?,codename), industry=COALESCE(?,industry), region=COALESCE(?,region),
@@ -212,6 +215,20 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
     req.params.id,
   ]);
   db.auditLog(req.user.id, 'UPDATE_PROJECT', 'project', req.params.id, isAdmin ? 'via Marktplatz (Admin)' : 'via Marktplatz (Mitglied/Verkäufer)', req.ip);
+
+  // Wesentliche Änderungen → aktive, eingewilligte Beteiligte informieren.
+  // Läuft im Hintergrund, hat eine 24-h-Bremse und meldet sich nie bei Widerspruch.
+  try {
+    const campaigns = require('../utils/campaigns');
+    const after = await db.get('SELECT * FROM projects WHERE id = ?', [req.params.id]);
+    const changes = campaigns.materialChanges(before, after);
+    if (changes.length) {
+      campaigns.notifyProjectChange(req.params.id, changes, { actorId: req.user.id })
+        .then(r => { if (r.sent) console.log(`📨 Mandats-Update #${req.params.id}: ${r.sent} Beteiligte informiert`); })
+        .catch(() => {});
+    }
+  } catch { /* Benachrichtigung darf die Pflege nie blockieren */ }
+
   res.json({ success: true, data: { message: 'Mandat aktualisiert' } });
 }));
 
