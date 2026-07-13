@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.259 — 21.07.2026 · Mail-Ausgang, editierbare Systemtexte, Doppelversand-Sperre
+- **Mail-Ausgang** (neuer Admin-Tab, `email_log` mit RLS): **jede** versendete Mail wird protokolliert — Zeitpunkt, Empfänger, Betreff, Art, Mandat, Status. Klick auf eine Zeile zeigt **das Original-HTML**, exakt so, wie es beim Empfänger ankam (sandboxed iframe). Filter nach Art und Suche über Empfänger/Betreff
+- **Audit-Trail**: Jeder Versand erzeugt `MAIL_SENT` (bzw. `MAIL_FAILED`) mit **Art der Mail**, Betreff und Empfänger — man sieht also, *welche Art* von Mail rausging
+- **Pflege-Link** und **DSGVO-Einladung** laufen jetzt über Systemvorlagen (`profile_link`, `crm_invite`) — **Betreff und Text im Admin unter „Mailvorlagen" frei änderbar**, mit Vorschau. Fällt eine Vorlage weg, greift der bisherige Text als Fallback
+- **Doppelversand-Sperre**: Existiert bereits ein aktiver Pflege-Link aus den letzten **14 Tagen**, lehnt der Server ab (`PROFILE_LINK_RECENT`) und nennt das Versanddatum. Die Oberfläche fragt nach — erneut senden geht nur bewusst (`force`)
+- Zur Erinnerung, was der Pflege-Link ist: ein **persönlicher, 60 Tage gültiger Link**, über den der Kontakt seine eigenen Daten sieht und korrigiert (Kontaktdaten, Branchen- und Regionenfokus, Ticketgröße) und seine Kontaktpräferenz setzt — bis hin zur vollständigen Abmeldung
+
 ## v0.258 — 20.07.2026 · Q&A-Optionen & Nutzer direkt ansprechen
 - **Q&A beantworten** mit zwei Schaltern: **Antwort per E-Mail zustellen** (Standard) oder still speichern — und **im Mandat für alle Interessenten anzeigen** (FAQ). Veröffentlicht werden nur Frage und Antwort; **der Fragesteller bleibt anonym**
 - Sichtbarkeit jederzeit wieder zurücknehmbar; **Fragen löschen** (Test- oder Dublettenfragen) mit Audit-Eintrag

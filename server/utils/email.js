@@ -166,16 +166,38 @@ async function sendViaBrevoApi({ to, subject, html, attachments }) {
 
 // ── Generischer Versand (Brevo-API bevorzugt, sonst SMTP) ───────────────────
 // Optional: attachments [{ filename, content, encoding, contentType }]
-async function sendMail({ to, subject, html, attachments }) {
+// Ausgangsbuch: jede Mail wird protokolliert (Empfänger, Betreff, Art, HTML) und
+// im Audit-Trail als MAIL_SENT vermerkt — damit im Admin nachvollziehbar ist,
+// welche Art von Mail wann an wen ging. Fehler hierbei dürfen den Versand nie stören.
+async function logMail({ to, subject, html, meta = {}, status = 'sent', error = null }) {
+  try {
+    const db = require('../db/database');
+    const id = await db.insert(`
+      INSERT INTO email_log (tenant_id, to_email, subject, mail_type, template_key,
+                             contact_id, user_id, project_id, body_html, status, error, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [meta.tenantId || 1, String(to || '').slice(0, 200), String(subject || '').slice(0, 300),
+       meta.type || 'system', meta.templateKey || null,
+       meta.contactId || null, meta.userId || null, meta.projectId || null,
+       String(html || '').slice(0, 100000), status, error ? String(error).slice(0, 300) : null,
+       meta.actorId || null]);
+    db.auditLog(meta.actorId || null, status === 'sent' ? 'MAIL_SENT' : 'MAIL_FAILED', 'email', id,
+      `${meta.type || 'system'} · ${String(subject || '').slice(0, 90)} → ${to}`, null);
+  } catch { /* Protokoll darf den Versand nie blockieren */ }
+}
+
+async function sendMail({ to, subject, html, attachments, meta }) {
   try {
     if (process.env.BREVO_API_KEY) {
       await sendViaBrevoApi({ to, subject, html, attachments });
       console.log(`✉️  E-Mail gesendet (Brevo-API): "${subject}" an ${to}`);
+      logMail({ to, subject, html, meta });
       return true;
     }
     const transporter = createTransporter();
     if (!transporter) {
       console.log(`✉️  [Kein BREVO_API_KEY / SMTP nicht konfiguriert] E-Mail NICHT gesendet: "${subject}" an ${to}`);
+      logMail({ to, subject, html, meta, status: 'failed', error: 'Kein Mailversand konfiguriert' });
       return false;
     }
     const smtpAttachments = (attachments || []).map(a => ({
@@ -185,9 +207,11 @@ async function sendMail({ to, subject, html, attachments }) {
     }));
     await transporter.sendMail({ from: `"CapitalMatch Plattform" <${fromAddress()}>`, to, subject, html, attachments: smtpAttachments });
     console.log(`✉️  E-Mail gesendet (SMTP): "${subject}" an ${to}`);
+    logMail({ to, subject, html, meta });
     return true;
   } catch (err) {
     console.error('⚠️  E-Mail-Versand fehlgeschlagen:', err.message);
+    logMail({ to, subject, html, meta, status: 'failed', error: err.message });
     return false;
   }
 }
@@ -311,11 +335,12 @@ async function sendRegistrationNotification({ firstName, lastName, email, compan
 }
 
 // Generische Prozess-Benachrichtigung an den Investor (jeder Funnel-Schritt)
-async function sendProcessUpdateEmail({ to, firstName, title, message, ctaLabel, ctaPath }) {
+async function sendProcessUpdateEmail({ to, firstName, title, message, ctaLabel, ctaPath, meta }) {
   const url = `${process.env.FRONTEND_URL || 'https://www.capitalmatch.de'}${ctaPath || ''}`;
   return sendMail({
     to,
     subject: `[CapitalMatch] ${title}`,
+    meta: { type: 'process', ...(meta || {}) },
     html: mailShell(title, `
       <p>Hallo ${firstName || ''},</p>
       <p>${message}</p>
@@ -332,12 +357,13 @@ async function sendProcessUpdateEmail({ to, firstName, title, message, ctaLabel,
 // Sekundär-Link, Beraterunterschrift und ein rechtlicher Abbinder (Herkunft der
 // Daten, Widerspruchsmöglichkeit). Bewusst ohne Werbeblock — eine Erstansprache
 // im M&A-Kontext ist eine geschäftliche Mitteilung, keine Kampagnen-Werbung.
-async function sendCampaignEmail({ to, subject, title, salutation, bodyHtml, ctaLabel, ctaPath, secondaryHtml, signatureHtml, legalHtml }) {
+async function sendCampaignEmail({ to, subject, title, salutation, bodyHtml, ctaLabel, ctaPath, secondaryHtml, signatureHtml, legalHtml, meta }) {
   const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
   const url = ctaPath ? `${base}${ctaPath}` : null;
   return sendMail({
     to,
     subject,
+    meta: { type: 'campaign', ...(meta || {}) },
     html: mailShell(title, `
       <p style="margin:0 0 14px;">${salutation || 'Guten Tag,'}</p>
       ${bodyHtml}
@@ -353,6 +379,7 @@ async function sendCampaignEmail({ to, subject, title, salutation, bodyHtml, cta
 
 module.exports = {
   sendDownloadNotification,
+  logMail,
   sendCampaignEmail,
   sendMail,
   sendPasswordResetEmail,

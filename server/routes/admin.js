@@ -712,6 +712,33 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'NDA abgelehnt' } });
 }));
 
+// ── Mail-Ausgangsbuch: was ging wann an wen raus? ─────────────────────────
+router.get('/emails', ...isAdmin, wrap(async (req, res) => {
+  const type = req.query.type && req.query.type !== 'all' ? req.query.type : null;
+  const q = req.query.q ? `%${String(req.query.q).toLowerCase()}%` : null;
+  const rows = await db.all(`
+    SELECT e.id, e.to_email, e.subject, e.mail_type, e.template_key, e.status, e.error, e.created_at,
+           e.contact_id, e.project_id,
+           p.codename,
+           u.first_name || ' ' || u.last_name AS sender
+    FROM email_log e
+    LEFT JOIN projects p ON p.id = e.project_id
+    LEFT JOIN users u ON u.id = e.created_by
+    WHERE (? IS NULL OR e.mail_type = ?)
+      AND (? IS NULL OR lower(e.to_email) LIKE ? OR lower(e.subject) LIKE ?)
+    ORDER BY e.created_at DESC
+    LIMIT 300`, [type, type, q, q, q]).catch(() => []);
+  const types = await db.all(`SELECT mail_type, COUNT(*)::int AS n FROM email_log GROUP BY mail_type ORDER BY n DESC`).catch(() => []);
+  res.json({ success: true, data: { emails: rows, types } });
+}));
+
+// Eine Mail im Original ansehen (genau das HTML, das versendet wurde)
+router.get('/emails/:id', ...isAdmin, wrap(async (req, res) => {
+  const mail = await db.get('SELECT * FROM email_log WHERE id = ?', [req.params.id]);
+  if (!mail) return res.status(404).json({ success: false, error: 'Mail nicht gefunden' });
+  res.json({ success: true, data: mail });
+}));
+
 // ── Q&A: offene und beantwortete Fragen (Admin-Tab) ───────────────────────
 router.get('/questions', ...isAdmin, wrap(async (req, res) => {
   const rows = await db.all(`

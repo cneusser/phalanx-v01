@@ -13,6 +13,7 @@ import DealCrmModal, { DEAL_STATUS_LABELS, DEAL_TRANSITIONS } from '../component
 import ContactDrawer from '../components/ContactDrawer';
 import TemplateAdmin from '../components/TemplateAdmin';
 import TaskBoard from '../components/TaskBoard';
+import MailOutbox from '../components/MailOutbox';
 
 // Auswahllisten je Formularfeld (statt Freitext) — abhängig vom Mandatstyp
 const fieldOptions = (key, mandateType) => {
@@ -630,7 +631,7 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'contacts', 'tasks', 'qa', 'templates', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'contacts', 'tasks', 'qa', 'templates', 'mails', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
@@ -641,6 +642,7 @@ export default function Admin() {
     tasks: 'Wiedervorlagen',
     qa: 'Q&A',
     templates: 'Mailvorlagen',
+    mails: 'Mail-Ausgang',
     leads:    'Bewertungs-Leads',
     detvals:  'Ausf. Bewertungen',
     multiples: 'Multiples',
@@ -1274,6 +1276,8 @@ export default function Admin() {
       )}
 
       {activeTab === 'templates' && <TemplateAdmin show={showMsg} />}
+
+      {activeTab === 'mails' && <MailOutbox show={showMsg} />}
 
       {activeTab === 'contacts' && (
         <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>

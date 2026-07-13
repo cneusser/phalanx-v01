@@ -69,7 +69,14 @@ export default function Crm() {
     try {
       await api.post(`/crm/contacts/${k.id}/profile-link`, { requires_approval: false });
       show('Selbstpflege-Link versendet ✓');
-    } catch (e) { show('Fehler: ' + e.message); }
+    } catch (e) {
+      if (e.code === 'PROFILE_LINK_RECENT' && window.confirm(`${e.message}\n\nTrotzdem erneut senden?`)) {
+        try { await api.post(`/crm/contacts/${k.id}/profile-link`, { requires_approval: false, force: true }); show('Pflege-Link erneut versendet ✓'); }
+        catch (e2) { show('Fehler: ' + e2.message); }
+        return;
+      }
+      show('Fehler: ' + e.message);
+    }
   }
 
   async function decideChange(id, action) {

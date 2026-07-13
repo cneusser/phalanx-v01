@@ -751,25 +751,36 @@ async function createInvite(req, contact) {
     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [req.tenantId || 1, contact.id, contact.email, token, req.body.message || null, req.user.id, expires]));
 
-  const { sendProcessUpdateEmail } = require('../utils/email');
-  const inviter = [req.user.title, req.user.first_name, req.user.last_name].filter(Boolean).join(' ');
-  sendProcessUpdateEmail({
-    to: contact.email,
-    firstName: contact.first_name || '',
-    title: 'Einladung zu CapitalMatch — Ihre Bestätigung erforderlich',
-    message:
-      `<strong>${inviter}</strong> (Phalanx GmbH) lädt Sie zu <strong>CapitalMatch</strong> ein — der Plattform, über die wir ` +
-      `unsere M&A-Mandate künftig strukturiert und vertraulich bereitstellen: Kurzprofile, Unterlagen nach NDA, ` +
-      `Datenraum und direkte Kommunikation an einem Ort.` +
-      (req.body.message ? `<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${req.body.message}</span>` : '') +
-      `<br/><br/><strong>Wichtig (DSGVO):</strong> Wir legen kein Konto für Sie an und senden Ihnen keine weiteren ` +
-      `Informationen, solange Sie nicht ausdrücklich zustimmen. Bitte bestätigen Sie Ihre Einwilligung über den Button. ` +
-      `Sie können sie jederzeit mit Wirkung für die Zukunft widerrufen.` +
-      `<br/><br/><span style="font-size:12px;color:#888;">Möchten Sie nicht kontaktiert werden, ignorieren Sie diese E-Mail einfach — ` +
-      `oder klicken Sie auf der Bestätigungsseite auf „Nicht kontaktieren". Die Einladung verfällt nach ${INVITE_DAYS} Tagen.</span>`,
-    ctaLabel: 'Einwilligung bestätigen',
-    ctaPath: `/einwilligung?token=${token}`,
-  }).catch(() => {});
+  // Text kommt aus der Vorlage „crm_invite" (im Admin änderbar)
+  const tpl = await scoped(req, (t) => t.get(`SELECT * FROM mail_templates WHERE key = 'crm_invite' AND is_active = 1`)).catch(() => null);
+  const meta = { type: 'invite', templateKey: 'crm_invite', contactId: contact.id, actorId: req.user.id, tenantId: req.tenantId || 1 };
+
+  if (tpl) {
+    const mtl = require('../utils/mailTemplates');
+    const { sendCampaignEmail } = require('../utils/email');
+    const mail = mtl.buildFromTemplate({
+      template: tpl, contact, project: {}, inviter: req.user,
+      inviteToken: token, withFacts: false,
+    });
+    // Persönliche Ergänzung des Beraters (optional) direkt unter den Text stellen
+    if (req.body.message) {
+      mail.bodyHtml += `<p style="background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;font-size:13.5px;color:#333;">${String(req.body.message).replace(/</g, '&lt;')}</p>`;
+    }
+    mail.ctaPath = `/einwilligung?token=${token}`;
+    sendCampaignEmail({ ...mail, meta }).catch(() => {});
+  } else {
+    const { sendProcessUpdateEmail } = require('../utils/email');
+    const inviter = [req.user.title, req.user.first_name, req.user.last_name].filter(Boolean).join(' ');
+    sendProcessUpdateEmail({
+      to: contact.email, firstName: contact.first_name || '',
+      title: 'Einladung zu CapitalMatch — Ihre Bestätigung erforderlich',
+      message:
+        `<strong>${inviter}</strong> (Phalanx GmbH) lädt Sie zu <strong>CapitalMatch</strong> ein. ` +
+        `<br/><br/><strong>Wichtig (DSGVO):</strong> Wir legen kein Konto für Sie an, solange Sie nicht ausdrücklich zustimmen.`,
+      ctaLabel: 'Einwilligung bestätigen', ctaPath: `/einwilligung?token=${token}`,
+      meta,
+    }).catch(() => {});
+  }
 
   db.auditLog(req.user.id, 'CRM_INVITE_SENT', 'crm_contact', contact.id, contact.email, req.ip);
   return id;
@@ -954,13 +965,37 @@ function pickSelf(contact) {
   return out;
 }
 
-// Link erzeugen und per Mail versenden
+// Link erzeugen und per Mail versenden.
+// Doppelversand-Sperre: Läuft bereits ein aktiver Link, der in den letzten
+// PROFILE_RESEND_DAYS Tagen versendet wurde, wird abgelehnt — außer force = true.
+const PROFILE_RESEND_DAYS = 14;
+
+async function loadTemplate(req, key) {
+  return scoped(req, (t) => t.get(`SELECT * FROM mail_templates WHERE key = ? AND is_active = 1`, [key])).catch(() => null);
+}
+
 router.post('/contacts/:id/profile-link', ...isStaff, wrap(async (req, res) => {
   const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [req.params.id]));
   if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
   if (!contact.email) return res.status(400).json({ success: false, error: 'Kontakt hat keine E-Mail-Adresse.' });
   if (contact.contact_status === 'do_not_contact' || contact.consent_status === 'opt_out') {
     return res.status(403).json({ success: false, error: 'Dieser Kontakt hat der Kontaktaufnahme widersprochen.' });
+  }
+
+  // Schutz vor Mehrfachversand
+  const recent = await scoped(req, (t) => t.get(`
+    SELECT id, created_at FROM crm_profile_links
+     WHERE contact_id = ? AND status = 'active'
+       AND created_at > now() - interval '${PROFILE_RESEND_DAYS} days'
+     ORDER BY id DESC LIMIT 1`, [contact.id]));
+  if (recent && req.body.force !== true) {
+    return res.status(409).json({
+      success: false,
+      code: 'PROFILE_LINK_RECENT',
+      error: `Es läuft bereits ein Pflege-Link (versendet am ${new Date(recent.created_at).toLocaleDateString('de-DE')}). ` +
+             `Erneut senden ist erst nach ${PROFILE_RESEND_DAYS} Tagen sinnvoll — oder bewusst erzwingen.`,
+      data: { last_sent_at: recent.created_at },
+    });
   }
 
   const crypto = require('crypto');
@@ -973,21 +1008,30 @@ router.post('/contacts/:id/profile-link', ...isStaff, wrap(async (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?)`,
     [req.tenantId || 1, contact.id, token, req.body.requires_approval ? 1 : 0, req.user.id, expires]));
 
-  const { sendProcessUpdateEmail } = require('../utils/email');
-  sendProcessUpdateEmail({
-    to: contact.email, firstName: contact.first_name || '',
-    title: 'Ihre Angaben bei der Phalanx GmbH — bitte kurz prüfen',
-    message:
-      `damit wir Sie nur mit wirklich passenden Transaktionen ansprechen, bitten wir Sie um eine kurze Prüfung ` +
-      `Ihrer bei uns gespeicherten Angaben — Kontaktdaten, Position, Branchen- und Regionenfokus sowie Ticketgröße.` +
-      `<br/><br/>Über den Button sehen Sie <strong>genau, was wir gespeichert haben</strong>, und können es selbst ` +
-      `korrigieren. Der Link ist persönlich und ${PROFILE_DAYS} Tage gültig.` +
-      `<br/><br/><span style="font-size:12px;color:#888;">Sie können dort auch festlegen, wie (oder ob) wir Sie ` +
-      `künftig kontaktieren dürfen — bis hin zur vollständigen Abmeldung.</span>`,
-    ctaLabel: 'Angaben prüfen', ctaPath: `/profil-pflege?token=${token}`,
-  }).catch(() => {});
+  // Text kommt aus der Vorlage „profile_link" (im Admin änderbar)
+  const tpl = await loadTemplate(req, 'profile_link');
+  const { sendCampaignEmail, sendProcessUpdateEmail } = require('../utils/email');
+  if (tpl) {
+    const mtl = require('../utils/mailTemplates');
+    sendCampaignEmail({
+      ...mtl.buildFromTemplate({
+        template: tpl, contact, project: {}, inviter: req.user,
+        profileToken: token, withFacts: false,
+      }),
+      meta: { type: 'profile_link', templateKey: 'profile_link', contactId: contact.id, actorId: req.user.id, tenantId: req.tenantId || 1 },
+    }).catch(() => {});
+  } else {
+    sendProcessUpdateEmail({
+      to: contact.email, firstName: contact.first_name || '',
+      title: 'Ihre Angaben bei der Phalanx GmbH — bitte kurz prüfen',
+      message: `damit wir Sie nur mit passenden Transaktionen ansprechen, bitten wir Sie um eine kurze Prüfung Ihrer gespeicherten Angaben. Der Link ist persönlich und ${PROFILE_DAYS} Tage gültig.`,
+      ctaLabel: 'Angaben prüfen', ctaPath: `/profil-pflege?token=${token}`,
+      meta: { type: 'profile_link', contactId: contact.id, actorId: req.user.id },
+    }).catch(() => {});
+  }
 
-  db.auditLog(req.user.id, 'CRM_PROFILE_LINK_SENT', 'crm_contact', contact.id, contact.email, req.ip);
+  db.auditLog(req.user.id, 'CRM_PROFILE_LINK_SENT', 'crm_contact', contact.id,
+    `${contact.email}${recent ? ' · erneut (erzwungen)' : ''}`, req.ip);
   res.status(201).json({ success: true, data: { id, expires_at: expires } });
 }));
 

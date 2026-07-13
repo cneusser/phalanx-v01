@@ -63,9 +63,20 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
     finally { setSaving(false); }
   }
 
-  async function sendProfileLink() {
-    try { await api.post(`/crm/contacts/${contactId}/profile-link`, {}); show('Pflege-Link versendet ✓'); await load(); }
-    catch (e) { show('Fehler: ' + e.message); }
+  // Pflege-Link: Der Kontakt bekommt einen persönlichen Link, über den er seine
+  // eigenen Daten prüft und korrigiert. Doppelversand wird serverseitig gebremst;
+  // hier fragen wir bewusst nach, bevor wir erneut senden.
+  async function sendProfileLink(force = false) {
+    try {
+      await api.post(`/crm/contacts/${contactId}/profile-link`, force ? { force: true } : {});
+      show('Pflege-Link versendet ✓'); await load();
+    } catch (e) {
+      if (e.code === 'PROFILE_LINK_RECENT') {
+        if (window.confirm(`${e.message}\n\nTrotzdem erneut senden?`)) return sendProfileLink(true);
+        return;
+      }
+      show('Fehler: ' + e.message);
+    }
   }
   async function invite() {
     try { await api.post(`/crm/contacts/${contactId}/invite`, {}); show('Einladung (DSGVO) versendet ✓'); await load(); }
@@ -135,7 +146,11 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
 
             {/* Aktionen */}
             <div style={{ display: 'flex', gap: '0.4rem', padding: '0.8rem 1.3rem', borderBottom: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
-              <button onClick={sendProfileLink} disabled={blocked || !k.email} style={btn(blocked || !k.email)}>
+              <button
+                onClick={() => sendProfileLink(false)}
+                disabled={blocked || !k.email}
+                title={'Persönlicher Link, über den der Kontakt seine eigenen Daten prüft und korrigiert (60 Tage gültig). Den Text ändern Sie unter Admin → Mailvorlagen → Pflege-Link.'}
+                style={btn(blocked || !k.email)}>
                 <Send size={13} /> Pflege-Link
               </button>
               <button onClick={invite} disabled={blocked || !k.email || k.consent_status === 'opt_in'} style={btn(blocked || !k.email || k.consent_status === 'opt_in')}>
