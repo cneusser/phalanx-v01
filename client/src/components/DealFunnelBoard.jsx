@@ -53,7 +53,10 @@ export default function DealFunnelBoard({ show }) {
   useEffect(() => {
     api.get('/crm/deals').then(d => {
       setDeals(d.deals); setStages(d.stages);
-      if (d.deals.length && !active) setActive(d.deals[0].id);
+      if (d.deals.length && !active) {
+        const live = d.deals.find(x => !['closed', 'withdrawn'].includes(x.deal_status) && x.status !== 'draft');
+        setActive((live || d.deals[0]).id);
+      }
     }).catch(e => show('Fehler: ' + e.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -117,20 +120,48 @@ export default function DealFunnelBoard({ show }) {
 
   return (
     <div>
-      {/* Mandats-Auswahl */}
-      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        {deals.map(d => (
-          <button key={d.id} onClick={() => setActive(d.id)} style={{
-            border: `1.5px solid ${active === d.id ? C.navy : C.border}`,
-            background: active === d.id ? C.navy : '#fff', color: active === d.id ? '#fff' : C.text,
-            borderRadius: 8, padding: '0.45rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
-          }}>
-            {d.codename}
-            <span style={{ opacity: 0.7, fontWeight: 500, marginLeft: 6 }}>{d.parties}</span>
-            {d.status === 'draft' && <span style={{ marginLeft: 6, fontSize: '0.65rem', opacity: 0.7 }}>(Entwurf)</span>}
-          </button>
-        ))}
-      </div>
+      {/* Mandats-Auswahl — laufende Mandate als Reiter, abgeschlossene und Entwürfe im Klappmenü */}
+      {(() => {
+        const isArchived = (d) => ['closed', 'withdrawn'].includes(d.deal_status) || d.status === 'archived';
+        const live = deals.filter(d => !isArchived(d) && d.status !== 'draft');
+        const rest = deals.filter(d => isArchived(d) || d.status === 'draft');
+        const activeIsRest = rest.some(d => d.id === active);
+        return (
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
+            {live.map(d => (
+              <button key={d.id} onClick={() => setActive(d.id)} style={{
+                border: `1.5px solid ${active === d.id ? C.navy : C.border}`,
+                background: active === d.id ? C.navy : '#fff', color: active === d.id ? '#fff' : C.text,
+                borderRadius: 8, padding: '0.45rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+              }}>
+                {d.codename}
+                <span style={{ opacity: 0.7, fontWeight: 500, marginLeft: 6 }}>{d.parties}</span>
+              </button>
+            ))}
+            {!!rest.length && (
+              <select
+                value={activeIsRest ? active : ''}
+                onChange={e => e.target.value && setActive(Number(e.target.value))}
+                title="Abgeschlossene Mandate und Entwürfe"
+                style={{
+                  ...SELECT, width: 'auto', minWidth: 230,
+                  border: `1.5px solid ${activeIsRest ? C.navy : C.border}`,
+                  background: activeIsRest ? C.navy : '#fff',
+                  color: activeIsRest ? '#fff' : C.muted,
+                  fontWeight: 700,
+                }}>
+                <option value="">Archiv & Entwürfe ({rest.length})</option>
+                {rest.map(d => (
+                  <option key={d.id} value={d.id} style={{ color: C.text, background: '#fff' }}>
+                    {d.codename} · {d.parties}
+                    {['closed', 'withdrawn'].includes(d.deal_status) ? ' (abgeschlossen)' : d.status === 'draft' ? ' (Entwurf)' : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Kontakt direkt zum Mandat hinzufügen */}
       {active && (

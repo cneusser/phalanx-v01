@@ -69,18 +69,21 @@ router.get('/stats', ...isAdmin, wrap(async (req, res) => {
            COUNT(*) FILTER (WHERE status='approved')::int  AS approved
     FROM nda_requests
   `);
-  // Sprint 4: Datenraum-Zugriffe (7 Tage) + fällige Aufgaben
+  // Datenraum-Zugriffe (7 Tage) — nur Aktionen, die tatsächlich protokolliert werden
   const dr = await db.get(`
     SELECT COUNT(*)::int AS c FROM activity_log
-    WHERE action IN ('DOWNLOAD_DOCUMENT','DOWNLOAD_SIGNED_LINK','ACCESS_DETAILS','ACCESS_DOCLIST')
+    WHERE action IN ('DOWNLOAD_LINK_CREATED','SAFE_DOWNLOAD','EXPOSE_PDF','EXPOSE_VIEW','ACCESS_DETAILS','ACCESS_DOCLIST')
       AND ts >= now() - interval '7 days'
-  `);
+  `).catch(() => ({ c: 0 }));
+
+  // Wiedervorlagen aus dem CRM (die alte tasks-Tabelle aus Sprint 4 wird nicht mehr gepflegt)
   const t = await db.get(`
     SELECT COUNT(*) FILTER (WHERE status='open')::int AS open,
-           COUNT(*) FILTER (WHERE status='open' AND due_date <= CURRENT_DATE)::int AS due
-    FROM tasks
-  `);
-  const qa = await db.get(`SELECT COUNT(*) FILTER (WHERE status='open')::int AS open FROM qa_threads`);
+           COUNT(*) FILTER (WHERE status='open' AND due_on <= CURRENT_DATE)::int AS due
+    FROM crm_tasks
+  `).catch(() => ({ open: 0, due: 0 }));
+
+  const qa = await db.get(`SELECT COUNT(*) FILTER (WHERE status='open')::int AS open FROM qa_threads`).catch(() => ({ open: 0 }));
 
   res.json({
     success: true,
@@ -707,6 +710,25 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
     }
   }
   res.json({ success: true, data: { message: 'NDA abgelehnt' } });
+}));
+
+// ── Q&A: offene und beantwortete Fragen (Admin-Tab) ───────────────────────
+router.get('/questions', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(`
+    SELECT q.*, p.codename, p.id AS project_id,
+           u.first_name, u.last_name, u.email, u.company
+    FROM qa_threads q
+    LEFT JOIN projects p ON p.id = q.project_id
+    LEFT JOIN users u ON u.id = q.buyer_id
+    ORDER BY (q.status = 'open') DESC, q.asked_at DESC
+    LIMIT 200`).catch(() => []);
+  res.json({
+    success: true,
+    data: {
+      questions: rows,
+      open: rows.filter(q => q.status === 'open').length,
+    },
+  });
 }));
 
 // ── Sprint 4: Q&A beantworten ─────────────────────────────────────────────

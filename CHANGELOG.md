@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.257 — 19.07.2026 · Dashboard-Korrekturen, Funnel-Archiv, mehr Englisch
+- **Q&A**: Die Kachel „Offene Q&A-Fragen" führte ins Projekte-Tab. Jetzt gibt es einen **eigenen Q&A-Bereich** (`GET /admin/questions`) — offene Fragen mit Mandat, Fragesteller und Antwortfeld; die Antwort geht wie gehabt per E-Mail raus
+- **Offene Wiedervorlagen**: Kachel war nicht anklickbar und zählte die verwaiste `tasks`-Tabelle aus Sprint 4. Jetzt zählt sie die echten **CRM-Wiedervorlagen** (`crm_tasks`), zeigt Überfällige rot und führt in den Tab
+- **Datenraum-Zugriffe**: Die Abfrage suchte nach Aktionen (`DOWNLOAD_DOCUMENT`, `DOWNLOAD_SIGNED_LINK`), die nie geloggt werden — der Wert war praktisch bedeutungslos. Jetzt werden die tatsächlich protokollierten Aktionen gezählt: `DOWNLOAD_LINK_CREATED`, `SAFE_DOWNLOAD`, `EXPOSE_PDF`, `EXPOSE_VIEW`, `ACCESS_DETAILS`, `ACCESS_DOCLIST`
+- **NDA-Freigaben**: Kachel eindeutig benannt (verlinkt korrekt auf die NDA-Anfragen)
+- **Deal-Funnel**: Nur laufende Mandate stehen als Reiter; **abgeschlossene Mandate und Entwürfe wandern ins Klappmenü „Archiv & Entwürfe"** — bleiben also erreichbar, verstopfen aber nicht die Leiste. Beim Öffnen wird ein laufendes Mandat vorausgewählt
+- **Englisch erweitert**: Navigation (Desktop und Mobil), Marktplatz (Hero, Filter, Tabelle, Aktionen), Anmeldung und Fußzeile; Sprachumschalter jetzt auch im Mobilmenü. Interne Bereiche (CRM, Admin) bleiben bewusst deutsch
+
 ## v0.256 — 18.07.2026 · Posteingang (BCC-Ingest), Wiedervorlagen & Sprachumschaltung
 - **BCC-Ingest** (`POST /api/inbound/email`): Beim Mailprovider (Brevo Inbound, Mailgun, Postmark) eine Adresse wie `inbox@capitalmatch.de` auf den Endpoint routen und ins BCC setzen — Antworten landen automatisch beim richtigen Kontakt. Absender wird über die E-Mail-Adresse gematcht, das Mandat über den **Codenamen im Betreff**. Geschützt über `INBOUND_SECRET` (ohne Secret ist der Endpoint deaktiviert); unbekannte Absender werden **nicht** angelegt, nur protokolliert
 - **Manuelle Erfassung** in der Kontaktansicht — funktioniert ohne jede Provider-Konfiguration: Antwort einfügen, fertig

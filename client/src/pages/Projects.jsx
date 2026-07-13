@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
+import { useT } from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import useIsMobile from '../hooks/useIsMobile';
 import {
@@ -111,7 +112,7 @@ function LoadingSpinner() {
         animation: 'spin 0.8s linear infinite',
       }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <div style={{ fontSize: '0.875rem' }}>Mandate werden geladen...</div>
+      <div style={{ fontSize: '0.875rem' }}>{t('projects.loading', 'Mandate werden geladen…')}</div>
     </div>
   );
 }
@@ -225,6 +226,7 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched,
 }
 
 export default function Projects() {
+  const t = useT();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -342,21 +344,21 @@ export default function Projects() {
       <div style={{ background: C.navy, padding: '3rem 1.5rem 2.5rem', color: '#fff' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div style={{ fontSize: '0.72rem', color: C.steel, letterSpacing: '0.1em', fontWeight: 600, marginBottom: '0.65rem' }}>
-            PHALANX MARKTPLATZ
+            {t('projects.hero_kicker', 'PHALANX MARKTPLATZ')}
           </div>
           <h1 style={{ fontSize: '1.9rem', fontWeight: 700, marginBottom: '0.6rem', lineHeight: 1.2 }}>
-            Transaktionsmandate
+            {t('projects.hero_title', 'Transaktionsmandate')}
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.68)', fontSize: '0.9rem', marginBottom: '1.5rem', maxWidth: 520 }}>
-            Anonymisierte M&A-Transaktionen und Startup-Finanzierungen — strukturiert, vertraulich, professionell begleitet.
+            {t('projects.hero_sub', 'Anonymisierte M&A-Transaktionen und Startup-Finanzierungen — strukturiert, vertraulich, professionell begleitet.')}
           </p>
 
           {/* Filter-Buttons — always show global counts, not just filtered counts */}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {[
-              { key: '', label: totalCounts.all === null ? 'Alle (…)' : `Alle (${totalCounts.all})` },
+              { key: '', label: totalCounts.all === null ? `${t('projects.all', 'Alle')} (…)` : `${t('projects.all', 'Alle')} (${totalCounts.all})` },
               { key: 'ma', label: totalCounts.ma === null ? 'M&A (…)' : `M&A (${totalCounts.ma})` },
-              { key: 'fundraising', label: totalCounts.fundraising === null ? 'Fundraising (…)' : `Fundraising (${totalCounts.fundraising})` },
+              { key: 'fundraising', label: totalCounts.fundraising === null ? `${t('projects.fundraising', 'Fundraising')} (…)` : `${t('projects.fundraising', 'Fundraising')} (${totalCounts.fundraising})` },
             ].map(({ key, label }) => (
               <button key={key} onClick={() => setSel(prev => ({ ...prev, mandate_type: key }))} style={{
                 padding: '0.4rem 1rem', borderRadius: 6, fontSize: '0.78rem', fontWeight: 600,
@@ -390,7 +392,7 @@ export default function Projects() {
             <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
               <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#bbb' }} />
               <input
-                placeholder="Suche..."
+                placeholder={t('projects.search_ph', 'Suche…')}
                 value={sel.search}
                 onChange={e => setSel(prev => ({ ...prev, search: e.target.value }))}
                 style={{
@@ -402,11 +404,11 @@ export default function Projects() {
             </div>
 
             {[
-              { label: 'Branche',   key: 'industry',  items: filters.industries },
-              { label: 'Region',    key: 'region',    items: filters.regions },
-              { label: 'Deal-Typ',  key: 'deal_type', items: filters.deal_types },
-              { label: 'Umsatzband', key: 'revenue_band', items: filters.revenue_bands || [] },
-              { label: 'EBITDA-Band', key: 'ebitda_band', items: filters.ebitda_bands || [] },
+              { label: t('projects.industry', 'Branche'), key: 'industry',  items: filters.industries },
+              { label: t('projects.region', 'Region'), key: 'region',    items: filters.regions },
+              { label: t('projects.filter.deal', 'Deal-Typ'), key: 'deal_type', items: filters.deal_types },
+              { label: t('projects.filter.revenue_band', 'Umsatzband'), key: 'revenue_band', items: filters.revenue_bands || [] },
+              { label: t('projects.filter.ebitda_band', 'EBITDA-Band'), key: 'ebitda_band', items: filters.ebitda_bands || [] },
             ].map(({ label, key, items }) => items.length > 0 && (
               <div key={key} style={{ marginBottom: '1.1rem' }}>
                 <div style={{ fontSize: '0.66rem', fontWeight: 700, color: C.muted, letterSpacing: '0.09em', marginBottom: '0.4rem' }}>
@@ -450,7 +452,7 @@ export default function Projects() {
             ) : projects.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '3rem', color: C.muted }}>
                 <Briefcase size={32} style={{ marginBottom: '0.75rem', opacity: 0.3 }} />
-                <p style={{ fontSize: '0.9rem' }}>Keine Mandate für diese Filterauswahl.</p>
+                <p style={{ fontSize: '0.9rem' }}>{t('projects.none', 'Keine Mandate für diese Filterauswahl.')}</p>
               </div>
             ) : (
               <>
@@ -461,20 +463,20 @@ export default function Projects() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {user && !isAdmin && (
                       <>
-                        <button onClick={saveSearch} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', color: C.navy, border: `1px solid ${C.navy}`, borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer' }}>★ Suche speichern</button>
-                        <Link to="/suchprofile" style={{ fontSize: '0.76rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>Suchprofile</Link>
-                        <Link to="/merkliste" style={{ fontSize: '0.76rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>★ Merkliste</Link>
+                        <button onClick={saveSearch} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', color: C.navy, border: `1px solid ${C.navy}`, borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer' }}>{t('projects.save_search', '★ Suche speichern')}</button>
+                        <Link to="/suchprofile" style={{ fontSize: '0.76rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>{t('nav.search_profiles', 'Suchprofile')}</Link>
+                        <Link to="/merkliste" style={{ fontSize: '0.76rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>{t('projects.watchlist', '★ Merkliste')}</Link>
                       </>
                     )}
                     {/* Ansicht: Karten ⇄ Tabelle */}
                     <div style={{ display: 'inline-flex', border: `1px solid ${C.border}`, borderRadius: 7, overflow: 'hidden' }}>
                       {['cards', 'table'].map(m => (
-                        <button key={m} onClick={() => setViewMode(m)} style={{ padding: '0.35rem 0.7rem', fontSize: '0.74rem', fontWeight: 600, border: 'none', cursor: 'pointer', background: viewMode === m ? C.navy : '#fff', color: viewMode === m ? '#fff' : C.muted }}>{m === 'cards' ? 'Karten' : 'Tabelle'}</button>
+                        <button key={m} onClick={() => setViewMode(m)} style={{ padding: '0.35rem 0.7rem', fontSize: '0.74rem', fontWeight: 600, border: 'none', cursor: 'pointer', background: viewMode === m ? C.navy : '#fff', color: viewMode === m ? '#fff' : C.muted }}>{m === 'cards' ? t('projects.view_cards', 'Karten') : t('projects.view_table', 'Tabelle')}</button>
                       ))}
                     </div>
                     {!user && (
                       <Link to="/registrieren" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>
-                        <ArrowUpRight size={13} /> Jetzt registrieren & NDA anfordern
+                        <ArrowUpRight size={13} /> {t('projects.register_cta', 'Jetzt registrieren & NDA anfordern')}
                       </Link>
                     )}
                   </div>
@@ -485,7 +487,7 @@ export default function Projects() {
                   <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', minWidth: 720 }}>
                       <thead><tr style={{ background: C.bg }}>
-                        {['Mandat', 'Typ', 'Branche', 'Region', 'Umsatz', 'EBITDA', 'Deal-Typ', 'Neu seit', ''].map(h => (
+                        {[t('projects.col.mandate', 'Mandat'), t('projects.col.type', 'Typ'), t('projects.industry', 'Branche'), t('projects.region', 'Region'), t('projects.revenue', 'Umsatz'), t('projects.ebitda', 'EBITDA'), t('projects.filter.deal', 'Deal-Typ'), t('projects.col.new_since', 'Neu seit'), ''].map(h => (
                           <th key={h} style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.7rem', whiteSpace: 'nowrap' }}>{h.toUpperCase()}</th>
                         ))}
                       </tr></thead>
@@ -503,7 +505,7 @@ export default function Projects() {
                             <td style={{ padding: '0.6rem 0.8rem', color: '#555', whiteSpace: 'nowrap' }}>{p.ebitda_band || '—'}</td>
                             <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.deal_type || '—'}</td>
                             <td style={{ padding: '0.6rem 0.8rem', color: C.muted, whiteSpace: 'nowrap' }}>{p.created_at ? new Date(p.created_at).toLocaleDateString('de-DE') : '—'}</td>
-                            <td style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}><span style={{ color: C.accent, fontWeight: 600, fontSize: '0.74rem', whiteSpace: 'nowrap' }}>Ansehen →</span></td>
+                            <td style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}><span style={{ color: C.accent, fontWeight: 600, fontSize: '0.74rem', whiteSpace: 'nowrap' }}>{t('projects.view', 'Ansehen →')}</span></td>
                           </tr>
                         ))}
                       </tbody>

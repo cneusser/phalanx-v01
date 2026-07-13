@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { I18nProvider } from './i18n';
+import { I18nProvider, useT } from './i18n';
 import Navbar from './components/Navbar';
 import CapitalMatchLogo from './components/CapitalMatchLogo';
 import Landing from './pages/Landing';
@@ -50,6 +50,7 @@ function ProtectedRoute({ children, adminOnly = false, sellerOk = false }) {
 
 function Footer() {
   const location = useLocation();
+  const t = useT();
   if (NO_FOOTER_PATHS.includes(location.pathname)) return null;
 
   return (
@@ -57,9 +58,9 @@ function Footer() {
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <CapitalMatchLogo textSize={15} white={true} compact={true} />
         <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.78rem' }}>
-          <Link to="/impressum" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>Impressum</Link>
-          <Link to="/datenschutz" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>Datenschutz</Link>
-          <a href="mailto:neusser@phalanx.de" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>Kontakt</a>
+          <Link to="/impressum" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>{t('footer.imprint', 'Impressum')}</Link>
+          <Link to="/datenschutz" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>{t('footer.privacy', 'Datenschutz')}</Link>
+          <a href="mailto:neusser@phalanx.de" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>{t('footer.contact', 'Kontakt')}</a>
         </div>
         <div style={{ fontSize: '0.72rem' }}>© 2026 Phalanx GmbH</div>
       </div>

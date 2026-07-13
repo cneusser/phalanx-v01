@@ -108,6 +108,8 @@ export default function Admin() {
   const [activity, setActivity] = useState([]);
   // CRM-Kontakte im Dashboard (360°-Ansicht: Stammdaten, Mandate, Aktivitäten)
   const [crmContacts, setCrmContacts] = useState([]);
+  const [questions, setQuestions] = useState([]);
+  const [answers, setAnswers] = useState({});
   const [contactSearch, setContactSearch] = useState('');
   const [drawerContact, setDrawerContact] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
@@ -372,6 +374,20 @@ export default function Admin() {
     finally { setAuditLoading(false); }
   }
 
+  async function loadQuestions() {
+    try { const d = await api.get('/admin/questions'); setQuestions(d.questions || []); }
+    catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+  async function answerQuestion(id) {
+    const answer = (answers[id] || '').trim();
+    if (!answer) return;
+    try {
+      await api.put(`/admin/questions/${id}/answer`, { answer });
+      setAnswers(a => ({ ...a, [id]: '' }));
+      showMsg("Antwort versendet ✓"); loadQuestions(); loadAll();
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
   async function loadCrmContacts() {
     try {
       const d = await api.get(`/crm/contacts/search?q=${encodeURIComponent(contactSearch)}`);
@@ -388,6 +404,7 @@ export default function Admin() {
     if (activeTab === 'changelog') loadChangelog();
     if (activeTab === 'feedback') loadFeedback();
     if (activeTab === 'contacts') loadCrmContacts();
+    if (activeTab === 'qa') loadQuestions();
   }, [activeTab]);
 
   // Suche im Kontakte-Tab (entprellt)
@@ -584,7 +601,7 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'contacts', 'tasks', 'templates', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'contacts', 'tasks', 'qa', 'templates', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
@@ -593,6 +610,7 @@ export default function Admin() {
     users:    'Nutzer',
     contacts: 'Kontakte',
     tasks: 'Wiedervorlagen',
+    qa: 'Q&A',
     templates: 'Mailvorlagen',
     leads:    'Bewertungs-Leads',
     detvals:  'Ausf. Bewertungen',
@@ -655,15 +673,15 @@ export default function Admin() {
           <KPICard label="Aktive Projekte" value={stats.projects.active} sub={`${stats.projects.total} gesamt · ${stats.projects.draft} Entwurf`} icon={Building2} onClick={() => setActiveTab('projects')} />
           <KPICard label="Registrierte Nutzer" value={stats.users.total} sub={stats.users.pending > 0 ? `⚠️ ${stats.users.pending} ausstehend` : `+${stats.users.this_week} diese Woche`} icon={Users} color={stats.users.pending > 0 ? '#f59e0b' : '#8b5cf6'} onClick={() => setActiveTab('users')} />
           <KPICard label="NDA-Anfragen" value={stats.ndas.total} sub={`${stats.ndas.requested} offen`} icon={FileText} color="#f59e0b" onClick={() => setActiveTab('ndas')} />
-          <KPICard label="Freigaben" value={stats.ndas.approved} sub={`${stats.ndas.signed} unterschrieben`} icon={CheckCircle} color="#10b981" onClick={() => setActiveTab('ndas')} />
+          <KPICard label="NDA-Freigaben" value={stats.ndas.approved} sub={`${stats.ndas.signed} unterschrieben`} icon={CheckCircle} color="#10b981" onClick={() => setActiveTab('ndas')} />
         </div>
       )}
       {/* Sprint 4: Datenraum-/CRM-KPIs */}
       {stats && stats.dataroom && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
           <KPICard label="Datenraum-Zugriffe (7 Tage)" value={stats.dataroom.accesses_7d} sub="Ansichten & Downloads" icon={Eye} color="#0ea5e9" onClick={() => setActiveTab('activity')} />
-          <KPICard label="Offene Aufgaben" value={stats.tasks.open} sub={stats.tasks.due > 0 ? `⚠️ ${stats.tasks.due} fällig` : 'keine fällig'} icon={ClipboardList} color={stats.tasks.due > 0 ? '#ef4444' : '#8b5cf6'} />
-          <KPICard label="Offene Q&A-Fragen" value={stats.qa.open} sub="warten auf Antwort" icon={FileText} color={stats.qa.open > 0 ? '#f59e0b' : '#10b981'} onClick={() => setActiveTab('projects')} />
+          <KPICard label="Offene Wiedervorlagen" value={stats.tasks.open} sub={stats.tasks.due > 0 ? `⚠️ ${stats.tasks.due} überfällig` : 'nichts überfällig'} icon={ClipboardList} color={stats.tasks.due > 0 ? '#ef4444' : '#8b5cf6'} onClick={() => setActiveTab('tasks')} />
+          <KPICard label="Offene Q&A-Fragen" value={stats.qa.open} sub="warten auf Antwort" icon={FileText} color={stats.qa.open > 0 ? '#f59e0b' : '#10b981'} onClick={() => setActiveTab('qa')} />
           <KPICard label="Pipeline" value={stats.projects.active} sub="Deals im Prozess — Tab Pipeline" icon={Activity} color="#1D4E89" onClick={() => setActiveTab('pipeline')} />
         </div>
       )}
@@ -1145,6 +1163,56 @@ export default function Admin() {
 
       {/* Users Tab */}
       {activeTab === 'tasks' && <TaskBoard show={showMsg} />}
+
+      {activeTab === 'qa' && (
+        <div>
+          {!questions.length && (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: '2.5rem', textAlign: 'center', color: C.muted }}>
+              Keine Fragen von Interessenten.
+            </div>
+          )}
+          {questions.map(q => (
+            <div key={q.id} style={{
+              background: C.card, border: `1px solid ${q.status === 'open' ? '#fcd34d' : C.border}`,
+              borderRadius: 8, padding: '1rem', marginBottom: '0.8rem',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '0.8rem', color: C.muted }}>
+                  <strong style={{ color: C.navy }}>{q.codename || 'Mandat'}</strong>
+                  {' · '}{[q.first_name, q.last_name].filter(Boolean).join(' ')}
+                  {q.company ? ` (${q.company})` : ''}
+                  {' · '}{q.asked_at ? new Date(q.asked_at).toLocaleDateString('de-DE') : ''}
+                </div>
+                <span style={{
+                  background: q.status === 'open' ? '#fef3c7' : '#d1fae5',
+                  color: q.status === 'open' ? '#92400e' : '#065f46',
+                  padding: '0.1rem 0.5rem', borderRadius: 20, fontSize: '0.68rem', fontWeight: 700,
+                }}>{q.status === 'open' ? 'offen' : 'beantwortet'}</span>
+              </div>
+              <div style={{ fontSize: '0.9rem', color: C.navy, fontWeight: 600, marginBottom: '0.6rem' }}>{q.question}</div>
+              {q.status === 'open' ? (
+                <>
+                  <textarea
+                    value={answers[q.id] || ''}
+                    onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))}
+                    rows={3}
+                    placeholder="Antwort an den Interessenten (wird per E-Mail zugestellt)…"
+                    style={{ width: '100%', padding: '0.6rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.85rem', fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }}
+                  />
+                  <button onClick={() => answerQuestion(q.id)} disabled={!(answers[q.id] || '').trim()} style={{
+                    marginTop: '0.5rem', background: (answers[q.id] || '').trim() ? C.navy : '#cbd5e1', color: '#fff',
+                    border: 'none', borderRadius: 6, padding: '0.5rem 1.1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+                  }}>Antwort senden</button>
+                </>
+              ) : (
+                <div style={{ background: C.bg, borderRadius: 6, padding: '0.7rem 0.9rem', fontSize: '0.85rem', color: C.text }}>
+                  {q.answer}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {activeTab === 'templates' && <TemplateAdmin show={showMsg} />}
 

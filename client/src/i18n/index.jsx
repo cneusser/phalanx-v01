@@ -70,6 +70,46 @@ const EN = {
   'common.german': 'German',
   'common.english': 'English',
 
+
+  // Marktplatz (Detail)
+  'projects.hero_kicker': 'PHALANX MARKETPLACE',
+  'projects.hero_title': 'Transaction mandates',
+  'projects.hero_sub': 'Anonymised M&A transactions and startup financings — structured, confidential, professionally advised.',
+  'projects.loading': 'Loading mandates…',
+  'projects.all': 'All',
+  'projects.fundraising': 'Fundraising',
+  'projects.search_ph': 'Search…',
+  'projects.filter.deal': 'Deal type',
+  'projects.filter.revenue_band': 'Revenue band',
+  'projects.filter.ebitda_band': 'EBITDA band',
+  'projects.none': 'No mandates match these filters.',
+  'projects.save_search': '★ Save search',
+  'projects.watchlist': '★ Watchlist',
+  'projects.view_cards': 'Cards',
+  'projects.view_table': 'Table',
+  'projects.register_cta': 'Register now & request NDA',
+  'projects.col.mandate': 'Mandate',
+  'projects.col.type': 'Type',
+  'projects.col.new_since': 'New since',
+  'projects.view': 'View →',
+  'projects.reset': 'Reset filters',
+
+  // Anmeldung / Registrierung
+  'auth.login_title': 'Log in',
+  'auth.login_sub': 'Access to mandates, documents and the data room',
+  'auth.email': 'Email address',
+  'auth.password': 'Password',
+  'auth.forgot': 'Forgot password?',
+  'auth.no_account': 'No account yet?',
+  'auth.register_now': 'Register',
+  'auth.register_title': 'Register',
+  'auth.have_account': 'Already registered?',
+  'auth.login_now': 'Log in',
+  'auth.submitting': 'Please wait…',
+
+  // Dashboard
+  'dashboard.title': 'My area',
+
   // Footer
   'footer.imprint': 'Imprint',
   'footer.privacy': 'Privacy',

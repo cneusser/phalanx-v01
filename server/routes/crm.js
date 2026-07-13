@@ -637,7 +637,7 @@ const STAGNANT_DAYS = 30;
 // Mandate mit Funnel-Zahlen (Auswahl fürs Board)
 router.get('/deals', ...isStaff, wrap(async (req, res) => {
   const rows = await scoped(req, (t) => t.all(`
-    SELECT p.id, p.codename, p.status, p.industry, p.region,
+    SELECT p.id, p.codename, p.status, p.deal_status, p.industry, p.region,
            (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.project_id = p.id) AS parties,
            (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.project_id = p.id AND dp.party_status = 'active') AS active,
            (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.project_id = p.id AND dp.party_status = 'open') AS open

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useT } from '../i18n';
 import { api } from '../api/client';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
 
@@ -14,6 +15,7 @@ const C = {
 };
 
 export default function Login() {
+  const t = useT();
   const { login } = useAuth();
   const navigate = useNavigate();
   // Sprint 19: Rücksprung nach dem Login (z. B. aus einer Mandats-Einladung)
@@ -109,7 +111,7 @@ export default function Login() {
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.35rem' }}>
-              E-Mail *
+              {t('auth.email', 'E-Mail')} *
             </label>
             <input
               type="email"
@@ -132,7 +134,7 @@ export default function Login() {
 
           <div style={{ marginBottom: '0.5rem' }}>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.35rem' }}>
-              Passwort *
+              {t('auth.password', 'Passwort')} *
             </label>
             <input
               type="password"
@@ -156,7 +158,7 @@ export default function Login() {
           {/* Passwort vergessen */}
           <div style={{ textAlign: 'right', marginBottom: '1.5rem' }}>
             <Link to="/passwort-vergessen" style={{ fontSize: '0.8rem', color: C.steel, textDecoration: 'none', fontWeight: 500 }}>
-              Passwort vergessen?
+              {t('auth.forgot', 'Passwort vergessen?')}
             </Link>
           </div>
 
@@ -176,12 +178,12 @@ export default function Login() {
               opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? 'Anmelden…' : 'Anmelden'}
+            {loading ? t('auth.submitting', 'Anmelden…') : t('nav.login', 'Anmelden')}
           </button>
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.85rem', color: C.gray }}>
-          Noch kein Konto?{' '}
+          {t('auth.no_account', 'Noch kein Konto?')}{' '}
           <Link to="/registrieren" style={{ color: C.navy, fontWeight: 700 }}>Jetzt registrieren</Link>
         </div>
       </div>

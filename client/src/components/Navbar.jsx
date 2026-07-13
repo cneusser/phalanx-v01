@@ -107,7 +107,7 @@ export default function Navbar() {
           {user && !isAdmin && navLink('/nachrichten', t('nav.messages', 'Nachrichten'))}
           {user && !isAdmin && navLink('/feedback', t('nav.feedback', 'Feedback'))}
           {navLink('/kontakt', t('nav.contact', 'Kontakt'))}
-          {!user && navLink('/registrieren', 'Registrieren')}
+          {!user && navLink('/registrieren', t('nav.register', 'Registrieren'))}
           {user && !isAdmin && navLink('/dashboard', t('nav.dashboard', 'Mein Bereich'))}
           {isAdmin && navLink('/crm', 'CRM')}
           {isAdmin && navLink('/admin', 'Admin')}
@@ -144,7 +144,7 @@ export default function Navbar() {
           {!user ? (
             <>
               <Link to="/login" style={{ color: 'rgba(255,255,255,0.80)', textDecoration: 'none', fontSize: '0.9rem' }}>
-                Anmelden
+                {t('nav.login', 'Anmelden')}
               </Link>
               <Link to="/registrieren" style={{
                 background: C.steel, color: '#fff',
@@ -152,7 +152,7 @@ export default function Navbar() {
                 fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none',
                 letterSpacing: '0.02em',
               }}>
-                Registrieren
+                {t('nav.register', 'Registrieren')}
               </Link>
             </>
           ) : (
@@ -187,7 +187,7 @@ export default function Navbar() {
                       fontSize: '0.7rem', fontWeight: 600,
                       padding: '0.1rem 0.5rem', borderRadius: 20,
                     }}>
-                      {user.role === 'super_admin' ? 'Administrator' : user.role === 'advisor' ? 'Berater' : 'Investor'}
+                      {user.role === 'super_admin' ? t('role.super_admin', 'Administrator') : user.role === 'advisor' ? t('role.advisor', 'Berater') : t('role.buyer', 'Investor')}
                     </div>
                   </div>
                   {(user.role !== 'super_admin' && user.role !== 'advisor') && (
@@ -202,14 +202,14 @@ export default function Navbar() {
                     display: 'flex', alignItems: 'center', gap: '0.6rem',
                     padding: '0.65rem 1rem', color: C.dark, textDecoration: 'none', fontSize: '0.875rem',
                   }}>
-                    <Settings size={14} color={C.navy} /> Mein Profil
+                    <Settings size={14} color={C.navy} /> {t('nav.profile', 'Mein Profil')}
                   </Link>
                   {isAdmin && (
                     <Link to="/admin" onClick={() => setDropdownOpen(false)} style={{
                       display: 'flex', alignItems: 'center', gap: '0.6rem',
                       padding: '0.65rem 1rem', color: C.dark, textDecoration: 'none', fontSize: '0.875rem',
                     }}>
-                      <Shield size={14} color={C.navy} /> Admin-Bereich
+                      <Shield size={14} color={C.navy} /> {t('nav.admin_area', 'Admin-Bereich')}
                     </Link>
                   )}
                   <button onClick={handleLogout} style={{
@@ -218,7 +218,7 @@ export default function Navbar() {
                     border: 'none', borderTop: '1px solid #eef2f7',
                     width: '100%', cursor: 'pointer', fontSize: '0.875rem', marginTop: '0.2rem',
                   }}>
-                    <LogOut size={14} /> Abmelden
+                    <LogOut size={14} /> {t('nav.logout', 'Abmelden')}
                   </button>
                 </div>
               )}
@@ -231,25 +231,38 @@ export default function Navbar() {
       {/* Mobile-Menü (aufklappbar) */}
       {isMobile && open && (
         <div style={{ background: branding ? branding.primary_color : C.navy, borderTop: '1px solid rgba(255,255,255,0.12)', padding: '0.5rem 1.25rem 1rem' }}>
-          {[['/projekte', 'Marktplatz'], ['/unternehmenswert', 'Unternehmenswert'],
-            ...(user && !isAdmin ? [['/bewertung', 'Bewertung'], ['/nachrichten', 'Nachrichten'], ['/feedback', 'Feedback']] : []),
-            ['/kontakt', 'Kontakt'],
-            ...(user && !isAdmin ? [['/dashboard', 'Mein Bereich']] : []),
+          {[['/projekte', t('nav.marketplace', 'Marktplatz')], ['/unternehmenswert', t('nav.valuation', 'Unternehmenswert')],
+            ...(user && !isAdmin ? [['/bewertung', t('nav.detailed_valuation', 'Bewertung')], ['/nachrichten', t('nav.messages', 'Nachrichten')], ['/feedback', t('nav.feedback', 'Feedback')]] : []),
+            ['/kontakt', t('nav.contact', 'Kontakt')],
+            ...(user && !isAdmin ? [['/dashboard', t('nav.dashboard', 'Mein Bereich')]] : []),
             ...(isAdmin ? [['/crm', 'CRM'], ['/admin', 'Admin']] : []),
           ].map(([to, label]) => (
             <Link key={to} to={to} onClick={() => setOpen(false)} style={{ display: 'block', color: '#fff', textDecoration: 'none', padding: '0.7rem 0.25rem', fontSize: '0.95rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{label}</Link>
           ))}
+          {/* Sprache im Mobilmenü */}
+          <div style={{ display: 'flex', gap: 6, marginTop: '0.9rem', alignItems: 'center' }}>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem' }}>{t('common.language', 'Sprache')}:</span>
+            {['de', 'en'].map(l => (
+              <button key={l} onClick={() => setLang(l)} style={{
+                background: lang === l ? 'rgba(255,255,255,0.9)' : 'transparent',
+                color: lang === l ? C.navy : 'rgba(255,255,255,0.8)',
+                border: '1px solid rgba(255,255,255,0.25)', borderRadius: 6,
+                padding: '0.25rem 0.6rem', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer',
+              }}>{l.toUpperCase()}</button>
+            ))}
+          </div>
+
           <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {!user ? (
               <>
-                <Link to="/login" onClick={() => setOpen(false)} style={{ color: '#fff', textDecoration: 'none', padding: '0.6rem 0.25rem', fontSize: '0.95rem' }}>Anmelden</Link>
-                <Link to="/registrieren" onClick={() => setOpen(false)} style={{ background: C.steel, color: '#fff', padding: '0.7rem', borderRadius: 8, fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>Registrieren</Link>
+                <Link to="/login" onClick={() => setOpen(false)} style={{ color: '#fff', textDecoration: 'none', padding: '0.6rem 0.25rem', fontSize: '0.95rem' }}>{t('nav.login', 'Anmelden')}</Link>
+                <Link to="/registrieren" onClick={() => setOpen(false)} style={{ background: C.steel, color: '#fff', padding: '0.7rem', borderRadius: 8, fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>{t('nav.register', 'Registrieren')}</Link>
               </>
             ) : (
               <>
                 <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.82rem', padding: '0.3rem 0.25rem' }}>{[user.title, user.first_name, user.last_name].filter(Boolean).join(' ')} · {user.email}</div>
-                <Link to="/profil" onClick={() => setOpen(false)} style={{ color: '#fff', textDecoration: 'none', padding: '0.6rem 0.25rem', fontSize: '0.95rem' }}>Mein Profil</Link>
-                <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem', cursor: 'pointer', fontSize: '0.9rem', textAlign: 'left' }}>Abmelden</button>
+                <Link to="/profil" onClick={() => setOpen(false)} style={{ color: '#fff', textDecoration: 'none', padding: '0.6rem 0.25rem', fontSize: '0.95rem' }}>{t('nav.profile', 'Mein Profil')}</Link>
+                <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem', cursor: 'pointer', fontSize: '0.9rem', textAlign: 'left' }}>{t('nav.logout', 'Abmelden')}</button>
               </>
             )}
           </div>
