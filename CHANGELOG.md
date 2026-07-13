@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.265 — 27.07.2026 · Marktplatz-Absturz behoben
+- **Ursache gefunden**: Die Ladeanzeige des Marktplatzes (`LoadingSpinner`) rief die Übersetzungsfunktion `t()` auf, hatte den Hook `useT()` aber nicht — die Komponente liegt außerhalb von `<Projects>`. Beim Rendern warf sie `t is not defined`, React verwarf den kompletten Baum, und übrig blieb eine leere graue Fläche. Weil damit auch der Footer verschwand, waren Impressum, Datenschutz und AGB von dort nicht erreichbar. Eingeschleppt wurde der Fehler mit der Englisch-Erweiterung (v0.257)
+- **Behoben**: `LoadingSpinner` holt sich den Hook jetzt selbst
+- **Vorbeugung**: Ein Prüfschritt geht alle Client-Dateien durch und meldet jede Komponente, die `t()` benutzt, ohne `useT()` zu halten — dieser Fehlertyp kann nicht mehr unbemerkt durchrutschen
+- Die in v0.264 eingebaute Fehlergrenze hätte den Absturz ohnehin abgefangen und die Meldung angezeigt, statt die Seite grau zu lassen
+
 ## v0.264 — 26.07.2026 · Rollen pflegbar, Rechtstexte, Fehlergrenze
 - **Rollen & Rechte editierbar** (`roles`-Tabelle mit RLS, Seed aus der bisherigen Code-Matrix): Rechte per **Häkchen** vergeben und entziehen, je Rolle speichern. **Eigene Rollen** anlegen (z. B. „Werkstudent") und löschen, solange ihnen niemand zugewiesen ist. Der Prozess hält einen Rollen-Cache; fehlt die Tabelle, greift weiterhin die Code-Matrix — die Plattform bleibt immer funktionsfähig
 - **Sicherheitsanker**: Der Administrator behält immer alle Rechte, Systemrollen sind nicht löschbar, vergebbar sind nur Rechte aus dem bekannten Katalog (kein Freitext), jede Änderung erzeugt `ROLE_PERMISSIONS_CHANGED` im Audit-Trail

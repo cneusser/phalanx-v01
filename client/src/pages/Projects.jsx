@@ -102,6 +102,7 @@ function MetricBox({ label, value }) {
 }
 
 function LoadingSpinner() {
+  const t = useT();   // eigener Hook — die Komponente liegt außerhalb von <Projects>
   return (
     <div style={{ textAlign: 'center', padding: '4rem', color: C.muted }}>
       <div style={{
