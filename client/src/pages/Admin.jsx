@@ -111,6 +111,7 @@ export default function Admin() {
   const [activity, setActivity] = useState([]);
   // CRM-Kontakte im Dashboard (360°-Ansicht: Stammdaten, Mandate, Aktivitäten)
   const [crmContacts, setCrmContacts] = useState([]);
+  const [editDoc, setEditDoc] = useState(null);   // Dokument, dessen Bezeichnung gerade bearbeitet wird
   const [roleList, setRoleList] = useState([]);   // Rollen aus der Rollen-Tabelle (für das Dropdown)
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -610,6 +611,21 @@ export default function Admin() {
       const docs = await api.get(`/documents/${projectId}`);
       setUploadState(s => ({ ...s, existingDocs: docs }));
     } catch { /* ignore */ }
+  }
+
+  // Bezeichnung und Beschreibung eines Dokuments nachträglich ändern.
+  // Der Anzeigename ist unabhängig vom hochgeladenen Dateinamen — die Endung
+  // ergänzt der Server, damit die Datei beim Empfänger korrekt öffnet.
+  async function saveDocMeta(projectId, docId, patch) {
+    try {
+      await api.patch(`/documents/${projectId}/${docId}`, patch);
+      showMsg('Dokument aktualisiert ✓');
+      const docs = await api.get(`/documents/${projectId}`);
+      setUploadState(s => ({ ...s, existingDocs: docs }));
+      setEditDoc(null);
+    } catch (err) {
+      showMsg('Fehler: ' + err.message, 'error');
+    }
   }
 
   // Zugangslevel (Einordnung) eines vorhandenen Dokuments ändern
@@ -2092,18 +2108,61 @@ export default function Admin() {
                   <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.75rem', background: C.bg, borderRadius: 6, marginBottom: '0.35rem', border: `1px solid ${C.border}`, gap: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1 }}>
                       <FileText size={13} color={C.navy} />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: '0.8rem', color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.filename}</div>
-                        <div style={{ fontSize: '0.68rem', color: C.muted }}>
-                          {doc.description ? `${doc.description} · ` : ''}
-                          {doc.file_size ? `${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : ''}
-                          {doc.has_file === 0 && (
-                            <span style={{ marginLeft: 6, background: '#fef3c7', color: '#92400e', padding: '0.05rem 0.4rem', borderRadius: 20, fontWeight: 700, fontSize: '0.64rem' }}>
-                              keine Datei
-                            </span>
-                          )}
+                      {editDoc?.id === doc.id ? (
+                        /* Bearbeiten: Bezeichnung + Beschreibung */
+                        <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <input
+                            autoFocus
+                            value={editDoc.filename}
+                            onChange={(e) => setEditDoc(d => ({ ...d, filename: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveDocMeta(uploadProject.id, doc.id, { filename: editDoc.filename, description: editDoc.description });
+                              if (e.key === 'Escape') setEditDoc(null);
+                            }}
+                            placeholder="Bezeichnung (wird Interessenten angezeigt)"
+                            style={{ width: '100%', padding: '0.3rem 0.45rem', border: `1px solid ${C.navy}`, borderRadius: 5, fontSize: '0.8rem', fontWeight: 600, outline: 'none', boxSizing: 'border-box' }}
+                          />
+                          <input
+                            value={editDoc.description}
+                            onChange={(e) => setEditDoc(d => ({ ...d, description: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveDocMeta(uploadProject.id, doc.id, { filename: editDoc.filename, description: editDoc.description });
+                              if (e.key === 'Escape') setEditDoc(null);
+                            }}
+                            placeholder="Kurzbeschreibung (optional)"
+                            style={{ width: '100%', padding: '0.25rem 0.45rem', border: `1px solid ${C.border}`, borderRadius: 5, fontSize: '0.7rem', outline: 'none', boxSizing: 'border-box' }}
+                          />
+                          <div style={{ display: 'flex', gap: 5 }}>
+                            <button
+                              onClick={() => saveDocMeta(uploadProject.id, doc.id, { filename: editDoc.filename, description: editDoc.description })}
+                              disabled={!editDoc.filename.trim()}
+                              style={{ background: editDoc.filename.trim() ? C.navy : '#cbd5e1', color: '#fff', border: 'none', borderRadius: 5, padding: '0.25rem 0.7rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>
+                              Speichern
+                            </button>
+                            <button onClick={() => setEditDoc(null)} style={{ background: 'none', border: 'none', color: C.muted, fontSize: '0.7rem', cursor: 'pointer' }}>
+                              Abbrechen
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            onClick={() => setEditDoc({ id: doc.id, filename: doc.filename, description: doc.description || '' })}
+                            title="Bezeichnung und Beschreibung ändern"
+                            style={{ fontWeight: 600, fontSize: '0.8rem', color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                            {doc.filename}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: C.muted }}>
+                            {doc.description ? `${doc.description} · ` : ''}
+                            {doc.file_size ? `${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : ''}
+                            {doc.has_file === 0 && (
+                              <span style={{ marginLeft: 6, background: '#fef3c7', color: '#92400e', padding: '0.05rem 0.4rem', borderRadius: 20, fontWeight: 700, fontSize: '0.64rem' }}>
+                                keine Datei
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     {/* Datei hinterlegen / ersetzen (füllt vorbereitete Einträge) */}
                     <label
@@ -2123,6 +2182,19 @@ export default function Admin() {
                         onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; attachDocFile(uploadProject.id, doc.id, f); }}
                       />
                     </label>
+                    {/* Bezeichnung ändern */}
+                    {editDoc?.id !== doc.id && (
+                      <button
+                        onClick={() => setEditDoc({ id: doc.id, filename: doc.filename, description: doc.description || '' })}
+                        title="Bezeichnung und Beschreibung ändern"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.3rem', flexShrink: 0, cursor: 'pointer',
+                          background: '#f1f5f9', color: C.muted, border: 'none',
+                          padding: '0.3rem 0.55rem', borderRadius: 5, fontSize: '0.7rem', fontWeight: 600,
+                        }}>
+                        <Edit2 size={12} /> Umbenennen
+                      </button>
+                    )}
                     {/* Zugangslevel nachträglich änderbar */}
                     <select
                       value={doc.access_level}

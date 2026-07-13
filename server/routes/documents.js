@@ -329,13 +329,48 @@ router.patch('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
   const newLevel = ['public', 'nda', 'approved'].includes(access_level) ? access_level : doc.access_level;
   const newCategory = levelToCategory[newLevel] || doc.category;
 
+  // Bezeichnung ändern: Das ist der Name, den Interessenten sehen — er muss
+  // unabhängig vom hochgeladenen Dateinamen korrigierbar sein. Pfadangaben und
+  // Steuerzeichen fliegen raus, die Endung der echten Datei bleibt erhalten
+  // (sonst öffnet der Browser die Datei falsch).
+  let newName = null;
+  if (typeof req.body.filename === 'string') {
+    const clean = String(req.body.filename)
+      .replace(/[/\\]/g, '_')                 // keine Pfadangaben
+      .replace(/[\u0000-\u001F\u007F]/g, '')   // keine Steuerzeichen
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 160);
+    if (!clean) return res.status(400).json({ success: false, error: 'Die Bezeichnung darf nicht leer sein.' });
+
+    const ext = (doc.filename.match(/\.[A-Za-z0-9]{1,8}$/) || [''])[0];
+    newName = (ext && !clean.toLowerCase().endsWith(ext.toLowerCase())) ? clean + ext : clean;
+  }
+
   await db.run(
-    `UPDATE documents SET access_level = ?, category = ?, description = COALESCE(?, description) WHERE id = ?`,
-    [newLevel, newCategory, description ?? null, docId]
+    `UPDATE documents SET
+       filename = COALESCE(?, filename),
+       access_level = ?, category = ?,
+       description = COALESCE(?, description)
+     WHERE id = ?`,
+    [newName, newLevel, newCategory, description ?? null, docId]
   );
+
+  const changes = [];
+  if (newName && newName !== doc.filename) changes.push(`Name: „${doc.filename}" → „${newName}"`);
+  if (newLevel !== doc.access_level) changes.push(`Zugang: ${doc.access_level} → ${newLevel}`);
+  if (description != null && description !== doc.description) changes.push('Beschreibung geändert');
+
   db.auditLog(req.user.id, 'UPDATE_DOCUMENT', 'document', docId,
-    `${doc.filename}: ${doc.access_level} → ${newLevel}`, req.ip);
-  res.json({ success: true, data: { message: 'Dokument aktualisiert', access_level: newLevel, category: newCategory } });
+    changes.length ? changes.join(' · ') : `${doc.filename}: unverändert`, req.ip);
+  res.json({
+    success: true,
+    data: {
+      message: 'Dokument aktualisiert',
+      filename: newName || doc.filename,
+      access_level: newLevel, category: newCategory,
+    },
+  });
 }));
 
 // ── POST /api/documents/:projectId/:docId/file  (Admin: Datei nachreichen/ersetzen) ──

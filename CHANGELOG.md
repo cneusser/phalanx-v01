@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.266 — 28.07.2026 · Dokumente umbenennen
+- **Bezeichnung nachträglich änderbar**: Klick auf den Dokumentnamen (oder auf „Umbenennen") öffnet ein Feld für Bezeichnung und Kurzbeschreibung — Enter speichert, Escape bricht ab. Bisher ließ sich nur die Datei ersetzen oder das Zugangslevel ändern, nicht aber der Name, den Interessenten sehen
+- **Endung bleibt erhalten**: Der Server hängt die Dateiendung automatisch an, wenn sie fehlt (`Teaser Betongold` → `Teaser Betongold.pdf`) — sonst öffnet die Datei beim Empfänger nicht korrekt. Pfadangaben und Steuerzeichen werden entfernt, die Länge ist begrenzt
+- Jede Umbenennung steht im **Audit-Trail** mit altem und neuem Namen
+- Verifiziert: 11 Tests (Endungslogik, Umlaute, Pfad-Entschärfung, Leereingabe, Längenbegrenzung)
+
 ## v0.265 — 27.07.2026 · Marktplatz-Absturz behoben
 - **Ursache gefunden**: Die Ladeanzeige des Marktplatzes (`LoadingSpinner`) rief die Übersetzungsfunktion `t()` auf, hatte den Hook `useT()` aber nicht — die Komponente liegt außerhalb von `<Projects>`. Beim Rendern warf sie `t is not defined`, React verwarf den kompletten Baum, und übrig blieb eine leere graue Fläche. Weil damit auch der Footer verschwand, waren Impressum, Datenschutz und AGB von dort nicht erreichbar. Eingeschleppt wurde der Fehler mit der Englisch-Erweiterung (v0.257)
 - **Behoben**: `LoadingSpinner` holt sich den Hook jetzt selbst
