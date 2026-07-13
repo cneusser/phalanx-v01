@@ -57,6 +57,15 @@ router.put('/feedback/:id/status', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { status: s } });
 }));
 
+// Feedback löschen (erledigte oder gegenstandslose Einträge)
+router.delete('/feedback/:id', ...isAdmin, wrap(async (req, res) => {
+  const f = await db.get('SELECT * FROM feedback WHERE id = ?', [req.params.id]);
+  if (!f) return res.status(404).json({ success: false, error: 'Feedback nicht gefunden' });
+  await db.run('DELETE FROM feedback WHERE id = ?', [req.params.id]);
+  db.auditLog(req.user.id, 'FEEDBACK_DELETED', 'feedback', req.params.id, String(f.message || '').slice(0, 120), req.ip);
+  res.json({ success: true, data: { message: 'Feedback gelöscht' } });
+}));
+
 // ── KONTAKT (öffentlich, mit Robot-Schutz) ─────────────────────────────────
 router.post('/contact', msgLimiter, optionalAuth, wrap(async (req, res) => {
   if (!robotCheck(req, res)) return;

@@ -714,9 +714,20 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
 
 // ── Mail-Ausgangsbuch: was ging wann an wen raus? ─────────────────────────
 router.get('/emails', ...isAdmin, wrap(async (req, res) => {
-  const type = req.query.type && req.query.type !== 'all' ? req.query.type : null;
-  const q = req.query.q ? `%${String(req.query.q).toLowerCase()}%` : null;
-  const rows = await db.all(`
+  // WHERE dynamisch bauen — ein Platzhalter in „? IS NULL" lässt Postgres den Typ
+  // nicht ableiten und die Abfrage scheitert (Liste blieb dadurch leer).
+  const where = [];
+  const params = [];
+  if (req.query.type && req.query.type !== 'all') {
+    where.push('e.mail_type = ?');
+    params.push(String(req.query.type));
+  }
+  if (req.query.q) {
+    const like = `%${String(req.query.q).toLowerCase()}%`;
+    where.push('(lower(e.to_email) LIKE ? OR lower(coalesce(e.subject, \'\')) LIKE ?)');
+    params.push(like, like);
+  }
+  const sql = `
     SELECT e.id, e.to_email, e.subject, e.mail_type, e.template_key, e.status, e.error, e.created_at,
            e.contact_id, e.project_id,
            p.codename,
@@ -724,11 +735,12 @@ router.get('/emails', ...isAdmin, wrap(async (req, res) => {
     FROM email_log e
     LEFT JOIN projects p ON p.id = e.project_id
     LEFT JOIN users u ON u.id = e.created_by
-    WHERE (? IS NULL OR e.mail_type = ?)
-      AND (? IS NULL OR lower(e.to_email) LIKE ? OR lower(e.subject) LIKE ?)
+    ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY e.created_at DESC
-    LIMIT 300`, [type, type, q, q, q]).catch(() => []);
-  const types = await db.all(`SELECT mail_type, COUNT(*)::int AS n FROM email_log GROUP BY mail_type ORDER BY n DESC`).catch(() => []);
+    LIMIT 300`;
+
+  const rows = await db.all(sql, params);
+  const types = await db.all(`SELECT mail_type, COUNT(*)::int AS n FROM email_log GROUP BY mail_type ORDER BY n DESC`);
   res.json({ success: true, data: { emails: rows, types } });
 }));
 

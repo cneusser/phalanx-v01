@@ -3,6 +3,10 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.260 — 22.07.2026 · Mail-Ausgang zeigt die Mails, Feedback löschbar
+- **Fehler behoben (Mail-Ausgang)**: Der Typfilter zählte Mails („Pflege-Link (3)"), die Liste blieb aber leer. Ursache: `(? IS NULL OR e.mail_type = ?)` — Postgres kann den Typ eines nackten Platzhalters in `? IS NULL` nicht ableiten, die Abfrage scheiterte, und ein `.catch(() => [])` verschluckte den Fehler. Die WHERE-Klausel wird jetzt dynamisch gebaut, der Fehler nicht mehr unterdrückt
+- **Feedback löschen**: `DELETE /api/community/feedback/:id` (Audit-Eintrag `FEEDBACK_DELETED`) + Löschen-Aktion im Admin. Hinweis: Feedback (Seite `/feedback`) und Q&A (Fragen zu Mandaten) sind zwei getrennte Bereiche — eine gelöschte Q&A-Frage taucht nicht im Feedback auf und umgekehrt
+
 ## v0.259 — 21.07.2026 · Mail-Ausgang, editierbare Systemtexte, Doppelversand-Sperre
 - **Mail-Ausgang** (neuer Admin-Tab, `email_log` mit RLS): **jede** versendete Mail wird protokolliert — Zeitpunkt, Empfänger, Betreff, Art, Mandat, Status. Klick auf eine Zeile zeigt **das Original-HTML**, exakt so, wie es beim Empfänger ankam (sandboxed iframe). Filter nach Art und Suche über Empfänger/Betreff
 - **Audit-Trail**: Jeder Versand erzeugt `MAIL_SENT` (bzw. `MAIL_FAILED`) mit **Art der Mail**, Betreff und Empfänger — man sieht also, *welche Art* von Mail rausging

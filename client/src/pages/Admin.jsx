@@ -385,6 +385,12 @@ export default function Admin() {
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
 
+  async function deleteFeedback(id) {
+    if (!confirm('Feedback-Eintrag löschen?')) return;
+    try { await api.delete(`/community/feedback/${id}`); showMsg('Feedback gelöscht'); loadFeedback(); loadAll(); }
+    catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
   async function loadQuestions() {
     try { const d = await api.get('/admin/questions'); setQuestions(d.questions || []); }
     catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
@@ -1607,7 +1613,7 @@ export default function Admin() {
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
               <thead><tr style={{ background: C.bg }}>
-                {['Von', 'Kategorie', 'Nachricht', 'Status', 'Datum'].map(h => <th key={h} style={{ padding: '0.7rem 1rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.72rem' }}>{h.toUpperCase()}</th>)}
+                {['Von', 'Kategorie', 'Nachricht', 'Status', 'Datum', ''].map(h => <th key={h} style={{ padding: '0.7rem 1rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.72rem' }}>{h.toUpperCase()}</th>)}
               </tr></thead>
               <tbody>
                 {feedbackList.map(f => (
@@ -1621,6 +1627,11 @@ export default function Admin() {
                       </select>
                     </td>
                     <td style={{ padding: '0.7rem 1rem', color: C.muted, fontSize: '0.76rem', whiteSpace: 'nowrap' }}>{new Date(f.created_at).toLocaleDateString('de-DE')}</td>
+                    <td style={{ padding: '0.7rem 1rem' }}>
+                      <button onClick={() => deleteFeedback(f.id)} title="Feedback löschen" style={{
+                        background: 'none', border: 'none', color: '#dc2626', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer', padding: 0,
+                      }}>Löschen</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
