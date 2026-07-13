@@ -1320,6 +1320,188 @@ router.get('/deals/:projectId/active-participants', ...isStaff, wrap(async (req,
   res.json({ success: true, data: { participants: rows.map(r => ({ contact_id: r.contact_id, name: [r.first_name, r.last_name].filter(Boolean).join(' '), email: r.email })) } });
 }));
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 22 — Prozess-Mailvorlagen
+//
+// Je Prozessschritt eine Vorlage (Wiederaufnahme, Erstansprache, NDA, IM,
+// Gespräch, LOI, DD, Absage). Versand an einen einzelnen Kontakt oder an eine
+// Auswahl. Vorlagen sind im Admin einsehbar und änderbar; der Text lässt sich
+// zusätzlich pro Versand einmalig anpassen, ohne die Vorlage zu überschreiben.
+// ═══════════════════════════════════════════════════════════════════════════
+const mt = require('../utils/mailTemplates');
+
+router.get('/templates', ...isStaff, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(
+    `SELECT * FROM mail_templates ORDER BY sort, name`));
+  res.json({ success: true, data: { templates: rows, placeholders: mt.PLACEHOLDERS, stages: FUNNEL_STAGES } });
+}));
+
+router.post('/templates', ...isStaff, wrap(async (req, res) => {
+  const { name, subject, body } = req.body;
+  if (!name || !subject || !body) return res.status(400).json({ success: false, error: 'Name, Betreff und Text sind Pflicht.' });
+  const key = 'custom_' + Date.now();
+  const id = await scoped(req, (t) => t.insert(`
+    INSERT INTO mail_templates (tenant_id, key, name, stage, subject, body, cta_label, cta_target, is_system, sort, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 500, ?)`,
+    [req.tenantId || 1, key, name, req.body.stage ?? null, subject, body,
+     req.body.cta_label || null, mt.CTA_TARGETS.includes(req.body.cta_target) ? req.body.cta_target : 'project', req.user.id]));
+  db.auditLog(req.user.id, 'TEMPLATE_CREATED', 'mail_template', id, name, req.ip);
+  res.status(201).json({ success: true, data: { id, key } });
+}));
+
+router.put('/templates/:id', ...isStaff, wrap(async (req, res) => {
+  const tpl = await scoped(req, (t) => t.get('SELECT * FROM mail_templates WHERE id = ?', [req.params.id]));
+  if (!tpl) return res.status(404).json({ success: false, error: 'Vorlage nicht gefunden' });
+  const target = mt.CTA_TARGETS.includes(req.body.cta_target) ? req.body.cta_target : tpl.cta_target;
+  await scoped(req, (t) => t.run(`
+    UPDATE mail_templates SET
+      name = COALESCE(?, name), subject = COALESCE(?, subject), body = COALESCE(?, body),
+      cta_label = ?, cta_target = ?, stage = ?, is_active = ?, updated_by = ?, updated_at = now()
+    WHERE id = ?`,
+    [req.body.name || null, req.body.subject || null, req.body.body || null,
+     req.body.cta_label ?? tpl.cta_label, target,
+     req.body.stage === undefined ? tpl.stage : req.body.stage,
+     req.body.is_active === false ? 0 : 1, req.user.id, req.params.id]));
+  db.auditLog(req.user.id, 'TEMPLATE_UPDATED', 'mail_template', req.params.id, tpl.name, req.ip);
+  res.json({ success: true, data: { message: 'Vorlage gespeichert' } });
+}));
+
+router.delete('/templates/:id', ...isStaff, wrap(async (req, res) => {
+  const tpl = await scoped(req, (t) => t.get('SELECT * FROM mail_templates WHERE id = ?', [req.params.id]));
+  if (!tpl) return res.status(404).json({ success: false, error: 'Vorlage nicht gefunden' });
+  if (tpl.is_system === 1) {
+    return res.status(403).json({ success: false, error: 'Systemvorlagen können deaktiviert, aber nicht gelöscht werden.' });
+  }
+  await scoped(req, (t) => t.run('DELETE FROM mail_templates WHERE id = ?', [req.params.id]));
+  db.auditLog(req.user.id, 'TEMPLATE_DELETED', 'mail_template', req.params.id, tpl.name, req.ip);
+  res.json({ success: true, data: { message: 'Vorlage gelöscht' } });
+}));
+
+// Vorschau: exakt die Mail, die rausginge — mit echten Daten des ersten Empfängers
+router.post('/templates/:id/preview', ...isStaff, wrap(async (req, res) => {
+  const tpl = await scoped(req, (t) => t.get('SELECT * FROM mail_templates WHERE id = ?', [req.params.id]));
+  if (!tpl) return res.status(404).json({ success: false, error: 'Vorlage nicht gefunden' });
+
+  const contact = req.body.contact_id
+    ? await scoped(req, (t) => t.get(`
+        SELECT k.*, (SELECT c.name FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
+                      WHERE cc.contact_id = k.id AND cc.ended_on IS NULL LIMIT 1) AS company_name
+        FROM crm_contacts k WHERE k.id = ?`, [req.body.contact_id]))
+    : { salutation: 'Herr', last_name: 'Mustermann', first_name: 'Max', email: 'max@beispiel.de', company_name: 'Beispiel GmbH' };
+  const project = req.body.project_id
+    ? await scoped(req, (t) => t.get('SELECT * FROM projects WHERE id = ?', [req.body.project_id]))
+    : { id: 0, codename: 'MANDAT', industry: 'Branche', region: 'Region', revenue_band: '—', ebitda_band: '—', deal_type: 'Nachfolge' };
+
+  const mail = mt.buildFromTemplate({
+    template: tpl, contact: contact || {}, project: project || {}, inviter: req.user,
+    inviteToken: 'VORSCHAU', profileToken: 'VORSCHAU', frist: req.body.frist,
+    overrideSubject: req.body.subject, overrideBody: req.body.body,
+  });
+  res.json({ success: true, data: { subject: mail.subject, body: mail.previewText, salutation: mail.salutation, cta: mail.ctaLabel, to: mail.to } });
+}));
+
+// Versand einer Vorlage an einen oder mehrere Kontakte eines Mandats
+router.post('/deals/:projectId/send-template', ...isStaff, wrap(async (req, res) => {
+  const projectId = Number(req.params.projectId);
+  const project = await scoped(req, (t) => t.get('SELECT * FROM projects WHERE id = ?', [projectId]));
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+
+  const tpl = await scoped(req, (t) => t.get('SELECT * FROM mail_templates WHERE id = ?', [req.body.template_id]));
+  if (!tpl) return res.status(404).json({ success: false, error: 'Vorlage nicht gefunden' });
+
+  const ids = (req.body.contact_ids || []).slice(0, 200).map(Number).filter(Boolean);
+  if (!ids.length) return res.status(400).json({ success: false, error: 'Keine Empfänger ausgewählt' });
+
+  const crypto = require('crypto');
+  const { sendCampaignEmail } = require('../utils/email');
+  const tenant = req.tenantId || 1;
+  const remind = req.body.reminders_enabled === true ? 1 : 0;   // bei Vorlagen standardmäßig AUS
+  const advance = req.body.advance_stage === true;
+
+  const campaignId = await scoped(req, (t) => t.insert(`
+    INSERT INTO crm_campaigns (tenant_id, project_id, name, purpose, subject, intro, reminders_enabled, status, created_by, sent_at, template_key)
+    VALUES (?, ?, ?, 'invite', ?, ?, ?, 'sent', ?, now(), ?)`,
+    [tenant, projectId, `${tpl.name} — ${project.codename}`,
+     req.body.subject || tpl.subject, req.body.body || null, remind, req.user.id, tpl.key]));
+
+  const sent = [], skipped = [];
+  for (const cid of ids) {
+    const k = await scoped(req, (t) => t.get(`
+      SELECT k.*, (SELECT c.name FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
+                    WHERE cc.contact_id = k.id AND cc.ended_on IS NULL LIMIT 1) AS company_name
+      FROM crm_contacts k WHERE k.id = ?`, [cid]));
+    if (!k || !k.email) { skipped.push({ id: cid, reason: 'keine E-Mail' }); continue; }
+    if (k.contact_status === 'do_not_contact' || k.consent_status === 'opt_out') {
+      skipped.push({ id: cid, email: k.email, reason: 'Widerspruch' });
+      await scoped(req, (t) => t.run(`
+        INSERT INTO crm_campaign_recipients (tenant_id, campaign_id, contact_id, email, status, skip_reason)
+        VALUES (?, ?, ?, ?, 'skipped', 'Widerspruch') ON CONFLICT (campaign_id, contact_id) DO NOTHING`,
+        [tenant, campaignId, cid, k.email])).catch(() => {});
+      continue;
+    }
+
+    // Tokens nur erzeugen, wenn die Vorlage sie braucht
+    let inviteId = null, inviteToken = null;
+    if (tpl.cta_target === 'consent' && k.consent_status !== 'opt_in') {
+      const open = await scoped(req, (t) => t.get(
+        `SELECT id, token FROM crm_invitations WHERE contact_id = ? AND status IN ('invited','opened')
+          AND (expires_at IS NULL OR expires_at > now()) ORDER BY id DESC LIMIT 1`, [cid]));
+      if (open) { inviteId = open.id; inviteToken = open.token; }
+      else {
+        inviteToken = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + INVITE_DAYS * 24 * 3600 * 1000);
+        inviteId = await scoped(req, (t) => t.insert(`
+          INSERT INTO crm_invitations (tenant_id, contact_id, project_id, email, token, invited_by, expires_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`, [tenant, cid, projectId, k.email, inviteToken, req.user.id, expires]));
+      }
+    }
+    let profileId = null, profileToken = null;
+    if (tpl.cta_target === 'profile') {
+      const active = await scoped(req, (t) => t.get(
+        `SELECT id, token FROM crm_profile_links WHERE contact_id = ? AND status = 'active'
+          AND (expires_at IS NULL OR expires_at > now()) ORDER BY id DESC LIMIT 1`, [cid]));
+      if (active) { profileId = active.id; profileToken = active.token; }
+      else {
+        profileToken = crypto.randomBytes(32).toString('hex');
+        const pExp = new Date(Date.now() + PROFILE_DAYS * 24 * 3600 * 1000);
+        profileId = await scoped(req, (t) => t.insert(`
+          INSERT INTO crm_profile_links (tenant_id, contact_id, token, requires_approval, created_by, expires_at)
+          VALUES (?, ?, ?, 0, ?, ?)`, [tenant, cid, profileToken, req.user.id, pExp]));
+      }
+    }
+
+    sendCampaignEmail(mt.buildFromTemplate({
+      template: tpl, contact: k, project, inviter: req.user,
+      inviteToken, profileToken, frist: req.body.frist,
+      overrideSubject: req.body.subject, overrideBody: req.body.body,
+      withFacts: req.body.with_facts !== false,
+    })).catch(() => {});
+
+    await scoped(req, (t) => t.run(`
+      INSERT INTO crm_campaign_recipients (tenant_id, campaign_id, contact_id, email, invitation_id, profile_link_id, status, sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'sent', now())
+      ON CONFLICT (campaign_id, contact_id) DO NOTHING`,
+      [tenant, campaignId, cid, k.email, inviteId, profileId])).catch(() => {});
+
+    // Funnel nachziehen: mindestens „angesprochen"; auf Wunsch auf die Stufe der Vorlage
+    const target = advance && Number.isInteger(tpl.stage) ? Math.max(1, tpl.stage) : 1;
+    await scoped(req, (t) => t.run(`
+      UPDATE crm_deal_parties
+         SET mails_sent = COALESCE(mails_sent,0) + 1,
+             last_contact = CURRENT_DATE,
+             first_contact = COALESCE(first_contact, CURRENT_DATE),
+             funnel_stage = GREATEST(funnel_stage, ?),
+             stage_changed_at = CASE WHEN funnel_stage < ? THEN now() ELSE stage_changed_at END
+       WHERE project_id = ? AND contact_id = ?`, [target, target, projectId, cid])).catch(() => {});
+
+    sent.push({ id: cid, email: k.email });
+  }
+
+  db.auditLog(req.user.id, 'CRM_TEMPLATE_SENT', 'project', projectId,
+    `Vorlage „${tpl.name}" · ${sent.length} versendet · ${skipped.length} übersprungen`, req.ip);
+  res.status(201).json({ success: true, data: { campaign_id: campaignId, sent: sent.length, skipped: skipped.length, details: { sent, skipped } } });
+}));
+
 // Kennzahlen fürs Dashboard ─────────────────────────────────────────────────
 router.get('/stats', ...isStaff, wrap(async (req, res) => {
   const c = await scoped(req, (t) => t.get('SELECT COUNT(*)::int AS n FROM crm_companies'));

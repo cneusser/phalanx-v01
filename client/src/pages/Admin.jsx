@@ -11,6 +11,7 @@ import GroupedSelect from '../components/GroupedSelect';
 import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES } from '../constants/projectOptions';
 import DealCrmModal, { DEAL_STATUS_LABELS, DEAL_TRANSITIONS } from '../components/DealCrmModal';
 import ContactDrawer from '../components/ContactDrawer';
+import TemplateAdmin from '../components/TemplateAdmin';
 
 // Auswahllisten je Formularfeld (statt Freitext) — abhängig vom Mandatstyp
 const fieldOptions = (key, mandateType) => {
@@ -582,7 +583,7 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'contacts', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'contacts', 'templates', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
@@ -590,6 +591,7 @@ export default function Admin() {
     ndas:     'NDA-Anfragen',
     users:    'Nutzer',
     contacts: 'Kontakte',
+    templates: 'Mailvorlagen',
     leads:    'Bewertungs-Leads',
     detvals:  'Ausf. Bewertungen',
     multiples: 'Multiples',
@@ -1140,6 +1142,8 @@ export default function Admin() {
       )}
 
       {/* Users Tab */}
+      {activeTab === 'templates' && <TemplateAdmin show={showMsg} />}
+
       {activeTab === 'contacts' && (
         <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
           <div style={{ padding: '0.9rem 1rem', borderBottom: `1px solid ${C.border}`, background: C.bg, display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>

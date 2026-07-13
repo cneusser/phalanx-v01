@@ -7,7 +7,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
-import { X, Mail, Send, ShieldCheck, ShieldOff, Star, Save, ExternalLink } from 'lucide-react';
+import { X, Mail, Send, ShieldCheck, ShieldOff, Star, Save, ExternalLink, FileText } from 'lucide-react';
+import TemplateSendModal from './TemplateSendModal';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const IN = { width: '100%', padding: '0.45rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
@@ -32,6 +33,7 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState('stamm');
+  const [tplFor, setTplFor] = useState(null);   // Prozess-Mail zu einem Mandat des Kontakts
 
   const load = useCallback(async () => {
     try {
@@ -192,6 +194,12 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                         </div>
                       </div>
                       {d.next_step && <div style={{ fontSize: '0.75rem', color: C.muted, marginTop: '0.5rem' }}>→ {d.next_step}</div>}
+                      <button
+                        onClick={() => setTplFor({ id: d.project_id, codename: d.codename })}
+                        disabled={blocked || !k.email}
+                        style={{ ...btn(blocked || !k.email), marginTop: '0.6rem' }}>
+                        <FileText size={13} /> Prozess-Mail senden
+                      </button>
                     </div>
                   ))}
                 </>
@@ -217,6 +225,15 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
               )}
             </div>
           </>
+        )}
+        {tplFor && (
+          <TemplateSendModal
+            project={tplFor}
+            contactIds={[contactId]}
+            onClose={() => setTplFor(null)}
+            onSent={(r) => { setTplFor(null); load(); show(r.sent ? 'Prozess-Mail versendet ✓' : 'Nicht versendet (Widerspruch?)'); }}
+            show={show}
+          />
         )}
       </div>
     </div>

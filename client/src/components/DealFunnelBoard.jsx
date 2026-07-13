@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
-import { Star, AlertTriangle, Mail, ShieldCheck, ShieldOff, Send, CheckSquare, Square, BellRing, Megaphone } from 'lucide-react';
+import { Star, AlertTriangle, Mail, ShieldCheck, ShieldOff, Send, CheckSquare, Square, BellRing, Megaphone, FileText } from 'lucide-react';
 import ContactDrawer from './ContactDrawer';
+import TemplateSendModal from './TemplateSendModal';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const SELECT = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
@@ -28,6 +29,7 @@ export default function DealFunnelBoard({ show }) {
   const [updateMail, setUpdateMail] = useState(false);  // Projekt-Update-Modal
   const [camps, setCamps] = useState([]);               // versendete Kampagnen
   const [openContact, setOpenContact] = useState(null); // Kontakt-360°-Ansicht
+  const [tplSend, setTplSend] = useState(false);        // Prozess-Mailvorlage versenden
   // Kontakt direkt zum Mandat hinzufügen
   const [allContacts, setAllContacts] = useState([]);
   const [addContact, setAddContact] = useState('');
@@ -185,6 +187,13 @@ export default function DealFunnelBoard({ show }) {
           )}
           {selected.length > 0 && (
             <>
+              <button onClick={() => setTplSend(true)} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: C.navy,
+                border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem',
+                fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+              }}>
+                <FileText size={14} /> Prozess-Mail ({selected.length})
+              </button>
               <button onClick={inviteSelected} disabled={inviting} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: C.navy,
                 border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem',
@@ -386,6 +395,19 @@ export default function DealFunnelBoard({ show }) {
           onSent={(r) => {
             setCampaign(false); setSelected([]); loadBoard();
             show(`Mailing versendet: ${r.sent} Kontakt(e) · ${r.skipped} übersprungen`);
+          }}
+          show={show}
+        />
+      )}
+
+      {tplSend && deal && (
+        <TemplateSendModal
+          project={deal}
+          contactIds={selected}
+          onClose={() => setTplSend(false)}
+          onSent={(r) => {
+            setTplSend(false); setSelected([]); loadBoard();
+            show(`Prozess-Mail versendet: ${r.sent} Kontakt(e) · ${r.skipped} übersprungen`);
           }}
           show={show}
         />

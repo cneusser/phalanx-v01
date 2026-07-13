@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.255 — 17.07.2026 · Prozess-Mailvorlagen für die Käuferansprache
+- **11 Systemvorlagen** entlang des Sell-Side-Prozesses: Wiederaufnahme der Kommunikation, Erstansprache, Nachfassen, NDA anfordern, NDA-Erinnerung, IM/Unterlagen freigegeben, Management-Gespräch, indikatives Angebot (mit Frist), Due-Diligence-Freigabe, Absage im Prozess, Kontakt schließen
+- **Versand aus dem Funnel** an eine Auswahl (Button „Prozess-Mail (n)") oder **aus der Kontaktansicht** an einen einzelnen Kontakt — inklusive **Live-Vorschau mit den echten Daten** des ersten Empfängers
+- **Platzhalter**: `{{anrede}} {{mandat}} {{branche}} {{region}} {{umsatz}} {{ebitda}} {{transaktionsart}} {{unternehmen}} {{frist}} {{berater}}` — Eckdaten-Tabelle, Unterschrift und DSGVO-Hinweis werden automatisch ergänzt
+- Text und Betreff **pro Versand einmalig anpassbar**, ohne die Vorlage zu überschreiben; **Funnel-Stufe zieht auf Wunsch automatisch nach**; optional Reminder Tag 7/21
+- CTA-Ziel je Vorlage: Mandatsseite, Einwilligung (Double-Opt-in) oder Selbstpflege-Portal — Tokens werden nur erzeugt, wenn die Vorlage sie braucht
+- Neuer Admin-Tab **„Mailvorlagen"**: alle Vorlagen einsehen, ändern, deaktivieren, eigene ergänzen; Systemvorlagen sind änderbar, aber nicht löschbar
+- Verifiziert: 20 Unit-Tests (Platzhalter, Anrede, Frist, CTA-Auflösung, Override, HTML-Escaping)
+
 ## v0.254 — 16.07.2026 · Mandat FARADAY live + Kontakt-360°-Ansicht
 - **FARADAY vollständig online**: Elektrotechnik-/Energiedienstleister (Bayern, Metropolregion Nürnberg), Umsatz € 1,65 Mio., EBIT-Marge 14,4 %, 260+ Ladepunkte, Pflichtnehmer-Stellung bei einem Messe-/Kongressstandort. Eckdaten, Detailseite, **vollständiges Exposé** (9 Sektionen + Keyfacts) und Dokumenten-Slots (Teaser öffentlich, IM + Finanzplanung nach NDA) — durchgängig **anonymisiert** (kein Klar-, Inhaber- oder Kundenname)
 - **Kontakt-360°-Ansicht** (`ContactDrawer`): Klick auf einen Namen im Deal-Funnel, in der CRM-Kontaktliste oder im Admin-Dashboard öffnet Stammdaten (editierbar), Mandats-Zuordnungen und die vollständige Historie
