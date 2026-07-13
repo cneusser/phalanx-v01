@@ -148,7 +148,10 @@ router.post('/:id/submit', authenticate, wrap(async (req, res) => {
   const inputs = req.body && req.body.inputs ? req.body.inputs : (() => { try { return JSON.parse(row.inputs_json || '{}'); } catch { return {}; } })();
   const multiple = await loadMultiple(req, industryKey(inputs));
   if (!multiple) return res.status(500).json({ success: false, error: 'Bewertungsgrundlagen nicht verfügbar' });
-  const result = evaluateDetailed(inputs, multiple);
+  // Sprint 12: Branchen-Benchmarks (falls für die Branche hinterlegt)
+  const bench = await scoped(req, (t) => t.get(
+    'SELECT * FROM valuation_benchmarks WHERE industry = ?', [inputs.industry])).catch(() => null);
+  const result = evaluateDetailed(inputs, multiple, bench);
   await scoped(req, (t) => t.run(
     `UPDATE detailed_valuations SET inputs_json = ?, results_json = ?, status = 'submitted', submitted_at = now(), updated_at = now() WHERE id = ?`,
     [JSON.stringify(inputs), JSON.stringify(result), req.params.id]

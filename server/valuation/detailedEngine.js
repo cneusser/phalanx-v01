@@ -75,7 +75,33 @@ function annuityFactor(rate, years) {
  *   buyerYears (Default 7), buyerInterest (Default 0,065): Kapitaldienst-Parameter
  * @param {object} multiple  Zeile aus valuation_multiples (Branche×Größenklasse)
  */
-function evaluateDetailed(input, multiple) {
+// Sprint 12 — Bewertung 2.0: DCF und Benchmarking ergänzen die bisherigen Verfahren.
+// Beide sind optional: Ohne Planungsangaben rechnet die Engine wie bisher, mit
+// Planungsangaben kommt ein drittes, cashflowbasiertes Verfahren hinzu.
+const { evaluateDcf } = require('./dcf');
+const { compare, cagr } = require('./benchmarks');
+
+// Planungsannahmen: entweder vom Nutzer gesetzt oder aus der Historie abgeleitet.
+// Bewusst konservativ — wer nichts angibt, bekommt keine Wachstumsfantasie.
+function planFromHistory(input, adjustedEbit) {
+  const revenues = (input.revenues || []).map(v => num(v)).filter(v => v > 0);
+  const revenueBase = revenues.length ? revenues[revenues.length - 1] : 0;
+  const histGrowth = cagr(revenues);
+  const margin = revenueBase > 0 ? adjustedEbit / revenueBase : 0;
+  return {
+    revenueBase,
+    // Historisches Wachstum gedeckelt: max. 5 % p. a. in der Planung, nie negativ unter −5 %
+    revenueGrowth: histGrowth == null ? 0.02 : Math.max(-0.05, Math.min(0.05, histGrowth / 100)),
+    ebitMargin: Math.max(0, margin),
+    depreciationPct: 0.03,
+    capexPct: 0.03,
+    nwcPct: 0.10,
+    years: 5,
+    terminalGrowth: 0.01,
+  };
+}
+
+function evaluateDetailed(input, multiple, bench = null) {
   const revenues = (input.revenues || []).map(v => num(v));
   const ebits = (input.ebits || []).map(v => num(v));
   const avgRevenue = avg(revenues);
@@ -153,7 +179,73 @@ function evaluateDetailed(input, multiple) {
   const dscr = financeablePrice > 0 && corridor.base > 0 ? r2(financeablePrice / corridor.base) : null;
   const affordability = dscr == null ? 'n/a' : (dscr >= 1 ? 'tragfähig' : (dscr >= 0.8 ? 'grenzwertig' : 'ambitioniert'));
 
+  // ── Sprint 12: DCF ────────────────────────────────────────────────────────
+  const auto = planFromHistory(input, adjustedEbit);
+  const dcfInput = {
+    // Planung (Nutzerangaben schlagen die Ableitung aus der Historie)
+    revenueBase: num(input.revenueBase, auto.revenueBase),
+    revenueGrowth: input.revenueGrowth != null ? num(input.revenueGrowth) : auto.revenueGrowth,
+    ebitMargin: input.ebitMargin != null ? num(input.ebitMargin) : auto.ebitMargin,
+    depreciationPct: input.depreciationPct != null ? num(input.depreciationPct) : auto.depreciationPct,
+    capexPct: input.capexPct != null ? num(input.capexPct) : auto.capexPct,
+    nwcPct: input.nwcPct != null ? num(input.nwcPct) : auto.nwcPct,
+    years: num(input.planYears, 5),
+    terminalGrowth: input.terminalGrowth != null ? num(input.terminalGrowth) : auto.terminalGrowth,
+    // Kapitalkosten — schwache Scorecard erhöht die Eigenkapitalkosten (Risikoprämie)
+    baseRate: BASE_RATE,
+    marketRiskPremium: input.marketRiskPremium != null ? num(input.marketRiskPremium) : 0.065,
+    beta: input.beta != null ? num(input.beta) : 1.0,
+    sizePremium: input.sizePremium != null ? num(input.sizePremium) : 0.04,
+    illiquidity: (input.illiquidity != null ? num(input.illiquidity) : 0.02) + riskPremium,
+    debtRate: input.debtRate != null ? num(input.debtRate) : 0.055,
+    debtRatio: input.debtRatio != null ? num(input.debtRatio) : 0,
+    taxRate: TAX_RATE,
+    netDebt,
+  };
+  const dcf = positive && dcfInput.revenueBase > 0 ? evaluateDcf(dcfInput) : { ok: false, reason: 'Ohne positives EBIT und Umsatzbasis ist kein DCF sinnvoll.' };
+
+  // ── Sprint 12: Benchmarking ───────────────────────────────────────────────
+  const lastRevenue = revenues.length ? revenues[revenues.length - 1] : 0;
+  const metrics = {
+    ebitMargin: lastRevenue > 0 ? r2((adjustedEbit / lastRevenue) * 100) : null,
+    revenueGrowth: cagr(revenues),
+    personnelRatio: input.personnelCosts && lastRevenue > 0
+      ? r2((num(input.personnelCosts) / lastRevenue) * 100) : null,
+  };
+  const benchmark = compare(metrics, bench);
+
+  // ── Methodenvergleich: drei Verfahren nebeneinander ───────────────────────
+  const methodValues = [
+    { key: 'multiple', label: 'Multiplikatorverfahren', value: round(evMultiple) },
+    { key: 'income', label: 'Ertragswert (risikogerechter Zins)', value: round(incomeValue) },
+  ];
+  if (dcf.ok) methodValues.push({ key: 'dcf', label: 'DCF (FCFF)', value: dcf.enterpriseValue });
+
+  // Korridor 2.0: Wenn ein DCF vorliegt, spannen die drei Verfahren den Korridor
+  // auf; Basis bleibt der Multiplikator (marktnächstes Verfahren), die anderen
+  // erweitern die Ränder. So bleibt der Wert nachvollziehbar und ehrlich breit.
+  let corridor2 = null;
+  if (positive && dcf.ok) {
+    const vals = methodValues.map(m => m.value).filter(v => v > 0);
+    corridor2 = {
+      conservative: round(Math.min(...vals, corridor.conservative)),
+      base: corridor.base,
+      optimistic: round(Math.max(...vals, corridor.optimistic)),
+      methodSpread: vals.length > 1 ? r2((Math.max(...vals) / Math.min(...vals))) : null,
+    };
+  }
+
   return {
+    dcf,
+    benchmark,
+    metrics,
+    methodValues,
+    corridor2,
+    equity2: corridor2 ? {
+      conservative: round(corridor2.conservative - netDebt),
+      base: round(corridor2.base - netDebt),
+      optimistic: round(corridor2.optimistic - netDebt),
+    } : null,
     inputsSummary: {
       avgRevenue: round(avgRevenue),
       rawAvgEbit: round(rawAvgEbit),

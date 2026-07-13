@@ -179,6 +179,122 @@ function generateDetailedReport(opts) {
     doc.font('Helvetica-Bold').fontSize(8.3).fillColor(STEEL).text('Phalanx GmbH  ·  Helene-Lange-Straße 28, 91056 Erlangen  ·  neusser@phalanx.de  ·  www.capitalmatch.de', L + 16, ctaY + ctaH - 15, { width: PAGE_W - 32 });
     doc.x = L; doc.y = ctaY + ctaH + 10;
 
+    // ── Sprint 12: DCF, Sensitivität und Benchmarking ────────────────────────
+    if (result.dcf && result.dcf.ok) {
+      const d = result.dcf;
+      doc.addPage(); doc.y = 64; doc.x = L;
+      section('Discounted Cash Flow (FCFF)');
+      doc.font('Helvetica').fontSize(9.5).fillColor(GRAY).text(
+        'Der DCF bewertet das Unternehmen aus den Zahlungsüberschüssen, die es künftig erwirtschaftet. ' +
+        'Abgezinst wird mit den Kapitalkosten (WACC); nach der Detailplanung folgt ein Fortführungswert (Gordon Growth). ' +
+        'Alle Annahmen sind unten offengelegt und einzeln verhandelbar.', PROSE(9.5));
+      doc.moveDown(0.5);
+
+      const w = d.wacc.components;
+      kv([
+        ['Basiszins (risikofrei)', pct(w.baseRate * 100)],
+        ['Marktrisikoprämie × Beta', `${pct(w.marketRiskPremium * 100)} × ${mx(w.beta)}`],
+        ['Small-Size-Prämie', pct(w.sizePremium * 100)],
+        ['Fungibilitätszuschlag (inkl. Scorecard-Risiko)', pct(w.illiquidity * 100)],
+        ['Eigenkapitalkosten', pct(d.wacc.costOfEquity * 100)],
+        ['Fremdkapitalquote / -kosten nach Steuern', `${pct(d.wacc.debtRatio * 100)} / ${pct(d.wacc.costOfDebt * 100)}`],
+        ['WACC (Diskontierungssatz)', pct(d.wacc.wacc * 100)],
+        ['Ewiges Wachstum (Terminal Growth)', pct(d.terminalGrowth * 100)],
+      ], true);
+      doc.moveDown(0.6);
+
+      // Planungstabelle
+      ensure(30 + d.plan.length * 15);
+      const cols = [L, L + 60, L + 150, L + 240, L + 330, L + PAGE_W - 90];
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY);
+      const hy = doc.y;
+      doc.text('Jahr', cols[0], hy);
+      doc.text('Umsatz', cols[1], hy, { width: 85, align: 'right' });
+      doc.text('EBIT', cols[2], hy, { width: 85, align: 'right' });
+      doc.text('Capex', cols[3], hy, { width: 85, align: 'right' });
+      doc.text('Free Cash Flow', cols[4], hy, { width: 85, align: 'right' });
+      doc.text('Barwert', cols[5], hy, { width: 90, align: 'right' });
+      doc.y = hy + 13;
+      doc.moveTo(L, doc.y - 3).lineTo(L + PAGE_W, doc.y - 3).strokeColor('#cbd5e1').lineWidth(0.6).stroke();
+      d.detail.forEach(r => {
+        const y = doc.y;
+        doc.font('Helvetica').fontSize(8.5).fillColor(BLACK);
+        doc.text(String(r.year), cols[0], y);
+        doc.text(eur(r.revenue), cols[1], y, { width: 85, align: 'right' });
+        doc.text(eur(r.ebit), cols[2], y, { width: 85, align: 'right' });
+        doc.text(eur(r.capex), cols[3], y, { width: 85, align: 'right' });
+        doc.text(eur(r.fcf), cols[4], y, { width: 85, align: 'right' });
+        doc.text(eur(r.presentValue), cols[5], y, { width: 90, align: 'right' });
+        doc.y = y + 13; doc.x = L;
+      });
+      doc.moveDown(0.5);
+      kv([
+        ['Barwert der Detailphase', eur(d.pvDetail)],
+        ['Fortführungswert (Barwert)', `${eur(d.pvTerminal)}  (${mx(d.terminalShare)} % des Werts)`],
+        ['Enterprise Value (DCF)', eur(d.enterpriseValue)],
+        ['./. Netto-Finanzschulden', eur(-d.netDebt)],
+        ['Equity Value (DCF)', eur(d.equityValue)],
+      ], true);
+      doc.moveDown(0.5);
+      doc.font('Helvetica-Oblique').fontSize(8).fillColor(GRAY).text(
+        `Hinweis: ${mx(d.terminalShare)} % des Werts stecken im Fortführungswert. Je höher dieser Anteil, desto stärker hängt das Ergebnis an langfristigen Annahmen — die Sensitivitätsmatrix zeigt, wie stark.`,
+        PROSE(8));
+      doc.moveDown(0.8);
+
+      // Sensitivitätsmatrix WACC × g
+      section('Sensitivität: WACC × ewiges Wachstum');
+      const sm = d.sensitivity;
+      const cw = (PAGE_W - 70) / sm.growthSteps.length;
+      ensure(30 + sm.matrix.length * 16);
+      let y0 = doc.y;
+      doc.font('Helvetica-Bold').fontSize(8).fillColor(NAVY).text('WACC \\ g', L, y0, { width: 70 });
+      sm.matrix[0].values.forEach((v, i) => {
+        doc.text(pct(v.growth * 100), L + 70 + i * cw, y0, { width: cw, align: 'right' });
+      });
+      doc.y = y0 + 14;
+      sm.matrix.forEach((row, ri) => {
+        const y = doc.y;
+        const isBase = ri === Math.floor(sm.matrix.length / 2);
+        doc.font(isBase ? 'Helvetica-Bold' : 'Helvetica').fontSize(8).fillColor(isBase ? NAVY : BLACK);
+        doc.text(pct(row.wacc * 100), L, y, { width: 70 });
+        row.values.forEach((v, ci) => {
+          const center = isBase && ci === Math.floor(row.values.length / 2);
+          doc.font(center ? 'Helvetica-Bold' : (isBase ? 'Helvetica-Bold' : 'Helvetica'))
+            .fillColor(center ? ACCENT : (isBase ? NAVY : BLACK));
+          doc.text(v.enterpriseValue == null ? '—' : eur(v.enterpriseValue), L + 70 + ci * cw, y, { width: cw, align: 'right' });
+        });
+        doc.y = y + 14; doc.x = L;
+      });
+      doc.moveDown(0.4);
+      doc.font('Helvetica-Oblique').fontSize(8).fillColor(GRAY).text(
+        'Enterprise Value in Abhängigkeit von Kapitalkosten und ewigem Wachstum. Die hervorgehobene Zelle ist der Basisfall.', PROSE(8));
+      doc.moveDown(0.8);
+    }
+
+    if (result.benchmark && result.benchmark.available && result.benchmark.items.length) {
+      section('Benchmarking: Position im Branchenvergleich');
+      doc.font('Helvetica').fontSize(9.5).fillColor(GRAY).text(
+        `Einordnung gegenüber KMU der Branche „${result.benchmark.industry}". Gesamtbild: ${result.benchmark.verdict}.`, PROSE(9.5));
+      doc.moveDown(0.5);
+      result.benchmark.items.forEach(it => {
+        ensure(30);
+        const y = doc.y;
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY).text(it.metric, L, y, { width: 200 });
+        doc.font('Helvetica').fontSize(9).fillColor(BLACK)
+          .text(`Ihr Wert: ${mx(it.value)}`, L + 200, y, { width: 100, align: 'right' });
+        doc.fillColor(GRAY).fontSize(8.5)
+          .text(`Branche: ${mx(it.p25)} / ${mx(it.median)} / ${mx(it.p75)} (p25 / Median / p75)`, L + 300, y, { width: PAGE_W - 300 - 90, align: 'right' });
+        const col = it.color === 'green' ? '#059669' : it.color === 'amber' ? '#d97706' : '#dc2626';
+        doc.font('Helvetica-Bold').fontSize(8.5).fillColor(col)
+          .text(it.label || '', L + PAGE_W - 90, y, { width: 90, align: 'right' });
+        doc.y = y + 15; doc.x = L;
+      });
+      doc.moveDown(0.4);
+      doc.font('Helvetica-Oblique').fontSize(8).fillColor(GRAY)
+        .text(`Quelle: ${result.benchmark.source}. ${result.benchmark.note}`, PROSE(8));
+      doc.moveDown(0.8);
+    }
+
     ensure(70);
     const dText = `${result.disclaimer} Quelle der Branchen-Multiples: ${result.multipleSource}. Die verwendeten Zinssätze, Steuerquoten und Scorecard-Gewichte sind indikative Annahmen. Für eine belastbare Bewertung (z. B. nach IDW S1) und die Ermittlung eines am Markt durchsetzbaren Preises sprechen Sie uns gern an.`;
     doc.font('Helvetica').fontSize(8);

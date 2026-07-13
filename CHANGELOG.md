@@ -3,6 +3,16 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.261 — 23.07.2026 · Sprint 12: Ausführliche Bewertung 2.0 (DCF, Sensitivität, Benchmarking)
+- **Discounted Cash Flow** (`server/valuation/dcf.js`): Fünfjahresplanung (Umsatzwachstum, EBIT-Marge, AfA-, Capex- und Working-Capital-Quoten), **FCFF**, Diskontierung mit **Mid-Year-Convention**, Fortführungswert nach **Gordon Growth**, Equity Bridge über die Netto-Finanzschulden
+- **Kapitalkosten (WACC)** nach CAPM mit KMU-Realität: Basiszins + Beta × Marktrisikoprämie + **Small-Size-Prämie** + **Fungibilitätszuschlag**; eine schwache Scorecard erhöht den Zins automatisch. Fremdkapital mit Tax Shield, Standard ist cash-/debt-free
+- **Sensitivitätsmatrix** 5 × 5: Enterprise Value über WACC × ewiges Wachstum, Basisfall hervorgehoben. Der **Anteil des Fortführungswerts** wird ausgewiesen — je höher, desto stärker hängt der Wert an Langfristannahmen
+- **Benchmarking** (`valuation_benchmarks`, 20 Branchen mit Quartilsbändern, RLS, im Admin pflegbar): EBIT-Marge, Umsatzwachstum (CAGR) und Personalkostenquote gegen p25 / Median / p75 — mit Ampel und ehrlichem Gesamturteil („über Markt", „gemischt", „unter Markt"; „über Markt" nur bei echter Mehrheit)
+- **Methodenvergleich**: Multiplikator, Ertragswert und DCF nebeneinander als Balken, dazu die **Spannweite über alle Verfahren** — kein Scheinkonsens
+- **Neuer Wizard-Schritt „Planung & DCF"**: Wer nichts ausfüllt, bekommt konservative Ableitungen aus der Historie (Wachstum gedeckelt auf ±5 % p. a., kein Wunschdenken)
+- **PDF-Report** um DCF-Seite (Planungstabelle, Barwerte, WACC-Herleitung), Sensitivitätsmatrix und Benchmarking erweitert
+- Verifiziert: 44 Tests (WACC, FCF-Projektion, Mid-Year-Diskontierung, Gordon Growth, `WACC ≤ g` abgefangen, Sensitivitätsmonotonie, Equity Bridge, Benchmark-Einordnung, Ende-zu-Ende inkl. PDF)
+
 ## v0.260 — 22.07.2026 · Mail-Ausgang zeigt die Mails, Feedback löschbar
 - **Fehler behoben (Mail-Ausgang)**: Der Typfilter zählte Mails („Pflege-Link (3)"), die Liste blieb aber leer. Ursache: `(? IS NULL OR e.mail_type = ?)` — Postgres kann den Typ eines nackten Platzhalters in `? IS NULL` nicht ableiten, die Abfrage scheiterte, und ein `.catch(() => [])` verschluckte den Fehler. Die WHERE-Klausel wird jetzt dynamisch gebaut, der Fehler nicht mehr unterdrückt
 - **Feedback löschen**: `DELETE /api/community/feedback/:id` (Audit-Eintrag `FEEDBACK_DELETED`) + Löschen-Aktion im Admin. Hinweis: Feedback (Seite `/feedback`) und Q&A (Fragen zu Mandaten) sind zwei getrennte Bereiche — eine gelöschte Q&A-Frage taucht nicht im Feedback auf und umgekehrt

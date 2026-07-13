@@ -26,7 +26,18 @@ const emptyInputs = () => ({
   industry: '', revenues: ['', '', ''], ebits: ['', '', ''],
   ownerSalaryAdjustment: '', oneOffs: '', shareholderRentAddback: '', netDebt: '',
   scorecard: {}, assetValue: '', assetDebt: '', buyerYears: '7', buyerInterest: '6,5',
+  // Sprint 12 — Planung & Kapitalkosten für den DCF (leer = aus der Historie abgeleitet)
+  personnelCosts: '',
+  revenueGrowth: '', ebitMargin: '', capexPct: '', depreciationPct: '', nwcPct: '',
+  planYears: '5', terminalGrowth: '1,0', beta: '1,0', sizePremium: '4,0', debtRatio: '0',
 });
+
+// „12,5" → 0,125 (Prozentfelder); leer → undefined, damit die Engine ableitet
+const pctOrUndef = (v) => {
+  if (v === '' || v == null) return undefined;
+  const n = Number(String(v).replace(',', '.'));
+  return Number.isFinite(n) ? n / 100 : undefined;
+};
 
 export default function DetailedValuation() {
   const [view, setView] = useState('list');  // list | edit
@@ -67,7 +78,7 @@ export default function DetailedValuation() {
         buyerInterest: inp.buyerInterest ? String(inp.buyerInterest * 100).replace('.', ',') : '6,5',
       });
       setResult(d.results && d.results.corridor ? d.results : null);
-      setStep(d.results && d.results.corridor ? 3 : 0);
+      setStep(d.results && d.results.corridor ? 4 : 0);
       setView('edit');
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }
@@ -81,6 +92,18 @@ export default function DetailedValuation() {
       scorecard: inputs.scorecard,
       assetValue: num(inputs.assetValue), assetDebt: num(inputs.assetDebt),
       buyerYears: num(inputs.buyerYears) || 7, buyerInterest: (num(inputs.buyerInterest) || 6.5) / 100,
+      // Sprint 12 — DCF-Planung (leere Felder bleiben undefined → Ableitung aus der Historie)
+      personnelCosts: num(inputs.personnelCosts) || undefined,
+      revenueGrowth: pctOrUndef(inputs.revenueGrowth),
+      ebitMargin: pctOrUndef(inputs.ebitMargin),
+      capexPct: pctOrUndef(inputs.capexPct),
+      depreciationPct: pctOrUndef(inputs.depreciationPct),
+      nwcPct: pctOrUndef(inputs.nwcPct),
+      planYears: num(inputs.planYears) || 5,
+      terminalGrowth: pctOrUndef(inputs.terminalGrowth),
+      beta: inputs.beta ? Number(String(inputs.beta).replace(',', '.')) : undefined,
+      sizePremium: pctOrUndef(inputs.sizePremium),
+      debtRatio: pctOrUndef(inputs.debtRatio),
       company: title,
     };
   }
@@ -108,7 +131,7 @@ export default function DetailedValuation() {
       if (!vid) { const d = await api.post('/detailed-valuations', { title, inputs: payload() }); vid = d.id; setId(vid); }
       else { await api.put(`/detailed-valuations/${vid}`, { title, inputs: payload() }); }
       const d = await api.post(`/detailed-valuations/${vid}/submit`, { inputs: payload() });
-      setResult(d.result); setStatus('submitted'); setStep(3); loadList();
+      setResult(d.result); setStatus('submitted'); setStep(4); loadList();
     } catch (e) { setMsg('Fehler: ' + e.message); }
     finally { setBusy(false); }
   }
@@ -181,7 +204,7 @@ export default function DetailedValuation() {
   }
 
   // ── EDIT / STEPPER VIEW ─────────────────────────────────────────────────
-  const steps = ['Finanzdaten', 'Scorecard', 'Substanz & Käufer', 'Ergebnis'];
+  const steps = ['Finanzdaten', 'Scorecard', 'Substanz & Käufer', 'Planung & DCF', 'Ergebnis'];
   const yearLabels = ['Vor 2 Jahren', 'Vorjahr', 'Letztes Jahr'];
   const locked = status === 'reviewed';
 
@@ -265,8 +288,41 @@ export default function DetailedValuation() {
             </div>
           )}
 
-          {/* STEP 3 — Ergebnis */}
+          {/* STEP 3 — Planung & Kapitalkosten (DCF) */}
           {step === 3 && (
+            <div>
+              <div style={{ background: '#EDF4FA', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.8rem 1rem', marginBottom: '1.25rem', fontSize: '0.8rem', color: '#475569', lineHeight: 1.55 }}>
+                Für den <strong>Discounted-Cash-Flow</strong> planen wir fünf Jahre. Lassen Sie Felder leer, leiten wir die Annahmen
+                konservativ aus Ihrer Historie ab (Wachstum gedeckelt auf ±5 % p. a.). Jeder Wert ist im Report offengelegt.
+              </div>
+
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Planungsannahmen</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div><label style={LABEL}>Umsatzwachstum p. a. (%)</label><input value={inputs.revenueGrowth} onChange={e => setInp('revenueGrowth', e.target.value)} disabled={locked} placeholder="aus Historie" style={INPUT} inputMode="decimal" /></div>
+                <div><label style={LABEL}>EBIT-Marge (%)</label><input value={inputs.ebitMargin} onChange={e => setInp('ebitMargin', e.target.value)} disabled={locked} placeholder="aus Historie" style={INPUT} inputMode="decimal" /></div>
+                <div><label style={LABEL}>Planungsjahre</label><input value={inputs.planYears} onChange={e => setInp('planYears', e.target.value)} disabled={locked} placeholder="5" style={INPUT} inputMode="numeric" /></div>
+                <div><label style={LABEL}>Abschreibungen (% vom Umsatz)</label><input value={inputs.depreciationPct} onChange={e => setInp('depreciationPct', e.target.value)} disabled={locked} placeholder="3,0" style={INPUT} inputMode="decimal" /></div>
+                <div><label style={LABEL}>Investitionen / Capex (% vom Umsatz)</label><input value={inputs.capexPct} onChange={e => setInp('capexPct', e.target.value)} disabled={locked} placeholder="3,0" style={INPUT} inputMode="decimal" /></div>
+                <div><label style={LABEL}>Working Capital (% vom Umsatz)</label><input value={inputs.nwcPct} onChange={e => setInp('nwcPct', e.target.value)} disabled={locked} placeholder="10,0" style={INPUT} inputMode="decimal" /></div>
+              </div>
+
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Kapitalkosten (WACC)</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div><label style={LABEL}>Beta</label><input value={inputs.beta} onChange={e => setInp('beta', e.target.value)} disabled={locked} placeholder="1,0" style={INPUT} inputMode="decimal" /></div>
+                <div><label style={LABEL}>Small-Size-Prämie (%)</label><input value={inputs.sizePremium} onChange={e => setInp('sizePremium', e.target.value)} disabled={locked} placeholder="4,0" style={INPUT} inputMode="decimal" /></div>
+                <div><label style={LABEL}>Fremdkapitalquote (%)</label><input value={inputs.debtRatio} onChange={e => setInp('debtRatio', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="decimal" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>0 = cash-/debt-free</div></div>
+                <div><label style={LABEL}>Ewiges Wachstum (%)</label><input value={inputs.terminalGrowth} onChange={e => setInp('terminalGrowth', e.target.value)} disabled={locked} placeholder="1,0" style={INPUT} inputMode="decimal" /></div>
+              </div>
+
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Benchmarking (optional)</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div><label style={LABEL}>Personalkosten p. a. (€)</label><input value={inputs.personnelCosts} onChange={e => setInp('personnelCosts', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>für den Branchenvergleich der Personalkostenquote</div></div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4 — Ergebnis */}
+          {step === 4 && (
             <div>
               {!result ? (
                 <div style={{ textAlign: 'center', padding: '2rem 1rem', color: C.muted }}>
@@ -294,6 +350,111 @@ export default function DetailedValuation() {
                     <div><strong>Kapitaldienst:</strong> {result.affordability.verdict} (finanzierbar {eur(result.affordability.financeablePrice)})</div>
                     {result.methods.substance.value > 0 && <div><strong>Substanzwert:</strong> {eur(result.methods.substance.value)}</div>}
                   </div>
+                  {/* Sprint 12 — Methodenvergleich */}
+                  {result.methodValues && result.methodValues.length > 2 && (
+                    <div style={{ marginTop: '1.25rem', borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.6rem' }}>Methodenvergleich (Enterprise Value)</div>
+                      {(() => {
+                        const max = Math.max(...result.methodValues.map(m => m.value || 0), 1);
+                        return result.methodValues.map(m => (
+                          <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                            <div style={{ width: 190, fontSize: '0.78rem', color: '#475569' }}>{m.label}</div>
+                            <div style={{ flex: 1, background: C.bg, borderRadius: 5, height: 18, position: 'relative', overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.max(2, (m.value / max) * 100)}%`, height: '100%', background: m.key === 'multiple' ? C.navy : m.key === 'dcf' ? '#1D4E89' : '#7c3aed' }} />
+                            </div>
+                            <div style={{ width: 120, textAlign: 'right', fontSize: '0.8rem', fontWeight: 700, color: C.text }}>{eur(m.value)}</div>
+                          </div>
+                        ));
+                      })()}
+                      {result.corridor2 && (
+                        <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: '0.5rem' }}>
+                          Spannweite über alle Verfahren: {eur(result.corridor2.conservative)} – {eur(result.corridor2.optimistic)}
+                          {result.corridor2.methodSpread ? ` (Faktor ${String(result.corridor2.methodSpread).replace('.', ',')}×)` : ''}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Sprint 12 — DCF */}
+                  {result.dcf && result.dcf.ok && (
+                    <div style={{ marginTop: '1.25rem', borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.6rem' }}>Discounted Cash Flow</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem', marginBottom: '0.8rem' }}>
+                        {[
+                          ['WACC', `${(result.dcf.wacc.wacc * 100).toFixed(1).replace('.', ',')} %`],
+                          ['Ewiges Wachstum', `${(result.dcf.terminalGrowth * 100).toFixed(1).replace('.', ',')} %`],
+                          ['Enterprise Value', eur(result.dcf.enterpriseValue)],
+                          ['Equity Value', eur(result.dcf.equityValue)],
+                          ['Anteil Fortführungswert', `${String(result.dcf.terminalShare).replace('.', ',')} %`],
+                        ].map(([l, v]) => (
+                          <div key={l} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem' }}>
+                            <div style={{ fontSize: '0.66rem', color: C.muted, fontWeight: 600 }}>{l}</div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: C.text }}>{v}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ borderCollapse: 'collapse', fontSize: '0.75rem', minWidth: 460 }}>
+                          <thead>
+                            <tr>
+                              <th style={{ padding: '0.3rem 0.5rem', textAlign: 'left', color: C.muted }}>WACC \ g</th>
+                              {result.dcf.sensitivity.matrix[0].values.map(v => (
+                                <th key={v.growth} style={{ padding: '0.3rem 0.5rem', textAlign: 'right', color: C.muted }}>
+                                  {(v.growth * 100).toFixed(1).replace('.', ',')} %
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {result.dcf.sensitivity.matrix.map((row, ri) => {
+                              const mid = ri === Math.floor(result.dcf.sensitivity.matrix.length / 2);
+                              return (
+                                <tr key={row.wacc} style={{ background: mid ? '#EDF4FA' : 'transparent' }}>
+                                  <td style={{ padding: '0.3rem 0.5rem', fontWeight: 700, color: C.navy }}>{(row.wacc * 100).toFixed(1).replace('.', ',')} %</td>
+                                  {row.values.map((v, ci) => {
+                                    const center = mid && ci === Math.floor(row.values.length / 2);
+                                    return (
+                                      <td key={ci} style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontWeight: center ? 800 : 400, color: center ? C.navy : '#475569' }}>
+                                        {v.enterpriseValue == null ? '—' : eur(v.enterpriseValue)}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: '0.4rem' }}>
+                        Enterprise Value bei variierenden Kapitalkosten und ewigem Wachstum. Hervorgehoben: Basisfall.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sprint 12 — Benchmarking */}
+                  {result.benchmark && result.benchmark.available && result.benchmark.items?.length > 0 && (
+                    <div style={{ marginTop: '1.25rem', borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.2rem' }}>
+                        Branchenvergleich — Gesamtbild: {result.benchmark.verdict}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: C.muted, marginBottom: '0.7rem' }}>{result.benchmark.industry}</div>
+                      {result.benchmark.items.map(it => {
+                        const col = it.color === 'green' ? '#059669' : it.color === 'amber' ? '#d97706' : '#dc2626';
+                        return (
+                          <div key={it.key} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.45rem' }}>
+                            <div style={{ width: 190, fontSize: '0.78rem', color: '#475569' }}>{it.metric}</div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: C.text, width: 70 }}>{String(it.value).replace('.', ',')}</div>
+                            <div style={{ flex: 1, minWidth: 150, fontSize: '0.72rem', color: C.muted }}>
+                              Branche: {String(it.p25).replace('.', ',')} / {String(it.median).replace('.', ',')} / {String(it.p75).replace('.', ',')}
+                            </div>
+                            <span style={{ background: col + '22', color: col, padding: '0.1rem 0.5rem', borderRadius: 20, fontSize: '0.7rem', fontWeight: 700 }}>{it.label}</span>
+                          </div>
+                        );
+                      })}
+                      <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: '0.5rem' }}>{result.benchmark.source} · {result.benchmark.note}</div>
+                    </div>
+                  )}
+
                   <div style={{ background: '#EDF4FA', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.75rem 1rem', marginTop: '1rem', fontSize: '0.76rem', color: '#475569', lineHeight: 1.5 }}><strong>Wichtig:</strong> {result.disclaimer} Indikativ, kein IDW-S1-Gutachten.</div>
                   <button onClick={() => id && downloadPdf(id)} style={{ marginTop: '1.1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 1.4rem', background: C.steel, color: C.navy, border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem' }}><Download size={15} /> Ausführlichen PDF-Report herunterladen</button>
                 </div>
@@ -305,7 +466,7 @@ export default function DetailedValuation() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: `1px solid ${C.border}`, gap: '0.75rem', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button disabled={step === 0} onClick={() => setStep(s => Math.max(0, s - 1))} style={{ padding: '0.6rem 1rem', border: `1px solid ${C.border}`, background: '#fff', borderRadius: 8, cursor: step === 0 ? 'default' : 'pointer', opacity: step === 0 ? 0.4 : 1, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}><ChevronLeft size={15} /> Zurück</button>
-              {step < 3 && <button onClick={() => setStep(s => Math.min(3, s + 1))} style={{ padding: '0.6rem 1rem', border: `1px solid ${C.border}`, background: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>Weiter <ChevronRight size={15} /></button>}
+              {step < 4 && <button onClick={() => setStep(s => Math.min(4, s + 1))} style={{ padding: '0.6rem 1rem', border: `1px solid ${C.border}`, background: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>Weiter <ChevronRight size={15} /></button>}
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               {!locked && <button onClick={saveDraft} disabled={busy} style={{ padding: '0.6rem 1.1rem', border: `1px solid ${C.navy}`, background: '#fff', color: C.navy, borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', opacity: busy ? 0.6 : 1 }}>Entwurf speichern</button>}

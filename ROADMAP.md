@@ -22,7 +22,7 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 11 | In-App-Chat & Kontakte (Netzwerk) | ✅ Kern fertig (Kontakte, 1:1-Chat, Mail-Benachrichtigung) |
 | — | E-Mail-Verifizierung + Paygate-Vorbereitung ausf. Bewertung | ✅ (Verifizierung Pflicht; Paywall greift ab 31.08.2026) |
 | — | Mobile-First / responsive Darstellung (v0.238) | ✅ (Hamburger-Nav, stapelnde Layouts, scrollbare Tabellen) |
-| **12** | **Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking)** | ▶ als Nächstes |
+| **12** | **Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking)** | ✅ Kern fertig (DCF mit WACC/Terminal Value, Sensitivitätsmatrix, Branchen-Benchmarks, Methodenvergleich, erweiterter PDF-Report) |
 | 13 | 2-Faktor-Authentifizierung (SMS/TOTP) | geplant (Mobil-Pflicht vorbereitet) |
 | 14 | **CRM / Beziehungs- & Deal-Management (Sell-Side)** | geplant (Analyse folk.app, Konzept unten) |
 | 15 | **Connect & Interaktion Käufer ↔ Verkäufer (Chat-Vernetzung, Prozess-Trigger)** | ✅ Kern fertig (Interesse→Intro→Chat, Systemnachrichten NDA/DD/LOI/Closing) |
