@@ -65,10 +65,21 @@ app.get('/api/health', (req, res) => {
 });
 
 // Serve React in production
+// Client ausliefern, sobald ein Build vorliegt — unabhängig von NODE_ENV.
+// Vorher hing das an NODE_ENV=production; fehlte die Variable, lieferte der Server
+// bei jedem Deep-Link (/projekte, /crm, F5, geteilte Links) nichts aus.
+// Der SPA-Fallback darf die API nicht verschlucken: /api/* wird durchgereicht.
 const clientDist = path.join(__dirname, '../client/dist');
-if (process.env.NODE_ENV === 'production') {
+const fs = require('fs');
+if (fs.existsSync(path.join(clientDist, 'index.html'))) {
   app.use(express.static(clientDist));
-  app.get('*', (req, res) => res.sendFile(path.join(clientDist, 'index.html')));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/')) return next();
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+  console.log('🖥️  Client-Build wird ausgeliefert:', clientDist);
+} else {
+  console.warn('⚠️  Kein Client-Build gefunden (client/dist/index.html) — nur die API ist erreichbar.');
 }
 
 app.use((err, req, res, next) => {
@@ -84,6 +95,9 @@ initialize().then(() => {
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📧 Download-Notifications → ${process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de'} ${process.env.SMTP_HOST ? '(SMTP aktiv)' : '(nur Logs – SMTP nicht konfiguriert)'}\n`);
     // Sprint 10: Digest-Scheduler (daily/weekly Match-Benachrichtigungen)
+    // Rollen-/Rechte-Matrix in den Cache laden (Fallback: Code-Matrix)
+    try { require('./middleware/permissions').reloadRoles().then(m => m && console.log(`🔐 Rollen geladen: ${Object.keys(m).join(', ')}`)); }
+    catch (e) { console.warn('Rollen konnten nicht geladen werden — Code-Matrix greift:', e.message); }
     try { require('./utils/digest').startScheduler(); } catch (e) { console.warn('Digest-Scheduler nicht gestartet:', e.message); }
     try { require('./utils/campaigns').startScheduler(); } catch (e) { console.warn('Kampagnen-Scheduler nicht gestartet:', e.message); }
   });

@@ -106,6 +106,8 @@ export default function Impressum() {
 
       <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
         <Link to="/datenschutz" style={{ color: C.navy, textDecoration: 'none', fontSize: '0.875rem', marginRight: '2rem' }}>Datenschutzerklärung</Link>
+        <Link to="/agb" style={{ color: C.navy, textDecoration: 'none', fontSize: '0.875rem', marginRight: '2rem' }}>AGB</Link>
+        <Link to="/cookies" style={{ color: C.navy, textDecoration: 'none', fontSize: '0.875rem', marginRight: '2rem' }}>Cookie-Richtlinie</Link>
         <Link to="/" style={{ color: '#888', textDecoration: 'none', fontSize: '0.875rem' }}>Startseite</Link>
       </div>
     </div>

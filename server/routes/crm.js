@@ -14,13 +14,18 @@ const express = require('express');
 const db = require('../db/database');
 const wrap = require('../utils/asyncHandler');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { requirePermission, can, projectScope, seesAllProjects } = require('../middleware/permissions');
+const perms = require('../middleware/permissions');
+const { requirePermission, can, projectScope, seesAllProjects } = perms;
 const router = express.Router();
 
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
 // Staff = alle internen Rollen. Was jemand darf, entscheidet danach die
 // Rechte-Matrix (requirePermission) — nicht mehr die Rolle allein.
-const isStaff = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner', 'assistant', 'analyst')];
+const isStaff = [authenticate, (req, res, next) => {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Nicht authentifiziert' });
+  if (!perms.isStaff(req.user)) return res.status(403).json({ success: false, error: 'Keine Berechtigung' });
+  next();
+}];
 const canWrite = requirePermission('crm.write');
 const canDelete = requirePermission('crm.delete');
 const canSend = requirePermission('mail.send');

@@ -103,9 +103,43 @@ export default function Datenschutz() {
 
         <Section title="8. Cookies und technische Speicherung">
           <p>
-            Die CapitalMatch-Plattform verwendet ausschließlich technisch notwendige
-            Session-Tokens (JWT) zur Authentifizierung. Es werden keine Tracking-Cookies,
-            Analyse-Tools oder Marketing-Dienste eingesetzt.
+            Die CapitalMatch-Plattform verwendet ausschließlich technisch notwendige Einträge im lokalen
+            Browserspeicher: das Sitzungs-Token (JWT) zur Anmeldung, die Spracheinstellung und den Hinweis,
+            dass Sie die Cookie-Information gesehen haben. Es werden <strong>keine</strong> Tracking-Cookies,
+            Analyse-Werkzeuge oder Marketing-Dienste eingesetzt — daher gibt es auch keinen Einwilligungs-Dialog.
+            Einzelheiten in der <Link to="/cookies" style={{ color: C.navy, fontWeight: 700 }}>Cookie-Richtlinie</Link>.
+          </p>
+        </Section>
+
+        <Section title="8a. Ansprache von Interessenten (CRM)">
+          <p>
+            Wir führen ein internes Kontaktverzeichnis potenzieller Erwerber und Investoren. Verarbeitet werden
+            Name, geschäftliche Kontaktdaten, Position, Investitionsfokus (Branchen, Regionen, Ticketgröße) sowie
+            der Verlauf unserer Ansprache (versendete Nachrichten, Erinnerungen, Reaktionen, Prozessstand).
+            Rechtsgrundlage ist unser berechtigtes Interesse an der Anbahnung von Transaktionen
+            (Art. 6 Abs. 1 lit. f DSGVO) bzw. Ihre Einwilligung (Art. 6 Abs. 1 lit. a DSGVO), soweit Sie diese
+            über den Bestätigungslink erteilt haben.
+          </p>
+          <p>
+            Jede Ansprache enthält einen Hinweis auf Ihr <strong>Widerspruchsrecht</strong>. Über einen persönlichen
+            Link können Sie jederzeit einsehen, welche Angaben zu Ihnen gespeichert sind, diese selbst korrigieren,
+            die Häufigkeit der Ansprache steuern oder sich vollständig abmelden. Nach einem Widerspruch sperren wir
+            Ihren Kontakt dauerhaft für jede weitere Ansprache. Erinnerungen enden spätestens nach zwei Nachfassungen
+            und in jedem Fall, sobald Sie reagieren.
+          </p>
+        </Section>
+
+        <Section title="8b. Protokollierung und Zwei-Faktor-Authentifizierung">
+          <p>
+            Zugriffe auf vertrauliche Unterlagen (Aufrufe, Downloads, Freigaben) sowie sicherheitsrelevante Vorgänge
+            (Anmeldungen, Rollenänderungen, Versand von Nachrichten) werden protokolliert. Das ist bei
+            M&amp;A-Prozessen zum Schutz der Mandanten unverzichtbar; Rechtsgrundlage ist unser berechtigtes Interesse
+            (Art. 6 Abs. 1 lit. f DSGVO) sowie die Rechenschaftspflicht nach Art. 5 Abs. 2 DSGVO.
+          </p>
+          <p>
+            Wenn Sie die Zwei-Faktor-Authentifizierung aktivieren, speichern wir ein zufälliges Geheimnis für die
+            Erzeugung der Einmalcodes sowie Ihre Backup-Codes ausschließlich als kryptografischen Hash. Beides dient
+            allein der Absicherung Ihres Zugangs.
           </p>
         </Section>
 
@@ -130,6 +164,8 @@ export default function Datenschutz() {
 
       <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
         <Link to="/impressum" style={{ color: C.navy, textDecoration: 'none', fontSize: '0.875rem', marginRight: '2rem' }}>Impressum</Link>
+        <Link to="/agb" style={{ color: C.navy, textDecoration: 'none', fontSize: '0.875rem', marginRight: '2rem' }}>AGB</Link>
+        <Link to="/cookies" style={{ color: C.navy, textDecoration: 'none', fontSize: '0.875rem', marginRight: '2rem' }}>Cookies</Link>
         <Link to="/" style={{ color: '#888', textDecoration: 'none', fontSize: '0.875rem' }}>Startseite</Link>
       </div>
     </div>

@@ -111,6 +111,7 @@ export default function Admin() {
   const [activity, setActivity] = useState([]);
   // CRM-Kontakte im Dashboard (360°-Ansicht: Stammdaten, Mandate, Aktivitäten)
   const [crmContacts, setCrmContacts] = useState([]);
+  const [roleList, setRoleList] = useState([]);   // Rollen aus der Rollen-Tabelle (für das Dropdown)
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [qaOpts, setQaOpts] = useState({});   // je Frage: { notify, is_public }
@@ -449,6 +450,7 @@ export default function Admin() {
     if (activeTab === 'feedback') loadFeedback();
     if (activeTab === 'contacts') loadCrmContacts();
     if (activeTab === 'qa') loadQuestions();
+    if (activeTab === 'users') api.get('/admin/roles').then(d => setRoleList(d.roles || [])).catch(() => {});
   }, [activeTab]);
 
   // Suche im Kontakte-Tab (entprellt)
@@ -1433,9 +1435,11 @@ export default function Admin() {
                         padding: '0.25rem 0.4rem', fontSize: '0.75rem', fontWeight: 700,
                         cursor: u.id === user?.id ? 'default' : 'pointer',
                       }}>
-                      {[['super_admin', 'Administrator'], ['tenant_owner', 'Mandanten-Eigentümer'], ['advisor', 'Berater'],
-                        ['assistant', 'Assistenz'], ['analyst', 'Analyst (nur lesen)'], ['buyer', 'Käufer'], ['seller', 'Verkäufer']]
-                        .map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      {(roleList.length
+                        ? roleList.map(r => [r.key, r.label])
+                        : [['super_admin', 'Administrator'], ['tenant_owner', 'Mandanten-Eigentümer'], ['advisor', 'Berater'],
+                           ['assistant', 'Assistenz'], ['analyst', 'Analyst (nur lesen)'], ['buyer', 'Käufer'], ['seller', 'Verkäufer']]
+                      ).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </td>
                   <td style={{ padding: '0.75rem 1rem' }}>

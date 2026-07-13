@@ -3,6 +3,17 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.264 — 26.07.2026 · Rollen pflegbar, Rechtstexte, Fehlergrenze
+- **Rollen & Rechte editierbar** (`roles`-Tabelle mit RLS, Seed aus der bisherigen Code-Matrix): Rechte per **Häkchen** vergeben und entziehen, je Rolle speichern. **Eigene Rollen** anlegen (z. B. „Werkstudent") und löschen, solange ihnen niemand zugewiesen ist. Der Prozess hält einen Rollen-Cache; fehlt die Tabelle, greift weiterhin die Code-Matrix — die Plattform bleibt immer funktionsfähig
+- **Sicherheitsanker**: Der Administrator behält immer alle Rechte, Systemrollen sind nicht löschbar, vergebbar sind nur Rechte aus dem bekannten Katalog (kein Freitext), jede Änderung erzeugt `ROLE_PERMISSIONS_CHANGED` im Audit-Trail
+- Neues Recht **„Alle Mandate sehen"** (`projects.all`) — ohne dieses Recht sieht eine Rolle nur Mandate, die sie angelegt hat oder in denen sie Mitglied ist. Der Admin-Zugang hängt jetzt an der Rollen-Kennzeichnung „intern", nicht mehr an einer festen Liste
+- **Nutzungsbedingungen (AGB)** unter `/agb`: Anbieter, kein Beratungsvertrag durch Nutzung, Zugang und Freischaltung, Vertraulichkeit (inkl. Verbot der De-Anonymisierung und der Direktansprache von Mitarbeitern des Zielunternehmens), Protokollierung, Pflichten, indikativer Charakter der Bewertungsergebnisse, Haftung, Beendigung, Recht und Gerichtsstand
+- **Cookie-Richtlinie** unter `/cookies` mit einer ehrlichen Tabelle: gespeichert werden nur `phalanx_token` (Anmeldung), `cm_lang` (Sprache) und `cm_cookie_notice` — **kein** Analytics, **kein** Pixel, **kein** Tracking. Deshalb ein **Hinweis-Banner statt Schein-Consent**: Ein Dialog mit „Alle ablehnen" würde eine Wahl vortäuschen, die es hier nicht gibt
+- **Datenschutzerklärung** ergänzt um: CRM-Ansprache (berechtigtes Interesse bzw. Einwilligung, Widerspruchsrecht, Selbstpflege-Link, Ende der Erinnerungen), Protokollierung von Zugriffen und sicherheitsrelevanten Vorgängen, Zwei-Faktor-Authentifizierung (Geheimnis und Backup-Codes nur als Hash)
+- **Fehlergrenze** (`ErrorBoundary`): Stürzt eine Seite ab, erscheint die Fehlermeldung mit Komponentenpfad und ein Weg zurück — statt der leeren grauen Fläche, bei der weder Nutzer noch wir etwas erfahren
+- **Auslieferungsfix**: Der Client wurde nur bei `NODE_ENV=production` ausgeliefert. Fehlte die Variable, lief die API, aber jeder Deep-Link (`/projekte`, `/crm`, F5, geteilte Links) lief ins Leere. Jetzt wird der Build ausgeliefert, sobald `client/dist/index.html` existiert; `/api/*` bleibt davon unberührt
+- Verifiziert: 16 Tests (Code-Fallback, DB-Rollen, entzogene Rechte, eigene Rollen, Admin-Anker, interne vs. externe Rollen)
+
 ## v0.263 — 25.07.2026 · Aktivitäten im Klartext, Absprünge, Pipeline-Schritt „Ansprache"
 - **Aktivitäten lesbar**: Statt `ACCESS_DOCLIST · Peter Baumgartner · documents #7` steht dort jetzt „**Peter Baumgartner** hat die Dokumentenliste geöffnet · **FARADAY** · Baumgartner Beteiligungen". Die Ressourcen-ID der Zugriffs-Aktionen ist die Mandats-ID — sie wird sauber zum Codenamen aufgelöst
 - **Absprünge**: Klick auf den Namen öffnet die Kontakt-360°-Ansicht (der Kontakt wird bei Bedarf aus dem Nutzerkonto angelegt), Klick auf das Mandat führt auf die Mandatsseite. Das Unternehmen des Kontakts steht daneben

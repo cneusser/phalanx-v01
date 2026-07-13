@@ -21,6 +21,7 @@ import InvitationAccept from './pages/InvitationAccept';
 import Crm from './pages/Crm';
 import ConsentInvite from './pages/ConsentInvite';
 import BirdviewBanner from './components/BirdviewBanner';
+import ErrorBoundary from './components/ErrorBoundary';
 import ContactSelfService from './pages/ContactSelfService';
 import Messages from './pages/Messages';
 import Register from './pages/Register';
@@ -33,6 +34,9 @@ import Admin from './pages/Admin';
 import SellerDashboard from './pages/SellerDashboard';
 import Datenschutz from './pages/Datenschutz';
 import Impressum from './pages/Impressum';
+import Cookies from './pages/Cookies';
+import AGB from './pages/AGB';
+import CookieNotice from './components/CookieNotice';
 import NotFound from './pages/NotFound';
 
 const C = { navy: '#1A4D8A', steel: '#29ABE2', lightBg: '#EBF7FC' };
@@ -60,6 +64,8 @@ function Footer() {
         <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.78rem' }}>
           <Link to="/impressum" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>{t('footer.imprint', 'Impressum')}</Link>
           <Link to="/datenschutz" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>{t('footer.privacy', 'Datenschutz')}</Link>
+          <Link to="/agb" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>{t('footer.terms', 'AGB')}</Link>
+          <Link to="/cookies" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>{t('footer.cookies', 'Cookies')}</Link>
           <a href="mailto:neusser@phalanx.de" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>{t('footer.contact', 'Kontakt')}</a>
         </div>
         <div style={{ fontSize: '0.72rem' }}>© 2026 Phalanx GmbH</div>
@@ -74,6 +80,7 @@ function AppRoutes() {
       <BirdviewBanner />
       <Navbar />
       <main style={{ flex: 1 }}>
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/projekte" element={<Projects />} />
@@ -102,11 +109,16 @@ function AppRoutes() {
           <Route path="/verkaeuferdashboard" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
           <Route path="/datenschutz" element={<Datenschutz />} />
           <Route path="/impressum" element={<Impressum />} />
+          <Route path="/cookies" element={<Cookies />} />
+          <Route path="/agb" element={<AGB />} />
+          <Route path="/nutzungsbedingungen" element={<AGB />} />
           <Route path="/kontakt" element={<Contact />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </ErrorBoundary>
       </main>
       <Footer />
+      <CookieNotice />
     </div>
   );
 }

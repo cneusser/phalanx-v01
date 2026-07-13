@@ -114,6 +114,8 @@ const EN = {
   'footer.imprint': 'Imprint',
   'footer.privacy': 'Privacy',
   'footer.contact': 'Contact',
+  'footer.terms': 'Terms',
+  'footer.cookies': 'Cookies',
 };
 
 const DICT = { de: {}, en: EN };

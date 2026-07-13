@@ -22,6 +22,7 @@
 const PERMISSIONS = {
   super_admin: ['*'],
   tenant_owner: [
+    'projects.all',
     'crm.read', 'crm.write', 'crm.delete', 'crm.export',
     'mail.send', 'mail.templates', 'mail.log',
     'projects.read', 'projects.write', 'projects.publish', 'projects.delete',
@@ -69,6 +70,7 @@ const PERMISSION_LABELS = {
   'mail.send': 'E-Mails versenden (Ansprache, Einladungen, Vorlagen)',
   'mail.templates': 'Mailvorlagen ändern',
   'mail.log': 'Mail-Ausgang einsehen',
+  'projects.all': 'Alle Mandate sehen (nicht nur eigene)',
   'projects.read': 'Mandate einsehen',
   'projects.write': 'Mandate pflegen',
   'projects.publish': 'Mandate veröffentlichen',
@@ -93,17 +95,63 @@ const ROLE_LABELS = {
   seller: 'Verkäufer',
 };
 
+// ── Rollen aus der Datenbank (pflegbar) mit Code-Matrix als Fallback ────────
+// Die Rechte liegen in der Tabelle `roles` und sind im Admin änderbar. Damit die
+// Prüfung synchron und schnell bleibt, hält der Prozess einen Cache, der beim Start
+// und nach jeder Änderung neu geladen wird. Ist die Tabelle (noch) nicht da,
+// gilt die Code-Matrix — die Plattform bleibt also immer funktionsfähig.
+let ROLE_CACHE = null;   // { key: { label, permissions:[], is_staff } }
+
+async function reloadRoles() {
+  try {
+    const db = require('../db/database');
+    const rows = await db.all('SELECT key, label, permissions_json, is_staff, is_system, sort FROM roles ORDER BY sort');
+    if (!rows || !rows.length) { ROLE_CACHE = null; return null; }
+    const map = {};
+    for (const r of rows) {
+      let perms = [];
+      try { perms = JSON.parse(r.permissions_json || '[]'); } catch { perms = []; }
+      // Sicherheitsanker: Der Administrator behält immer alle Rechte.
+      if (r.key === 'super_admin') perms = ['*'];
+      map[r.key] = {
+        label: r.label, permissions: perms,
+        is_staff: r.is_staff === 1, is_system: r.is_system === 1, sort: r.sort,
+      };
+    }
+    ROLE_CACHE = map;
+    return map;
+  } catch {
+    ROLE_CACHE = null;   // Fallback auf die Code-Matrix
+    return null;
+  }
+}
+
+function rolePermissions(role) {
+  if (ROLE_CACHE && ROLE_CACHE[role]) return ROLE_CACHE[role].permissions;
+  return PERMISSIONS[role] || [];
+}
+
 function permissionsFor(role) {
-  const p = PERMISSIONS[role];
-  if (!p) return [];
+  const p = rolePermissions(role);
+  if (!p.length) return [];
   return p.includes('*') ? ALL_PERMISSIONS : p;
 }
 
 function can(user, permission) {
   if (!user || !user.role) return false;
-  const p = PERMISSIONS[user.role];
-  if (!p) return false;
+  const p = rolePermissions(user.role);
+  if (!p.length) return false;
   return p.includes('*') || p.includes(permission);
+}
+
+// Interne Rollen (Admin-Zugang) — aus der DB, sonst aus dem Code
+function staffRoles() {
+  if (ROLE_CACHE) return Object.keys(ROLE_CACHE).filter(k => ROLE_CACHE[k].is_staff);
+  return STAFF_ROLES;
+}
+
+function isStaff(user) {
+  return !!user && staffRoles().includes(user.role);
 }
 
 // Express-Middleware: requirePermission('mail.send')
@@ -124,8 +172,11 @@ function requirePermission(...permissions) {
 }
 
 // Sieht dieser Nutzer alle Mandate — oder nur die eigenen?
+// Vollsicht hängt am Recht 'projects.all' bzw. an den beiden Eigentümer-Rollen.
 function seesAllProjects(user) {
-  return !!user && ['super_admin', 'tenant_owner'].includes(user.role);
+  if (!user) return false;
+  if (['super_admin', 'tenant_owner'].includes(user.role)) return true;
+  return can(user, 'projects.all');
 }
 
 // SQL-Fragment zur Einschränkung auf eigene Mandate.
@@ -142,4 +193,6 @@ function projectScope(user, alias = 'p') {
 module.exports = {
   PERMISSIONS, PERMISSION_LABELS, ROLE_LABELS, ALL_PERMISSIONS, STAFF_ROLES,
   permissionsFor, can, requirePermission, seesAllProjects, projectScope,
+  reloadRoles, rolePermissions, staffRoles, isStaff,
+  get ROLE_CACHE() { return ROLE_CACHE; },
 };

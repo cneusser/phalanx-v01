@@ -9,10 +9,18 @@ const router = express.Router();
 // Sprint 5 — Rollenmodell: super_admin (Plattform), tenant_owner (eigener
 // Mandant, RLS-beschränkt), advisor (Berater), auditor (nur Lesezugriff auf
 // Protokolle), seller, buyer.
-const { requirePermission, can, PERMISSIONS, PERMISSION_LABELS, ROLE_LABELS, STAFF_ROLES, permissionsFor } = require('../middleware/permissions');
+const perms = require('../middleware/permissions');
+const { requirePermission, can, PERMISSION_LABELS, ROLE_LABELS, permissionsFor } = perms;
 // Zutritt zum Admin-Bereich haben alle internen Rollen; was sie dort dürfen,
 // entscheidet die Rechte-Matrix (requirePermission) — nicht die Rolle allein.
-const isAdmin = [authenticate, requireRole('super_admin', 'tenant_owner', 'advisor', 'assistant', 'analyst')];
+// Zutritt zum Admin-Bereich: alle als „intern" markierten Rollen (aus der
+// roles-Tabelle, Fallback Code-Matrix). Was jemand dort darf, entscheidet die
+// Rechte-Matrix — nicht die Rolle allein.
+const isAdmin = [authenticate, (req, res, next) => {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Nicht authentifiziert' });
+  if (!perms.isStaff(req.user)) return res.status(403).json({ success: false, error: 'Keine Berechtigung' });
+  next();
+}];
 const canManageUsers = requirePermission('users.manage');
 
 // Aktionen in Klartext — damit im Dashboard steht, WAS passiert ist, nicht nur ein Konstantenname.
@@ -771,31 +779,129 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
 // Die Matrix liegt bewusst im Code (middleware/permissions.js) und nicht in der
 // Datenbank: Sie ist Teil des Audits und soll nicht still per SQL änderbar sein.
 router.get('/roles', ...isAdmin, wrap(async (req, res) => {
-  const roles = STAFF_ROLES.map(r => ({
-    key: r,
-    label: ROLE_LABELS[r],
-    permissions: permissionsFor(r),
-    users: 0,
+  const rows = await db.all('SELECT * FROM roles ORDER BY sort, label').catch(() => []);
+  const counts = await db.all('SELECT role, COUNT(*)::int AS n FROM users GROUP BY role').catch(() => []);
+
+  const source = rows.length ? rows : perms.STAFF_ROLES.map(k => ({
+    key: k, label: ROLE_LABELS[k], is_system: 1, is_staff: 1, sort: 100,
+    permissions_json: JSON.stringify(perms.permissionsFor(k)),
   }));
-  const counts = await db.all(`SELECT role, COUNT(*)::int AS n FROM users GROUP BY role`).catch(() => []);
-  counts.forEach(c => { const hit = roles.find(r => r.key === c.role); if (hit) hit.users = c.n; });
+
+  const roles = source.map(r => {
+    let p = [];
+    try { p = JSON.parse(r.permissions_json || '[]'); } catch { p = []; }
+    if (r.key === 'super_admin') p = perms.ALL_PERMISSIONS;   // Anker: immer alles
+    return {
+      id: r.id, key: r.key, label: r.label, description: r.description,
+      is_system: r.is_system === 1, is_staff: r.is_staff === 1,
+      permissions: p,
+      users: (counts.find(c => c.role === r.key) || {}).n || 0,
+    };
+  });
+
   res.json({
     success: true,
     data: {
       roles,
       permissions: Object.entries(PERMISSION_LABELS).map(([key, label]) => ({ key, label })),
       my_role: req.user.role,
-      my_permissions: permissionsFor(req.user.role),
+      my_permissions: perms.permissionsFor(req.user.role),
+      can_edit: can(req.user, 'users.manage'),
     },
   });
 }));
 
-// Rolle eines Nutzers ändern — nur mit users.manage, und niemals die eigene
-// (sonst sperrt man sich versehentlich selbst aus).
+// Rechte einer Rolle setzen (Häkchen im Admin). Nur Rechte aus dem Katalog,
+// super_admin bleibt unantastbar, jede Änderung landet im Audit-Trail.
+router.put('/roles/:key', ...isAdmin, canManageUsers, wrap(async (req, res) => {
+  const key = req.params.key;
+  if (key === 'super_admin') {
+    return res.status(403).json({ success: false, error: 'Der Administrator behält immer alle Rechte — das ist der Sicherheitsanker.' });
+  }
+  const role = await db.get('SELECT * FROM roles WHERE key = ?', [key]);
+  if (!role) return res.status(404).json({ success: false, error: 'Rolle nicht gefunden' });
+
+  const wanted = Array.isArray(req.body.permissions) ? req.body.permissions : null;
+  if (wanted) {
+    const unknown = wanted.filter(p => !perms.ALL_PERMISSIONS.includes(p));
+    if (unknown.length) return res.status(400).json({ success: false, error: `Unbekannte Rechte: ${unknown.join(', ')}` });
+  }
+  const clean = wanted ? wanted.filter(p => perms.ALL_PERMISSIONS.includes(p)) : null;
+
+  let before = [];
+  try { before = JSON.parse(role.permissions_json || '[]'); } catch { /* leer */ }
+
+  await db.run(`
+    UPDATE roles SET
+      label = COALESCE(?, label), description = COALESCE(?, description),
+      permissions_json = COALESCE(?, permissions_json),
+      is_staff = COALESCE(?, is_staff),
+      updated_by = ?, updated_at = now()
+    WHERE key = ?`,
+    [req.body.label || null, req.body.description || null,
+     clean ? JSON.stringify(clean) : null,
+     req.body.is_staff === undefined ? null : (req.body.is_staff ? 1 : 0),
+     req.user.id, key]);
+
+  await perms.reloadRoles();
+
+  if (clean) {
+    const added = clean.filter(p => !before.includes(p));
+    const removed = before.filter(p => !clean.includes(p));
+    db.auditLog(req.user.id, 'ROLE_PERMISSIONS_CHANGED', 'role', role.id,
+      `${key}: ${added.length ? '+' + added.join(', ') : ''}${added.length && removed.length ? ' · ' : ''}${removed.length ? '-' + removed.join(', ') : ''}`.trim() || `${key}: unverändert`,
+      req.ip);
+  }
+  res.json({ success: true, data: { message: 'Rolle gespeichert' } });
+}));
+
+// Eigene Rolle anlegen — auf Basis der bekannten Rechte
+router.post('/roles', ...isAdmin, canManageUsers, wrap(async (req, res) => {
+  const label = String(req.body.label || '').trim();
+  if (!label) return res.status(400).json({ success: false, error: 'Bitte einen Namen für die Rolle angeben.' });
+
+  const key = 'custom_' + label.toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 24);
+  const exists = await db.get('SELECT id FROM roles WHERE key = ?', [key]);
+  if (exists) return res.status(409).json({ success: false, error: 'Eine Rolle mit diesem Namen gibt es bereits.' });
+
+  const wanted = Array.isArray(req.body.permissions) ? req.body.permissions : [];
+  const clean = wanted.filter(p => perms.ALL_PERMISSIONS.includes(p));
+
+  const id = await db.insert(`
+    INSERT INTO roles (tenant_id, key, label, description, permissions_json, is_system, is_staff, sort, updated_by)
+    VALUES (?, ?, ?, ?, ?, 0, ?, 200, ?)`,
+    [req.tenantId || 1, key, label, req.body.description || null, JSON.stringify(clean),
+     req.body.is_staff === false ? 0 : 1, req.user.id]);
+  await perms.reloadRoles();
+  db.auditLog(req.user.id, 'ROLE_CREATED', 'role', id, `${label} (${key}) mit ${clean.length} Recht(en)`, req.ip);
+  res.status(201).json({ success: true, data: { id, key } });
+}));
+
+// Eigene Rolle löschen — Systemrollen bleiben, und niemand darf in der Luft hängen
+router.delete('/roles/:key', ...isAdmin, canManageUsers, wrap(async (req, res) => {
+  const role = await db.get('SELECT * FROM roles WHERE key = ?', [req.params.key]);
+  if (!role) return res.status(404).json({ success: false, error: 'Rolle nicht gefunden' });
+  if (role.is_system === 1) {
+    return res.status(403).json({ success: false, error: 'Systemrollen können geändert, aber nicht gelöscht werden.' });
+  }
+  const inUse = await db.get('SELECT COUNT(*)::int AS n FROM users WHERE role = ?', [req.params.key]);
+  if (inUse && inUse.n > 0) {
+    return res.status(409).json({ success: false, error: `Die Rolle ist noch ${inUse.n} Nutzer(n) zugewiesen. Bitte zuerst umhängen.` });
+  }
+  await db.run('DELETE FROM roles WHERE key = ?', [req.params.key]);
+  await perms.reloadRoles();
+  db.auditLog(req.user.id, 'ROLE_DELETED', 'role', role.id, role.label, req.ip);
+  res.json({ success: true, data: { message: 'Rolle gelöscht' } });
+}));
+
+// Rolle eines Nutzers ändern — gegen die Rollen-Tabelle validiert, niemals die eigene.
 router.put('/users/:id/role', ...isAdmin, canManageUsers, wrap(async (req, res) => {
   const role = String(req.body.role || '');
-  const ALLOWED = [...STAFF_ROLES, 'buyer', 'seller'];
-  if (!ALLOWED.includes(role)) return res.status(400).json({ success: false, error: 'Unbekannte Rolle' });
+  const known = await db.get('SELECT key FROM roles WHERE key = ?', [role]).catch(() => null);
+  const fallback = [...perms.STAFF_ROLES, 'buyer', 'seller'];
+  if (!known && !fallback.includes(role)) return res.status(400).json({ success: false, error: 'Unbekannte Rolle' });
   if (Number(req.params.id) === req.user.id) {
     return res.status(403).json({ success: false, error: 'Die eigene Rolle kann nicht geändert werden.' });
   }
@@ -808,9 +914,8 @@ router.put('/users/:id/role', ...isAdmin, canManageUsers, wrap(async (req, res) 
     return res.status(403).json({ success: false, error: 'Nur ein Administrator kann Administratorrechte vergeben.' });
   }
   await db.run('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
-  db.auditLog(req.user.id, 'USER_ROLE_CHANGED', 'user', req.params.id,
-    `${target.email}: ${target.role} → ${role}`, req.ip);
-  res.json({ success: true, data: { message: `Rolle geändert: ${ROLE_LABELS[role] || role}` } });
+  db.auditLog(req.user.id, 'USER_ROLE_CHANGED', 'user', req.params.id, `${target.email}: ${target.role} → ${role}`, req.ip);
+  res.json({ success: true, data: { message: 'Rolle geändert' } });
 }));
 
 // ── Mail-Ausgangsbuch: was ging wann an wen raus? ─────────────────────────
