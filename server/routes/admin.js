@@ -14,6 +14,36 @@ const { requirePermission, can, PERMISSIONS, PERMISSION_LABELS, ROLE_LABELS, STA
 // entscheidet die Rechte-Matrix (requirePermission) — nicht die Rolle allein.
 const isAdmin = [authenticate, requireRole('super_admin', 'tenant_owner', 'advisor', 'assistant', 'analyst')];
 const canManageUsers = requirePermission('users.manage');
+
+// Aktionen in Klartext — damit im Dashboard steht, WAS passiert ist, nicht nur ein Konstantenname.
+const ACTIVITY_TEXT = {
+  ACCESS_DOCLIST: 'hat die Dokumentenliste geöffnet',
+  ACCESS_DOCLIST_DENIED: 'wollte die Dokumentenliste öffnen (abgewiesen)',
+  ACCESS_DETAILS: 'hat die Mandatsdetails geöffnet',
+  ACCESS_DETAILS_DENIED: 'wollte die Mandatsdetails öffnen (abgewiesen)',
+  DOWNLOAD_LINK_CREATED: 'hat ein Dokument heruntergeladen',
+  DOWNLOAD_DENIED: 'wollte ein Dokument herunterladen (abgewiesen)',
+  SAFE_DOWNLOAD: 'hat eine Datei aus dem Safe geladen',
+  EXPOSE_VIEW: 'hat das Exposé angesehen',
+  EXPOSE_PDF: 'hat das Exposé als PDF geladen',
+  QA_QUESTION_ASKED: 'hat eine Frage gestellt',
+  QA_ANSWERED: 'hat eine Frage beantwortet',
+  MESSAGE_SENT: 'hat eine Nachricht geschrieben',
+  WATCHLIST_ADD: 'hat das Mandat auf die Merkliste gesetzt',
+  CONNECTION_REQUEST: 'hat eine Kontaktanfrage gestellt',
+  MAIL_SENT: 'Mail versendet',
+  MAIL_FAILED: 'Mailversand fehlgeschlagen',
+  LOGIN: 'hat sich angemeldet',
+  LOGIN_FAILED: 'Anmeldung fehlgeschlagen',
+  VALUATION_QUICK: 'hat eine Schnellbewertung gerechnet',
+  DETAILED_VALUATION_CREATE: 'hat eine ausführliche Bewertung angelegt',
+  DETAILED_VALUATION_REPORT: 'hat einen Bewertungsreport geladen',
+  NOTIFICATION_PREFS_UPDATE: 'hat die Benachrichtigungen geändert',
+  PROJECT_KILLSWITCH: 'hat ein Mandat vom Netz genommen',
+};
+// Bei welchen Aktionen ist resource_id = Projekt-ID?
+const PROJECT_RESOURCES = ['details', 'documents', 'project', 'expose', 'safe_item', 'qa', 'deal'];
+
 const isSuperAdmin = [authenticate, requireRole('super_admin')];
 const isAuditorOrAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner', 'auditor')];
 
@@ -180,11 +210,32 @@ router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
   });
 
   // 4) Letzte Aktivitäten (Feed)
-  const recent = await safe(() => db.all(`
-    SELECT a.action, a.resource, a.resource_id, a.ts,
-           COALESCE(u.first_name || ' ' || u.last_name, 'System') AS actor
-    FROM activity_log a LEFT JOIN users u ON u.id = a.actor_id
-    ORDER BY a.ts DESC LIMIT 15`), []);
+  // Aktivitäten in Klartext, mit Mandat und Absprung-IDs (Kontakt, Unternehmen).
+  // Bei den Zugriffs-Aktionen IST resource_id die Projekt-ID (siehe projects.js).
+  const recentRows = await safe(() => db.all(`
+    SELECT a.action, a.resource, a.resource_id, a.ts, a.actor_id,
+           COALESCE(u.first_name || ' ' || u.last_name, 'System') AS actor,
+           u.email AS actor_email,
+           k.id AS contact_id,
+           c.id AS company_id, c.name AS company_name,
+           p.id AS project_id, p.codename
+    FROM activity_log a
+    LEFT JOIN users u ON u.id = a.actor_id
+    LEFT JOIN crm_contacts k ON k.user_id = a.actor_id
+    LEFT JOIN crm_company_contacts cc ON cc.contact_id = k.id AND cc.ended_on IS NULL
+    LEFT JOIN crm_companies c ON c.id = cc.company_id
+    LEFT JOIN projects p ON p.id = a.resource_id
+                        AND a.resource IN ('details','documents','project','expose','safe_item','qa','deal')
+    ORDER BY a.ts DESC LIMIT 20`), []);
+
+  const recent = recentRows.map(r => ({
+    action: r.action, resource: r.resource, resource_id: r.resource_id, ts: r.ts,
+    actor: r.actor, actor_email: r.actor_email, actor_id: r.actor_id,
+    text: ACTIVITY_TEXT[r.action] || r.action,
+    project: r.project_id ? { id: r.project_id, codename: r.codename } : null,
+    contact_id: r.contact_id || null,
+    company: r.company_id ? { id: r.company_id, name: r.company_name } : null,
+  }));
 
   // 5) Badges für die Schnellzugriff-Kacheln (Live-Kennzahlen statt statischer Links)
   const badges = await safe(async () => {
@@ -1052,11 +1103,36 @@ router.put('/valuation-multiples/:id', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // ── Activity + Audit (auditor: nur Lesezugriff hier) ──────────────────────
+// Aktivitäten in Klartext: WER hat WAS in WELCHEM Mandat getan — plus die IDs,
+// die einen Absprung in Kontakt, Unternehmen und Mandat erlauben.
+// Die Ressource-ID der Zugriffs-Aktionen IST die Projekt-ID (siehe projects.js),
+// deshalb lässt sich das Mandat sauber auflösen.
+
 router.get('/activity', ...isAuditorOrAdmin, wrap(async (req, res) => {
-  const logs = await db.all(`
-    SELECT al.*, u.first_name || ' ' || u.last_name as user_name, u.email as user_email
-    FROM audit_logs al LEFT JOIN users u ON u.id = al.user_id ORDER BY al.created_at DESC LIMIT 50
-  `);
+  const rows = await db.all(`
+    SELECT al.*,
+           u.first_name || ' ' || u.last_name AS user_name, u.email AS user_email, u.role AS user_role,
+           k.id AS contact_id,
+           c.id AS company_id, c.name AS company_name,
+           p.id AS project_id, p.codename
+    FROM audit_logs al
+    LEFT JOIN users u ON u.id = al.user_id
+    LEFT JOIN crm_contacts k ON k.user_id = al.user_id
+    LEFT JOIN crm_company_contacts cc ON cc.contact_id = k.id AND cc.ended_on IS NULL
+    LEFT JOIN crm_companies c ON c.id = cc.company_id
+    LEFT JOIN projects p ON p.id = al.resource_id
+                        AND al.resource_type IN (${PROJECT_RESOURCES.map(() => '?').join(',')})
+    ORDER BY al.created_at DESC LIMIT 60
+  `, PROJECT_RESOURCES).catch(() => []);
+
+  const logs = rows.map(r => ({
+    ...r,
+    text: ACTIVITY_TEXT[r.action] || r.action,
+    // Das Mandat steht entweder im Join (Zugriffs-Aktionen) oder in den Details
+    project: r.project_id ? { id: r.project_id, codename: r.codename } : null,
+    contact: r.contact_id ? { id: r.contact_id } : null,
+    company: r.company_id ? { id: r.company_id, name: r.company_name } : null,
+  }));
   res.json({ success: true, data: logs });
 }));
 

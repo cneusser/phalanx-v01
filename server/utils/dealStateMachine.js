@@ -23,10 +23,13 @@ const INTEREST_TRANSITIONS = {
 };
 
 // Deal-Status-Übergänge
+// „outreach" (Ansprache): Teaser steht, die Käuferansprache läuft über den
+// CRM-Funnel — aber noch niemand ist in der Prüfung.
 const DEAL_TRANSITIONS = {
   draft:        ['teaser_live', 'withdrawn'],
-  teaser_live:  ['in_diligence', 'draft', 'withdrawn'],
-  in_diligence: ['loi', 'teaser_live', 'withdrawn'],
+  teaser_live:  ['outreach', 'in_diligence', 'draft', 'withdrawn'],
+  outreach:     ['in_diligence', 'teaser_live', 'withdrawn'],
+  in_diligence: ['loi', 'outreach', 'teaser_live', 'withdrawn'],
   loi:          ['closed', 'in_diligence', 'withdrawn'],
   closed:       [],
   withdrawn:    ['draft'],

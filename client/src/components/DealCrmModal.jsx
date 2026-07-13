@@ -6,15 +6,16 @@ const C = { navy: '#0D1B36', border: '#E2E8F0', bg: '#F8FAFC', muted: '#64748B',
 const INPUT = { padding: '0.45rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.8rem', outline: 'none', boxSizing: 'border-box' };
 
 export const DEAL_STATUS_LABELS = {
-  draft: 'Entwurf', teaser_live: 'Teaser live', in_diligence: 'In Diligence',
-  loi: 'LoI', closed: 'Closed', withdrawn: 'Zurückgezogen',
+  draft: 'Entwurf', teaser_live: 'Teaser live', outreach: 'Ansprache',
+  in_diligence: 'In Diligence', loi: 'LoI', closed: 'Closed', withdrawn: 'Zurückgezogen',
 };
 // Muss den serverseitigen Übergängen entsprechen (dealStateMachine.js) —
 // der Server validiert ohnehin jede Transition.
 export const DEAL_TRANSITIONS = {
   draft: ['teaser_live', 'withdrawn'],
-  teaser_live: ['in_diligence', 'draft', 'withdrawn'],
-  in_diligence: ['loi', 'teaser_live', 'withdrawn'],
+  teaser_live: ['outreach', 'in_diligence', 'draft', 'withdrawn'],
+  outreach: ['in_diligence', 'teaser_live', 'withdrawn'],
+  in_diligence: ['loi', 'outreach', 'teaser_live', 'withdrawn'],
   loi: ['closed', 'in_diligence', 'withdrawn'],
   closed: [],
   withdrawn: ['draft'],

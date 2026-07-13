@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.263 — 25.07.2026 · Aktivitäten im Klartext, Absprünge, Pipeline-Schritt „Ansprache"
+- **Aktivitäten lesbar**: Statt `ACCESS_DOCLIST · Peter Baumgartner · documents #7` steht dort jetzt „**Peter Baumgartner** hat die Dokumentenliste geöffnet · **FARADAY** · Baumgartner Beteiligungen". Die Ressourcen-ID der Zugriffs-Aktionen ist die Mandats-ID — sie wird sauber zum Codenamen aufgelöst
+- **Absprünge**: Klick auf den Namen öffnet die Kontakt-360°-Ansicht (der Kontakt wird bei Bedarf aus dem Nutzerkonto angelegt), Klick auf das Mandat führt auf die Mandatsseite. Das Unternehmen des Kontakts steht daneben
+- Gilt für beides: die Kachel „Letzte Aktivitäten" in der Übersicht **und** den Tab „Aktivitätslog" (dort mit eigenen Spalten Wer / Was / Mandat / Unternehmen)
+- **Neuer Deal-Status „Ansprache"** (`outreach`) zwischen „Teaser live" und „In Diligence": Der Marktplatz-Teaser steht, die aktive Käuferansprache läuft über den CRM-Funnel — erst wenn ein Interessent in die Prüfung geht, wechselt das Mandat nach „In Diligence". Übergänge in beide Richtungen erlaubt, ein Sprung von „Ansprache" direkt auf LOI nicht
+
 ## v0.262 — 24.07.2026 · Sprint 13: CRM V — Rollen & Rechte, 2FA, DSGVO-Härtung
 - **Zwei-Faktor-Authentifizierung (TOTP, RFC 6238)** — eigene Implementierung ohne externe Abhängigkeit: HMAC-SHA1, 30-Sekunden-Fenster, ±1 Fenster Drift-Toleranz, zeitkonstanter Vergleich. Kompatibel mit Google/Microsoft Authenticator, 1Password, Authy. Einrichtung im Profil: Link antippen oder Geheimnis abtippen → mit Code bestätigen → **8 Backup-Codes** (nur als Hash gespeichert, einmal einlösbar)
 - Login ist zweistufig: nach dem Passwort eine **kurzlebige Challenge (5 Min.)**, erst der Code schaltet frei. Deaktivieren nur mit gültigem Code. `REQUIRE_2FA_STAFF=1` macht 2FA für interne Rollen verpflichtend

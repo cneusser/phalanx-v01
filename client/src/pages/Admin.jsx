@@ -911,16 +911,39 @@ export default function Admin() {
         {analytics && analytics.recent && analytics.recent.length > 0 && (
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '1.25rem', marginBottom: '1.5rem' }}>
             <h3 style={{ fontWeight: 700, color: C.text, marginBottom: '0.8rem', fontSize: '0.95rem' }}>Letzte Aktivitäten</h3>
-            {analytics.recent.map((a, i) => {
-              const st = auditActionStyle(a.action);
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.35rem 0', borderTop: i ? `1px solid ${C.border}` : 'none' }}>
-                  <span style={{ background: st.bg, color: st.color, padding: '0.1rem 0.5rem', borderRadius: 5, fontSize: '0.66rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{a.action}</span>
-                  <span style={{ fontSize: '0.78rem', color: C.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.actor}{a.resource ? ` · ${a.resource}${a.resource_id ? ' #' + a.resource_id : ''}` : ''}</span>
-                  <span style={{ fontSize: '0.7rem', color: C.muted, whiteSpace: 'nowrap' }}>{new Date(a.ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-              );
-            })}
+            {analytics.recent.map((a, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0', borderTop: i ? `1px solid ${C.border}` : 'none', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.8rem', color: C.text, flex: 1, minWidth: 260 }}>
+                  {/* Wer — Klick öffnet den Kontakt (wird bei Bedarf aus dem Konto angelegt) */}
+                  {a.actor_id ? (
+                    <span
+                      onClick={() => openContactForUser({ id: a.actor_id })}
+                      title="Kontakt öffnen"
+                      style={{ color: C.accent, fontWeight: 700, cursor: 'pointer' }}>
+                      {a.actor}
+                    </span>
+                  ) : <strong>{a.actor}</strong>}
+                  {' '}
+                  <span style={{ color: '#475569' }}>{a.text || a.action}</span>
+                  {/* Wo — Klick öffnet das Mandat */}
+                  {a.project && (
+                    <>
+                      {' · '}
+                      <Link to={`/projekte/${a.project.id}`} style={{ color: C.navy, fontWeight: 700, textDecoration: 'none' }}>
+                        {a.project.codename}
+                      </Link>
+                    </>
+                  )}
+                  {/* Firma des Kontakts */}
+                  {a.company && (
+                    <span style={{ color: C.muted, fontSize: '0.75rem' }}> · {a.company.name}</span>
+                  )}
+                </span>
+                <span style={{ fontSize: '0.7rem', color: C.muted, whiteSpace: 'nowrap' }}>
+                  {new Date(a.ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -1152,7 +1175,7 @@ export default function Admin() {
             Karten per Drag & Drop zwischen den Spalten ziehen, um den Deal-Status zu ändern (nur erlaubte Übergänge). Klick öffnet das Deal-CRM.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.75rem', alignItems: 'start' }}>
-            {['draft', 'teaser_live', 'in_diligence', 'loi', 'closed', 'withdrawn'].map(status => {
+            {['draft', 'teaser_live', 'outreach', 'in_diligence', 'loi', 'closed', 'withdrawn'].map(status => {
               const deals = projects.filter(p => (p.deal_status || 'teaser_live') === status);
               const isValidTarget = dragDeal && (DEAL_TRANSITIONS[dragDeal.deal_status] || []).includes(status);
               const isOver = dragOverCol === status;
@@ -1695,7 +1718,7 @@ export default function Admin() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
               <thead>
                 <tr style={{ background: C.bg }}>
-                  {['Zeitpunkt', 'Benutzer', 'Aktion', 'Entität', 'Details'].map(h => (
+                  {['Zeitpunkt', 'Wer', 'Was', 'Mandat', 'Unternehmen', 'Details'].map(h => (
                     <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.75rem' }}>{h.toUpperCase()}</th>
                   ))}
                 </tr>
@@ -1708,13 +1731,31 @@ export default function Admin() {
                       <td style={{ padding: '0.65rem 1rem', color: C.muted, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
                         {new Date(a.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </td>
-                      <td style={{ padding: '0.65rem 1rem', color: C.text, fontSize: '0.8rem', fontWeight: 500 }}>{a.user_email || `User #${a.user_id}`}</td>
-                      <td style={{ padding: '0.65rem 1rem' }}>
-                        <span style={{ background: badge.bg, color: badge.color, padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.7rem', fontWeight: 600 }}>
-                          {a.action}
-                        </span>
+                      <td style={{ padding: '0.65rem 1rem', fontSize: '0.8rem' }}>
+                        {a.user_id ? (
+                          <span onClick={() => openContactForUser({ id: a.user_id })} title="Kontakt öffnen"
+                            style={{ color: C.accent, fontWeight: 700, cursor: 'pointer' }}>
+                            {a.user_name || a.user_email}
+                          </span>
+                        ) : <span style={{ color: C.muted }}>System</span>}
+                        <div style={{ fontSize: '0.7rem', color: C.muted }}>{a.user_email}</div>
                       </td>
-                      <td style={{ padding: '0.65rem 1rem', color: '#555', fontSize: '0.78rem' }}>{a.entity_type} {a.entity_id ? `#${a.entity_id}` : ''}</td>
+                      <td style={{ padding: '0.65rem 1rem', fontSize: '0.8rem', color: C.text }}>
+                        {a.text || a.action}
+                        <div>
+                          <span style={{ background: badge.bg, color: badge.color, padding: '0.05rem 0.4rem', borderRadius: 5, fontSize: '0.62rem', fontWeight: 700 }}>
+                            {a.action}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontSize: '0.8rem' }}>
+                        {a.project
+                          ? <Link to={`/projekte/${a.project.id}`} style={{ color: C.navy, fontWeight: 700, textDecoration: 'none' }}>{a.project.codename}</Link>
+                          : <span style={{ color: C.muted }}>—</span>}
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontSize: '0.78rem', color: '#555' }}>
+                        {a.company ? a.company.name : '—'}
+                      </td>
                       <td style={{ padding: '0.65rem 1rem', color: '#777', fontSize: '0.78rem' }}>{a.details || '–'}</td>
                     </tr>
                   );
