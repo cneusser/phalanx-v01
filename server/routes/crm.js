@@ -358,6 +358,9 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
       deals,
       activity,
       account,
+      tasks: await scoped(req, (t) => t.all(
+        `SELECT * FROM crm_tasks WHERE contact_id = ? AND status = 'open' ORDER BY due_on NULLS LAST`,
+        [req.params.id])).catch(() => []),
     },
   });
 }));
@@ -406,7 +409,25 @@ async function contactActivity(req, contactId) {
     push(c.created_at, 'selfcare', c.status === 'pending' ? 'Selbstpflege — wartet auf Freigabe' : 'Selbstpflege übernommen', fields || null);
   }
 
-  return ev.sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 60);
+  // Eingegangene Antworten (BCC-Ingest oder manuell erfasst)
+  const msgs = await scoped(req, (t) => t.all(
+    `SELECT m.*, p.codename FROM crm_messages m LEFT JOIN projects p ON p.id = m.project_id
+      WHERE m.contact_id = ? ORDER BY COALESCE(m.sent_at, m.created_at) DESC LIMIT 30`, [contactId])).catch(() => []);
+  for (const m of msgs) {
+    push(m.sent_at || m.created_at, m.direction === 'in' ? 'reply_in' : 'mail',
+      m.direction === 'in' ? 'Antwort eingegangen' : 'Nachricht versendet',
+      [m.codename ? `Mandat ${m.codename}` : null, m.subject].filter(Boolean).join(' · ') || null);
+  }
+
+  // Wiedervorlagen
+  const tasks = await scoped(req, (t) => t.all(
+    `SELECT * FROM crm_tasks WHERE contact_id = ? ORDER BY id DESC LIMIT 20`, [contactId])).catch(() => []);
+  for (const t of tasks) {
+    push(t.created_at, 'task', `Wiedervorlage: ${t.title}`, t.due_on ? `fällig ${new Date(t.due_on).toLocaleDateString('de-DE')}` : null);
+    push(t.done_at, 'task_done', `Erledigt: ${t.title}`, null);
+  }
+
+  return ev.sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 80);
 }
 
 // Kompakte Kontaktliste fürs Admin-Dashboard (Suche über Name, E-Mail, Unternehmen)
@@ -1500,6 +1521,97 @@ router.post('/deals/:projectId/send-template', ...isStaff, wrap(async (req, res)
   db.auditLog(req.user.id, 'CRM_TEMPLATE_SENT', 'project', projectId,
     `Vorlage „${tpl.name}" · ${sent.length} versendet · ${skipped.length} übersprungen`, req.ip);
   res.status(201).json({ success: true, data: { campaign_id: campaignId, sent: sent.length, skipped: skipped.length, details: { sent, skipped } } });
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 23 — Posteingang (eingehende Antworten) & Wiedervorlagen
+// ═══════════════════════════════════════════════════════════════════════════
+const inbound = require('../utils/inbound');
+
+// Eingegangene Antwort manuell erfassen (funktioniert ohne Provider-Konfiguration)
+router.post('/contacts/:id/messages', ...isStaff, wrap(async (req, res) => {
+  const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [req.params.id]));
+  if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+  const body = String(req.body.body || '').trim();
+  if (!body) return res.status(400).json({ success: false, error: 'Bitte den Text der Antwort einfügen.' });
+
+  const r = await inbound.ingestReply({
+    from: contact.email, to: req.user.email, subject: req.body.subject || '', body,
+    source: 'manual', contactId: contact.id, projectId: req.body.project_id || null, actorId: req.user.id,
+  });
+  res.status(201).json({ success: true, data: r });
+}));
+
+// Nachrichten eines Kontakts
+router.get('/contacts/:id/messages', ...isStaff, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT m.*, p.codename FROM crm_messages m LEFT JOIN projects p ON p.id = m.project_id
+    WHERE m.contact_id = ? ORDER BY COALESCE(m.sent_at, m.created_at) DESC LIMIT 50`, [req.params.id]));
+  res.json({ success: true, data: { messages: rows } });
+}));
+
+// ── Wiedervorlagen ──────────────────────────────────────────────────────────
+router.get('/tasks', ...isStaff, wrap(async (req, res) => {
+  const status = req.query.status === 'done' ? 'done' : 'open';
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT t.*, p.codename,
+           k.first_name, k.last_name, k.email,
+           u.first_name AS assignee_first, u.last_name AS assignee_last
+    FROM crm_tasks t
+    LEFT JOIN projects p ON p.id = t.project_id
+    LEFT JOIN crm_contacts k ON k.id = t.contact_id
+    LEFT JOIN users u ON u.id = t.assignee_id
+    WHERE t.status = ?
+    ORDER BY t.due_on NULLS LAST, t.id DESC LIMIT 300`, [status]));
+  const today = new Date().toISOString().slice(0, 10);
+  const list = rows.map(t => ({
+    ...t,
+    overdue: t.status === 'open' && t.due_on && String(t.due_on).slice(0, 10) < today,
+    due_today: t.status === 'open' && t.due_on && String(t.due_on).slice(0, 10) === today,
+  }));
+  res.json({
+    success: true,
+    data: {
+      tasks: list,
+      counts: {
+        open: list.filter(t => t.status === 'open').length,
+        overdue: list.filter(t => t.overdue).length,
+        today: list.filter(t => t.due_today).length,
+      },
+    },
+  });
+}));
+
+router.post('/tasks', ...isStaff, wrap(async (req, res) => {
+  const title = String(req.body.title || '').trim();
+  if (!title) return res.status(400).json({ success: false, error: 'Titel fehlt' });
+  const id = await scoped(req, (t) => t.insert(`
+    INSERT INTO crm_tasks (tenant_id, title, notes, due_on, contact_id, project_id, assignee_id, source, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [req.tenantId || 1, title, req.body.notes || null, req.body.due_on || null,
+     req.body.contact_id || null, req.body.project_id || null,
+     req.body.assignee_id || req.user.id, req.body.source || 'manual', req.user.id]));
+  db.auditLog(req.user.id, 'TASK_CREATED', 'crm_task', id, title, req.ip);
+  res.status(201).json({ success: true, data: { id } });
+}));
+
+router.put('/tasks/:id', ...isStaff, wrap(async (req, res) => {
+  const t0 = await scoped(req, (t) => t.get('SELECT * FROM crm_tasks WHERE id = ?', [req.params.id]));
+  if (!t0) return res.status(404).json({ success: false, error: 'Aufgabe nicht gefunden' });
+  const done = req.body.status === 'done';
+  await scoped(req, (t) => t.run(`
+    UPDATE crm_tasks SET
+      title = COALESCE(?, title), notes = COALESCE(?, notes), due_on = COALESCE(?, due_on),
+      status = COALESCE(?, status), done_at = ?
+    WHERE id = ?`,
+    [req.body.title || null, req.body.notes || null, req.body.due_on || null,
+     req.body.status || null, done ? new Date() : null, req.params.id]));
+  res.json({ success: true, data: { message: done ? 'Erledigt' : 'Aufgabe aktualisiert' } });
+}));
+
+router.delete('/tasks/:id', ...isStaff, wrap(async (req, res) => {
+  await scoped(req, (t) => t.run('DELETE FROM crm_tasks WHERE id = ?', [req.params.id]));
+  res.json({ success: true, data: { message: 'Aufgabe gelöscht' } });
 }));
 
 // Kennzahlen fürs Dashboard ─────────────────────────────────────────────────

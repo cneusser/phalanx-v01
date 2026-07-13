@@ -12,6 +12,7 @@ import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, 
 import DealCrmModal, { DEAL_STATUS_LABELS, DEAL_TRANSITIONS } from '../components/DealCrmModal';
 import ContactDrawer from '../components/ContactDrawer';
 import TemplateAdmin from '../components/TemplateAdmin';
+import TaskBoard from '../components/TaskBoard';
 
 // Auswahllisten je Formularfeld (statt Freitext) — abhängig vom Mandatstyp
 const fieldOptions = (key, mandateType) => {
@@ -583,7 +584,7 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'contacts', 'templates', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'contacts', 'tasks', 'templates', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
@@ -591,6 +592,7 @@ export default function Admin() {
     ndas:     'NDA-Anfragen',
     users:    'Nutzer',
     contacts: 'Kontakte',
+    tasks: 'Wiedervorlagen',
     templates: 'Mailvorlagen',
     leads:    'Bewertungs-Leads',
     detvals:  'Ausf. Bewertungen',
@@ -1142,6 +1144,8 @@ export default function Admin() {
       )}
 
       {/* Users Tab */}
+      {activeTab === 'tasks' && <TaskBoard show={showMsg} />}
+
       {activeTab === 'templates' && <TemplateAdmin show={showMsg} />}
 
       {activeTab === 'contacts' && (

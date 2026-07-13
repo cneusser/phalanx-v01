@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../i18n';
 import { User, LogOut, Settings, LayoutDashboard, Shield, Menu, X } from 'lucide-react';
 import CapitalMatchLogo from './CapitalMatchLogo';
 import useIsMobile from '../hooks/useIsMobile';
@@ -18,6 +19,7 @@ export const C = {
 
 export default function Navbar() {
   const { user, logout, isAdmin } = useAuth();
+  const { lang, setLang, t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -99,14 +101,14 @@ export default function Navbar() {
         {/* Desktop Nav */}
         {!isMobile && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-          {navLink('/projekte', 'Marktplatz')}
-          {navLink('/unternehmenswert', 'Unternehmenswert')}
-          {user && !isAdmin && navLink('/bewertung', 'Bewertung')}
-          {user && !isAdmin && navLink('/nachrichten', 'Nachrichten')}
-          {user && !isAdmin && navLink('/feedback', 'Feedback')}
-          {navLink('/kontakt', 'Kontakt')}
+          {navLink('/projekte', t('nav.marketplace', 'Marktplatz'))}
+          {navLink('/unternehmenswert', t('nav.valuation', 'Unternehmenswert'))}
+          {user && !isAdmin && navLink('/bewertung', t('nav.detailed_valuation', 'Bewertung'))}
+          {user && !isAdmin && navLink('/nachrichten', t('nav.messages', 'Nachrichten'))}
+          {user && !isAdmin && navLink('/feedback', t('nav.feedback', 'Feedback'))}
+          {navLink('/kontakt', t('nav.contact', 'Kontakt'))}
           {!user && navLink('/registrieren', 'Registrieren')}
-          {user && !isAdmin && navLink('/dashboard', 'Mein Bereich')}
+          {user && !isAdmin && navLink('/dashboard', t('nav.dashboard', 'Mein Bereich'))}
           {isAdmin && navLink('/crm', 'CRM')}
           {isAdmin && navLink('/admin', 'Admin')}
         </div>
@@ -122,6 +124,23 @@ export default function Navbar() {
         {/* Auth area (Desktop) */}
         {!isMobile && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {/* Sprachumschalter DE / EN */}
+          <div style={{ display: 'flex', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 6, overflow: 'hidden' }}>
+            {['de', 'en'].map(l => (
+              <button
+                key={l}
+                onClick={() => setLang(l)}
+                aria-label={l === 'de' ? 'Deutsch' : 'English'}
+                style={{
+                  background: lang === l ? 'rgba(255,255,255,0.9)' : 'transparent',
+                  color: lang === l ? C.navy : 'rgba(255,255,255,0.8)',
+                  border: 'none', padding: '0.25rem 0.5rem', fontSize: '0.72rem', fontWeight: 800,
+                  cursor: 'pointer', letterSpacing: '0.04em',
+                }}>
+                {l.toUpperCase()}
+              </button>
+            ))}
+          </div>
           {!user ? (
             <>
               <Link to="/login" style={{ color: 'rgba(255,255,255,0.80)', textDecoration: 'none', fontSize: '0.9rem' }}>

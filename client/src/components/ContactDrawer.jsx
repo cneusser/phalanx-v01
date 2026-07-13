@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
-import { X, Mail, Send, ShieldCheck, ShieldOff, Star, Save, ExternalLink, FileText } from 'lucide-react';
+import { X, Mail, Send, ShieldCheck, ShieldOff, Star, Save, ExternalLink, FileText, Inbox, Check, Plus } from 'lucide-react';
 import TemplateSendModal from './TemplateSendModal';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
@@ -19,6 +19,7 @@ const EVENT_COLOR = {
   invite: '#1D4E89', mail: '#1D4E89', reminder: '#d97706', open: '#0891b2',
   consent: '#059669', register: '#059669', response: '#059669',
   selfcare: '#7c3aed', link: '#7c3aed', decline: '#dc2626',
+  reply_in: '#059669', task: '#0f766e', task_done: '#64748b',
 };
 const FIELDS = [
   ['salutation', 'Anrede'], ['title', 'Titel'], ['first_name', 'Vorname'], ['last_name', 'Nachname'],
@@ -34,6 +35,10 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState('stamm');
   const [tplFor, setTplFor] = useState(null);   // Prozess-Mail zu einem Mandat des Kontakts
+  const [reply, setReply] = useState('');       // eingegangene Antwort manuell erfassen
+  const [replySubject, setReplySubject] = useState('');
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDue, setTaskDue] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -72,6 +77,27 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   }
   async function setPartyStatus(partyId, status) {
     try { await api.put(`/crm/parties/${partyId}`, { party_status: status }); await load(); onChanged && onChanged(); }
+    catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  async function logReply() {
+    if (reply.trim().length < 3) return;
+    try {
+      const r = await api.post(`/crm/contacts/${contactId}/messages`, { body: reply, subject: replySubject });
+      setReply(''); setReplySubject('');
+      show(r.project ? `Antwort erfasst — Mandat ${r.project.codename}, Wiedervorlage angelegt ✓` : 'Antwort erfasst ✓');
+      await load(); onChanged && onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
+  async function addTask() {
+    if (!taskTitle.trim()) return;
+    try {
+      await api.post('/crm/tasks', { title: taskTitle, due_on: taskDue || null, contact_id: contactId });
+      setTaskTitle(''); setTaskDue(''); show('Wiedervorlage angelegt ✓'); await load();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
+  async function doneTask(id) {
+    try { await api.put(`/crm/tasks/${id}`, { status: 'done' }); await load(); }
     catch (e) { show('Fehler: ' + e.message); }
   }
 
@@ -124,7 +150,9 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '1.2rem', padding: '0 1.3rem', borderBottom: `1px solid ${C.border}` }}>
-              {[['stamm', 'Stammdaten'], ['mandate', `Mandate (${(data.deals || []).length})`], ['aktivitaet', `Aktivitäten (${(data.activity || []).length})`]].map(([key, label]) => (
+              {[['stamm', 'Stammdaten'], ['mandate', `Mandate (${(data.deals || []).length})`],
+                ['aufgaben', `Wiedervorlagen (${(data.tasks || []).length})`],
+                ['aktivitaet', `Aktivitäten (${(data.activity || []).length})`]].map(([key, label]) => (
                 <button key={key} onClick={() => setTab(key)} style={{
                   background: 'none', border: 'none', borderBottom: `2px solid ${tab === key ? C.accent : 'transparent'}`,
                   color: tab === key ? C.navy : C.muted, fontWeight: 700, fontSize: '0.8rem', padding: '0.7rem 0', cursor: 'pointer',
@@ -200,6 +228,51 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                         style={{ ...btn(blocked || !k.email), marginTop: '0.6rem' }}>
                         <FileText size={13} /> Prozess-Mail senden
                       </button>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {tab === 'aufgaben' && (
+                <>
+                  {/* Eingegangene Antwort erfassen (funktioniert auch ohne BCC-Ingest) */}
+                  <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.8rem', marginBottom: '1rem' }}>
+                    <div style={{ ...LBL, display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                      <Inbox size={12} /> Antwort des Kontakts erfassen
+                    </div>
+                    <input value={replySubject} onChange={e => setReplySubject(e.target.value)}
+                      placeholder="Betreff (enthält der Betreff den Mandats-Codenamen, wird das Mandat automatisch erkannt)"
+                      style={{ ...IN, marginBottom: 5 }} />
+                    <textarea value={reply} onChange={e => setReply(e.target.value)} rows={4}
+                      placeholder="Text der Antwort einfügen…"
+                      style={{ ...IN, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} />
+                    <button onClick={logReply} disabled={reply.trim().length < 3} style={{ ...btn(reply.trim().length < 3), marginTop: 6 }}>
+                      <Check size={13} /> Antwort erfassen
+                    </button>
+                    <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+                      Stoppt laufende Erinnerungen, zieht den Funnel auf „Rückmeldung" und legt eine Wiedervorlage in zwei Tagen an.
+                    </div>
+                  </div>
+
+                  {/* Wiedervorlagen */}
+                  <div style={{ display: 'flex', gap: 5, marginBottom: '0.8rem' }}>
+                    <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="Neue Wiedervorlage…" style={{ ...IN, flex: 1 }} />
+                    <input type="date" value={taskDue} onChange={e => setTaskDue(e.target.value)} style={{ ...IN, width: 140 }} />
+                    <button onClick={addTask} disabled={!taskTitle.trim()} style={btn(!taskTitle.trim())}><Plus size={13} /></button>
+                  </div>
+                  {!(data.tasks || []).length && <div style={{ color: C.muted, fontSize: '0.85rem' }}>Keine offenen Wiedervorlagen.</div>}
+                  {(data.tasks || []).map(t => (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem 0.7rem', marginBottom: '0.4rem' }}>
+                      <button onClick={() => doneTask(t.id)} title="Erledigt" style={{
+                        width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${C.border}`, background: '#fff', cursor: 'pointer', flexShrink: 0,
+                      }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.text }}>{t.title}</div>
+                        <div style={{ fontSize: '0.7rem', color: C.muted }}>
+                          {t.due_on ? `fällig ${new Date(t.due_on).toLocaleDateString('de-DE')}` : 'ohne Frist'}
+                          {t.source === 'reply' && ' · aus eingegangener Antwort'}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </>

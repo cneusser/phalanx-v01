@@ -51,6 +51,13 @@ async function loadOwnActivity(userId) {
   return [...audit, ...activity].sort((a, b) => new Date(b.ts) - new Date(a.ts));
 }
 
+// Sprachpräferenz (de|en) — wird beim Umschalten in der Oberfläche mitgeschrieben
+router.put('/language', authenticate, wrap(async (req, res) => {
+  const lang = req.body.language === 'en' ? 'en' : 'de';
+  await db.run('UPDATE users SET language = ? WHERE id = ?', [lang, req.user.id]).catch(() => {});
+  res.json({ success: true, data: { language: lang } });
+}));
+
 router.get('/activity', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: await loadOwnActivity(req.user.id) });
 }));

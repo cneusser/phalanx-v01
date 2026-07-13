@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.256 — 18.07.2026 · Posteingang (BCC-Ingest), Wiedervorlagen & Sprachumschaltung
+- **BCC-Ingest** (`POST /api/inbound/email`): Beim Mailprovider (Brevo Inbound, Mailgun, Postmark) eine Adresse wie `inbox@capitalmatch.de` auf den Endpoint routen und ins BCC setzen — Antworten landen automatisch beim richtigen Kontakt. Absender wird über die E-Mail-Adresse gematcht, das Mandat über den **Codenamen im Betreff**. Geschützt über `INBOUND_SECRET` (ohne Secret ist der Endpoint deaktiviert); unbekannte Absender werden **nicht** angelegt, nur protokolliert
+- **Manuelle Erfassung** in der Kontaktansicht — funktioniert ohne jede Provider-Konfiguration: Antwort einfügen, fertig
+- Eine eingegangene Antwort **stoppt sofort alle laufenden Erinnerungen**, setzt `replied = 1`, zieht den Funnel auf **Stufe 2 („Rückmeldung")** und legt eine **Wiedervorlage in zwei Tagen** an
+- **Wiedervorlagen** (`crm_tasks`): neuer Admin-Tab mit Kennzahlen (offen / heute fällig / überfällig), Frist per Datumsfeld verschiebbar, Aufgaben auch direkt am Kontakt; automatisch erzeugte Aufgaben sind als solche gekennzeichnet
+- Kontakt-Timeline zeigt jetzt auch **eingegangene Antworten** und Wiedervorlagen
+- **Sprachumschaltung DE / EN** in der Kopfzeile: i18n-Fundament mit deutschem Fallback (fehlende Übersetzungen zeigen weiterhin den deutschen Text), Wahl im Browser gespeichert und beim eingeloggten Nutzer im Profil (`users.language`). Übersetzt sind zunächst Navigation und Kernbegriffe — der Rest folgt Seite für Seite
+- Verifiziert: 15 Unit-Tests (Adress-Parsing, Zitat-/Signatur-Kürzung, Mandats-Erkennung, Reminder-Stopp, Auto-Wiedervorlage, unbekannte Absender)
+
 ## v0.255 — 17.07.2026 · Prozess-Mailvorlagen für die Käuferansprache
 - **11 Systemvorlagen** entlang des Sell-Side-Prozesses: Wiederaufnahme der Kommunikation, Erstansprache, Nachfassen, NDA anfordern, NDA-Erinnerung, IM/Unterlagen freigegeben, Management-Gespräch, indikatives Angebot (mit Frist), Due-Diligence-Freigabe, Absage im Prozess, Kontakt schließen
 - **Versand aus dem Funnel** an eine Auswahl (Button „Prozess-Mail (n)") oder **aus der Kontaktansicht** an einen einzelnen Kontakt — inklusive **Live-Vorschau mit den echten Daten** des ersten Empfängers
