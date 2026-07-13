@@ -21,6 +21,16 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const data = await api.post('/auth/login', { email, password });
+    // Sprint 13: Ist 2FA aktiv, kommt hier noch kein Token, sondern eine Challenge.
+    if (data.twofa_required) return { twofa_required: true, challenge: data.challenge };
+    localStorage.setItem('phalanx_token', data.token);
+    setUser(data.user);
+    return data.user;
+  };
+
+  // Zweiter Faktor: TOTP-Code oder Backup-Code
+  const loginTwoFactor = async (challenge, code) => {
+    const data = await api.post('/auth/login/2fa', { challenge, code });
     localStorage.setItem('phalanx_token', data.token);
     setUser(data.user);
     return data.user;
@@ -77,7 +87,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, register, logout, isAdmin, isSeller,
+      user, loading, login, loginTwoFactor, register, logout, isAdmin, isSeller,
       isImpersonating, startBirdview, endBirdview,
     }}>
       {children}

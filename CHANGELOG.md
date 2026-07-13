@@ -3,6 +3,16 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.262 — 24.07.2026 · Sprint 13: CRM V — Rollen & Rechte, 2FA, DSGVO-Härtung
+- **Zwei-Faktor-Authentifizierung (TOTP, RFC 6238)** — eigene Implementierung ohne externe Abhängigkeit: HMAC-SHA1, 30-Sekunden-Fenster, ±1 Fenster Drift-Toleranz, zeitkonstanter Vergleich. Kompatibel mit Google/Microsoft Authenticator, 1Password, Authy. Einrichtung im Profil: Link antippen oder Geheimnis abtippen → mit Code bestätigen → **8 Backup-Codes** (nur als Hash gespeichert, einmal einlösbar)
+- Login ist zweistufig: nach dem Passwort eine **kurzlebige Challenge (5 Min.)**, erst der Code schaltet frei. Deaktivieren nur mit gültigem Code. `REQUIRE_2FA_STAFF=1` macht 2FA für interne Rollen verpflichtend
+- **Granulare Rollen** (`middleware/permissions.js` — die Matrix liegt bewusst im Code, ist Teil des Audits und nicht still per SQL änderbar): **Administrator** (alles), **Mandanten-Eigentümer**, **Berater** (eigene Mandate, CRM, Mailversand), **Assistenz** (pflegen ja, versenden und löschen nein), **Analyst** (nur lesen)
+- **Sichtbarkeit**: Berater, Assistenz und Analyst sehen nur Mandate, die sie angelegt haben oder in denen sie Mitglied sind — Administrator und Eigentümer sehen alles
+- Schreibende, löschende und versendende Endpunkte im CRM sind jetzt einzeln über `requirePermission()` abgesichert (vorher galt: „advisor darf alles, was der Admin darf")
+- Neuer Admin-Bereich **„Rollen & Rechte"** mit der vollständigen Matrix; Rollenzuweisung direkt in der Nutzerliste (die eigene Rolle ist gesperrt, Administratorrechte vergibt nur ein Administrator)
+- **DSGVO**: **Datenauskunft nach Art. 15** je Kontakt als JSON (Stammdaten, Mandate, Einladungen, Mailings, Nachrichten, Pflege-Links, Änderungen, Aufgaben) und **Recht auf Vergessenwerden nach Art. 17** — personenbezogene Daten werden gelöscht, Mailinhalte entfernt, offene Zugänge entwertet; die **Prozesshistorie bleibt als Nachweis** (Rechenschaftspflicht, Art. 5 Abs. 2)
+- Verifiziert: 35 Tests (alle RFC-6238-Vektoren, Drift-Toleranz, Backup-Code-Verbrauch, Rechte-Matrix je Rolle, Mandats-Sichtbarkeit)
+
 ## v0.261 — 23.07.2026 · Sprint 12: Ausführliche Bewertung 2.0 (DCF, Sensitivität, Benchmarking)
 - **Discounted Cash Flow** (`server/valuation/dcf.js`): Fünfjahresplanung (Umsatzwachstum, EBIT-Marge, AfA-, Capex- und Working-Capital-Quoten), **FCFF**, Diskontierung mit **Mid-Year-Convention**, Fortführungswert nach **Gordon Growth**, Equity Bridge über die Netto-Finanzschulden
 - **Kapitalkosten (WACC)** nach CAPM mit KMU-Realität: Basiszins + Beta × Marktrisikoprämie + **Small-Size-Prämie** + **Fungibilitätszuschlag**; eine schwache Scorecard erhöht den Zins automatisch. Fremdkapital mit Tax Shield, Standard ist cash-/debt-free

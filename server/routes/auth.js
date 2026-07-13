@@ -118,10 +118,131 @@ router.post('/login', wrap(async (req, res) => {
     });
   }
 
+  // ── Sprint 13: Zweiter Faktor ───────────────────────────────────────────
+  // Ist 2FA aktiv, gibt es hier noch kein Sitzungs-Token, sondern nur eine
+  // kurzlebige Challenge (5 Minuten). Erst der richtige Code schaltet frei.
+  if (user.totp_enabled === 1) {
+    const challenge = jwt.sign({ userId: user.id, twofa: true }, JWT_SECRET, { expiresIn: '5m' });
+    db.auditLog(user.id, 'LOGIN_2FA_CHALLENGE', 'user', user.id, null, req.ip);
+    return res.json({ success: true, data: { twofa_required: true, challenge } });
+  }
+
   db.auditLog(user.id, 'LOGIN', 'user', user.id, null, req.ip);
   const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-  const { password_hash, reset_token, reset_token_expires, ...safeUser } = user;
+  const { password_hash, reset_token, reset_token_expires, totp_secret, backup_codes_json, ...safeUser } = user;
   res.json({ success: true, data: { token, user: safeUser } });
+}));
+
+// ── POST /login/2fa — zweiter Faktor prüfen ────────────────────────────────
+// Akzeptiert einen 6-stelligen TOTP-Code oder einen Backup-Code (einmalig).
+router.post('/login/2fa', wrap(async (req, res) => {
+  const { challenge, code } = req.body;
+  if (!challenge || !code) return res.status(400).json({ success: false, error: 'Challenge und Code erforderlich' });
+
+  let decoded;
+  try { decoded = jwt.verify(challenge, JWT_SECRET); }
+  catch { return res.status(401).json({ success: false, code: 'CHALLENGE_EXPIRED', error: 'Die Anmeldung ist abgelaufen. Bitte erneut anmelden.' }); }
+  if (!decoded.twofa) return res.status(400).json({ success: false, error: 'Ungültige Challenge' });
+
+  const user = await db.withTenant(req.tenantId || 1, (t) => t.get('SELECT * FROM users WHERE id = ?', [decoded.userId]));
+  if (!user || !user.is_active || user.totp_enabled !== 1) {
+    return res.status(401).json({ success: false, error: 'Zwei-Faktor-Authentifizierung nicht aktiv' });
+  }
+
+  const totp = require('../utils/totp');
+  let ok = totp.verify(user.totp_secret, code);
+  let usedBackup = false;
+
+  if (!ok) {
+    // Backup-Code? Wird verbraucht und danach entwertet.
+    let hashes = [];
+    try { hashes = JSON.parse(user.backup_codes_json || '[]'); } catch { /* leer */ }
+    const r = totp.consumeBackupCode(hashes, code);
+    if (r.ok) {
+      ok = true; usedBackup = true;
+      await db.run('UPDATE users SET backup_codes_json = ? WHERE id = ?', [JSON.stringify(r.remaining), user.id]);
+      db.auditLog(user.id, 'LOGIN_2FA_BACKUP_CODE', 'user', user.id, `${r.remaining.length} Codes verbleiben`, req.ip);
+    }
+  }
+
+  if (!ok) {
+    db.auditLog(user.id, 'LOGIN_2FA_FAILED', 'user', user.id, null, req.ip);
+    return res.status(401).json({ success: false, error: 'Code ist nicht korrekt.' });
+  }
+
+  db.auditLog(user.id, 'LOGIN', 'user', user.id, usedBackup ? 'mit Backup-Code' : 'mit 2FA', req.ip);
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const { password_hash, reset_token, reset_token_expires, totp_secret, backup_codes_json, ...safeUser } = user;
+  res.json({ success: true, data: { token, user: safeUser, used_backup_code: usedBackup } });
+}));
+
+// ── 2FA einrichten / aktivieren / deaktivieren ─────────────────────────────
+// Ablauf: setup → Geheimnis anzeigen (nur einmal) → enable mit korrektem Code.
+router.post('/2fa/setup', authenticate, wrap(async (req, res) => {
+  const totp = require('../utils/totp');
+  if (req.impersonatedBy) return res.status(403).json({ success: false, error: 'Im Birdview nicht möglich.' });
+  if (req.user.totp_enabled === 1) return res.status(409).json({ success: false, error: '2FA ist bereits aktiv. Bitte zuerst deaktivieren.' });
+
+  const secret = totp.generateSecret();
+  await db.run('UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?', [secret, req.user.id]);
+  db.auditLog(req.user.id, '2FA_SETUP_STARTED', 'user', req.user.id, null, req.ip);
+  res.json({
+    success: true,
+    data: {
+      secret,
+      otpauth_url: totp.otpauthUrl(secret, { account: req.user.email }),
+      hint: 'Geheimnis in der Authenticator-App eintragen (oder den Link auf dem Handy öffnen) und anschließend mit einem Code bestätigen.',
+    },
+  });
+}));
+
+router.post('/2fa/enable', authenticate, wrap(async (req, res) => {
+  const totp = require('../utils/totp');
+  const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+  if (!user.totp_secret) return res.status(400).json({ success: false, error: 'Bitte zuerst die Einrichtung starten.' });
+  if (!totp.verify(user.totp_secret, req.body.code)) {
+    return res.status(401).json({ success: false, error: 'Der Code stimmt nicht. Prüfen Sie die Uhrzeit auf dem Gerät.' });
+  }
+  const codes = totp.generateBackupCodes(8);
+  await db.run(
+    'UPDATE users SET totp_enabled = 1, totp_confirmed_at = now(), backup_codes_json = ? WHERE id = ?',
+    [JSON.stringify(totp.hashCodes(codes)), req.user.id]);
+  db.auditLog(req.user.id, '2FA_ENABLED', 'user', req.user.id, null, req.ip);
+  // Die Backup-Codes gibt es genau EINMAL im Klartext.
+  res.json({ success: true, data: { enabled: true, backup_codes: codes } });
+}));
+
+router.post('/2fa/disable', authenticate, wrap(async (req, res) => {
+  const totp = require('../utils/totp');
+  const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+  if (user.totp_enabled !== 1) return res.status(400).json({ success: false, error: '2FA ist nicht aktiv.' });
+  // Deaktivieren nur mit gültigem Code — sonst genügt ein gekaperter Cookie.
+  if (!totp.verify(user.totp_secret, req.body.code)) {
+    return res.status(401).json({ success: false, error: 'Zum Deaktivieren ist ein gültiger Code erforderlich.' });
+  }
+  if (process.env.REQUIRE_2FA_STAFF === '1' && ['super_admin', 'tenant_owner', 'advisor', 'assistant', 'analyst'].includes(user.role)) {
+    return res.status(403).json({ success: false, error: 'Für interne Rollen ist 2FA verpflichtend und kann nicht deaktiviert werden.' });
+  }
+  await db.run('UPDATE users SET totp_enabled = 0, totp_secret = NULL, totp_confirmed_at = NULL, backup_codes_json = NULL WHERE id = ?', [req.user.id]);
+  db.auditLog(req.user.id, '2FA_DISABLED', 'user', req.user.id, null, req.ip);
+  res.json({ success: true, data: { enabled: false } });
+}));
+
+// Status (für die Sicherheits-Kachel im Profil)
+router.get('/2fa/status', authenticate, wrap(async (req, res) => {
+  const u = await db.get('SELECT totp_enabled, totp_confirmed_at, backup_codes_json FROM users WHERE id = ?', [req.user.id]);
+  let remaining = 0;
+  try { remaining = JSON.parse(u.backup_codes_json || '[]').length; } catch { /* egal */ }
+  const { STAFF_ROLES } = require('../middleware/permissions');
+  res.json({
+    success: true,
+    data: {
+      enabled: u.totp_enabled === 1,
+      confirmed_at: u.totp_confirmed_at,
+      backup_codes_remaining: remaining,
+      required: process.env.REQUIRE_2FA_STAFF === '1' && STAFF_ROLES.includes(req.user.role),
+    },
+  });
 }));
 
 // ── GET /me ────────────────────────────────────────────────────────────────

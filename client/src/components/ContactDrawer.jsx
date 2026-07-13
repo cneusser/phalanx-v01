@@ -6,7 +6,7 @@
 // (geöffnet, eingewilligt, registriert, selbst gepflegt, widersprochen).
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from 'react';
-import { api } from '../api/client';
+import { api, getToken } from '../api/client';
 import { X, Mail, Send, ShieldCheck, ShieldOff, Star, Save, ExternalLink, FileText, Inbox, Check, Plus } from 'lucide-react';
 import TemplateSendModal from './TemplateSendModal';
 
@@ -107,6 +107,31 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
       setTaskTitle(''); setTaskDue(''); show('Wiedervorlage angelegt ✓'); await load();
     } catch (e) { show('Fehler: ' + e.message); }
   }
+  // DSGVO: vollständige Datenauskunft (Art. 15) als JSON
+  function exportContact() {
+    fetch(`/api/crm/contacts/${contactId}/export`, { headers: { Authorization: `Bearer ${getToken()}` } })
+      .then(r => r.ok ? r.blob() : Promise.reject(new Error('Export nicht erlaubt')))
+      .then(b => {
+        const u = URL.createObjectURL(b); const a = document.createElement('a');
+        a.href = u; a.download = `Datenauskunft_Kontakt_${contactId}.json`; a.click(); URL.revokeObjectURL(u);
+      })
+      .catch(e => show('Fehler: ' + e.message));
+  }
+
+  // DSGVO: Recht auf Vergessenwerden (Art. 17) — personenbezogene Daten löschen,
+  // Prozesshistorie als Nachweis behalten.
+  async function anonymize() {
+    if (!window.confirm(
+      'Kontakt endgültig anonymisieren?\n\n' +
+      'Name, E-Mail, Telefon, Notizen und Profildaten werden gelöscht. Die Prozesshistorie ' +
+      '(wann was versendet wurde) bleibt als Nachweis erhalten. Das lässt sich nicht rückgängig machen.')) return;
+    try {
+      await api.post(`/crm/contacts/${contactId}/anonymize`, {});
+      show('Kontakt anonymisiert ✓');
+      await load(); onChanged && onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
+
   async function doneTask(id) {
     try { await api.put(`/crm/tasks/${id}`, { status: 'done' }); await load(); }
     catch (e) { show('Fehler: ' + e.message); }
@@ -160,6 +185,15 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                 <a href={`mailto:${k.email}`} style={{ ...btn(false), textDecoration: 'none' }}>
                   <ExternalLink size={13} /> Direkt mailen
                 </a>
+              )}
+              <button onClick={exportContact} title="Vollständige Datenauskunft nach Art. 15 DSGVO (JSON)" style={btn(false)}>
+                Auskunft (DSGVO)
+              </button>
+              {!k.anonymized_at && (
+                <button onClick={anonymize} title="Recht auf Vergessenwerden (Art. 17 DSGVO)"
+                  style={{ ...btn(false), color: '#dc2626', borderColor: '#fecaca' }}>
+                  Löschen (DSGVO)
+                </button>
               )}
             </div>
 

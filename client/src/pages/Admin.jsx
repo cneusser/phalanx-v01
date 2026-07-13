@@ -14,6 +14,7 @@ import ContactDrawer from '../components/ContactDrawer';
 import TemplateAdmin from '../components/TemplateAdmin';
 import TaskBoard from '../components/TaskBoard';
 import MailOutbox from '../components/MailOutbox';
+import RoleMatrix from '../components/RoleMatrix';
 
 // Auswahllisten je Formularfeld (statt Freitext) — abhängig vom Mandatstyp
 const fieldOptions = (key, mandateType) => {
@@ -101,7 +102,7 @@ const INPUT_STYLE = {
 };
 
 export default function Admin() {
-  const { startBirdview } = useAuth();
+  const { startBirdview, user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -378,6 +379,13 @@ export default function Admin() {
   }
 
   // Nutzer → CRM-Kontakt: 360°-Ansicht öffnen (Kontakt wird bei Bedarf angelegt)
+  async function changeRole(u, role) {
+    if (role === u.role) return;
+    if (!confirm(`Rolle von ${u.first_name} ${u.last_name} ändern?\n\nDie Rechte je Rolle sehen Sie im Tab „Rollen & Rechte".`)) return;
+    try { await api.put(`/admin/users/${u.id}/role`, { role }); showMsg('Rolle geändert ✓'); loadAll(); }
+    catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
   async function openContactForUser(u) {
     try {
       const r = await api.post(`/crm/contacts/from-user/${u.id}`, {});
@@ -637,13 +645,14 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'contacts', 'tasks', 'qa', 'templates', 'mails', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'roles', 'contacts', 'tasks', 'qa', 'templates', 'mails', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
     projects: 'Projekte',
     ndas:     'NDA-Anfragen',
     users:    'Nutzer',
+    roles: 'Rollen & Rechte',
     contacts: 'Kontakte',
     tasks: 'Wiedervorlagen',
     qa: 'Q&A',
@@ -1199,6 +1208,8 @@ export default function Admin() {
       )}
 
       {/* Users Tab */}
+      {activeTab === 'roles' && <RoleMatrix show={showMsg} />}
+
       {activeTab === 'tasks' && <TaskBoard show={showMsg} />}
 
       {activeTab === 'qa' && (
@@ -1389,9 +1400,20 @@ export default function Admin() {
                     {u.company && <div style={{ color: C.muted, fontSize: '0.7rem' }}>{u.company}</div>}
                   </td>
                   <td style={{ padding: '0.75rem 1rem' }}>
-                    <span style={{ background: u.role === 'seller' ? '#ede9fe' : C.bg, color: u.role === 'seller' ? '#5b21b6' : C.navy, padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.7rem', fontWeight: 700, border: `1px solid ${u.role === 'seller' ? '#ddd6fe' : C.border}` }}>
-                      {u.role === 'seller' ? 'Verkäufer' : u.role === 'buyer' ? 'Käufer' : u.role}
-                    </span>
+                    <select
+                      value={u.role}
+                      onChange={e => changeRole(u, e.target.value)}
+                      disabled={u.id === user?.id}
+                      title={u.id === user?.id ? 'Die eigene Rolle kann nicht geändert werden.' : 'Rolle ändern'}
+                      style={{
+                        background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 6,
+                        padding: '0.25rem 0.4rem', fontSize: '0.75rem', fontWeight: 700,
+                        cursor: u.id === user?.id ? 'default' : 'pointer',
+                      }}>
+                      {[['super_admin', 'Administrator'], ['tenant_owner', 'Mandanten-Eigentümer'], ['advisor', 'Berater'],
+                        ['assistant', 'Assistenz'], ['analyst', 'Analyst (nur lesen)'], ['buyer', 'Käufer'], ['seller', 'Verkäufer']]
+                        .map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
                   </td>
                   <td style={{ padding: '0.75rem 1rem' }}>
                     {u.is_approved ? (

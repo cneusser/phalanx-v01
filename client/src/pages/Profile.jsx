@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
+import TwoFactorCard from '../components/TwoFactorCard';
 import { useAuth } from '../context/AuthContext';
 import { Save, User, Download, AlertTriangle } from 'lucide-react';
 
@@ -119,6 +120,11 @@ export default function Profile() {
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: C.navy }}>{user?.first_name} {user?.last_name}</h1>
           <div style={{ color: '#888', fontSize: '0.85rem' }}>{user?.company} · {user?.email}</div>
         </div>
+      </div>
+
+      {/* Sprint 13 — Sicherheit: Zwei-Faktor-Authentifizierung */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <TwoFactorCard />
       </div>
 
       {/* Vollständigkeits-Hinweis: Kontaktdaten sind Voraussetzung für den Prozess */}

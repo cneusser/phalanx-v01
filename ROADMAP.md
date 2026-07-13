@@ -23,7 +23,7 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | — | E-Mail-Verifizierung + Paygate-Vorbereitung ausf. Bewertung | ✅ (Verifizierung Pflicht; Paywall greift ab 31.08.2026) |
 | — | Mobile-First / responsive Darstellung (v0.238) | ✅ (Hamburger-Nav, stapelnde Layouts, scrollbare Tabellen) |
 | **12** | **Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking)** | ✅ Kern fertig (DCF mit WACC/Terminal Value, Sensitivitätsmatrix, Branchen-Benchmarks, Methodenvergleich, erweiterter PDF-Report) |
-| 13 | 2-Faktor-Authentifizierung (SMS/TOTP) | geplant (Mobil-Pflicht vorbereitet) |
+| 13 | 2-Faktor-Authentifizierung (TOTP) | ✅ fertig (TOTP nach RFC 6238, Backup-Codes, Pflicht per REQUIRE_2FA_STAFF) |
 | 14 | **CRM / Beziehungs- & Deal-Management (Sell-Side)** | geplant (Analyse folk.app, Konzept unten) |
 | 15 | **Connect & Interaktion Käufer ↔ Verkäufer (Chat-Vernetzung, Prozess-Trigger)** | ✅ Kern fertig (Interesse→Intro→Chat, Systemnachrichten NDA/DD/LOI/Closing) |
 | **16** | **Admin-Dashboard 2.0 (Analytics, Funnel, Kennzahlen, interaktiv)** | ✅ Kern fertig (Funnel, Sparklines, Ranking, Badges, CSV-Export) |
@@ -33,7 +33,7 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 20 | **CRM II — Transaktionen, Beteiligtenrollen & konfigurierbarer Kanban-Funnel** | ✅ Kern fertig (Funnel-Board, Rollen, Verweildauer, Stagnation; Import echter Kontakte) |
 | 21 | **CRM III — Kommunikation & Aufgaben** (Mandats-Mailings, Reminder, Vorlagen, BCC-Ingest) | ✅ Kern fertig (Massenmailing, Double-Opt-in + Pflege-Link in einer Mail, Reminder Tag 7/21, Prozess-Updates, **11 Prozess-Mailvorlagen + Admin-Editor**); ✅ BCC-Ingest + Wiedervorlagen fertig) |
 | 22 | **CRM IV — Dokumente, Suche/Auswertungen & Kontakt-Selbstpflege-Portal** | ▶ Selbstpflege-Portal ✅ fertig (Link, Protokoll, Freigabe, Abmeldung); Dokumente/Auswertungen offen |
-| 23 | **CRM V — Rollen/Rechte granular, API/Webhooks, Multi-Tenant, DSGVO-Härtung + 2FA** | geplant |
+| 23 | **CRM V — Rollen/Rechte granular, API/Webhooks, Multi-Tenant, DSGVO-Härtung + 2FA** | ✅ Kern fertig (5 Rollen + Rechte-Matrix, Mandats-Sichtbarkeit, 2FA, DSGVO-Auskunft + Anonymisierung); API/Webhooks offen |
 | — | Mehrsprachigkeit DE/EN | ▶ Fundament fertig (Umschalter, i18n-Kontext, Navigation); Seiten werden schrittweise übersetzt |
 | 24 | **CRM VI — Ausbaustufen** (Anreicherung, Käufer-Matching, E-Signatur, Datenraum, Mobile, Portal) | geplant |
 

@@ -15,8 +15,10 @@ const C = {
 };
 
 export default function Login() {
+  const [challenge, setChallenge] = useState(null);   // 2FA: Zwischenschritt nach dem Passwort
+  const [code, setCode] = useState('');
   const t = useT();
-  const { login } = useAuth();
+  const { login, loginTwoFactor } = useAuth();
   const navigate = useNavigate();
   // Sprint 19: Rücksprung nach dem Login (z. B. aus einer Mandats-Einladung)
   const [params] = useSearchParams();
@@ -28,22 +30,35 @@ export default function Login() {
   const [unverified, setUnverified] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
 
+  // Wohin nach erfolgreichem Login? (Rücksprung nur auf interne Pfade — kein Open Redirect)
+  const goAfterLogin = (user) => {
+    if (redirect && redirect.startsWith('/')) navigate(redirect);
+    else if (['super_admin', 'tenant_owner', 'advisor', 'assistant', 'analyst'].includes(user.role)) navigate('/admin');
+    else if (user.role === 'seller') navigate('/verkaeuferdashboard');
+    else navigate('/dashboard');
+  };
+
+  const submitCode = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError('');
+    try {
+      const user = await loginTwoFactor(challenge, code.trim());
+      goAfterLogin(user);
+    } catch (err) {
+      setError(err.message);
+      if (err.code === 'CHALLENGE_EXPIRED') { setChallenge(null); setCode(''); }
+    } finally { setLoading(false); }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(''); setUnverified(false); setResendMsg('');
     try {
       const user = await login(email, password);
-      // Rücksprung hat Vorrang (nur interne Pfade zulassen — kein Open Redirect)
-      if (redirect && redirect.startsWith('/')) {
-        navigate(redirect);
-      } else if (['super_admin', 'advisor'].includes(user.role)) {
-        navigate('/admin');
-      } else if (user.role === 'seller') {
-        navigate('/verkaeuferdashboard');
-      } else {
-        navigate('/dashboard');
-      }
+      // Sprint 13: Zweiter Faktor verlangt → Code-Eingabe statt Weiterleitung
+      if (user && user.twofa_required) { setChallenge(user.challenge); setLoading(false); return; }
+      goAfterLogin(user);
     } catch (err) {
       setError(err.message);
       if ((err.message || '').includes('bestätigen Sie zuerst Ihre E-Mail')) setUnverified(true);
@@ -108,6 +123,39 @@ export default function Login() {
         )}
 
         {/* Form */}
+        {/* Sprint 13 — Zweiter Faktor */}
+        {challenge ? (
+          <form onSubmit={submitCode}>
+            <div style={{ background: '#EDF4FA', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.8rem 1rem', marginBottom: '1rem', fontSize: '0.83rem', color: '#475569', lineHeight: 1.55 }}>
+              Ihr Konto ist mit <strong>Zwei-Faktor-Authentifizierung</strong> geschützt. Bitte geben Sie den
+              6-stelligen Code aus Ihrer Authenticator-App ein — oder einen Ihrer Backup-Codes.
+            </div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0D1B36', marginBottom: 4 }}>
+              Code
+            </label>
+            <input
+              value={code}
+              onChange={e => setCode(e.target.value)}
+              autoFocus
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="123456"
+              style={{ width: '100%', padding: '0.75rem 0.9rem', border: '1px solid #DDE8F3', borderRadius: 8, fontSize: '1.1rem', letterSpacing: '0.25em', textAlign: 'center', outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace' }}
+            />
+            <button type="submit" disabled={loading || code.trim().length < 6} style={{
+              width: '100%', marginTop: '1rem', padding: '0.8rem', background: loading || code.trim().length < 6 ? '#cbd5e1' : '#1A4D8A',
+              color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
+            }}>
+              {loading ? 'Prüfe…' : 'Bestätigen'}
+            </button>
+            <button type="button" onClick={() => { setChallenge(null); setCode(''); setError(''); }} style={{
+              width: '100%', marginTop: '0.6rem', padding: '0.6rem', background: 'none', border: 'none',
+              color: '#64748B', fontSize: '0.82rem', cursor: 'pointer',
+            }}>
+              Abbrechen
+            </button>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.35rem' }}>
@@ -181,6 +229,7 @@ export default function Login() {
             {loading ? t('auth.submitting', 'Anmelden…') : t('nav.login', 'Anmelden')}
           </button>
         </form>
+        )}
 
         <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.85rem', color: C.gray }}>
           {t('auth.no_account', 'Noch kein Konto?')}{' '}

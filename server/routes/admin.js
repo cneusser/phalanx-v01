@@ -9,7 +9,11 @@ const router = express.Router();
 // Sprint 5 — Rollenmodell: super_admin (Plattform), tenant_owner (eigener
 // Mandant, RLS-beschränkt), advisor (Berater), auditor (nur Lesezugriff auf
 // Protokolle), seller, buyer.
-const isAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner')];
+const { requirePermission, can, PERMISSIONS, PERMISSION_LABELS, ROLE_LABELS, STAFF_ROLES, permissionsFor } = require('../middleware/permissions');
+// Zutritt zum Admin-Bereich haben alle internen Rollen; was sie dort dürfen,
+// entscheidet die Rechte-Matrix (requirePermission) — nicht die Rolle allein.
+const isAdmin = [authenticate, requireRole('super_admin', 'tenant_owner', 'advisor', 'assistant', 'analyst')];
+const canManageUsers = requirePermission('users.manage');
 const isSuperAdmin = [authenticate, requireRole('super_admin')];
 const isAuditorOrAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner', 'auditor')];
 
@@ -540,7 +544,7 @@ router.get('/users', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // Approve user
-router.put('/users/:id/approve', ...isAdmin, wrap(async (req, res) => {
+router.put('/users/:id/approve', ...isAdmin, canManageUsers, wrap(async (req, res) => {
   const user = await db.get('SELECT id, email, first_name FROM users WHERE id = ?', [req.params.id]);
   if (!user) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
   await db.run('UPDATE users SET is_approved = 1, is_active = 1 WHERE id = ?', [req.params.id]);
@@ -553,7 +557,7 @@ router.put('/users/:id/approve', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // Deactivate/reject user
-router.put('/users/:id/deactivate', ...isAdmin, wrap(async (req, res) => {
+router.put('/users/:id/deactivate', ...isAdmin, canManageUsers, wrap(async (req, res) => {
   const user = await db.get('SELECT id, email FROM users WHERE id = ?', [req.params.id]);
   if (!user) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
   await db.run('UPDATE users SET is_active = 0, is_approved = 0 WHERE id = ?', [req.params.id]);
@@ -614,7 +618,7 @@ router.get('/users/:id/audit-export', ...isAdmin, wrap(async (req, res) => {
 // signierten NDA-PDFs. Personenbezug in Logs wird entfernt (IP/Details);
 // dafür wird der Append-only-Trigger des activity_log innerhalb der
 // Transaktion kontrolliert ausgesetzt und die Löschung selbst protokolliert.
-router.delete('/users/:id', ...isAdmin, wrap(async (req, res) => {
+router.delete('/users/:id', ...isAdmin, canManageUsers, wrap(async (req, res) => {
   const user = await db.get('SELECT id, email, role FROM users WHERE id = ?', [req.params.id]);
   if (!user) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
   if (['super_admin', 'advisor'].includes(user.role)) {
@@ -712,8 +716,54 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'NDA abgelehnt' } });
 }));
 
+// ── Sprint 13: Rollen & Rechte ────────────────────────────────────────────
+// Die Matrix liegt bewusst im Code (middleware/permissions.js) und nicht in der
+// Datenbank: Sie ist Teil des Audits und soll nicht still per SQL änderbar sein.
+router.get('/roles', ...isAdmin, wrap(async (req, res) => {
+  const roles = STAFF_ROLES.map(r => ({
+    key: r,
+    label: ROLE_LABELS[r],
+    permissions: permissionsFor(r),
+    users: 0,
+  }));
+  const counts = await db.all(`SELECT role, COUNT(*)::int AS n FROM users GROUP BY role`).catch(() => []);
+  counts.forEach(c => { const hit = roles.find(r => r.key === c.role); if (hit) hit.users = c.n; });
+  res.json({
+    success: true,
+    data: {
+      roles,
+      permissions: Object.entries(PERMISSION_LABELS).map(([key, label]) => ({ key, label })),
+      my_role: req.user.role,
+      my_permissions: permissionsFor(req.user.role),
+    },
+  });
+}));
+
+// Rolle eines Nutzers ändern — nur mit users.manage, und niemals die eigene
+// (sonst sperrt man sich versehentlich selbst aus).
+router.put('/users/:id/role', ...isAdmin, canManageUsers, wrap(async (req, res) => {
+  const role = String(req.body.role || '');
+  const ALLOWED = [...STAFF_ROLES, 'buyer', 'seller'];
+  if (!ALLOWED.includes(role)) return res.status(400).json({ success: false, error: 'Unbekannte Rolle' });
+  if (Number(req.params.id) === req.user.id) {
+    return res.status(403).json({ success: false, error: 'Die eigene Rolle kann nicht geändert werden.' });
+  }
+  const target = await db.get('SELECT id, email, role FROM users WHERE id = ?', [req.params.id]);
+  if (!target) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+  if (target.role === 'super_admin' && req.user.role !== 'super_admin') {
+    return res.status(403).json({ success: false, error: 'Ein Administrator kann nur von einem Administrator geändert werden.' });
+  }
+  if (role === 'super_admin' && req.user.role !== 'super_admin') {
+    return res.status(403).json({ success: false, error: 'Nur ein Administrator kann Administratorrechte vergeben.' });
+  }
+  await db.run('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+  db.auditLog(req.user.id, 'USER_ROLE_CHANGED', 'user', req.params.id,
+    `${target.email}: ${target.role} → ${role}`, req.ip);
+  res.json({ success: true, data: { message: `Rolle geändert: ${ROLE_LABELS[role] || role}` } });
+}));
+
 // ── Mail-Ausgangsbuch: was ging wann an wen raus? ─────────────────────────
-router.get('/emails', ...isAdmin, wrap(async (req, res) => {
+router.get('/emails', ...isAdmin, requirePermission('mail.log'), wrap(async (req, res) => {
   // WHERE dynamisch bauen — ein Platzhalter in „? IS NULL" lässt Postgres den Typ
   // nicht ableiten und die Abfrage scheitert (Liste blieb dadurch leer).
   const where = [];
@@ -745,7 +795,7 @@ router.get('/emails', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // Eine Mail im Original ansehen (genau das HTML, das versendet wurde)
-router.get('/emails/:id', ...isAdmin, wrap(async (req, res) => {
+router.get('/emails/:id', ...isAdmin, requirePermission('mail.log'), wrap(async (req, res) => {
   const mail = await db.get('SELECT * FROM email_log WHERE id = ?', [req.params.id]);
   if (!mail) return res.status(404).json({ success: false, error: 'Mail nicht gefunden' });
   res.json({ success: true, data: mail });

@@ -14,10 +14,18 @@ const express = require('express');
 const db = require('../db/database');
 const wrap = require('../utils/asyncHandler');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { requirePermission, can, projectScope, seesAllProjects } = require('../middleware/permissions');
 const router = express.Router();
 
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
-const isStaff = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner')];
+// Staff = alle internen Rollen. Was jemand darf, entscheidet danach die
+// Rechte-Matrix (requirePermission) — nicht mehr die Rolle allein.
+const isStaff = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner', 'assistant', 'analyst')];
+const canWrite = requirePermission('crm.write');
+const canDelete = requirePermission('crm.delete');
+const canSend = requirePermission('mail.send');
+const canExport = requirePermission('crm.export');
+const canTemplates = requirePermission('mail.templates');
 
 const safeJson = (s, d) => { try { return JSON.parse(s || ''); } catch { return d; } };
 
@@ -83,7 +91,7 @@ const COMPANY_FIELDS = ['name', 'street', 'postal_code', 'city', 'country', 'web
   'revenue_band', 'employees', 'company_type', 'buyer_category', 'investment_criteria', 'description', 'notes',
   'parent_company_id', 'relation_to_parent'];
 
-router.post('/companies', ...isStaff, wrap(async (req, res) => {
+router.post('/companies', ...isStaff, canWrite, wrap(async (req, res) => {
   const name = String(req.body.name || '').trim();
   if (!name) return res.status(400).json({ success: false, error: 'Firmenname ist erforderlich' });
 
@@ -143,7 +151,7 @@ router.get('/companies/:id/detail', ...isStaff, wrap(async (req, res) => {
   });
 }));
 
-router.put('/companies/:id', ...isStaff, wrap(async (req, res) => {
+router.put('/companies/:id', ...isStaff, canWrite, wrap(async (req, res) => {
   const existing = await scoped(req, (t) => t.get('SELECT id FROM crm_companies WHERE id = ?', [req.params.id]));
   if (!existing) return res.status(404).json({ success: false, error: 'Unternehmen nicht gefunden' });
 
@@ -168,7 +176,7 @@ router.put('/companies/:id', ...isStaff, wrap(async (req, res) => {
 // ── Unternehmen zusammenführen (Dubletten aufräumen) ───────────────────────
 // Alles von `source` wandert zu `target`: Kontakte, Funnel-Einträge, Töchter.
 // Leere Felder in `target` werden aus `source` aufgefüllt (nichts geht verloren).
-router.post('/companies/:id/merge', ...isStaff, wrap(async (req, res) => {
+router.post('/companies/:id/merge', ...isStaff, canWrite, wrap(async (req, res) => {
   const targetId = Number(req.params.id);
   const sourceId = Number(req.body.source_id);
   if (!sourceId || sourceId === targetId) {
@@ -228,7 +236,7 @@ router.post('/companies/:id/merge', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { merged_into: targetId, moved_contacts: movedContacts } });
 }));
 
-router.delete('/companies/:id', ...isStaff, wrap(async (req, res) => {
+router.delete('/companies/:id', ...isStaff, canDelete, wrap(async (req, res) => {
   await scoped(req, (t) => t.run('DELETE FROM crm_companies WHERE id = ?', [req.params.id]));
   db.auditLog(req.user.id, 'CRM_COMPANY_DELETED', 'crm_company', req.params.id, null, req.ip);
   res.json({ success: true, data: { message: 'Unternehmen gelöscht' } });
@@ -256,7 +264,7 @@ router.get('/contacts', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: rows.map(r => ({ ...r, tags: safeJson(r.tags_json, []) })) });
 }));
 
-router.post('/contacts', ...isStaff, wrap(async (req, res) => {
+router.post('/contacts', ...isStaff, canWrite, wrap(async (req, res) => {
   const last = String(req.body.last_name || '').trim();
   if (!last) return res.status(400).json({ success: false, error: 'Nachname ist erforderlich' });
 
@@ -294,7 +302,7 @@ router.post('/contacts', ...isStaff, wrap(async (req, res) => {
   res.status(201).json({ success: true, data: { id } });
 }));
 
-router.put('/contacts/:id', ...isStaff, wrap(async (req, res) => {
+router.put('/contacts/:id', ...isStaff, canWrite, wrap(async (req, res) => {
   const existing = await scoped(req, (t) => t.get('SELECT id, consent_status FROM crm_contacts WHERE id = ?', [req.params.id]));
   if (!existing) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
 
@@ -317,7 +325,7 @@ router.put('/contacts/:id', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Gespeichert' } });
 }));
 
-router.delete('/contacts/:id', ...isStaff, wrap(async (req, res) => {
+router.delete('/contacts/:id', ...isStaff, canDelete, wrap(async (req, res) => {
   await scoped(req, (t) => t.run('DELETE FROM crm_contacts WHERE id = ?', [req.params.id]));
   db.auditLog(req.user.id, 'CRM_CONTACT_DELETED', 'crm_contact', req.params.id, null, req.ip);
   res.json({ success: true, data: { message: 'Kontakt gelöscht' } });
@@ -488,7 +496,7 @@ const csvCell = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
 const toCsv = (headers, rows) =>
   '﻿' + [headers.map(csvCell).join(';'), ...rows.map(r => r.map(csvCell).join(';'))].join('\n');
 
-router.get('/export/companies', ...isStaff, wrap(async (req, res) => {
+router.get('/export/companies', ...isStaff, canExport, wrap(async (req, res) => {
   const rows = await scoped(req, (t) => t.all('SELECT * FROM crm_companies ORDER BY name'));
   const headers = ['Name', 'Strasse', 'PLZ', 'Ort', 'Land', 'Website', 'Branche', 'Region', 'Umsatz',
     'Mitarbeiter', 'Unternehmensart', 'Kaeuferkategorie', 'Investitionskriterien', 'Beschreibung', 'Notizen', 'Tags'];
@@ -500,7 +508,7 @@ router.get('/export/companies', ...isStaff, wrap(async (req, res) => {
   res.send(toCsv(headers, body));
 }));
 
-router.get('/export/contacts', ...isStaff, wrap(async (req, res) => {
+router.get('/export/contacts', ...isStaff, canExport, wrap(async (req, res) => {
   const rows = await scoped(req, (t) => t.all(`
     SELECT k.*, (SELECT string_agg(c.name, ', ') FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
                  WHERE cc.contact_id = k.id AND cc.ended_on IS NULL) AS companies
@@ -543,7 +551,7 @@ function parseCsv(text) {
 // Tolerante Spaltenzuordnung (deutsche und englische Kopfzeilen)
 const pick = (row, ...keys) => { for (const k of keys) if (row[k]) return row[k]; return null; };
 
-router.post('/import/companies', ...isStaff, wrap(async (req, res) => {
+router.post('/import/companies', ...isStaff, canWrite, wrap(async (req, res) => {
   const rows = parseCsv(req.body.csv);
   if (!rows.length) return res.status(400).json({ success: false, error: 'Keine Datenzeilen gefunden.' });
   let created = 0, skipped = 0;
@@ -570,7 +578,7 @@ router.post('/import/companies', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { created, skipped, total: rows.length } });
 }));
 
-router.post('/import/contacts', ...isStaff, wrap(async (req, res) => {
+router.post('/import/contacts', ...isStaff, canWrite, wrap(async (req, res) => {
   const rows = parseCsv(req.body.csv);
   if (!rows.length) return res.status(400).json({ success: false, error: 'Keine Datenzeilen gefunden.' });
   let created = 0, skipped = 0, linked = 0;
@@ -636,14 +644,18 @@ const STAGNANT_DAYS = 30;
 
 // Mandate mit Funnel-Zahlen (Auswahl fürs Board)
 router.get('/deals', ...isStaff, wrap(async (req, res) => {
+  // Sichtbarkeit: Admin/Eigentümer sehen alle Mandate, Berater und Assistenz nur die,
+  // die ihnen gehören oder in denen sie Mitglied sind.
+  const sc = projectScope(req.user, 'p');
   const rows = await scoped(req, (t) => t.all(`
     SELECT p.id, p.codename, p.status, p.deal_status, p.industry, p.region,
            (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.project_id = p.id) AS parties,
            (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.project_id = p.id AND dp.party_status = 'active') AS active,
            (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.project_id = p.id AND dp.party_status = 'open') AS open
     FROM projects p
-    WHERE EXISTS (SELECT 1 FROM crm_deal_parties dp WHERE dp.project_id = p.id) OR p.status = 'active'
-    ORDER BY parties DESC, p.codename`));
+    WHERE (EXISTS (SELECT 1 FROM crm_deal_parties dp WHERE dp.project_id = p.id) OR p.status = 'active')
+      AND ${sc.sql}
+    ORDER BY parties DESC, p.codename`, sc.params));
   res.json({ success: true, data: { deals: rows, stages: FUNNEL_STAGES } });
 }));
 
@@ -681,7 +693,7 @@ router.get('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { parties, stages: FUNNEL_STAGES, counts, reached } });
 }));
 
-router.post('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
+router.post('/deals/:projectId/parties', ...isStaff, canWrite, wrap(async (req, res) => {
   const contactId = Number(req.body.contact_id);
   if (!contactId) return res.status(400).json({ success: false, error: 'contact_id fehlt' });
   const dup = await scoped(req, (t) => t.get(
@@ -699,7 +711,7 @@ router.post('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
 }));
 
 // Stufe/Status ändern (Drag & Drop) — Verweildauer wird bei Stufenwechsel neu gestartet
-router.put('/parties/:id', ...isStaff, wrap(async (req, res) => {
+router.put('/parties/:id', ...isStaff, canWrite, wrap(async (req, res) => {
   const party = await scoped(req, (t) => t.get('SELECT * FROM crm_deal_parties WHERE id = ?', [req.params.id]));
   if (!party) return res.status(404).json({ success: false, error: 'Eintrag nicht gefunden' });
 
@@ -726,7 +738,7 @@ router.put('/parties/:id', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Gespeichert' } });
 }));
 
-router.delete('/parties/:id', ...isStaff, wrap(async (req, res) => {
+router.delete('/parties/:id', ...isStaff, canDelete, wrap(async (req, res) => {
   await scoped(req, (t) => t.run('DELETE FROM crm_deal_parties WHERE id = ?', [req.params.id]));
   res.json({ success: true, data: { message: 'Entfernt' } });
 }));
@@ -787,7 +799,7 @@ async function createInvite(req, contact) {
 }
 
 // Einzelne Einladung
-router.post('/contacts/:id/invite', ...isStaff, wrap(async (req, res) => {
+router.post('/contacts/:id/invite', ...isStaff, canSend, wrap(async (req, res) => {
   const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [req.params.id]));
   if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
   if (!contact.email) return res.status(400).json({ success: false, error: 'Kontakt hat keine E-Mail-Adresse.' });
@@ -803,7 +815,7 @@ router.post('/contacts/:id/invite', ...isStaff, wrap(async (req, res) => {
 }));
 
 // Sammel-Einladung (bewusst limitiert — kein Massenversand aus Versehen)
-router.post('/invite/bulk', ...isStaff, wrap(async (req, res) => {
+router.post('/invite/bulk', ...isStaff, canSend, wrap(async (req, res) => {
   const ids = (req.body.contact_ids || []).slice(0, 50).map(Number).filter(Boolean);
   if (!ids.length) return res.status(400).json({ success: false, error: 'Keine Kontakte ausgewählt' });
 
@@ -974,7 +986,7 @@ async function loadTemplate(req, key) {
   return scoped(req, (t) => t.get(`SELECT * FROM mail_templates WHERE key = ? AND is_active = 1`, [key])).catch(() => null);
 }
 
-router.post('/contacts/:id/profile-link', ...isStaff, wrap(async (req, res) => {
+router.post('/contacts/:id/profile-link', ...isStaff, canSend, wrap(async (req, res) => {
   const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [req.params.id]));
   if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
   if (!contact.email) return res.status(400).json({ success: false, error: 'Kontakt hat keine E-Mail-Adresse.' });
@@ -1036,7 +1048,7 @@ router.post('/contacts/:id/profile-link', ...isStaff, wrap(async (req, res) => {
 }));
 
 // Sammel-Versand (max. 50)
-router.post('/profile-links/bulk', ...isStaff, wrap(async (req, res) => {
+router.post('/profile-links/bulk', ...isStaff, canSend, wrap(async (req, res) => {
   const ids = (req.body.contact_ids || []).slice(0, 50).map(Number).filter(Boolean);
   let sent = 0, blocked = 0;
   for (const cid of ids) {
@@ -1245,7 +1257,7 @@ router.post('/deals/:projectId/campaign/preview', ...isStaff, wrap(async (req, r
 }));
 
 // Kampagne versenden
-router.post('/deals/:projectId/campaign', ...isStaff, wrap(async (req, res) => {
+router.post('/deals/:projectId/campaign', ...isStaff, canSend, wrap(async (req, res) => {
   const projectId = Number(req.params.projectId);
   const project = await scoped(req, (t) => t.get('SELECT * FROM projects WHERE id = ?', [projectId]));
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
@@ -1372,7 +1384,7 @@ router.post('/campaigns/run-reminders', ...isStaff, wrap(async (req, res) => {
 }));
 
 // Projekt-Update manuell an die aktiven, eingewilligten Beteiligten senden
-router.post('/deals/:projectId/update-mail', ...isStaff, wrap(async (req, res) => {
+router.post('/deals/:projectId/update-mail', ...isStaff, canSend, wrap(async (req, res) => {
   const note = String(req.body.note || '').trim();
   if (note.length < 10) return res.status(400).json({ success: false, error: 'Bitte formulieren Sie die Aktualisierung (mind. 10 Zeichen).' });
   const r = await campaigns.notifyProjectChange(req.params.projectId, [], { actorId: req.user.id, note, force: true });
@@ -1401,7 +1413,7 @@ router.get('/templates', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { templates: rows, placeholders: mt.PLACEHOLDERS, stages: FUNNEL_STAGES } });
 }));
 
-router.post('/templates', ...isStaff, wrap(async (req, res) => {
+router.post('/templates', ...isStaff, canTemplates, wrap(async (req, res) => {
   const { name, subject, body } = req.body;
   if (!name || !subject || !body) return res.status(400).json({ success: false, error: 'Name, Betreff und Text sind Pflicht.' });
   const key = 'custom_' + Date.now();
@@ -1414,7 +1426,7 @@ router.post('/templates', ...isStaff, wrap(async (req, res) => {
   res.status(201).json({ success: true, data: { id, key } });
 }));
 
-router.put('/templates/:id', ...isStaff, wrap(async (req, res) => {
+router.put('/templates/:id', ...isStaff, canTemplates, wrap(async (req, res) => {
   const tpl = await scoped(req, (t) => t.get('SELECT * FROM mail_templates WHERE id = ?', [req.params.id]));
   if (!tpl) return res.status(404).json({ success: false, error: 'Vorlage nicht gefunden' });
   const target = mt.CTA_TARGETS.includes(req.body.cta_target) ? req.body.cta_target : tpl.cta_target;
@@ -1431,7 +1443,7 @@ router.put('/templates/:id', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Vorlage gespeichert' } });
 }));
 
-router.delete('/templates/:id', ...isStaff, wrap(async (req, res) => {
+router.delete('/templates/:id', ...isStaff, canTemplates, wrap(async (req, res) => {
   const tpl = await scoped(req, (t) => t.get('SELECT * FROM mail_templates WHERE id = ?', [req.params.id]));
   if (!tpl) return res.status(404).json({ success: false, error: 'Vorlage nicht gefunden' });
   if (tpl.is_system === 1) {
@@ -1466,7 +1478,7 @@ router.post('/templates/:id/preview', ...isStaff, wrap(async (req, res) => {
 }));
 
 // Versand einer Vorlage an einen oder mehrere Kontakte eines Mandats
-router.post('/deals/:projectId/send-template', ...isStaff, wrap(async (req, res) => {
+router.post('/deals/:projectId/send-template', ...isStaff, canSend, wrap(async (req, res) => {
   const projectId = Number(req.params.projectId);
   const project = await scoped(req, (t) => t.get('SELECT * FROM projects WHERE id = ?', [projectId]));
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
@@ -1681,6 +1693,68 @@ router.post('/contacts/from-user/:userId', ...isStaff, wrap(async (req, res) => 
     // Registrierte Nutzer haben der Nutzung zugestimmt → consent_status = opt_in
   }
   res.json({ success: true, data: { contact_id: contact.id } });
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 13 — DSGVO: Auskunft (Art. 15) und Vergessenwerden (Art. 17)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Vollständige Datenauskunft zu einem Kontakt — alles, was wir über ihn haben.
+router.get('/contacts/:id/export', ...isStaff, requirePermission('crm.export'), wrap(async (req, res) => {
+  const id = req.params.id;
+  const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [id]));
+  if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+
+  const q = (sql) => scoped(req, (t) => t.all(sql, [id])).catch(() => []);
+  const data = {
+    exported_at: new Date().toISOString(),
+    exported_by: req.user.email,
+    hinweis: 'Datenauskunft nach Art. 15 DSGVO — alle zu dieser Person gespeicherten Daten.',
+    stammdaten: contact,
+    unternehmen: await q('SELECT * FROM crm_company_contacts WHERE contact_id = ?'),
+    mandate: await q('SELECT * FROM crm_deal_parties WHERE contact_id = ?'),
+    einladungen: await q('SELECT * FROM crm_invitations WHERE contact_id = ?'),
+    mailings: await q('SELECT * FROM crm_campaign_recipients WHERE contact_id = ?'),
+    versendete_mails: await q('SELECT id, to_email, subject, mail_type, created_at FROM email_log WHERE contact_id = ?'),
+    nachrichten: await q('SELECT * FROM crm_messages WHERE contact_id = ?'),
+    pflege_links: await q('SELECT id, status, created_at, last_opened_at, last_saved_at FROM crm_profile_links WHERE contact_id = ?'),
+    selbstpflege_aenderungen: await q('SELECT * FROM crm_profile_changes WHERE contact_id = ?'),
+    wiedervorlagen: await q('SELECT * FROM crm_tasks WHERE contact_id = ?'),
+  };
+  db.auditLog(req.user.id, 'CRM_CONTACT_EXPORT', 'crm_contact', id, contact.email, req.ip);
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="Datenauskunft_Kontakt_${id}.json"`);
+  res.send(JSON.stringify(data, null, 2));
+}));
+
+// Recht auf Vergessenwerden: personenbezogene Daten löschen, Nachweis behalten.
+// Bewusst KEIN harter DELETE — die Tatsache der Löschung und der Prozessverlauf
+// bleiben belegbar (berechtigtes Interesse, Rechenschaftspflicht Art. 5 Abs. 2).
+router.post('/contacts/:id/anonymize', ...isStaff, requirePermission('crm.delete'), wrap(async (req, res) => {
+  const id = req.params.id;
+  const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [id]));
+  if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+  if (contact.anonymized_at) return res.status(409).json({ success: false, error: 'Dieser Kontakt ist bereits anonymisiert.' });
+
+  await scoped(req, (t) => t.run(`
+    UPDATE crm_contacts SET
+      salutation = NULL, title = NULL, first_name = NULL, last_name = 'Gelöschter Kontakt',
+      email = NULL, phone = NULL, mobile = NULL, linkedin_url = NULL, location = NULL,
+      responsibility = NULL, notes = NULL, tags_json = '[]',
+      focus_industries = NULL, focus_regions = NULL, investment_focus = NULL,
+      consent_status = 'opt_out', contact_status = 'do_not_contact',
+      anonymized_at = now(), anonymized_by = ?, updated_at = now()
+    WHERE id = ?`, [req.user.id, id]));
+
+  // Offene Zugänge entwerten, Inhalte der Nachrichten löschen (Metadaten bleiben)
+  await scoped(req, (t) => t.run(`UPDATE crm_profile_links SET status = 'revoked' WHERE contact_id = ?`, [id])).catch(() => {});
+  await scoped(req, (t) => t.run(`UPDATE crm_invitations SET status = 'revoked' WHERE contact_id = ? AND status IN ('invited','opened')`, [id])).catch(() => {});
+  await scoped(req, (t) => t.run(`UPDATE crm_messages SET body = '[gelöscht]', from_email = NULL, to_email = NULL WHERE contact_id = ?`, [id])).catch(() => {});
+  await scoped(req, (t) => t.run(`UPDATE email_log SET body_html = NULL, to_email = '[gelöscht]' WHERE contact_id = ?`, [id])).catch(() => {});
+
+  db.auditLog(req.user.id, 'CRM_CONTACT_ANONYMIZED', 'crm_contact', id,
+    `${contact.email || 'ohne E-Mail'} · auf Wunsch gelöscht (Art. 17 DSGVO)`, req.ip);
+  res.json({ success: true, data: { message: 'Kontakt anonymisiert. Die Prozesshistorie bleibt als Nachweis erhalten.' } });
 }));
 
 // Kennzahlen fürs Dashboard ─────────────────────────────────────────────────
