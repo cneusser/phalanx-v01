@@ -296,9 +296,18 @@ router.post('/:id/questions', authenticate, wrap(async (req, res) => {
 
 router.get('/:id/questions', authenticate, wrap(async (req, res) => {
   const isAdmin = ['super_admin', 'advisor'].includes(req.user.role);
+  // Käufer sehen ihre eigenen Fragen — plus die, die wir für alle Interessenten
+  // freigegeben haben (FAQ). Der Fragesteller bleibt dort anonym.
   const rows = isAdmin
     ? await db.all(`SELECT q.*, u.first_name || ' ' || u.last_name AS buyer_name FROM qa_threads q JOIN users u ON u.id = q.buyer_id WHERE q.project_id = ? ORDER BY q.asked_at DESC`, [req.params.id])
-    : await db.all(`SELECT id, question, answer, status, asked_at, answered_at FROM qa_threads WHERE project_id = ? AND buyer_id = ? ORDER BY asked_at DESC`, [req.params.id, req.user.id]);
+    : await db.all(`
+        SELECT id, question, answer, status, asked_at, answered_at, is_public,
+               (buyer_id = ?) AS is_mine
+        FROM qa_threads
+        WHERE project_id = ?
+          AND (buyer_id = ? OR (is_public = 1 AND status = 'answered'))
+        ORDER BY (buyer_id = ?) DESC, asked_at DESC`,
+        [req.user.id, req.params.id, req.user.id, req.user.id]);
   res.json({ success: true, data: rows });
 }));
 

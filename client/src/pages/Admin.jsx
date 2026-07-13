@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -101,6 +101,7 @@ const INPUT_STYLE = {
 
 export default function Admin() {
   const { startBirdview } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [projects, setProjects] = useState([]);
   const [ndas, setNdas] = useState([]);
@@ -110,6 +111,7 @@ export default function Admin() {
   const [crmContacts, setCrmContacts] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
+  const [qaOpts, setQaOpts] = useState({});   // je Frage: { notify, is_public }
   const [contactSearch, setContactSearch] = useState('');
   const [drawerContact, setDrawerContact] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
@@ -374,18 +376,45 @@ export default function Admin() {
     finally { setAuditLoading(false); }
   }
 
+  // Nutzer → CRM-Kontakt: 360°-Ansicht öffnen (Kontakt wird bei Bedarf angelegt)
+  async function openContactForUser(u) {
+    try {
+      const r = await api.post(`/crm/contacts/from-user/${u.id}`, {});
+      setDrawerContact(r.contact_id);
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
   async function loadQuestions() {
     try { const d = await api.get('/admin/questions'); setQuestions(d.questions || []); }
     catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
+  const qaOpt = (id) => qaOpts[id] || { notify: true, is_public: false };
+  const setQaOpt = (id, patch) => setQaOpts(o => ({ ...o, [id]: { ...qaOpt(id), ...patch } }));
+
   async function answerQuestion(id) {
     const answer = (answers[id] || '').trim();
     if (!answer) return;
+    const o = qaOpt(id);
     try {
-      await api.put(`/admin/questions/${id}/answer`, { answer });
+      await api.put(`/admin/questions/${id}/answer`, { answer, notify: o.notify, is_public: o.is_public });
       setAnswers(a => ({ ...a, [id]: '' }));
-      showMsg("Antwort versendet ✓"); loadQuestions(); loadAll();
+      showMsg(o.notify ? 'Antwort gespeichert und per E-Mail versendet ✓' : 'Antwort gespeichert ✓');
+      loadQuestions(); loadAll();
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
+  async function toggleQaPublic(id, isPublic) {
+    try {
+      await api.put(`/admin/questions/${id}/visibility`, { is_public: isPublic });
+      showMsg(isPublic ? 'Frage ist jetzt im Mandat für alle Interessenten sichtbar ✓' : 'Frage wieder privat');
+      loadQuestions();
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
+  async function deleteQuestion(id) {
+    if (!confirm('Frage endgültig löschen? Die Antwort wird ebenfalls entfernt.')) return;
+    try { await api.delete(`/admin/questions/${id}`); showMsg('Frage gelöscht'); loadQuestions(); loadAll(); }
+    catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
 
   async function loadCrmContacts() {
@@ -1196,18 +1225,48 @@ export default function Admin() {
                     value={answers[q.id] || ''}
                     onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))}
                     rows={3}
-                    placeholder="Antwort an den Interessenten (wird per E-Mail zugestellt)…"
+                    placeholder="Antwort an den Interessenten…"
                     style={{ width: '100%', padding: '0.6rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.85rem', fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }}
                   />
-                  <button onClick={() => answerQuestion(q.id)} disabled={!(answers[q.id] || '').trim()} style={{
-                    marginTop: '0.5rem', background: (answers[q.id] || '').trim() ? C.navy : '#cbd5e1', color: '#fff',
-                    border: 'none', borderRadius: 6, padding: '0.5rem 1.1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
-                  }}>Antwort senden</button>
+                  <div style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap', margin: '0.6rem 0 0.2rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: C.text, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={qaOpt(q.id).notify} onChange={e => setQaOpt(q.id, { notify: e.target.checked })} />
+                      Antwort per E-Mail zustellen
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: C.text, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={qaOpt(q.id).is_public} onChange={e => setQaOpt(q.id, { is_public: e.target.checked })} />
+                      Im Mandat für alle Interessenten anzeigen (FAQ, Fragesteller bleibt anonym)
+                    </label>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <button onClick={() => answerQuestion(q.id)} disabled={!(answers[q.id] || '').trim()} style={{
+                      background: (answers[q.id] || '').trim() ? C.navy : '#cbd5e1', color: '#fff',
+                      border: 'none', borderRadius: 6, padding: '0.5rem 1.1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+                    }}>{qaOpt(q.id).notify ? 'Antwort senden' : 'Antwort speichern'}</button>
+                    <button onClick={() => deleteQuestion(q.id)} style={{
+                      background: '#fff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 6,
+                      padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+                    }}>Löschen</button>
+                  </div>
                 </>
               ) : (
-                <div style={{ background: C.bg, borderRadius: 6, padding: '0.7rem 0.9rem', fontSize: '0.85rem', color: C.text }}>
-                  {q.answer}
-                </div>
+                <>
+                  <div style={{ background: C.bg, borderRadius: 6, padding: '0.7rem 0.9rem', fontSize: '0.85rem', color: C.text }}>
+                    {q.answer}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.9rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.6rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: C.text, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={q.is_public === 1} onChange={e => toggleQaPublic(q.id, e.target.checked)} />
+                      Im Mandat für alle Interessenten sichtbar
+                    </label>
+                    {q.is_public === 1 && (
+                      <span style={{ background: '#dbeafe', color: '#1e40af', padding: '0.1rem 0.5rem', borderRadius: 20, fontSize: '0.68rem', fontWeight: 700 }}>FAQ</span>
+                    )}
+                    <button onClick={() => deleteQuestion(q.id)} style={{
+                      background: 'none', border: 'none', color: '#dc2626', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', padding: 0,
+                    }}>Löschen</button>
+                  </div>
+                </>
               )}
             </div>
           ))}
@@ -1310,7 +1369,12 @@ export default function Admin() {
               }).map(u => (
                 <tr key={u.id} style={{ borderBottom: `1px solid ${C.border}`, background: u.is_approved ? 'transparent' : '#fffbeb' }}>
                   <td style={{ padding: '0.75rem 1rem' }}>
-                    <div style={{ fontWeight: 600, color: C.text, fontSize: '0.85rem' }}>{u.first_name} {u.last_name}</div>
+                    <div
+                      onClick={() => openContactForUser(u)}
+                      title="Kontakt öffnen (Stammdaten, Mandate, Aktivitäten)"
+                      style={{ fontWeight: 700, color: C.accent, fontSize: '0.85rem', cursor: 'pointer' }}>
+                      {u.first_name} {u.last_name}
+                    </div>
                     <div style={{ color: C.muted, fontSize: '0.72rem' }}>{u.email}</div>
                     {u.company && <div style={{ color: C.muted, fontSize: '0.7rem' }}>{u.company}</div>}
                   </td>
@@ -1332,6 +1396,16 @@ export default function Admin() {
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                       <button onClick={() => openUserDetail(u.id)} style={{ background: C.bg, color: C.navy, border: `1px solid ${C.border}`, padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
                         Details
+                      </button>
+                      <a href={`mailto:${u.email}`} title="E-Mail schreiben"
+                        style={{ background: '#fff', color: C.navy, border: `1px solid ${C.border}`, padding: '0.3rem 0.65rem', borderRadius: 5, fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none' }}>
+                        ✉ Mail
+                      </a>
+                      <button
+                        onClick={() => navigate('/nachrichten', { state: { openPartner: u.id } })}
+                        title="Chat auf der Plattform öffnen"
+                        style={{ background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
+                        💬 Chat
                       </button>
                       {/* Birdview: Plattform mit den Augen dieses Nutzers sehen (schreibgeschützt) */}
                       {u.is_active === 1 && u.role !== 'super_admin' && (

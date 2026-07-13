@@ -734,14 +734,24 @@ router.get('/questions', ...isAdmin, wrap(async (req, res) => {
 // ── Sprint 4: Q&A beantworten ─────────────────────────────────────────────
 router.put('/questions/:id/answer', ...isAdmin, wrap(async (req, res) => {
   const { answer } = req.body;
+  // Standard: Antwort geht per Mail an den Fragesteller und bleibt privat.
+  const notify = req.body.notify !== false;
+  const isPublic = req.body.is_public === true;
   if (!answer || !answer.trim()) return res.status(400).json({ success: false, error: 'Antwort fehlt' });
   const q = await db.get('SELECT * FROM qa_threads WHERE id = ?', [req.params.id]);
   if (!q) return res.status(404).json({ success: false, error: 'Frage nicht gefunden' });
-  await db.run(`UPDATE qa_threads SET answer = ?, status = 'answered', answered_at = now(), answered_by = ? WHERE id = ?`,
-    [answer.trim(), req.user.id, req.params.id]);
+  await db.run(`
+    UPDATE qa_threads
+       SET answer = ?, status = 'answered', answered_at = now(), answered_by = ?,
+           is_public = ?, published_at = CASE WHEN ? = 1 THEN now() ELSE NULL END
+     WHERE id = ?`,
+    [answer.trim(), req.user.id, isPublic ? 1 : 0, isPublic ? 1 : 0, req.params.id]);
   db.activityLog(req.user.id, 'QA_ANSWERED', 'qa', q.id, req.ip);
-  // Fragesteller informieren
-  const buyer = await db.get('SELECT email, first_name FROM users WHERE id = ?', [q.buyer_id]);
+  db.auditLog(req.user.id, 'QA_ANSWERED', 'qa', q.id,
+    `${isPublic ? 'im Mandat sichtbar' : 'privat'} · ${notify ? 'per E-Mail zugestellt' : 'ohne Mailversand'}`, req.ip);
+
+  // Fragesteller informieren (optional)
+  const buyer = notify ? await db.get('SELECT email, first_name FROM users WHERE id = ?', [q.buyer_id]) : null;
   const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [q.project_id]);
   if (buyer) {
     const { sendProcessUpdateEmail } = require('../utils/email');
@@ -754,7 +764,30 @@ router.put('/questions/:id/answer', ...isAdmin, wrap(async (req, res) => {
       ctaLabel: 'Im Mandat ansehen', ctaPath: `/projekte/${q.project_id}?tab=qa`,
     }).catch(() => {});
   }
-  res.json({ success: true, data: { message: 'Antwort gespeichert' } });
+  res.json({ success: true, data: { message: notify ? 'Antwort gespeichert und versendet' : 'Antwort gespeichert' } });
+}));
+
+// Sichtbarkeit einer beantworteten Frage umschalten (FAQ im Mandat)
+router.put('/questions/:id/visibility', ...isAdmin, wrap(async (req, res) => {
+  const q = await db.get('SELECT * FROM qa_threads WHERE id = ?', [req.params.id]);
+  if (!q) return res.status(404).json({ success: false, error: 'Frage nicht gefunden' });
+  if (q.status !== 'answered' && req.body.is_public === true) {
+    return res.status(400).json({ success: false, error: 'Nur beantwortete Fragen können veröffentlicht werden.' });
+  }
+  const isPublic = req.body.is_public === true;
+  await db.run(`UPDATE qa_threads SET is_public = ?, published_at = CASE WHEN ? = 1 THEN now() ELSE NULL END WHERE id = ?`,
+    [isPublic ? 1 : 0, isPublic ? 1 : 0, req.params.id]);
+  db.auditLog(req.user.id, 'QA_VISIBILITY', 'qa', q.id, isPublic ? 'im Mandat sichtbar' : 'wieder privat', req.ip);
+  res.json({ success: true, data: { is_public: isPublic } });
+}));
+
+// Frage löschen (z. B. Test- oder Dublettenfrage)
+router.delete('/questions/:id', ...isAdmin, wrap(async (req, res) => {
+  const q = await db.get('SELECT * FROM qa_threads WHERE id = ?', [req.params.id]);
+  if (!q) return res.status(404).json({ success: false, error: 'Frage nicht gefunden' });
+  await db.run('DELETE FROM qa_threads WHERE id = ?', [req.params.id]);
+  db.auditLog(req.user.id, 'QA_DELETED', 'qa', q.id, String(q.question || '').slice(0, 120), req.ip);
+  res.json({ success: true, data: { message: 'Frage gelöscht' } });
 }));
 
 // ── Sprint 4: Granulare Datenraum-Rechte je Interessent ───────────────────

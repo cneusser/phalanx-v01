@@ -1614,6 +1614,31 @@ router.delete('/tasks/:id', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Aufgabe gelöscht' } });
 }));
 
+// Plattform-Nutzer → CRM-Kontakt: vorhandenen finden oder anlegen (und verknüpfen).
+// Damit lässt sich aus der Nutzerliste heraus direkt die 360°-Ansicht öffnen.
+router.post('/contacts/from-user/:userId', ...isStaff, wrap(async (req, res) => {
+  const u = await db.get('SELECT * FROM users WHERE id = ?', [req.params.userId]);
+  if (!u) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+
+  let contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE user_id = ?', [u.id]));
+  if (!contact && u.email) {
+    contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE lower(email) = ?', [String(u.email).toLowerCase()]));
+    if (contact) await scoped(req, (t) => t.run('UPDATE crm_contacts SET user_id = ? WHERE id = ?', [u.id, contact.id]));
+  }
+  if (!contact) {
+    const id = await scoped(req, (t) => t.insert(`
+      INSERT INTO crm_contacts (tenant_id, salutation, title, first_name, last_name, email, mobile,
+                                responsibility, consent_status, contact_status, user_id, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'opt_in', 'active', ?, ?)`,
+      [req.tenantId || 1, u.salutation || null, u.title || null, u.first_name, u.last_name,
+       String(u.email).toLowerCase(), u.mobile || null, u.position || null, u.id, req.user.id]));
+    contact = { id };
+    db.auditLog(req.user.id, 'CRM_CONTACT_FROM_USER', 'crm_contact', id, u.email, req.ip);
+    // Registrierte Nutzer haben der Nutzung zugestimmt → consent_status = opt_in
+  }
+  res.json({ success: true, data: { contact_id: contact.id } });
+}));
+
 // Kennzahlen fürs Dashboard ─────────────────────────────────────────────────
 router.get('/stats', ...isStaff, wrap(async (req, res) => {
   const c = await scoped(req, (t) => t.get('SELECT COUNT(*)::int AS n FROM crm_companies'));

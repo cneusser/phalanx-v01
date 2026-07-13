@@ -684,6 +684,7 @@ export default function ProjectDetail() {
         <div>
           <p style={{ color: '#555', fontSize: '0.875rem', lineHeight: 1.7, marginBottom: '1rem' }}>
             Stellen Sie hier Ihre Fragen zum Mandat — der Transaktionsberater antwortet direkt in diesem Bereich.
+            Häufige Fragen beantworten wir für alle Interessenten sichtbar; der Fragesteller bleibt dabei anonym.
           </p>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
             <input
@@ -701,10 +702,23 @@ export default function ProjectDetail() {
           {questions.length === 0 ? (
             <p style={{ color: C.muted, fontSize: '0.83rem' }}>Noch keine Fragen gestellt.</p>
           ) : questions.map(q => (
-            <div key={q.id} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.9rem 1rem', marginBottom: '0.75rem' }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: C.text, marginBottom: '0.3rem' }}>{q.question}</div>
+            <div key={q.id} style={{
+              background: q.is_public === 1 && !q.is_mine ? '#F4F8FC' : C.bg,
+              border: `1px solid ${q.is_public === 1 && !q.is_mine ? '#bfdbfe' : C.border}`,
+              borderRadius: 6, padding: '0.9rem 1rem', marginBottom: '0.75rem',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: C.text, marginBottom: '0.3rem' }}>{q.question}</div>
+                {q.is_public === 1 && (
+                  <span style={{ background: '#dbeafe', color: '#1e40af', padding: '0.1rem 0.45rem', borderRadius: 20, fontSize: '0.64rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    {q.is_mine === false || q.is_mine === 0 ? 'Häufige Frage' : 'Für alle sichtbar'}
+                  </span>
+                )}
+              </div>
               <div style={{ fontSize: '0.7rem', color: C.muted, marginBottom: q.answer ? '0.5rem' : 0 }}>
-                Gestellt am {new Date(q.asked_at).toLocaleString('de-DE')} · {q.status === 'answered' ? 'Beantwortet' : 'Wartet auf Antwort'}
+                {q.is_mine === false || q.is_mine === 0
+                  ? 'Von einem anderen Interessenten gestellt'
+                  : `Gestellt am ${new Date(q.asked_at).toLocaleString('de-DE')} · ${q.status === 'answered' ? 'Beantwortet' : 'Wartet auf Antwort'}`}
               </div>
               {q.buyer_name && isAdmin && (
                 <div style={{ fontSize: '0.68rem', color: C.muted, marginBottom: '0.4rem' }}>Von: {q.buyer_name}</div>

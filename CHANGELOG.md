@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.258 — 20.07.2026 · Q&A-Optionen & Nutzer direkt ansprechen
+- **Q&A beantworten** mit zwei Schaltern: **Antwort per E-Mail zustellen** (Standard) oder still speichern — und **im Mandat für alle Interessenten anzeigen** (FAQ). Veröffentlicht werden nur Frage und Antwort; **der Fragesteller bleibt anonym**
+- Sichtbarkeit jederzeit wieder zurücknehmbar; **Fragen löschen** (Test- oder Dublettenfragen) mit Audit-Eintrag
+- Im Mandat sehen Interessenten ihre eigenen Fragen **plus die freigegebenen häufigen Fragen** — als „Häufige Frage" gekennzeichnet
+- **Nutzerliste**: Klick auf den Namen öffnet die Kontakt-360°-Ansicht; existiert noch kein CRM-Kontakt, wird er aus dem Nutzerkonto angelegt und verknüpft (`POST /crm/contacts/from-user/:userId`)
+- **Direkt ansprechen**: „✉ Mail" öffnet das Mailprogramm, „💬 Chat" springt in den Plattform-Chat mit diesem Nutzer
+
 ## v0.257 — 19.07.2026 · Dashboard-Korrekturen, Funnel-Archiv, mehr Englisch
 - **Q&A**: Die Kachel „Offene Q&A-Fragen" führte ins Projekte-Tab. Jetzt gibt es einen **eigenen Q&A-Bereich** (`GET /admin/questions`) — offene Fragen mit Mandat, Fragesteller und Antwortfeld; die Antwort geht wie gehabt per E-Mail raus
 - **Offene Wiedervorlagen**: Kachel war nicht anklickbar und zählte die verwaiste `tasks`-Tabelle aus Sprint 4. Jetzt zählt sie die echten **CRM-Wiedervorlagen** (`crm_tasks`), zeigt Überfällige rot und führt in den Tab
