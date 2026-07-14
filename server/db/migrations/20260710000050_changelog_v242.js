@@ -1,7 +1,7 @@
-/** Changelog-Eintrag v0.242 (Sprint 16 — Admin-Dashboard 2.0 / Analytics). */
+/** Changelog-Eintrag v0.242 (Sprint 16: Admin-Dashboard 2.0 / Analytics). */
 const ENTRY = {
   version: 'v0.242', released_on: '2026-07-10',
-  title: 'Admin-Dashboard 2.0 — Analytics, Funnel & Kennzahlen',
+  title: 'Admin-Dashboard 2.0: Analytics, Funnel & Kennzahlen',
   items: [
     'Statische Schnellzugriff-Blöcke durch datengetragene Kacheln mit Live-Kennzahlen ersetzt',
     'Deal-Funnel (Interesse → NDA → signiert → Datenraum → LOI → Closing) mit Conversion-Raten',

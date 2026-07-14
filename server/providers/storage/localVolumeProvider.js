@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// LocalVolumeProvider — speichert Safe-Objekte im Dateisystem (Railway-Volume
+// LocalVolumeProvider: speichert Safe-Objekte im Dateisystem (Railway-Volume
 // bevorzugt, sonst lokal). Default-Provider; entspricht dem heutigen Verhalten.
 // ─────────────────────────────────────────────────────────────────────────────
 const fs = require('fs');

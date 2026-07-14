@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 5 — Austauschbares PaymentProvider-Interface (hinter Feature-Flag)
+// Sprint 5: Austauschbares PaymentProvider-Interface (hinter Feature-Flag)
 //
 // interface PaymentProvider {
 //   /** Tenant-Abo anlegen/verlängern. @returns {Promise<{providerRef, status}>} */
@@ -25,7 +25,7 @@
 //    (Stripe: subscriptions.create / invoiceItems.create / invoices.retrieve).
 // 2. Unten in PROVIDERS registrieren.
 // 3. ENV: PAYMENT_PROVIDER=<anbieter>, <ANBIETER>_API_KEY=…, BILLING_ENABLED=1.
-// Kein weiterer Codeeingriff — der Billing-Flow spricht nur das Interface.
+// Kein weiterer Codeeingriff: der Billing-Flow spricht nur das Interface.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const StubPaymentProvider = require('./StubPaymentProvider');
@@ -38,7 +38,7 @@ const PROVIDERS = {
 function getPaymentProvider() {
   const key = (process.env.PAYMENT_PROVIDER || 'stub').toLowerCase();
   const Provider = PROVIDERS[key];
-  if (!Provider) throw new Error(`Unbekannter PAYMENT_PROVIDER "${key}" — verfügbar: ${Object.keys(PROVIDERS).join(', ')}`);
+  if (!Provider) throw new Error(`Unbekannter PAYMENT_PROVIDER "${key}", verfügbar: ${Object.keys(PROVIDERS).join(', ')}`);
   return new Provider();
 }
 

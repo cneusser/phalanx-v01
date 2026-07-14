@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 15 — Connect & Interaktion Käufer ↔ Berater.
+// Sprint 15: Connect & Interaktion Käufer ↔ Berater.
 // Verwandelt Interesse/NDA in eine automatische Verbindung + mandatsbezogenen
 // Chat-Thread und schreibt Prozess-Ereignisse als Systemnachrichten in die
 // Deal-Timeline. Läuft auf der Default-Tenant-Verbindung (wie ndas.js/admin.js).
@@ -69,7 +69,7 @@ async function introduceBuyer({ project, buyer, reason }) {
       const who = `${buyer.first_name || ''} ${buyer.last_name || ''}`.trim() + (buyer.company ? ` (${buyer.company})` : '');
       await postSystemMessage({
         tenantId, senderId: advisorId, recipientId: buyer.id, projectId: project.id,
-        body: `👋 Willkommen! Sie sind jetzt direkt mit Ihrem Berater zum Mandat „${project.codename}" verbunden. Stellen Sie hier jederzeit Ihre Fragen — wir melden uns zeitnah.`,
+        body: `👋 Willkommen! Sie sind jetzt direkt mit Ihrem Berater zum Mandat „${project.codename}" verbunden. Stellen Sie hier jederzeit Ihre Fragen, wir melden uns zeitnah.`,
       });
       await postSystemMessage({
         tenantId, senderId: buyer.id, recipientId: advisorId, projectId: project.id,
@@ -78,8 +78,8 @@ async function introduceBuyer({ project, buyer, reason }) {
       const { sendProcessUpdateEmail } = require('./email');
       sendProcessUpdateEmail({
         to: buyer.email, firstName: buyer.first_name,
-        title: `Sie sind mit Ihrem Berater verbunden — ${project.codename}`,
-        message: `Zu Ihrem Interesse an <strong>${project.codename}</strong> haben wir einen direkten Draht zu Ihrem Berater eingerichtet. Stellen Sie Ihre Fragen ab sofort bequem im Nachrichten-Bereich der Plattform — ohne Umweg über E-Mail.`,
+        title: `Sie sind mit Ihrem Berater verbunden, ${project.codename}`,
+        message: `Zu Ihrem Interesse an <strong>${project.codename}</strong> haben wir einen direkten Draht zu Ihrem Berater eingerichtet. Stellen Sie Ihre Fragen ab sofort bequem im Nachrichten-Bereich der Plattform, ohne Umweg über E-Mail.`,
         ctaLabel: 'Zum Chat', ctaPath: '/nachrichten',
       }).catch(() => {});
     }

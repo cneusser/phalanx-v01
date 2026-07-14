@@ -1,5 +1,5 @@
 /**
- * Sprint 6 — Bewertungs-Quick-Check (Lead-Magnet).
+ * Sprint 6: Bewertungs-Quick-Check (Lead-Magnet).
  *
  * - valuation_multiples: indikative Branchen-Multiples je NACE-Abschnitt
  *   (EBIT-Multiple min/avg/max + Umsatz-Multiple min/max). Von Phalanx pflegbar.

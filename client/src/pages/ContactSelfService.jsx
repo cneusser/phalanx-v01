@@ -117,7 +117,7 @@ export default function ContactSelfService() {
           <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: C.navy, margin: 0 }}>Ihre Angaben bei uns</h1>
         </div>
         <p style={{ fontSize: '0.88rem', color: C.text, lineHeight: 1.7 }}>
-          Das ist alles, was die Phalanx GmbH zu Ihnen gespeichert hat. Bitte prüfen und korrigieren Sie es —
+          Das ist alles, was die Phalanx GmbH zu Ihnen gespeichert hat. Bitte prüfen und korrigieren Sie es, 
           so sprechen wir Sie nur mit Transaktionen an, die wirklich zu Ihnen passen.
         </p>
         {data.companies?.length > 0 && (
@@ -145,7 +145,7 @@ export default function ContactSelfService() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
             <div><label style={LABEL}>Anrede</label>
               <select value={f.salutation || ''} onChange={set('salutation')} style={INPUT}>
-                <option value="">—</option><option>Herr</option><option>Frau</option><option>Divers</option>
+                <option value="">k. A.</option><option>Herr</option><option>Frau</option><option>Divers</option>
               </select>
             </div>
             <div><label style={LABEL}>Titel</label><input value={f.title || ''} onChange={set('title')} style={INPUT} /></div>
@@ -199,11 +199,11 @@ export default function ContactSelfService() {
           </button>
         </form>
 
-        {/* DSGVO — Abmeldung */}
+        {/* DSGVO: Abmeldung */}
         <div style={{ borderTop: `1px solid ${C.border}`, marginTop: '1.75rem', paddingTop: '1rem' }}>
           <div style={{ fontSize: '0.75rem', color: C.muted, lineHeight: 1.6 }}>
             Sie möchten nicht mehr von uns hören? Sie können die Kontaktaufnahme jederzeit einschränken oder
-            vollständig widersprechen — ohne Angabe von Gründen.
+            vollständig widersprechen, ohne Angabe von Gründen.
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.7rem', flexWrap: 'wrap' }}>
             <button onClick={() => unsubscribe(false)} disabled={busy} style={{ background: '#fff', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 1rem', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>

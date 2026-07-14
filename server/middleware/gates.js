@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 2 — Serverseitige Zugriffs-Gates auf Basis der Interest-Stage.
+// Sprint 2: Serverseitige Zugriffs-Gates auf Basis der Interest-Stage.
 // Jeder Zugriff (erlaubt UND verweigert) landet im append-only activity_log.
 // Gates sind NICHT über Direkt-URLs oder API umgehbar: Autorisierung passiert
 // ausschließlich hier auf dem Server.
@@ -48,7 +48,7 @@ async function hasPermission(user, projectId, need) {
   return row.level === 'download';                  // download nur bei explizitem Recht
 }
 
-// Interest-Stage setzen (Upsert) — zentrale Stelle für alle Übergänge
+// Interest-Stage setzen (Upsert): zentrale Stelle für alle Übergänge
 async function setStage(userId, projectId, stage, actorId, ip) {
   await db.run(
     `INSERT INTO interests (project_id, buyer_id, stage)
@@ -62,7 +62,7 @@ async function setStage(userId, projectId, stage, actorId, ip) {
     await grantDefaultPermissions(userId, projectId);
   }
   // Sprint 18: Bei Interesse automatisch dem Mandat folgen (Watchlist, source='auto').
-  // Zentrale Stelle für ALLE Interesse-Übergänge — kein Doppelaufruf nötig.
+  // Zentrale Stelle für ALLE Interesse-Übergänge, kein Doppelaufruf nötig.
   if (stage !== 'rejected') {
     require('../utils/notify').autoFollow(userId, projectId).catch(() => {});
   }
@@ -88,7 +88,7 @@ function requireGate(resource, paramName = 'projectId') {
         db.activityLog(req.user.id, `ACCESS_${resource.toUpperCase()}_DENIED`, resource, projectId, req.ip);
         return res.status(403).json({
           success: false,
-          error: 'Zugriff nicht freigeschaltet — erforderliches Gate noch nicht erreicht',
+          error: 'Zugriff nicht freigeschaltet, erforderliches Gate noch nicht erreicht',
           stage: stage || null,
           required: resource,
         });

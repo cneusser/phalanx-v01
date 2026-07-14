@@ -83,14 +83,14 @@ export default function ExposeEditor() {
   async function publish() {
     if (!allChecked) { setMsg('Bitte alle Punkte der Anonymisierungs-Checkliste bestätigen.'); return; }
     setMsg('');
-    try { await api.put(`/exposes/${pid}`, { anonymized_ack: true }); await api.post(`/exposes/${pid}/publish`, { anonymized_ack: true }); setStatus('published'); setAck(true); setMsg('Exposé veröffentlicht — jetzt für berechtigte Interessenten (nach NDA) sichtbar.'); }
+    try { await api.put(`/exposes/${pid}`, { anonymized_ack: true }); await api.post(`/exposes/${pid}/publish`, { anonymized_ack: true }); setStatus('published'); setAck(true); setMsg('Exposé veröffentlicht, jetzt für berechtigte Interessenten (nach NDA) sichtbar.'); }
     catch (e) { setMsg('Fehler: ' + e.message); }
   }
   async function unpublish() { try { await api.post(`/exposes/${pid}/unpublish`, {}); setStatus('draft'); setMsg('Exposé zurückgezogen (Entwurf).'); } catch (e) { setMsg('Fehler: ' + e.message); } }
   async function deriveTeaser() {
     if (!window.confirm('Aus dem Exposé die öffentliche Teaser-Karte (Branche, Region, Umsatzband, Kurzbeschreibung, Highlights) aktualisieren? Nur anonymisierte Angaben verwenden.')) return;
     setMsg('');
-    try { const d = await api.post(`/exposes/${pid}/derive-teaser`, {}); setMsg(d.message + ` (Branche: ${d.fields.industry || '—'}, ${d.fields.highlights} Highlights).`); }
+    try { const d = await api.post(`/exposes/${pid}/derive-teaser`, {}); setMsg(d.message + ` (Branche: ${d.fields.industry || 'k. A.'}, ${d.fields.highlights} Highlights).`); }
     catch (e) { setMsg('Fehler: ' + e.message); }
   }
   async function downloadPdf() {
@@ -98,7 +98,7 @@ export default function ExposeEditor() {
     catch (e) { setMsg('PDF-Fehler: ' + e.message); }
   }
 
-  // Fertiges Exposé-PDF in den Safe hochladen — wird dann statt der Generierung ausgeliefert
+  // Fertiges Exposé-PDF in den Safe hochladen: wird dann statt der Generierung ausgeliefert
   async function uploadExposePdf(file) {
     if (!file) return;
     setPdfBusy(true); setMsg('');
@@ -107,14 +107,14 @@ export default function ExposeEditor() {
       fd.append('file', file);
       const d = await api.upload(`/exposes/${pid}/pdf-upload`, fd);
       setPdfItemId(d.pdf_item_id);
-      setMsg(`Exposé-PDF „${d.name}" hochgeladen — es liegt im Safe und wird ab sofort als Exposé-PDF ausgeliefert.`);
+      setMsg(`Exposé-PDF „${d.name}" hochgeladen: es liegt im Safe und wird ab sofort als Exposé-PDF ausgeliefert.`);
     } catch (e) { setMsg('Upload-Fehler: ' + e.message); }
     finally { setPdfBusy(false); }
   }
   async function removeExposePdf() {
     if (!window.confirm('Hochgeladenes Exposé-PDF entfernen? Das PDF wird danach wieder automatisch aus Eckdaten und Sektionen generiert. Die Datei bleibt im Safe erhalten.')) return;
     setPdfBusy(true);
-    try { await api.post(`/exposes/${pid}/pdf-remove`, {}); setPdfItemId(null); setMsg('Hochgeladenes PDF entfernt — das Exposé-PDF wird wieder generiert.'); }
+    try { await api.post(`/exposes/${pid}/pdf-remove`, {}); setPdfItemId(null); setMsg('Hochgeladenes PDF entfernt, das Exposé-PDF wird wieder generiert.'); }
     catch (e) { setMsg('Fehler: ' + e.message); }
     finally { setPdfBusy(false); }
   }
@@ -157,13 +157,13 @@ export default function ExposeEditor() {
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '1.5rem' }}>
         {msg && <div style={{ background: msg.includes('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: msg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{msg}</div>}
 
-        {corridor && <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.7rem 1rem', marginBottom: '1rem', fontSize: '0.82rem', color: C.accent }}>Aus der geprüften Bewertung übernommen: Werte-Korridor {eur(corridor.conservative)} – {eur(corridor.optimistic)} (Basis {eur(corridor.base)}) — erscheint im Exposé als „Indikative Kaufpreisvorstellung".</div>}
+        {corridor && <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.7rem 1rem', marginBottom: '1rem', fontSize: '0.82rem', color: C.accent }}>Aus der geprüften Bewertung übernommen: Werte-Korridor {eur(corridor.conservative)} – {eur(corridor.optimistic)} (Basis {eur(corridor.base)}), erscheint im Exposé als „Indikative Kaufpreisvorstellung".</div>}
 
         {/* Keyfacts */}
         <Card title="Eckdaten (DUB-Raster)">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             {KEYFACTS.map(([k, l]) => (
-              <div key={k}><label style={LABEL}>{l}</label><input value={keyfacts[k] || ''} onChange={e => setKf(k, e.target.value)} style={INPUT} placeholder="—" /></div>
+              <div key={k}><label style={LABEL}>{l}</label><input value={keyfacts[k] || ''} onChange={e => setKf(k, e.target.value)} style={INPUT} placeholder="k. A." /></div>
             ))}
           </div>
         </Card>
@@ -188,7 +188,7 @@ export default function ExposeEditor() {
             <div style={{ fontSize: '0.82rem', color: C.muted }}>Keine Bilder im Safe. Laden Sie Bilder im <Link to={`/mandat/${pid}/safe`} style={{ color: C.accent }}>Container-Safe</Link> hoch, dann können Sie hier Titelbild und Galerie wählen.</div>
           ) : (
             <>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>TITELBILD & GALERIE — Klick wählt Galerie, Stern-Klick setzt Titelbild</div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>TITELBILD & GALERIE: Klick wählt Galerie, Stern-Klick setzt Titelbild</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
                 {safeImages.map(img => (
                   <div key={img.id} style={{ textAlign: 'center' }}>

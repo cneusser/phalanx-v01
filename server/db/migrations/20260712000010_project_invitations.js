@@ -1,11 +1,11 @@
 /**
- * Sprint 19 — Mandats-Einladungen mit Status-Funnel.
+ * Sprint 19: Mandats-Einladungen mit Status-Funnel.
  * Pflegende eines Mandats können per E-Mail einladen als
  *   'viewer' (Betrachter, nur lesen) oder 'editor' (Pflegender, darf bearbeiten).
  *
  * Funnel: invited → opened → accepted   (bzw. declined | revoked | expired)
  *
- * Der Token beweist den Besitz der E-Mail-Adresse — wer über eine Einladung ein
+ * Der Token beweist den Besitz der E-Mail-Adresse, wer über eine Einladung ein
  * Konto anlegt, wird daher vorab freigeschaltet und verifiziert (sonst liefe die
  * Einladung in die Admin-Freigabeschlange und wäre wertlos).
  */

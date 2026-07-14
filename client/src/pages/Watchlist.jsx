@@ -35,7 +35,7 @@ export default function Watchlist() {
       <div style={{ background: C.navy, color: '#fff', padding: '2rem 1.5rem' }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.55rem' }}><Star size={20} /> Merkliste</h1>
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: 4 }}>Ihre gemerkten Mandate — mit eigenen Tags und Notizen.</p>
+          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: 4 }}>Ihre gemerkten Mandate: mit eigenen Tags und Notizen.</p>
         </div>
       </div>
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '1.75rem 1.5rem 4rem' }}>
@@ -57,7 +57,7 @@ export default function Watchlist() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ cursor: 'pointer' }} onClick={() => navigate(`/projekte/${w.project_id}`)}>
                   <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.98rem' }}>{w.codename} <span style={{ fontSize: '0.66rem', fontWeight: 700, background: w.mandate_type === 'fundraising' ? '#ede9fe' : C.bg, color: w.mandate_type === 'fundraising' ? '#5b21b6' : C.navy, padding: '0.1rem 0.45rem', borderRadius: 6 }}>{w.mandate_type === 'fundraising' ? 'Startup' : 'M&A'}</span></div>
-                  <div style={{ fontSize: '0.8rem', color: C.muted, marginTop: 2 }}>{[w.industry, w.region, w.revenue_band && w.revenue_band !== '—' ? 'Umsatz ' + w.revenue_band : null, w.deal_type].filter(Boolean).join(' · ')}</div>
+                  <div style={{ fontSize: '0.8rem', color: C.muted, marginTop: 2 }}>{[w.industry, w.region, w.revenue_band && w.revenue_band !== 'k. A.' ? 'Umsatz ' + w.revenue_band : null, w.deal_type].filter(Boolean).join(' · ')}</div>
                 </div>
                 <button onClick={() => remove(w.project_id)} style={{ background: '#fff', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 7, padding: '0.4rem 0.6rem', cursor: 'pointer' }}><Trash2 size={14} /></button>
               </div>

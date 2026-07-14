@@ -31,7 +31,7 @@ const statusMap = {
   rejected:  { label: 'Zugang abgelehnt',                    icon: AlertCircle,  color: '#ef4444', bg: '#fee2e2' },
 };
 
-const fmt = (v) => v != null ? `${v.toLocaleString('de-DE')} Mio. €` : '—';
+const fmt = (v) => v != null ? `${v.toLocaleString('de-DE')} Mio. €` : 'k. A.';
 
 function KpiCard({ label, value, icon: Icon }) {
   return (
@@ -40,12 +40,12 @@ function KpiCard({ label, value, icon: Icon }) {
         {Icon && <Icon size={12} color={C.muted} />}
         <span style={{ fontSize: '0.64rem', color: C.muted, letterSpacing: '0.08em', fontWeight: 600 }}>{label}</span>
       </div>
-      <div style={{ fontWeight: 700, color: C.text, fontSize: '1rem', lineHeight: 1.2 }}>{value || '—'}</div>
+      <div style={{ fontWeight: 700, color: C.text, fontSize: '1rem', lineHeight: 1.2 }}>{value || 'k. A.'}</div>
     </div>
   );
 }
 
-// Alle Tabs — immer gleich für beide Mandate-Typen
+// Alle Tabs: immer gleich für beide Mandate-Typen
 const ALL_TABS = [
   ['overview',  'Überblick'],
   ['company',   'Unternehmen'],
@@ -143,7 +143,7 @@ export default function ProjectDetail() {
     try {
       const teaserData = await api.get(`/projects/${id}/teaser`);
       setTeaser(teaserData);
-      // Dokumente laden — der Server filtert bereits nach Gate-Status:
+      // Dokumente laden: der Server filtert bereits nach Gate-Status:
       // Teaser immer, IM ab NDA-Signatur, Datenraum ab Admin-Freigabe (Sprint 3)
       try {
         const docs = await api.get(`/documents/${id}`);
@@ -205,7 +205,7 @@ export default function ProjectDetail() {
     } catch (e) { setError(e.message); }
   }
 
-  // Sprint 15: „Interesse → Chat" — Berater kontaktieren und Chat-Thread öffnen
+  // Sprint 15: „Interesse → Chat": Berater kontaktieren und Chat-Thread öffnen
   async function contactAdvisor() {
     if (!user) return navigate('/registrieren');
     setContacting(true);
@@ -256,7 +256,7 @@ export default function ProjectDetail() {
   }
 
   const renderTabContent = () => {
-    // Überblick — öffentlich
+    // Überblick: öffentlich
     if (activeTab === 'overview') {
       return (
         <div>
@@ -279,14 +279,14 @@ export default function ProjectDetail() {
             </div>
           )}
 
-          {/* Kurzprofil als PDF (eingeloggte Nutzer) — mit Audit-Trail */}
+          {/* Kurzprofil als PDF (eingeloggte Nutzer), mit Audit-Trail */}
           {user && (
             <button onClick={downloadTeaserPdf} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: C.bg, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.5rem 0.9rem', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', marginBottom: '1.25rem' }}>
               ⬇ Kurzprofil als PDF
             </button>
           )}
 
-          {/* Exposé — nach NDA (IM-Gate) bzw. für Pfleger */}
+          {/* Exposé: nach NDA (IM-Gate) bzw. für Pfleger */}
           {(imUnlocked || teaser.can_manage) && (
             <Link to={`/projekte/${teaser.id}/expose`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', background: C.navy, color: '#fff', borderRadius: 8, padding: '0.9rem 1.1rem', textDecoration: 'none', marginBottom: '1.25rem' }}>
               <span style={{ display: 'flex', flexDirection: 'column' }}>
@@ -353,7 +353,7 @@ export default function ProjectDetail() {
             </>
           )}
 
-          {/* Sprint 18: Ähnliche Mandate — Cross-Discovery, auch ohne NDA sichtbar */}
+          {/* Sprint 18: Ähnliche Mandate: Cross-Discovery, auch ohne NDA sichtbar */}
           {similar.length > 0 && (
             <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: `1px solid ${C.border}` }}>
               <h4 style={{ fontWeight: 700, color: C.text, marginBottom: '0.9rem', fontSize: '0.88rem' }}>Ähnliche Mandate</h4>
@@ -366,7 +366,7 @@ export default function ProjectDetail() {
                     <div style={{ fontSize: '0.72rem', color: C.muted, marginBottom: 4 }}>
                       {[s.industry, s.region].filter(Boolean).join(' · ')}
                     </div>
-                    {s.revenue_band && s.revenue_band !== '—' && (
+                    {s.revenue_band && s.revenue_band !== 'k. A.' && (
                       <div style={{ fontSize: '0.72rem', color: C.text, fontWeight: 600 }}>Umsatz {s.revenue_band}</div>
                     )}
                   </Link>
@@ -378,7 +378,7 @@ export default function ProjectDetail() {
       );
     }
 
-    // Unternehmen — NDA-geschützt
+    // Unternehmen: NDA-geschützt
     if (activeTab === 'company') {
       if (!canViewTab('company')) return <LockedTabPlaceholder onRequestNDA={requestNDA} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
       return (
@@ -386,15 +386,15 @@ export default function ProjectDetail() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
             {isStartup ? (
               <>
-                <KpiCard label="GRÜNDUNGSJAHR" value={fullData?.details?.founding_year || '—'} icon={Calendar} />
-                <KpiCard label="MITARBEITER" value={fullData?.details?.employees ? `${fullData.details.employees} Personen` : '—'} icon={Users} />
+                <KpiCard label="GRÜNDUNGSJAHR" value={fullData?.details?.founding_year || 'k. A.'} icon={Calendar} />
+                <KpiCard label="MITARBEITER" value={fullData?.details?.employees ? `${fullData.details.employees} Personen` : 'k. A.'} icon={Users} />
               </>
             ) : (
               <>
-                <KpiCard label="MITARBEITER" value={fullData?.details?.employees || '—'} icon={Users} />
-                <KpiCard label="GRÜNDUNGSJAHR" value={fullData?.details?.founding_year || '—'} icon={Calendar} />
-                <KpiCard label="STANDORT" value={teaser.location_city || teaser.region || '—'} icon={MapPin} />
-                <KpiCard label="BRANCHE" value={teaser.industry || '—'} icon={Building2} />
+                <KpiCard label="MITARBEITER" value={fullData?.details?.employees || 'k. A.'} icon={Users} />
+                <KpiCard label="GRÜNDUNGSJAHR" value={fullData?.details?.founding_year || 'k. A.'} icon={Calendar} />
+                <KpiCard label="STANDORT" value={teaser.location_city || teaser.region || 'k. A.'} icon={MapPin} />
+                <KpiCard label="BRANCHE" value={teaser.industry || 'k. A.'} icon={Building2} />
               </>
             )}
           </div>
@@ -444,7 +444,7 @@ export default function ProjectDetail() {
       );
     }
 
-    // Markt & Potenzial — NDA-geschützt
+    // Markt & Potenzial: NDA-geschützt
     if (activeTab === 'market') {
       if (!canViewTab('market')) return <LockedTabPlaceholder onRequestNDA={requestNDA} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
       return (
@@ -453,8 +453,8 @@ export default function ProjectDetail() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
               {[
                 { key: 'TAM', label: 'Total Addressable Market', value: teaser.tam_band, accent: false },
-                { key: 'SAM', label: 'Serviceable Addressable Market', value: '—', accent: false },
-                { key: 'SOM', label: 'Serviceable Obtainable Market', value: '—', accent: true },
+                { key: 'SAM', label: 'Serviceable Addressable Market', value: 'k. A.', accent: false },
+                { key: 'SOM', label: 'Serviceable Obtainable Market', value: 'k. A.', accent: true },
               ].map(({ key, label, value, accent }) => (
                 <div key={key} style={{ background: accent ? '#f0fdf4' : C.bg, borderRadius: 6, padding: '1rem', textAlign: 'center', border: `1px solid ${accent ? '#bbf7d0' : C.border}` }}>
                   <div style={{ fontSize: '0.62rem', color: C.muted, letterSpacing: '0.09em', fontWeight: 700, marginBottom: '0.35rem' }}>{key}</div>
@@ -471,7 +471,7 @@ export default function ProjectDetail() {
       );
     }
 
-    // Finanzen — NDA-geschützt
+    // Finanzen: NDA-geschützt
     if (activeTab === 'financials') {
       if (!canViewTab('financials')) return <LockedTabPlaceholder onRequestNDA={requestNDA} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
 
@@ -520,8 +520,8 @@ export default function ProjectDetail() {
             {[
               { label: 'Umsatz (IST)',        value: fmt(fullData?.details?.revenue_actual) },
               { label: 'EBITDA (IST)',        value: fmt(fullData?.details?.ebitda_actual) },
-              { label: 'Umsatz-Trend',        value: fullData?.details?.revenue_trend || '—' },
-              { label: 'Kaufpreisindikation', value: fullData?.details?.asking_price_band || '—' },
+              { label: 'Umsatz-Trend',        value: fullData?.details?.revenue_trend || 'k. A.' },
+              { label: 'Kaufpreisindikation', value: fullData?.details?.asking_price_band || 'k. A.' },
             ].map(({ label, value }) => (
               <div key={label} style={{ background: C.bg, borderRadius: 6, padding: '1rem', border: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: '0.7rem', color: C.muted, letterSpacing: '0.07em', marginBottom: '0.3rem' }}>{label.toUpperCase()}</div>
@@ -536,7 +536,7 @@ export default function ProjectDetail() {
       );
     }
 
-    // Dokumente — zwei Sektionen: öffentlich + NDA-geschützt
+    // Dokumente: zwei Sektionen: öffentlich + NDA-geschützt
     if (activeTab === 'documents') {
       // Ab NDA-Signatur liefert der Server IM-Dokumente (gatedDocs);
       // nach Admin-Freigabe zusätzlich Datenraum-Dokumente
@@ -545,7 +545,7 @@ export default function ProjectDetail() {
         : gatedDocs;
 
       // Sprint 4: Download über signierten, ablaufenden Link (15 Min.)
-      // — PDFs aus IM/Datenraum kommen serverseitig mit dynamischem Wasserzeichen
+      // · PDFs aus IM/Datenraum kommen serverseitig mit dynamischem Wasserzeichen
       const downloadDoc = async (doc) => {
         try {
           const link = await api.post(`/documents/${id}/${doc.id}/link`, {});
@@ -553,8 +553,8 @@ export default function ProjectDetail() {
           a.href = link.url; a.download = doc.filename; a.click();
         } catch (e) {
           alert(e.message?.includes('nicht gefunden')
-            ? `${e.message} — Die Datei wurde noch nicht hochgeladen.`
-            : (e.message || 'Download fehlgeschlagen — bitte später erneut versuchen.'));
+            ? `${e.message}: Die Datei wurde noch nicht hochgeladen.`
+            : (e.message || 'Download fehlgeschlagen: bitte später erneut versuchen.'));
         }
       };
 
@@ -653,7 +653,7 @@ export default function ProjectDetail() {
       );
     }
 
-    // Sprint 4: Q&A — nach Datenraum-Freigabe
+    // Sprint 4: Q&A: nach Datenraum-Freigabe
     if (activeTab === 'qa') {
       if (!approved) return <LockedTabPlaceholder onRequestNDA={requestNDA} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
 
@@ -664,7 +664,7 @@ export default function ProjectDetail() {
           await api.post(`/projects/${id}/questions`, { question: newQuestion });
           setNewQuestion('');
           setQuestions(await api.get(`/projects/${id}/questions`));
-          setQaMsg('Frage übermittelt — Sie werden per E-Mail informiert, sobald eine Antwort vorliegt.');
+          setQaMsg('Frage übermittelt: Sie werden per E-Mail informiert, sobald eine Antwort vorliegt.');
         } catch (e) { setQaMsg('Fehler: ' + e.message); }
       };
 
@@ -683,7 +683,7 @@ export default function ProjectDetail() {
       return (
         <div>
           <p style={{ color: '#555', fontSize: '0.875rem', lineHeight: 1.7, marginBottom: '1rem' }}>
-            Stellen Sie hier Ihre Fragen zum Mandat — der Transaktionsberater antwortet direkt in diesem Bereich.
+            Stellen Sie hier Ihre Fragen zum Mandat: der Transaktionsberater antwortet direkt in diesem Bereich.
             Häufige Fragen beantworten wir für alle Interessenten sichtbar; der Fragesteller bleibt dabei anonym.
           </p>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
@@ -740,7 +740,7 @@ export default function ProjectDetail() {
       );
     }
 
-    // Kontakt — immer sichtbar
+    // Kontakt: immer sichtbar
     if (activeTab === 'contact') {
       return (
         <div>
@@ -788,11 +788,11 @@ export default function ProjectDetail() {
           <div>
             {/* Header-Karte */}
             <div style={{ background: C.card, borderRadius: 6, padding: '2rem', border: `1px solid ${C.border}`, marginBottom: '1.5rem' }}>
-              {/* Sprint 18: Folgen (Stern) — bei Interesse ohnehin automatisch */}
+              {/* Sprint 18: Folgen (Stern): bei Interesse ohnehin automatisch */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
                 <button
                   onClick={toggleFollow}
-                  title={watched ? 'Diesem Mandat nicht mehr folgen' : 'Diesem Mandat folgen — Sie werden über Änderungen informiert'}
+                  title={watched ? 'Diesem Mandat nicht mehr folgen' : 'Diesem Mandat folgen, Sie werden über Änderungen informiert'}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
                     background: watched ? '#fef3c7' : C.bg, color: watched ? '#92400e' : C.muted,
@@ -802,7 +802,7 @@ export default function ProjectDetail() {
                   {watched ? '★ Sie folgen' : '☆ Folgen'}
                 </button>
               </div>
-              {/* Badges: Typ + Branche + Region + Status — klickbar als Live-Filter im Marktplatz */}
+              {/* Badges: Typ + Branche + Region + Status, klickbar als Live-Filter im Marktplatz */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
                 <span
                   onClick={() => navigate(`/projekte?mandate_type=${encodeURIComponent(teaser.mandate_type || 'ma')}`)}
@@ -877,7 +877,7 @@ export default function ProjectDetail() {
                         <Icon size={10} color={C.muted} />
                         <span style={{ fontSize: '0.63rem', color: C.muted, letterSpacing: '0.08em', fontWeight: 600 }}>{label}</span>
                       </div>
-                      <div style={{ fontWeight: 700, color: C.text, fontSize: '1rem' }}>{value || '—'}</div>
+                      <div style={{ fontWeight: 700, color: C.text, fontSize: '1rem' }}>{value || 'k. A.'}</div>
                     </div>
                   ))}
                 </div>
@@ -886,7 +886,7 @@ export default function ProjectDetail() {
                   {[['Umsatz', teaser.revenue_band], ['EBITDA', teaser.ebitda_band]].map(([label, value]) => (
                     <div key={label} style={{ background: C.bg, borderRadius: 6, padding: '1rem', border: `1px solid ${C.border}` }}>
                       <div style={{ fontSize: '0.7rem', color: C.muted, letterSpacing: '0.07em', marginBottom: '0.3rem' }}>{label.toUpperCase()}</div>
-                      <div style={{ fontWeight: 700, color: C.text, fontSize: '1.1rem' }}>{value || '—'}</div>
+                      <div style={{ fontWeight: 700, color: C.text, fontSize: '1.1rem' }}>{value || 'k. A.'}</div>
                     </div>
                   ))}
                 </div>
@@ -915,7 +915,7 @@ export default function ProjectDetail() {
 
             {/* Detail-Tabs */}
             <div style={{ background: C.card, borderRadius: 6, border: `1px solid ${C.border}` }}>
-              {/* Tab-Leiste — Scrollbalken ausgeblendet (legte sich auf macOS über die Tabs) */}
+              {/* Tab-Leiste: Scrollbalken ausgeblendet (legte sich auf macOS über die Tabs) */}
               <style>{`.cm-tabbar { scrollbar-width: none; -ms-overflow-style: none; } .cm-tabbar::-webkit-scrollbar { display: none; }`}</style>
               <div className="cm-tabbar" style={{
                 display: 'flex', gap: 0, borderBottom: `1px solid ${C.border}`,

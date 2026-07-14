@@ -3,7 +3,7 @@ const ENTRY = {
   version: 'v0.251', released_on: '2026-07-13',
   title: 'Birdview, Unternehmen zusammenführen & Kontaktpflege',
   items: [
-    'Birdview: Administratoren können die Plattform aus Sicht eines Nutzers ansehen — streng schreibgeschützt und revisionssicher protokolliert',
+    'Birdview: Administratoren können die Plattform aus Sicht eines Nutzers ansehen, streng schreibgeschützt und revisionssicher protokolliert',
     'Deutlich sichtbares Banner während der Ansicht, Rückkehr jederzeit mit einem Klick',
     'CRM: doppelte Unternehmen zusammenführen (Kontakte, Funnel-Einträge und Angaben wandern mit)',
     'CRM: Kontakte direkt aus der Unternehmensansicht pflegen; Unternehmens-Kontaktdaten auf einen Blick',

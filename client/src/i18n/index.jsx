@@ -4,7 +4,7 @@
 // Deutsch ist die Ausgangssprache und steht als Fallback direkt im Code:
 //   t('nav.marketplace', 'Marktplatz')
 // Für Englisch greift das Wörterbuch unten. Fehlt ein Schlüssel, erscheint der
-// deutsche Text — die Oberfläche bleibt also immer bedienbar, auch während wir
+// deutsche Text: die Oberfläche bleibt also immer bedienbar, auch während wir
 // die Übersetzung Seite für Seite vervollständigen.
 //
 // Die Wahl steht im localStorage (sofort wirksam) und wird beim eingeloggten
@@ -38,7 +38,7 @@ const EN = {
 
   // Marktplatz
   'projects.title': 'Marketplace',
-  'projects.subtitle': 'Current mandates — succession, majority sales, growth financing',
+  'projects.subtitle': 'Current mandates: succession, majority sales, growth financing',
   'projects.search': 'Search mandates…',
   'projects.filter.industry': 'Industry',
   'projects.filter.region': 'Region',
@@ -74,7 +74,7 @@ const EN = {
   // Marktplatz (Detail)
   'projects.hero_kicker': 'PHALANX MARKETPLACE',
   'projects.hero_title': 'Transaction mandates',
-  'projects.hero_sub': 'Anonymised M&A transactions and startup financings — structured, confidential, professionally advised.',
+  'projects.hero_sub': 'Anonymised M&A transactions and startup financings. You learn who is behind them once the NDA is signed.',
   'projects.loading': 'Loading mandates…',
   'projects.all': 'All',
   'projects.fundraising': 'Fundraising',
@@ -144,7 +144,7 @@ export function I18nProvider({ children }) {
     } catch { /* egal */ }
   }, []);
 
-  // t(schlüssel, deutscherText) — deutscher Text ist zugleich der Fallback
+  // t(schlüssel, deutscherText): deutscher Text ist zugleich der Fallback
   const t = useCallback((key, de) => {
     if (lang === 'de') return de;
     return DICT[lang]?.[key] ?? de;

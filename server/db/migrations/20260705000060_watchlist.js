@@ -1,5 +1,5 @@
 /**
- * Sprint 10 — Merkliste (Watchlist) je Käufer: gemerkte Mandate mit optionalen
+ * Sprint 10: Merkliste (Watchlist) je Käufer: gemerkte Mandate mit optionalen
  * Tags und Notiz (leichtes Käufer-CRM). tenant_id + RLS (fail closed).
  */
 exports.up = async function (knex) {

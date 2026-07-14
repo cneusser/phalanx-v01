@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 22 — Prozess-Mailvorlagen: Platzhalter füllen, Text zu HTML rendern,
+// Sprint 22: Prozess-Mailvorlagen: Platzhalter füllen, Text zu HTML rendern,
 // CTA-Ziel auflösen. Reine Funktionen, damit sie testbar bleiben.
 // ─────────────────────────────────────────────────────────────────────────────
 const { salutationFor, signatureFor, factsTable } = require('./campaigns');
@@ -22,7 +22,7 @@ const PLACEHOLDERS = [
   ['{{transaktionsart}}', 'Deal-Typ, z. B. Nachfolge'],
   ['{{berater}}', 'Ihr Name (Absender)'],
   ['{{berater_mail}}', 'Ihre E-Mail-Adresse'],
-  ['{{frist}}', 'Frist / Datum — vor dem Versand eingebbar'],
+  ['{{frist}}', 'Frist / Datum: vor dem Versand eingebbar'],
   ['{{datum}}', 'Heutiges Datum'],
 ];
 
@@ -39,13 +39,13 @@ function buildContext({ contact = {}, project = {}, inviter = {}, frist = '' }) 
     mandat: project.codename || '',
     branche: project.industry || '',
     region: project.region || '',
-    umsatz: project.revenue_band && project.revenue_band !== '—' ? project.revenue_band : 'auf Anfrage',
-    ebitda: project.ebitda_band && project.ebitda_band !== '—' ? project.ebitda_band : 'auf Anfrage',
+    umsatz: project.revenue_band && project.revenue_band !== 'k. A.' ? project.revenue_band : 'auf Anfrage',
+    ebitda: project.ebitda_band && project.ebitda_band !== 'k. A.' ? project.ebitda_band : 'auf Anfrage',
     transaktionsart: project.deal_type || '',
     berater: [inviter.title, inviter.first_name, inviter.last_name].filter(Boolean).join(' ') || 'Christian Neusser',
     berater_mail: inviter.email || 'neusser@phalanx.de',
     berater_tel: '+49 9131-9 20 60 75',
-    frist: frist || '—',
+    frist: frist || 'k. A.',
     datum: d.toLocaleDateString('de-DE'),
   };
 }
@@ -93,7 +93,7 @@ function buildFromTemplate({ template, contact, project, inviter, inviteToken, p
     signatureHtml: signatureFor(inviter),
     legalHtml:
       'Wir schreiben Sie im Rahmen eines laufenden M&amp;A-Prozesses an, an dem Sie als Interessent beteiligt sind ' +
-      '(Art. 6 Abs. 1 lit. f DSGVO). Sie können der weiteren Ansprache jederzeit widersprechen — eine formlose Antwort ' +
+      '(Art. 6 Abs. 1 lit. f DSGVO). Sie können der weiteren Ansprache jederzeit widersprechen, eine formlose Antwort ' +
       'auf diese E-Mail genügt.',
     // für die Vorschau im Admin/Funnel
     previewText: bodyText,

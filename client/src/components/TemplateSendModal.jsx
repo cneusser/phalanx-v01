@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Prozess-Mailvorlage versenden — an einen Kontakt oder an eine Auswahl.
+// Prozess-Mailvorlage versenden: an einen Kontakt oder an eine Auswahl.
 // Vorlage wählen → Vorschau mit echten Daten → Text bei Bedarf einmalig anpassen
 // (ohne die Vorlage zu überschreiben) → versenden.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ export default function TemplateSendModal({ project, contactIds, onClose, onSent
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(13,27,54,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '1rem' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.4rem', width: 'min(760px, 100%)', maxHeight: '92vh', overflowY: 'auto' }}>
         <h3 style={{ margin: '0 0 0.2rem', color: C.navy, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: 7 }}>
-          <FileText size={17} /> Prozess-Mail — {project.codename}
+          <FileText size={17} /> Prozess-Mail: {project.codename}
         </h3>
         <p style={{ margin: '0 0 1rem', fontSize: '0.8rem', color: C.muted }}>
           {contactIds.length} Empfänger · Vorlage wählen, bei Bedarf anpassen, versenden. Änderungen hier gelten nur für diesen Versand.
@@ -102,13 +102,13 @@ export default function TemplateSendModal({ project, contactIds, onClose, onSent
         <textarea value={body} onChange={e => setBody(e.target.value)} rows={9}
           style={{ ...IN, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6, marginBottom: '0.4rem' }} />
         <div style={{ fontSize: '0.7rem', color: C.muted, marginBottom: '0.9rem' }}>
-          Platzhalter: {'{{anrede}} {{mandat}} {{branche}} {{region}} {{umsatz}} {{transaktionsart}} {{unternehmen}} {{frist}} {{berater}}'} —
+          Platzhalter: {'{{anrede}} {{mandat}} {{branche}} {{region}} {{umsatz}} {{transaktionsart}} {{unternehmen}} {{frist}} {{berater}}'}, 
           Anrede, Eckdaten-Tabelle, Unterschrift und Rechtshinweis werden automatisch ergänzt.
         </div>
 
         {preview && (
           <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem 1rem', marginBottom: '0.9rem' }}>
-            <div style={{ ...LBL, marginBottom: 6 }}>Vorschau (erster Empfänger: {preview.to || '—'})</div>
+            <div style={{ ...LBL, marginBottom: 6 }}>Vorschau (erster Empfänger: {preview.to || 'k. A.'})</div>
             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: 6 }}>{preview.subject}</div>
             <div style={{ fontSize: '0.8rem', color: C.text, marginBottom: 5 }}>{preview.salutation}</div>
             <div style={{ fontSize: '0.8rem', color: '#334155', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{preview.body}</div>

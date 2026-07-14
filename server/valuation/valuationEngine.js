@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 6 — Bewertungs-Engine (indikativ, testbar, ohne Seiteneffekte).
+// Sprint 6: Bewertungs-Engine (indikativ, testbar, ohne Seiteneffekte).
 //
 // Zwei Verfahren + Werte-Korridor:
 //   1. Multiplikatorverfahren: bereinigtes Ø-EBIT × Branchen-Multiple.
@@ -66,7 +66,7 @@ function pickSizeBand(avgRevenue, multiple) {
  * @param {object} input
  *   revenues: [z1,z2,z3]  Umsatz der letzten Jahre
  *   ebits:    [e1,e2,e3]  EBIT der letzten Jahre
- *   ownerSalaryAdjustment: kalkulatorisches GF-Gehalt (mindert bereinigtes EBIT, falls bisher nicht enthalten) — als jährlicher Betrag, wird vom Ø-EBIT abgezogen
+ *   ownerSalaryAdjustment: kalkulatorisches GF-Gehalt (mindert bereinigtes EBIT, falls bisher nicht enthalten), als jährlicher Betrag, wird vom Ø-EBIT abgezogen
  *   oneOffs:  Einmaleffekte (werden vom Ø-EBIT abgezogen; positiv = Sondererträge raus)
  *   netDebt:  Nettofinanzverbindlichkeiten (für Equity-Value-Hinweis, optional)
  *   quality:  { owner_dependence, ... } je ∈ {-1,0,1}
@@ -102,7 +102,7 @@ function evaluate(input, multiple) {
   const revValueLow = avgRevenue * clampNum(multiple.revenue_multiple_min);
   const revValueHigh = avgRevenue * clampNum(multiple.revenue_multiple_max);
 
-  // Vereinfachtes Ertragswertverfahren (§199 BewG) — Vergleichswert
+  // Vereinfachtes Ertragswertverfahren (§199 BewG), Vergleichswert
   const simplifiedIncomeValue = adjustedEbit > 0 ? adjustedEbit * KAP_FAKTOR_BEWG : 0;
 
   // Korridor: konservativ / Basis / optimistisch (auf EBIT-Verfahren zentriert,
@@ -149,7 +149,7 @@ function evaluate(input, multiple) {
       simplifiedIncome: {
         factor: KAP_FAKTOR_BEWG,
         value: round(simplifiedIncomeValue),
-        note: 'Steuerlicher Vergleichswert (§199 BewG) — in der Praxis meist zu hoch.',
+        note: 'Steuerlicher Vergleichswert (§199 BewG), in der Praxis meist zu hoch.',
       },
     },
     corridor,           // Enterprise Value (indikativ)

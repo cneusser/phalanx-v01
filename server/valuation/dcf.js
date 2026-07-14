@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 12 — Bewertung 2.0: Discounted-Cash-Flow-Modul.
+// Sprint 12: Bewertung 2.0: Discounted-Cash-Flow-Modul.
 //
 // Reine Funktionen (testbar, ohne DB): WACC nach CAPM mit KMU-Zuschlägen,
 // Free-Cash-Flow-Projektion aus einer schlanken Planung, Terminal Value nach

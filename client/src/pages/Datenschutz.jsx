@@ -69,8 +69,8 @@ export default function Datenschutz() {
 
         <Section title="5. Datenweitergabe">
           <p>
-            Ihre Daten werden nicht an Dritte verkauft. Im Rahmen von M&A-Prozessen werden —
-            nach NDA-Unterzeichnung und expliziter Freigabe — anonymisierte Projektinformationen
+            Ihre Daten werden nicht an Dritte verkauft. Im Rahmen von M&A-Prozessen werden, 
+            nach NDA-Unterzeichnung und expliziter Freigabe, anonymisierte Projektinformationen
             zwischen Mandanten und geprüften Investoren ausgetauscht. Die Identität der Parteien
             wird erst nach gegenseitiger Freigabe durch Phalanx GmbH offengelegt.
           </p>
@@ -106,7 +106,7 @@ export default function Datenschutz() {
             Die CapitalMatch-Plattform verwendet ausschließlich technisch notwendige Einträge im lokalen
             Browserspeicher: das Sitzungs-Token (JWT) zur Anmeldung, die Spracheinstellung und den Hinweis,
             dass Sie die Cookie-Information gesehen haben. Es werden <strong>keine</strong> Tracking-Cookies,
-            Analyse-Werkzeuge oder Marketing-Dienste eingesetzt — daher gibt es auch keinen Einwilligungs-Dialog.
+            Analyse-Werkzeuge oder Marketing-Dienste eingesetzt, daher gibt es auch keinen Einwilligungs-Dialog.
             Einzelheiten in der <Link to="/cookies" style={{ color: C.navy, fontWeight: 700 }}>Cookie-Richtlinie</Link>.
           </p>
         </Section>

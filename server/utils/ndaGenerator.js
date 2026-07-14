@@ -130,7 +130,7 @@ function generateNDA(opts) {
     hline(doc.y);
     doc.moveDown(0.6);
 
-    // ─── STATUS BADGE (signed) — überlappungsfrei positioniert ──────────────
+    // ─── STATUS BADGE (signed): überlappungsfrei positioniert ──────────────
     if (signature) {
       const badgeY = doc.y;
       doc.rect(72, badgeY, PAGE_W, 24).fillAndStroke('#d1fae5', '#6ee7b7');
@@ -231,7 +231,7 @@ function generateNDA(opts) {
 
     // Interessent signature (right)
     if (signature) {
-      // Signed box — grüner Rahmen mit Status + eigenem Unterschriftsfeld
+      // Signed box: grüner Rahmen mit Status + eigenem Unterschriftsfeld
       doc.rect(sig2X - 8, sigStartY - 8, sigColW + 16, 138)
         .fillAndStroke('#f0fdf4', '#86efac');
       doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#065f46')

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Mail-Ausgang — jede versendete Mail mit Empfänger, Betreff, Art und Original.
+// Mail-Ausgang: jede versendete Mail mit Empfänger, Betreff, Art und Original.
 // Klick auf eine Zeile zeigt exakt das HTML, das beim Empfänger ankam.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from 'react';
@@ -25,7 +25,7 @@ const TYPE_COLOR = {
   system: { bg: '#f1f5f9', color: '#475569' },
 };
 
-const fmt = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+const fmt = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'k. A.';
 
 export default function MailOutbox({ show }) {
   const [emails, setEmails] = useState([]);
@@ -91,7 +91,7 @@ export default function MailOutbox({ show }) {
                   </td>
                   <td style={{ padding: '0.6rem', color: C.text }}>{m.to_email}</td>
                   <td style={{ padding: '0.6rem', color: C.navy, fontWeight: 600 }}>{m.subject}</td>
-                  <td style={{ padding: '0.6rem', color: C.muted }}>{m.codename || '—'}</td>
+                  <td style={{ padding: '0.6rem', color: C.muted }}>{m.codename || 'k. A.'}</td>
                   <td style={{ padding: '0.6rem' }}>
                     {m.status === 'sent'
                       ? <span style={{ color: '#059669', fontWeight: 700, fontSize: '0.75rem' }}>versendet</span>

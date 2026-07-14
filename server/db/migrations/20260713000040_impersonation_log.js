@@ -1,5 +1,5 @@
 /**
- * Birdview — Ansicht als anderer Nutzer (Impersonation), streng schreibgeschützt.
+ * Birdview: Ansicht als anderer Nutzer (Impersonation), streng schreibgeschützt.
  *
  * impersonation_log: revisionssicherer Nachweis, WER WANN WESSEN Ansicht geöffnet
  * hat. Zusätzlich landen IMPERSONATE_START/END im audit_logs (Admin → Audit-Trail).

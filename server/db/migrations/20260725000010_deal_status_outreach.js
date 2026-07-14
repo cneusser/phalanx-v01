@@ -1,7 +1,7 @@
 /**
  * Neuer Deal-Status „Ansprache" (outreach) zwischen „Teaser live" und „In Diligence".
  *
- * Der Marktplatz-Teaser steht — jetzt läuft die aktive Käuferansprache über den
+ * Der Marktplatz-Teaser steht: jetzt läuft die aktive Käuferansprache über den
  * CRM-Funnel. Erst wenn ein Interessent in die Prüfung geht, wechselt das Mandat
  * nach „In Diligence". Ohne diese Stufe sah jedes laufende Mandat gleich aus.
  */

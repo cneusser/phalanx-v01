@@ -53,7 +53,7 @@ export default function InvitationAccept() {
     setBusy(true); setErr('');
     try {
       const d = await api.post(`/invitations/token/${token}/register`, form);
-      // Direkt eingeloggt weiter — Token setzen und neu laden, damit der Kontext greift
+      // Direkt eingeloggt weiter: Token setzen und neu laden, damit der Kontext greift
       localStorage.setItem('phalanx_token', d.token);
       window.location.href = `/projekte/${d.project_id}`;
     } catch (e) { setErr(e.message); setBusy(false); }
@@ -102,7 +102,7 @@ export default function InvitationAccept() {
             <div style={{ fontSize: '0.78rem', color: C.muted }}>
               {isEditor
                 ? 'Sie dürfen das Mandat bearbeiten und pflegen (Daten, Exposé, Unterlagen).'
-                : 'Sie erhalten Leserechte — ansehen, aber keine Änderungen.'}
+                : 'Sie erhalten Leserechte: ansehen, aber keine Änderungen.'}
             </div>
           </div>
         </div>
@@ -171,7 +171,7 @@ export default function InvitationAccept() {
           <form onSubmit={registerAndAccept}>
             <h2 style={{ fontSize: '1rem', fontWeight: 700, color: C.navy, margin: '1rem 0 0.25rem' }}>Konto anlegen</h2>
             <p style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '1rem' }}>
-              Ihre E-Mail-Adresse <strong>{inv.email}</strong> ist durch die Einladung bereits bestätigt — Sie werden nach dem Anlegen direkt zum Mandat weitergeleitet.
+              Ihre E-Mail-Adresse <strong>{inv.email}</strong> ist durch die Einladung bereits bestätigt, Sie werden nach dem Anlegen direkt zum Mandat weitergeleitet.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>

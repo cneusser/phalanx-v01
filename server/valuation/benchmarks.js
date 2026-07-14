@@ -1,14 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 12 — Benchmarking: Wo steht das Unternehmen gegenüber seiner Branche?
+// Sprint 12: Benchmarking: Wo steht das Unternehmen gegenüber seiner Branche?
 //
 // Verglichen werden vier Kennzahlen, die im M&A-Gespräch tatsächlich zählen:
 //   · EBIT-Marge          (Ertragskraft)
 //   · Umsatzwachstum p.a. (Momentum)
 //   · Personalkostenquote (Effizienz, optional)
-//   · Kundenkonzentration (Risiko, optional — kommt aus der Scorecard)
+//   · Kundenkonzentration (Risiko, optional: kommt aus der Scorecard)
 //
 // Die Branchenwerte liegen in valuation_benchmarks (Migration mit Seed) und sind
-// im Admin pflegbar. Die Einordnung ist bewusst grob (unter/im/über Markt) —
+// im Admin pflegbar. Die Einordnung ist bewusst grob (unter/im/über Markt), 
 // eine Perzentil-Genauigkeit würde eine Präzision vortäuschen, die die Datenlage
 // bei KMU nicht hergibt.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ function compare(metrics = {}, bench = null) {
   return {
     available: true,
     industry: bench.industry,
-    source: bench.source || 'Phalanx — indikative Branchenwerte',
+    source: bench.source || 'Phalanx: indikative Branchenwerte',
     items,
     verdict,
     note: 'Branchenwerte sind Orientierungsgrößen für KMU im DACH-Raum, keine amtliche Statistik.',

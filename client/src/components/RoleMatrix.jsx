@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Rollen & Rechte — pflegbar.
+// Rollen & Rechte: pflegbar.
 //
 // Häkchen setzen oder entfernen, speichern. Eigene Rollen lassen sich anlegen
 // (auf Basis der bekannten Rechte) und wieder löschen, solange ihnen niemand
@@ -12,7 +12,7 @@ import { Check, Minus, Save, Plus, Trash2, Lock } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 
-// Rechte nach Bereich gruppieren — sonst ist die Matrix eine Bleiwüste
+// Rechte nach Bereich gruppieren: sonst ist die Matrix eine Bleiwüste
 const GROUP_OF = (key) => key.split('.')[0];
 const GROUP_LABEL = {
   crm: 'CRM', mail: 'E-Mail', projects: 'Mandate', valuation: 'Bewertungen',
@@ -64,7 +64,7 @@ export default function RoleMatrix({ show }) {
     if (!label) return;
     try {
       await api.post('/admin/roles', { label, permissions: [] });
-      show && show('Rolle angelegt — jetzt Rechte setzen ✓');
+      show && show('Rolle angelegt: jetzt Rechte setzen ✓');
       await load();
     } catch (e) { show && show('Fehler: ' + e.message, 'error'); }
   }

@@ -49,7 +49,7 @@ export default function ProjectSafe() {
   }, [pid]);
 
   useEffect(() => { load(null); }, [load]);
-  useEffect(() => { if (project) document.title = `Safe · ${project.codename} — CapitalMatch`; return () => { document.title = 'CapitalMatch'; }; }, [project]);
+  useEffect(() => { if (project) document.title = `Safe · ${project.codename}, CapitalMatch`; return () => { document.title = 'CapitalMatch'; }; }, [project]);
   // Ordner-Upload zuverlässig aktivieren (Attribute per Ref setzen)
   useEffect(() => { if (dirInput.current) { dirInput.current.setAttribute('webkitdirectory', ''); dirInput.current.setAttribute('directory', ''); } }, []);
 
@@ -122,7 +122,7 @@ export default function ProjectSafe() {
                 {project ? project.codename : `Mandat #${pid}`}
                 {project && <span style={{ fontSize: '0.66rem', fontWeight: 700, background: project.mandate_type === 'fundraising' ? 'rgba(139,92,246,0.25)' : 'rgba(41,171,226,0.22)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', padding: '0.15rem 0.55rem', borderRadius: 20, letterSpacing: '0.03em' }}>{project.mandate_type === 'fundraising' ? 'STARTUP' : 'M&A'}</span>}
               </h1>
-              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', marginTop: 4 }}>Mandat #{pid}{project && project.industry ? ` · ${project.industry}` : ''} · sichere Ablage, nur für Pfleger — kein Investor-Zugriff.</p>
+              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', marginTop: 4 }}>Mandat #{pid}{project && project.industry ? ` · ${project.industry}` : ''} · sichere Ablage, nur für Pfleger, kein Investor-Zugriff.</p>
             </div>
             {usage && <div style={{ textAlign: 'right', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)' }}><div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{fmtBytes(usage.bytes)}</div><div>{usage.files} Dateien · {usage.folders} Ordner</div></div>}
           </div>

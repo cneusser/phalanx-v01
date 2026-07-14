@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 5 — Öffentlicher Branding-Endpoint je Tenant.
+// Sprint 5: Öffentlicher Branding-Endpoint je Tenant.
 // Der Client lädt hiermit Name/Farben/Logo des über die Subdomain
 // aufgelösten Mandanten (Fallback: Default-Tenant).
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,11 +1,11 @@
-/** Changelog-Eintrag v0.248 (Sprint 19 — CRM I: Unternehmen & Kontakte). */
+/** Changelog-Eintrag v0.248 (Sprint 19: CRM I: Unternehmen & Kontakte). */
 const ENTRY = {
   version: 'v0.248', released_on: '2026-07-12',
   title: 'CRM: Unternehmen & Kontakte (Fundament des Sell-Side-CRM)',
   items: [
     'Zentrale Unternehmensdatenbank mit Stammdaten, Investitionskriterien, Käuferkategorie und Notizen',
     'Kontakte mit Entscheider-Kennzeichnung, Verantwortungsbereich und DSGVO-Einwilligung/Kontaktstatus',
-    'Ein Kontakt kann mehreren Unternehmen zugeordnet sein — inkl. Historie früherer Positionen und Unternehmenswechsel',
+    'Ein Kontakt kann mehreren Unternehmen zugeordnet sein, inkl. Historie früherer Positionen und Unternehmenswechsel',
     'Konzernverknüpfung (Mutter-, Tochter- und Beteiligungsgesellschaften)',
     'Dubletten-Erkennung (erkennt Rechtsform-, Schreib- und Umlaut-Varianten)',
     'CSV-Import und -Export für Unternehmen und Kontakte',

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// CapitalMatch DB-Layer — PostgreSQL via Knex (Sprint 1)
+// CapitalMatch DB-Layer: PostgreSQL via Knex (Sprint 1)
 //
 // Ersetzt die frühere SQLite-(sql.js)-Implementierung. Öffentliche API:
 //   initialize()          – Migrationen ausführen + idempotenter Startup-Seed
@@ -30,16 +30,16 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-// pg liefert COUNT()/SUM() als String (BIGINT/NUMERIC) — für die App nach
+// pg liefert COUNT()/SUM() als String (BIGINT/NUMERIC), für die App nach
 // Number parsen, damit z. B. `a + b` nicht zu Stringkonkatenation wird.
 const pgTypes = require('pg').types;
 pgTypes.setTypeParser(20, (v) => parseInt(v, 10));   // BIGINT
 pgTypes.setTypeParser(1700, (v) => parseFloat(v));   // NUMERIC
 
 // ── Zwei Verbindungen (Sprint 5 / RLS) ───────────────────────────────────────
-// ownerKnex: DB-Owner (Railway-Standard-User, meist Superuser) — NUR für
+// ownerKnex: DB-Owner (Railway-Standard-User, meist Superuser), NUR für
 //            Migrationen und Wartung. Superuser umgehen RLS!
-// appKnex:   nicht-privilegierte App-Rolle (NOSUPERUSER, NOBYPASSRLS) — wird
+// appKnex:   nicht-privilegierte App-Rolle (NOSUPERUSER, NOBYPASSRLS), wird
 //            bei initialize() automatisch angelegt. ALLE Anwendungs-Queries
 //            laufen hierüber, damit Row-Level-Security greift.
 const ownerKnex = require('knex')(knexConfig);
@@ -97,14 +97,14 @@ async function setupRlsRole() {
   module.exports.knex = appKnex;
   // Verbindung verifizieren (schlägt fehl → Server startet nicht, fail closed)
   const who = await appKnex.raw(`SELECT current_user, current_setting('app.tenant_id', true) AS tenant`);
-  console.log(`🔐 RLS aktiv — App-Verbindung als "${who.rows[0].current_user}" (Tenant ${who.rows[0].tenant})`);
+  console.log(`🔐 RLS aktiv: App-Verbindung als "${who.rows[0].current_user}" (Tenant ${who.rows[0].tenant})`);
 }
 
 // ── Sprint 5: Cross-Tenant-Kontext (Row-Level-Security) ─────────────────────
 // Alle normalen Queries laufen im Default-Tenant (app.tenant_id = '1', gesetzt
 // beim Verbindungsaufbau). Für Operationen in einem ANDEREN Mandanten:
 //   await db.withTenant(tenantId, async (t) => { await t.get(...); })
-// SET LOCAL gilt nur innerhalb der Transaktion — danach greift wieder der
+// SET LOCAL gilt nur innerhalb der Transaktion, danach greift wieder der
 // Default. RLS ist fail-closed: ohne gültige Session-Var sind 0 Zeilen sichtbar.
 async function withTenant(tenantId, fn) {
   return appKnex.transaction(async (trx) => {
@@ -155,11 +155,11 @@ function auditLog(userId, action, resourceType, resourceId, details, ip) {
 
 // ── Startup-Seed (idempotent) ────────────────────────────────────────────────
 // Läuft bei jedem Serverstart NACH den Migrationen:
-//   1. Admin-User upserten (Rolle, Freigabe, Hash-Prüfung — wie Sprint 0)
+//   1. Admin-User upserten (Rolle, Freigabe, Hash-Prüfung, wie Sprint 0)
 //   2. Beispiel-Mandate aus seedData.js einspielen, falls noch keine
 //      Projekte existieren (einmaliges Seed für den Betreiber-Mandanten)
 // WICHTIG: Die alte SQLite-Ära löschte bei jedem Start alle Fremd-User und
-// -Projekte („Cleanup"). Das entfällt ab jetzt — Postgres persistiert echte
+// -Projekte („Cleanup"). Das entfällt ab jetzt, Postgres persistiert echte
 // Registrierungen und Admin-Änderungen dauerhaft.
 async function startupSeed() {
   const bcrypt = require('bcryptjs');
@@ -209,7 +209,7 @@ async function startupSeed() {
     // Default) zurückgesetzt. Danach die Variable wieder entfernen!
     if (process.env.ADMIN_FORCE_PASSWORD_RESET === '1') {
       await run(`UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE email = ?`, [bcrypt.hashSync(ADMIN.password, 10), ADMIN.email]);
-      console.log('🔑 Admin-Passwort per ADMIN_FORCE_PASSWORD_RESET zurückgesetzt — Variable jetzt wieder entfernen!');
+      console.log('🔑 Admin-Passwort per ADMIN_FORCE_PASSWORD_RESET zurückgesetzt, Variable jetzt wieder entfernen!');
     } else if (!isValidBcrypt(admin.password_hash)) {
       await run(`UPDATE users SET password_hash = ? WHERE email = ?`, [bcrypt.hashSync(ADMIN.password, 10), ADMIN.email]);
       console.log('🔑 Defekter Admin-Passwort-Hash zurückgesetzt');
@@ -249,7 +249,7 @@ async function startupSeed() {
            stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type,
            status, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
-        [p.codename, p.industry, p.region, p.revenue_band || '—', p.ebitda_band || '—',
+        [p.codename, p.industry, p.region, p.revenue_band || 'k. A.', p.ebitda_band || 'k. A.',
          p.deal_type, p.short_description, JSON.stringify(p.highlights || []),
          p.stage, p.investment_needed, p.equity_stake, p.post_money_valuation,
          p.tam_band, p.sector_emoji, p.location_city, p.mandate_type || 'ma', adminId]
@@ -279,7 +279,7 @@ async function startupSeed() {
 }
 
 async function initialize() {
-  // Migrationen ausführen (legt Schema + Default-Tenant "phalanx" an) —
+  // Migrationen ausführen (legt Schema + Default-Tenant "phalanx" an), 
   // bewusst über die Owner-Verbindung (DDL-Rechte)
   const [, applied] = await ownerKnex.migrate.latest();
   if (applied.length > 0) console.log(`🗄️  Migrationen ausgeführt: ${applied.join(', ')}`);

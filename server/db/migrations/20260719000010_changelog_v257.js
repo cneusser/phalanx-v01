@@ -7,7 +7,7 @@ const ENTRY = {
     'Offene Wiedervorlagen sind anklickbar und zählen die echten CRM-Aufgaben (überfällige rot)',
     'Datenraum-Zugriffe zählen jetzt die tatsächlich protokollierten Zugriffe (Downloads, Exposé-Aufrufe, Dokumentenlisten)',
     'Deal-Funnel: laufende Mandate als Reiter, abgeschlossene und Entwürfe im Archiv-Klappmenü',
-    'Englisch erweitert: Navigation, Marktplatz, Anmeldung und Fußzeile — inklusive Sprachwahl im Mobilmenü',
+    'Englisch erweitert: Navigation, Marktplatz, Anmeldung und Fußzeile, inklusive Sprachwahl im Mobilmenü',
   ],
 };
 exports.up = async function (knex) {

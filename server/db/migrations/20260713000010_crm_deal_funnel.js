@@ -1,5 +1,5 @@
 /**
- * Sprint 20 — CRM II: Beteiligtenrollen & Sell-Side-Funnel je Mandat.
+ * Sprint 20: CRM II: Beteiligtenrollen & Sell-Side-Funnel je Mandat.
  *
  *   crm_deal_parties   Wer ist an welchem Mandat beteiligt (Unternehmen/Kontakt),
  *                      in welcher Rolle und auf welcher Funnel-Stufe.

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 19 — CRM I: Unternehmen & Kontakte.
+// Sprint 19: CRM I: Unternehmen & Kontakte.
 //
 //   Unternehmen:  GET/POST /companies · GET/PUT/DELETE /companies/:id
 //                 GET /companies/:id/detail  (Kontakte, Konzern, Verknüpfungen)
@@ -20,7 +20,7 @@ const router = express.Router();
 
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
 // Staff = alle internen Rollen. Was jemand darf, entscheidet danach die
-// Rechte-Matrix (requirePermission) — nicht mehr die Rolle allein.
+// Rechte-Matrix (requirePermission): nicht mehr die Rolle allein.
 const isStaff = [authenticate, (req, res, next) => {
   if (!req.user) return res.status(401).json({ success: false, error: 'Nicht authentifiziert' });
   if (!perms.isStaff(req.user)) return res.status(403).json({ success: false, error: 'Keine Berechtigung' });
@@ -202,7 +202,7 @@ router.post('/companies/:id/merge', ...isStaff, canWrite, wrap(async (req, res) 
   }
   // Notizen zusammenführen statt überschreiben
   if (source.notes) {
-    const merged = [target.notes, `— aus „${source.name}": ${source.notes}`].filter(Boolean).join('\n');
+    const merged = [target.notes, `, aus „${source.name}": ${source.notes}`].filter(Boolean).join('\n');
     sets.push('notes = ?'); params.push(merged);
   }
   // Tags vereinigen
@@ -378,7 +378,7 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
   });
 }));
 
-// Aktivitäten eines Kontakts, chronologisch — was ist wann rausgegangen, was kam zurück?
+// Aktivitäten eines Kontakts, chronologisch: was ist wann rausgegangen, was kam zurück?
 async function contactActivity(req, contactId) {
   const ev = [];
   const push = (ts, type, label, detail) => { if (ts) ev.push({ ts, type, label, detail: detail || null }); };
@@ -389,7 +389,7 @@ async function contactActivity(req, contactId) {
   for (const i of invites) {
     push(i.invited_at, 'invite', 'Einladung versendet', i.codename ? `Mandat ${i.codename}` : 'Plattform-Einladung');
     push(i.opened_at, 'open', 'Einladung geöffnet', null);
-    push(i.consent_at, 'consent', 'Einwilligung erteilt', `Nachweis: ${i.consent_text_version || '—'} · IP ${i.consent_ip || '—'}`);
+    push(i.consent_at, 'consent', 'Einwilligung erteilt', `Nachweis: ${i.consent_text_version || 'k. A.'} · IP ${i.consent_ip || 'k. A.'}`);
     push(i.registered_at, 'register', 'Konto angelegt', i.email);
     if (i.status === 'declined') push(i.invited_at, 'decline', 'Widerspruch erklärt', 'Kontakt wird nicht mehr angeschrieben');
   }
@@ -419,7 +419,7 @@ async function contactActivity(req, contactId) {
     `SELECT * FROM crm_profile_changes WHERE contact_id = ? ORDER BY id DESC LIMIT 20`, [contactId])).catch(() => []);
   for (const c of changes) {
     const fields = Object.keys(safeJson(c.after_json, {})).join(', ');
-    push(c.created_at, 'selfcare', c.status === 'pending' ? 'Selbstpflege — wartet auf Freigabe' : 'Selbstpflege übernommen', fields || null);
+    push(c.created_at, 'selfcare', c.status === 'pending' ? 'Selbstpflege, wartet auf Freigabe' : 'Selbstpflege übernommen', fields || null);
   }
 
   // Eingegangene Antworten (BCC-Ingest oder manuell erfasst)
@@ -630,7 +630,7 @@ router.post('/import/contacts', ...isStaff, canWrite, wrap(async (req, res) => {
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Sprint 20 — CRM II: Beteiligtenrollen & Sell-Side-Funnel je Mandat
+// Sprint 20: CRM II: Beteiligtenrollen & Sell-Side-Funnel je Mandat
 // ═══════════════════════════════════════════════════════════════════════════
 const FUNNEL_STAGES = [
   { key: 0, label: 'Longlist' },
@@ -715,7 +715,7 @@ router.post('/deals/:projectId/parties', ...isStaff, canWrite, wrap(async (req, 
   res.status(201).json({ success: true, data: { id } });
 }));
 
-// Stufe/Status ändern (Drag & Drop) — Verweildauer wird bei Stufenwechsel neu gestartet
+// Stufe/Status ändern (Drag & Drop): Verweildauer wird bei Stufenwechsel neu gestartet
 router.put('/parties/:id', ...isStaff, canWrite, wrap(async (req, res) => {
   const party = await scoped(req, (t) => t.get('SELECT * FROM crm_deal_parties WHERE id = ?', [req.params.id]));
   if (!party) return res.status(404).json({ success: false, error: 'Eintrag nicht gefunden' });
@@ -790,7 +790,7 @@ async function createInvite(req, contact) {
     const inviter = [req.user.title, req.user.first_name, req.user.last_name].filter(Boolean).join(' ');
     sendProcessUpdateEmail({
       to: contact.email, firstName: contact.first_name || '',
-      title: 'Einladung zu CapitalMatch — Ihre Bestätigung erforderlich',
+      title: 'Einladung zu CapitalMatch: Ihre Bestätigung erforderlich',
       message:
         `<strong>${inviter}</strong> (Phalanx GmbH) lädt Sie zu <strong>CapitalMatch</strong> ein. ` +
         `<br/><br/><strong>Wichtig (DSGVO):</strong> Wir legen kein Konto für Sie an, solange Sie nicht ausdrücklich zustimmen.`,
@@ -819,7 +819,7 @@ router.post('/contacts/:id/invite', ...isStaff, canSend, wrap(async (req, res) =
   res.status(201).json({ success: true, data: { id } });
 }));
 
-// Sammel-Einladung (bewusst limitiert — kein Massenversand aus Versehen)
+// Sammel-Einladung (bewusst limitiert: kein Massenversand aus Versehen)
 router.post('/invite/bulk', ...isStaff, canSend, wrap(async (req, res) => {
   const ids = (req.body.contact_ids || []).slice(0, 50).map(Number).filter(Boolean);
   if (!ids.length) return res.status(400).json({ success: false, error: 'Keine Kontakte ausgewählt' });
@@ -884,7 +884,7 @@ router.get('/invite/:token', wrap(async (req, res) => {
   });
 }));
 
-// Einwilligung erteilen (Double-Opt-in) — mit Nachweis
+// Einwilligung erteilen (Double-Opt-in): mit Nachweis
 router.post('/invite/:token/consent', wrap(async (req, res) => {
   const inv = await db.get('SELECT * FROM crm_invitations WHERE token = ?', [req.params.token]);
   if (!inv) return res.status(404).json({ success: false, error: 'Einladung nicht gefunden' });
@@ -907,7 +907,7 @@ router.post('/invite/:token/consent', wrap(async (req, res) => {
   res.json({ success: true, data: { status: 'consented' } });
 }));
 
-// Widerspruch — Kontakt wird dauerhaft auf „nicht kontaktieren" gesetzt
+// Widerspruch: Kontakt wird dauerhaft auf „nicht kontaktieren" gesetzt
 router.post('/invite/:token/decline', wrap(async (req, res) => {
   const inv = await db.get('SELECT * FROM crm_invitations WHERE token = ?', [req.params.token]);
   if (!inv) return res.status(404).json({ success: false, error: 'Einladung nicht gefunden' });
@@ -921,7 +921,7 @@ router.post('/invite/:token/decline', wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Ihr Widerspruch wurde vermerkt. Wir kontaktieren Sie nicht erneut.' } });
 }));
 
-// Konto anlegen — NUR nach erteilter Einwilligung (Double-Opt-in erfüllt)
+// Konto anlegen: NUR nach erteilter Einwilligung (Double-Opt-in erfüllt)
 router.post('/invite/:token/register', wrap(async (req, res) => {
   const inv = await db.get('SELECT * FROM crm_invitations WHERE token = ?', [req.params.token]);
   if (!inv) return res.status(404).json({ success: false, error: 'Einladung nicht gefunden' });
@@ -960,7 +960,7 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CRM IV — Kontakt-Selbstpflege-Portal
+// CRM IV: Kontakt-Selbstpflege-Portal
 //
 // Der Kontakt bekommt einen persönlichen, befristeten Link und pflegt seine
 // Daten selbst. Jede Änderung wird protokolliert (Vorher/Nachher). Je nach Link
@@ -968,7 +968,7 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
 // Einschränkung der Kontaktaufnahme sind jederzeit möglich (DSGVO).
 // ═══════════════════════════════════════════════════════════════════════════
 const PROFILE_DAYS = 60;
-// Nur diese Felder darf der Kontakt selbst ändern — nichts anderes.
+// Nur diese Felder darf der Kontakt selbst ändern, nichts anderes.
 const SELF_FIELDS = ['salutation', 'title', 'first_name', 'last_name', 'email', 'phone', 'mobile',
   'linkedin_url', 'location', 'responsibility', 'investment_focus', 'comm_preference'];
 const SELF_JSON_FIELDS = ['focus_industries', 'focus_regions'];
@@ -984,7 +984,7 @@ function pickSelf(contact) {
 
 // Link erzeugen und per Mail versenden.
 // Doppelversand-Sperre: Läuft bereits ein aktiver Link, der in den letzten
-// PROFILE_RESEND_DAYS Tagen versendet wurde, wird abgelehnt — außer force = true.
+// PROFILE_RESEND_DAYS Tagen versendet wurde, wird abgelehnt, außer force = true.
 const PROFILE_RESEND_DAYS = 14;
 
 async function loadTemplate(req, key) {
@@ -1010,7 +1010,7 @@ router.post('/contacts/:id/profile-link', ...isStaff, canSend, wrap(async (req, 
       success: false,
       code: 'PROFILE_LINK_RECENT',
       error: `Es läuft bereits ein Pflege-Link (versendet am ${new Date(recent.created_at).toLocaleDateString('de-DE')}). ` +
-             `Erneut senden ist erst nach ${PROFILE_RESEND_DAYS} Tagen sinnvoll — oder bewusst erzwingen.`,
+             `Erneut senden ist erst nach ${PROFILE_RESEND_DAYS} Tagen sinnvoll, oder bewusst erzwingen.`,
       data: { last_sent_at: recent.created_at },
     });
   }
@@ -1040,7 +1040,7 @@ router.post('/contacts/:id/profile-link', ...isStaff, canSend, wrap(async (req, 
   } else {
     sendProcessUpdateEmail({
       to: contact.email, firstName: contact.first_name || '',
-      title: 'Ihre Angaben bei der Phalanx GmbH — bitte kurz prüfen',
+      title: 'Ihre Angaben bei der Phalanx GmbH: bitte kurz prüfen',
       message: `damit wir Sie nur mit passenden Transaktionen ansprechen, bitten wir Sie um eine kurze Prüfung Ihrer gespeicherten Angaben. Der Link ist persönlich und ${PROFILE_DAYS} Tage gültig.`,
       ctaLabel: 'Angaben prüfen', ctaPath: `/profil-pflege?token=${token}`,
       meta: { type: 'profile_link', contactId: contact.id, actorId: req.user.id },
@@ -1071,7 +1071,7 @@ router.post('/profile-links/bulk', ...isStaff, canSend, wrap(async (req, res) =>
     const { sendProcessUpdateEmail } = require('../utils/email');
     sendProcessUpdateEmail({
       to: contact.email, firstName: contact.first_name || '',
-      title: 'Ihre Angaben bei der Phalanx GmbH — bitte kurz prüfen',
+      title: 'Ihre Angaben bei der Phalanx GmbH: bitte kurz prüfen',
       message: `damit wir Sie nur mit passenden Transaktionen ansprechen, bitten wir Sie um eine kurze Prüfung Ihrer gespeicherten Angaben. Der Link ist persönlich und ${PROFILE_DAYS} Tage gültig.`,
       ctaLabel: 'Angaben prüfen', ctaPath: `/profil-pflege?token=${token}`,
     }).catch(() => {});
@@ -1123,7 +1123,7 @@ router.put('/profile/:token', wrap(async (req, res) => {
   const contact = await db.get('SELECT * FROM crm_contacts WHERE id = ?', [link.contact_id]);
   if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
 
-  // Nur erlaubte Felder übernehmen — alles andere wird ignoriert
+  // Nur erlaubte Felder übernehmen: alles andere wird ignoriert
   const after = {};
   for (const f of SELF_FIELDS) if (req.body[f] !== undefined) after[f] = req.body[f] || null;
   for (const f of SELF_JSON_FIELDS) if (req.body[f] !== undefined) after[f] = Array.isArray(req.body[f]) ? req.body[f] : [];
@@ -1187,7 +1187,7 @@ router.post('/profile/:token/unsubscribe', wrap(async (req, res) => {
     data: {
       message: full
         ? 'Ihr Widerspruch wurde vermerkt. Wir werden Sie nicht mehr kontaktieren.'
-        : 'Vermerkt — wir kontaktieren Sie vorerst nicht mehr per E-Mail.',
+        : 'Vermerkt: wir kontaktieren Sie vorerst nicht mehr per E-Mail.',
     },
   });
 }));
@@ -1233,16 +1233,16 @@ router.post('/profile-changes/:id/:action', ...isStaff, wrap(async (req, res) =>
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CRM III — Mandats-Kampagnen (Massenmailing) + Reminder
+// CRM III: Mandats-Kampagnen (Massenmailing) + Reminder
 //
-// Eine Kampagne ist eine Ansprache-Welle zu EINEM Mandat. Je Empfänger wird —
-// falls nötig — ein Einwilligungs-Token (Double-Opt-in) und ein Pflege-Link
+// Eine Kampagne ist eine Ansprache-Welle zu EINEM Mandat. Je Empfänger wird, 
+// falls nötig: ein Einwilligungs-Token (Double-Opt-in) und ein Pflege-Link
 // erzeugt; beides steckt in derselben, professionell aufgebauten Mail.
 // Wer widersprochen hat, wird niemals angeschrieben.
 // ═══════════════════════════════════════════════════════════════════════════
 const campaigns = require('../utils/campaigns');
 
-// Empfänger-Vorschau: wer bekommt die Mail — und wer nicht (mit Begründung)
+// Empfänger-Vorschau: wer bekommt die Mail: und wer nicht (mit Begründung)
 router.post('/deals/:projectId/campaign/preview', ...isStaff, wrap(async (req, res) => {
   const ids = (req.body.contact_ids || []).slice(0, 200).map(Number).filter(Boolean);
   const rows = [];
@@ -1252,7 +1252,7 @@ router.post('/deals/:projectId/campaign/preview', ...isStaff, wrap(async (req, r
     const name = [k.first_name, k.last_name].filter(Boolean).join(' ');
     let skip = null;
     if (!k.email) skip = 'keine E-Mail-Adresse';
-    else if (k.contact_status === 'do_not_contact' || k.consent_status === 'opt_out') skip = 'Widerspruch — wird nie angeschrieben';
+    else if (k.contact_status === 'do_not_contact' || k.consent_status === 'opt_out') skip = 'Widerspruch, wird nie angeschrieben';
     rows.push({
       id: cid, name, email: k.email, skip,
       needs_consent: k.consent_status !== 'opt_in',
@@ -1313,7 +1313,7 @@ router.post('/deals/:projectId/campaign', ...isStaff, canSend, wrap(async (req, 
       }
     }
 
-    // Pflege-Link (Selbstpflege / Abmeldung) — immer beilegen
+    // Pflege-Link (Selbstpflege / Abmeldung): immer beilegen
     let profileId = null, profileToken = null;
     const activeLink = await scoped(req, (t) => t.get(
       `SELECT id, token FROM crm_profile_links WHERE contact_id = ? AND status = 'active'
@@ -1403,7 +1403,7 @@ router.get('/deals/:projectId/active-participants', ...isStaff, wrap(async (req,
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Sprint 22 — Prozess-Mailvorlagen
+// Sprint 22: Prozess-Mailvorlagen
 //
 // Je Prozessschritt eine Vorlage (Wiederaufnahme, Erstansprache, NDA, IM,
 // Gespräch, LOI, DD, Absage). Versand an einen einzelnen Kontakt oder an eine
@@ -1459,7 +1459,7 @@ router.delete('/templates/:id', ...isStaff, canTemplates, wrap(async (req, res) 
   res.json({ success: true, data: { message: 'Vorlage gelöscht' } });
 }));
 
-// Vorschau: exakt die Mail, die rausginge — mit echten Daten des ersten Empfängers
+// Vorschau: exakt die Mail, die rausginge: mit echten Daten des ersten Empfängers
 router.post('/templates/:id/preview', ...isStaff, wrap(async (req, res) => {
   const tpl = await scoped(req, (t) => t.get('SELECT * FROM mail_templates WHERE id = ?', [req.params.id]));
   if (!tpl) return res.status(404).json({ success: false, error: 'Vorlage nicht gefunden' });
@@ -1472,7 +1472,7 @@ router.post('/templates/:id/preview', ...isStaff, wrap(async (req, res) => {
     : { salutation: 'Herr', last_name: 'Mustermann', first_name: 'Max', email: 'max@beispiel.de', company_name: 'Beispiel GmbH' };
   const project = req.body.project_id
     ? await scoped(req, (t) => t.get('SELECT * FROM projects WHERE id = ?', [req.body.project_id]))
-    : { id: 0, codename: 'MANDAT', industry: 'Branche', region: 'Region', revenue_band: '—', ebitda_band: '—', deal_type: 'Nachfolge' };
+    : { id: 0, codename: 'MANDAT', industry: 'Branche', region: 'Region', revenue_band: 'k. A.', ebitda_band: 'k. A.', deal_type: 'Nachfolge' };
 
   const mail = mt.buildFromTemplate({
     template: tpl, contact: contact || {}, project: project || {}, inviter: req.user,
@@ -1503,7 +1503,7 @@ router.post('/deals/:projectId/send-template', ...isStaff, canSend, wrap(async (
   const campaignId = await scoped(req, (t) => t.insert(`
     INSERT INTO crm_campaigns (tenant_id, project_id, name, purpose, subject, intro, reminders_enabled, status, created_by, sent_at, template_key)
     VALUES (?, ?, ?, 'invite', ?, ?, ?, 'sent', ?, now(), ?)`,
-    [tenant, projectId, `${tpl.name} — ${project.codename}`,
+    [tenant, projectId, `${tpl.name}: ${project.codename}`,
      req.body.subject || tpl.subject, req.body.body || null, remind, req.user.id, tpl.key]));
 
   const sent = [], skipped = [];
@@ -1585,7 +1585,7 @@ router.post('/deals/:projectId/send-template', ...isStaff, canSend, wrap(async (
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Sprint 23 — Posteingang (eingehende Antworten) & Wiedervorlagen
+// Sprint 23: Posteingang (eingehende Antworten) & Wiedervorlagen
 // ═══════════════════════════════════════════════════════════════════════════
 const inbound = require('../utils/inbound');
 
@@ -1701,10 +1701,10 @@ router.post('/contacts/from-user/:userId', ...isStaff, wrap(async (req, res) => 
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Sprint 13 — DSGVO: Auskunft (Art. 15) und Vergessenwerden (Art. 17)
+// Sprint 13: DSGVO: Auskunft (Art. 15) und Vergessenwerden (Art. 17)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Vollständige Datenauskunft zu einem Kontakt — alles, was wir über ihn haben.
+// Vollständige Datenauskunft zu einem Kontakt, alles, was wir über ihn haben.
 router.get('/contacts/:id/export', ...isStaff, requirePermission('crm.export'), wrap(async (req, res) => {
   const id = req.params.id;
   const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [id]));
@@ -1714,7 +1714,7 @@ router.get('/contacts/:id/export', ...isStaff, requirePermission('crm.export'), 
   const data = {
     exported_at: new Date().toISOString(),
     exported_by: req.user.email,
-    hinweis: 'Datenauskunft nach Art. 15 DSGVO — alle zu dieser Person gespeicherten Daten.',
+    hinweis: 'Datenauskunft nach Art. 15 DSGVO: alle zu dieser Person gespeicherten Daten.',
     stammdaten: contact,
     unternehmen: await q('SELECT * FROM crm_company_contacts WHERE contact_id = ?'),
     mandate: await q('SELECT * FROM crm_deal_parties WHERE contact_id = ?'),
@@ -1733,7 +1733,7 @@ router.get('/contacts/:id/export', ...isStaff, requirePermission('crm.export'), 
 }));
 
 // Recht auf Vergessenwerden: personenbezogene Daten löschen, Nachweis behalten.
-// Bewusst KEIN harter DELETE — die Tatsache der Löschung und der Prozessverlauf
+// Bewusst KEIN harter DELETE: die Tatsache der Löschung und der Prozessverlauf
 // bleiben belegbar (berechtigtes Interesse, Rechenschaftspflicht Art. 5 Abs. 2).
 router.post('/contacts/:id/anonymize', ...isStaff, requirePermission('crm.delete'), wrap(async (req, res) => {
   const id = req.params.id;

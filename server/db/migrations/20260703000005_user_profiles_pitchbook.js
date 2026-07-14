@@ -1,6 +1,6 @@
 /**
  * Pitchbook-Profilfelder für Investoren & Verkäufer:
- * Selbstdarstellung (about), Website, LinkedIn — sichtbar für Admin
+ * Selbstdarstellung (about), Website, LinkedIn, sichtbar für Admin
  * (und ab Sprint 4 gegenüber der jeweiligen Gegenseite im Prozess).
  */
 exports.up = async function (knex) {

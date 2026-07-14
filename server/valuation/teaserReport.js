@@ -45,7 +45,7 @@ function generateTeaserReport(opts) {
     // Sichtbarer Audit-Stempel: wann und für wen erzeugt
     if (recipient) {
       doc.font('Helvetica').fontSize(7).fillColor(GRAY)
-        .text(`Erstellt am ${stampStr} Uhr · heruntergeladen von ${recipient.name || '—'}${recipient.email ? ' (' + recipient.email + ')' : ''}`, L, doc.y, { width: PAGE_W, align: 'center' });
+        .text(`Erstellt am ${stampStr} Uhr · heruntergeladen von ${recipient.name || 'k. A.'}${recipient.email ? ' (' + recipient.email + ')' : ''}`, L, doc.y, { width: PAGE_W, align: 'center' });
       doc.y += 12;
     }
     doc.x = L;
@@ -57,7 +57,7 @@ function generateTeaserReport(opts) {
       .text([isStartup ? 'Startup-Finanzierung' : 'M&A / Nachfolge', project.industry, project.region].filter(Boolean).join('  ·  '), L, doc.y, { width: PAGE_W });
     doc.moveDown(0.7);
 
-    // ── Eckdaten-Grid — DYNAMISCH vermessen (Label über Wert) ───────────────
+    // ── Eckdaten-Grid: DYNAMISCH vermessen (Label über Wert) ───────────────
     // Feste Zeilenhöhen führten bei langen Werten (z. B. „Ø EBITDA-Marge 9,5 %
     // (2021–24)") zu Überlappungen. Jede Zelle wird jetzt gemessen.
     const nb = (t) => String(t == null ? '' : t).replace(/(\d)\s+(%|€|Mio\.|Mrd\.)/g, '$1 $2');
@@ -117,7 +117,7 @@ function generateTeaserReport(opts) {
       doc.moveDown(0.45);
     }
 
-    // Highlights — nur so viele, wie auf die Seite passen (max. 6)
+    // Highlights: nur so viele, wie auf die Seite passen (max. 6)
     const highlights = (Array.isArray(project.highlights) ? project.highlights : []).slice(0, 6);
     if (highlights.length && fits(30)) {
       doc.font('Helvetica-Bold').fontSize(10.5).fillColor(NAVY).text('Investment-Highlights', L, doc.y);

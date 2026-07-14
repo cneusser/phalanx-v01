@@ -1,5 +1,5 @@
 /**
- * Sprint 4 — Sicherer Datenraum + Admin-CRM.
+ * Sprint 4: Sicherer Datenraum + Admin-CRM.
  *
  * - qa_threads: Q&A-Modul je Deal (Frage des Interessenten, Antwort des Beraters)
  * - tasks: Aufgaben je Deal (due_date, owner) für das CRM

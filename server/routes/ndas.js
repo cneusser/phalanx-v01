@@ -1,4 +1,4 @@
-// CapitalMatch – NDA-Route — PostgreSQL/Knex
+// CapitalMatch – NDA-Route: PostgreSQL/Knex
 const express = require('express');
 const path = require('path');
 const db = require('../db/database');
@@ -201,7 +201,7 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
     // Sprint 15: NDA-Unterzeichnung als Systemnachricht in die Deal-Timeline
     require('../utils/dealChat').eventForBuyer({
       project, buyerId: req.user.id,
-      body: `✅ NDA für „${project.codename}" unterzeichnet — das Informationsmemorandum ist jetzt freigeschaltet.`,
+      body: `✅ NDA für „${project.codename}" unterzeichnet: das Informationsmemorandum ist jetzt freigeschaltet.`,
       notifyAdvisorBody: `✅ ${user.first_name} ${user.last_name} hat die NDA für „${project.codename}" unterzeichnet.`,
     }).catch(() => {});
     // Sprint 17: XP für NDA-Unterzeichnung
@@ -213,7 +213,7 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
     const { sendProcessUpdateEmail } = require('../utils/email');
     sendProcessUpdateEmail({
       to: user.email, firstName: user.first_name,
-      title: `NDA unterzeichnet — Informationsmemorandum freigeschaltet (${project.codename})`,
+      title: `NDA unterzeichnet: Informationsmemorandum freigeschaltet (${project.codename})`,
       message: `Ihre Vertraulichkeitsvereinbarung für <strong>${project.codename}</strong> wurde erfolgreich unterzeichnet. Das Informationsmemorandum und die Erstunterlagen sind ab sofort für Sie freigeschaltet. Nach der Datenraum-Freigabe durch unser Team erhalten Sie Zugriff auf die vollständigen Unterlagen.`,
       ctaLabel: 'Unterlagen ansehen', ctaPath: `/projekte/${req.params.projectId}`,
     }).catch(() => {});
@@ -256,7 +256,7 @@ router.put('/:projectId/send', authenticate, wrap(async (req, res) => {
       const { sendProcessUpdateEmail } = require('../utils/email');
       sendProcessUpdateEmail({
         to: buyer.email, firstName: buyer.first_name,
-        title: `NDA bereit zur Unterzeichnung — ${proj ? proj.codename : 'Mandat'}`,
+        title: `NDA bereit zur Unterzeichnung: ${proj ? proj.codename : 'Mandat'}`,
         message: `Ihre Vertraulichkeitsvereinbarung für das Mandat <strong>${proj ? proj.codename : ''}</strong> liegt bereit und kann jetzt online unterzeichnet werden.`,
         ctaLabel: 'NDA jetzt unterzeichnen', ctaPath: `/projekte/${req.params.projectId}`,
       }).catch(() => {});

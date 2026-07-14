@@ -6,7 +6,7 @@
 //
 //     POST https://www.capitalmatch.de/api/inbound/email?secret=<INBOUND_SECRET>
 //
-// Sie setzen diese Adresse ins BCC Ihrer Mails an Kontakte — Antworten (Reply-All)
+// Sie setzen diese Adresse ins BCC Ihrer Mails an Kontakte, Antworten (Reply-All)
 // landen dann automatisch in der Kontakt-Historie.
 //
 // Ohne gesetztes INBOUND_SECRET ist der Endpoint deaktiviert (fail closed).

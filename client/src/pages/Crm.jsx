@@ -64,7 +64,7 @@ export default function Crm() {
   async function sendProfileLink(k) {
     if (!window.confirm(
       `Selbstpflege-Link an ${[k.first_name, k.last_name].filter(Boolean).join(' ')} (${k.email}) senden?\n\n` +
-      `Der Kontakt sieht dann, welche Daten wir gespeichert haben, und kann sie selbst korrigieren — ` +
+      `Der Kontakt sieht dann, welche Daten wir gespeichert haben, und kann sie selbst korrigieren, ` +
       `inklusive Branchen-/Regionenfokus, Ticketgröße und Kommunikationswunsch.`)) return;
     try {
       await api.post(`/crm/contacts/${k.id}/profile-link`, { requires_approval: false });
@@ -191,8 +191,8 @@ export default function Crm() {
                       {c.parent_name && <> · Teil von <strong>{c.parent_name}</strong></>}
                     </div>
                   </td>
-                  <td style={{ padding: '0.7rem 0.5rem', color: C.text }}>{c.company_type || '—'}</td>
-                  <td style={{ padding: '0.7rem 0.5rem', color: C.muted }}>{[c.industry, c.region].filter(Boolean).join(' · ') || '—'}</td>
+                  <td style={{ padding: '0.7rem 0.5rem', color: C.text }}>{c.company_type || 'k. A.'}</td>
+                  <td style={{ padding: '0.7rem 0.5rem', color: C.muted }}>{[c.industry, c.region].filter(Boolean).join(' · ') || 'k. A.'}</td>
                   <td style={{ padding: '0.7rem 0.5rem', textAlign: 'right', fontWeight: 700 }}>{c.contact_count}</td>
                   <td style={{ padding: '0.7rem 1rem', textAlign: 'right' }}><ChevronRight size={14} color={C.muted} /></td>
                 </tr>
@@ -221,7 +221,7 @@ export default function Crm() {
                     {diffs.map(k => (
                       <div key={k} style={{ fontSize: '0.74rem', color: C.text, marginTop: 2 }}>
                         <strong>{k}:</strong>{' '}
-                        <span style={{ color: '#991b1b', textDecoration: 'line-through' }}>{JSON.stringify((ch.before || {})[k]) || '—'}</span>{' → '}
+                        <span style={{ color: '#991b1b', textDecoration: 'line-through' }}>{JSON.stringify((ch.before || {})[k]) || 'k. A.'}</span>{' → '}
                         <span style={{ color: '#065f46', fontWeight: 700 }}>{JSON.stringify(ch.after[k])}</span>
                       </div>
                     ))}
@@ -259,9 +259,9 @@ export default function Crm() {
                       {k.is_decision_maker === 1 && <Star size={12} color="#f59e0b" fill="#f59e0b" />}
                       {[k.title, k.first_name, k.last_name].filter(Boolean).join(' ')}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: C.muted }}>{k.responsibility || '—'}</div>
+                    <div style={{ fontSize: '0.72rem', color: C.muted }}>{k.responsibility || 'k. A.'}</div>
                   </td>
-                  <td style={{ padding: '0.7rem 0.5rem', color: C.text }}>{k.companies || '—'}</td>
+                  <td style={{ padding: '0.7rem 0.5rem', color: C.text }}>{k.companies || 'k. A.'}</td>
                   <td style={{ padding: '0.7rem 0.5rem', color: C.muted, fontSize: '0.76rem' }}>
                     {k.email && <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Mail size={11} /> {k.email}</div>}
                     {(k.mobile || k.phone) && <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Phone size={11} /> {k.mobile || k.phone}</div>}
@@ -284,7 +284,7 @@ export default function Crm() {
                       {/* CRM IV: Kontakt seine Daten selbst pflegen lassen */}
                       <button
                         onClick={(e) => { e.stopPropagation(); sendProfileLink(k); }}
-                        title="Selbstpflege-Link senden — der Kontakt prüft und aktualisiert seine Daten selbst"
+                        title="Selbstpflege-Link senden: der Kontakt prüft und aktualisiert seine Daten selbst"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#ECFDF5', color: '#065f46', border: '1px solid #a7f3d0', borderRadius: 6, padding: '0.28rem 0.55rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                         <Send size={12} /> Pflege-Link
                       </button>
@@ -379,7 +379,7 @@ function AssignDealModal({ contact, projects, stages, onClose, show }) {
   const stageLabel = (k) => (stages.find(s => s.key === k) || {}).label || k;
 
   return (
-    <Modal title={`Mandats-Zuordnung — ${name}`} onClose={onClose}>
+    <Modal title={`Mandats-Zuordnung: ${name}`} onClose={onClose}>
       {err && <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 8, padding: '0.7rem 0.9rem', fontSize: '0.83rem', marginBottom: '0.75rem' }}>{err}</div>}
 
       {/* Bestehende Zuordnungen */}
@@ -423,7 +423,7 @@ function AssignDealModal({ contact, projects, stages, onClose, show }) {
           <div>
             <label style={LABEL}>Funnel-Stufe</label>
             <select value={stage} onChange={e => setStage(e.target.value)} style={INPUT}>
-              {stages.map(s => <option key={s.key} value={s.key}>{s.key} — {s.label}</option>)}
+              {stages.map(s => <option key={s.key} value={s.key}>{s.key}: {s.label}</option>)}
             </select>
           </div>
         </div>
@@ -504,7 +504,7 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
               {label === 'Website' && value ? (
                 <a href={String(value).startsWith('http') ? value : `https://${value}`} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: C.accent, wordBreak: 'break-all' }}>{value}</a>
               ) : (
-                <div style={{ fontSize: '0.8rem', color: value ? C.text : '#cbd5e1' }}>{value || '—'}</div>
+                <div style={{ fontSize: '0.8rem', color: value ? C.text : '#cbd5e1' }}>{value || 'k. A.'}</div>
               )}
             </div>
           ))}
@@ -542,7 +542,7 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
               style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
               <div style={{ fontWeight: 700, fontSize: '0.85rem', color: C.navy }}>{[k.title, k.first_name, k.last_name].filter(Boolean).join(' ')}</div>
               <div style={{ fontSize: '0.72rem', color: C.muted }}>
-                {[k.position, k.email, k.mobile || k.phone].filter(Boolean).join(' · ') || 'Keine Kontaktdaten — klicken zum Ergänzen'}
+                {[k.position, k.email, k.mobile || k.phone].filter(Boolean).join(' · ') || 'Keine Kontaktdaten, klicken zum Ergänzen'}
               </div>
             </div>
             <Badge map={CONSENT} value={k.consent_status} />
@@ -566,7 +566,7 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
         <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '0.9rem 1rem', marginTop: '1.25rem' }}>
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#92400e', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>DUBLETTE ZUSAMMENFÜHREN</div>
           <p style={{ fontSize: '0.75rem', color: '#92400e', margin: '0 0 0.6rem', lineHeight: 1.5 }}>
-            Wählen Sie das doppelte Unternehmen — dessen Kontakte, Funnel-Einträge und Angaben wandern
+            Wählen Sie das doppelte Unternehmen: dessen Kontakte, Funnel-Einträge und Angaben wandern
             in <strong>{company.name}</strong>, danach wird es gelöscht.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.4rem' }}>
@@ -591,7 +591,7 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
             <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, letterSpacing: '0.06em', margin: '1.25rem 0 0.5rem' }}>FRÜHERE ANSPRECHPARTNER (HISTORIE)</div>
             {history.map(k => (
               <div key={k.link_id} style={{ fontSize: '0.8rem', color: C.muted, padding: '0.35rem 0.75rem', borderLeft: `2px solid ${C.border}` }}>
-                {[k.first_name, k.last_name].filter(Boolean).join(' ')} — {k.position || 'Position unbekannt'} (bis {new Date(k.ended_on).toLocaleDateString('de-DE')})
+                {[k.first_name, k.last_name].filter(Boolean).join(' ')}, {k.position || 'Position unbekannt'} (bis {new Date(k.ended_on).toLocaleDateString('de-DE')})
               </div>
             ))}
           </>
@@ -625,7 +625,7 @@ function CompanyForm({ company, companies, onClose, onSaved }) {
       // Dubletten-Warnung des Servers auswerten
       if (e.message?.includes('Dublette')) {
         try { const d = await api.get(`/crm/companies/duplicates?name=${encodeURIComponent(f.name)}`); setDupes(d); } catch { /* egal */ }
-        setErr('Mögliche Dublette gefunden — bitte prüfen.');
+        setErr('Mögliche Dublette gefunden: bitte prüfen.');
       } else setErr(e.message);
       setBusy(false);
     }
@@ -649,7 +649,7 @@ function CompanyForm({ company, companies, onClose, onSaved }) {
         <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Firmenname *</label><input value={f.name} onChange={set('name')} style={INPUT} /></div>
         <div><label style={LABEL}>Unternehmensart</label>
           <select value={f.company_type || ''} onChange={set('company_type')} style={INPUT}>
-            <option value="">—</option>{COMPANY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            <option value="">k. A.</option>{COMPANY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
         <div><label style={LABEL}>Käuferkategorie</label><input value={f.buyer_category || ''} onChange={set('buyer_category')} style={INPUT} /></div>
@@ -664,7 +664,7 @@ function CompanyForm({ company, companies, onClose, onSaved }) {
         <div><label style={LABEL}>Land</label><input value={f.country || ''} onChange={set('country')} style={INPUT} /></div>
         <div><label style={LABEL}>Muttergesellschaft</label>
           <select value={f.parent_company_id || ''} onChange={set('parent_company_id')} style={INPUT}>
-            <option value="">—</option>
+            <option value="">k. A.</option>
             {companies.filter(c => c.id !== company.id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
@@ -717,7 +717,7 @@ function ContactForm({ contact, companies, onClose, onSaved }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
         <div><label style={LABEL}>Anrede</label>
           <select value={f.salutation || ''} onChange={set('salutation')} style={INPUT}>
-            <option value="">—</option><option>Herr</option><option>Frau</option><option>Divers</option>
+            <option value="">k. A.</option><option>Herr</option><option>Frau</option><option>Divers</option>
           </select>
         </div>
         <div><label style={LABEL}>Titel</label><input value={f.title || ''} onChange={set('title')} style={INPUT} /></div>
@@ -735,7 +735,7 @@ function ContactForm({ contact, companies, onClose, onSaved }) {
           <>
             <div><label style={LABEL}>Unternehmen</label>
               <select value={f.company_id || ''} onChange={set('company_id')} style={INPUT}>
-                <option value="">—</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="">k. A.</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div><label style={LABEL}>Position</label><input value={f.position || ''} onChange={set('position')} style={INPUT} /></div>

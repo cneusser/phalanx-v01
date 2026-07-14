@@ -1,5 +1,5 @@
 /**
- * Sprint 7 — Ausführliche Bewertung (Engine + Report).
+ * Sprint 7: Ausführliche Bewertung (Engine + Report).
  *
  * detailed_valuations: geführte, mehrstufige Bewertung für registrierte Nutzer.
  *   - status: draft (Entwurf), submitted (berechnet), reviewed (vom Admin geprüft)

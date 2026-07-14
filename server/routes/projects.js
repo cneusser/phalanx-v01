@@ -1,4 +1,4 @@
-// CapitalMatch – Projekte-Route — PostgreSQL/Knex
+// CapitalMatch – Projekte-Route: PostgreSQL/Knex
 const express = require('express');
 const db = require('../db/database');
 const { authenticate, optionalAuth } = require('../middleware/auth');
@@ -46,7 +46,7 @@ const imageUpload = multer({
   },
 });
 
-// ── GET /stats — Public platform statistics ───────────────────────────────
+// ── GET /stats: Public platform statistics ───────────────────────────────
 router.get('/stats', wrap(async (req, res) => {
   const row = await db.get(`
     SELECT
@@ -69,7 +69,7 @@ router.get('/stats', wrap(async (req, res) => {
   });
 }));
 
-// ── GET / — Public list (active projects only) ─────────────────────────────
+// ── GET /: Public list (active projects only) ─────────────────────────────
 router.get('/', wrap(async (req, res) => {
   const { industry, region, deal_type, search, mandate_type, revenue_band, ebitda_band } = req.query;
   let query = `SELECT ${PUBLIC_FIELDS} FROM projects WHERE status = 'active'`;
@@ -88,13 +88,13 @@ router.get('/', wrap(async (req, res) => {
   const regions    = (await db.all(`SELECT DISTINCT region FROM projects WHERE status='active' ORDER BY region`)).map(r => r.region);
   const deal_types = (await db.all(`SELECT DISTINCT deal_type FROM projects WHERE status='active' ORDER BY deal_type`)).map(r => r.deal_type);
   const stages     = (await db.all(`SELECT DISTINCT stage FROM projects WHERE status='active' AND stage IS NOT NULL ORDER BY stage`)).map(r => r.stage);
-  const revenue_bands = (await db.all(`SELECT DISTINCT revenue_band FROM projects WHERE status='active' AND revenue_band IS NOT NULL AND revenue_band <> '—' ORDER BY revenue_band`)).map(r => r.revenue_band);
-  const ebitda_bands  = (await db.all(`SELECT DISTINCT ebitda_band FROM projects WHERE status='active' AND ebitda_band IS NOT NULL AND ebitda_band <> '—' ORDER BY ebitda_band`)).map(r => r.ebitda_band);
+  const revenue_bands = (await db.all(`SELECT DISTINCT revenue_band FROM projects WHERE status='active' AND revenue_band IS NOT NULL AND revenue_band <> 'k. A.' ORDER BY revenue_band`)).map(r => r.revenue_band);
+  const ebitda_bands  = (await db.all(`SELECT DISTINCT ebitda_band FROM projects WHERE status='active' AND ebitda_band IS NOT NULL AND ebitda_band <> 'k. A.' ORDER BY ebitda_band`)).map(r => r.ebitda_band);
 
   res.json({ success: true, data: { projects, filters: { industries, regions, deal_types, stages, revenue_bands, ebitda_bands } } });
 }));
 
-// ── GET /my-projects — Seller's own projects (all statuses) ───────────────
+// ── GET /my-projects: Seller's own projects (all statuses) ───────────────
 router.get('/my-projects', authenticate, wrap(async (req, res) => {
   if (!['seller', 'super_admin', 'advisor'].includes(req.user.role)) {
     return res.status(403).json({ success: false, error: 'Nicht berechtigt' });
@@ -106,7 +106,7 @@ router.get('/my-projects', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: projects });
 }));
 
-// ── POST /my-project — Seller submits a new project (starts as draft) ─────
+// ── POST /my-project: Seller submits a new project (starts as draft) ─────
 // Setzt vollständiges Profil voraus (Kontaktdaten Pflicht vor Mandatsanlage)
 router.post('/my-project', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
   if (!['seller', 'super_admin', 'advisor'].includes(req.user.role)) {
@@ -124,7 +124,7 @@ router.post('/my-project', authenticate, requireCompleteProfile(), wrap(async (r
        status, mandate_type, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)`,
     [codename, industry, region,
-     revenue_band || '—', ebitda_band || '—',
+     revenue_band || 'k. A.', ebitda_band || 'k. A.',
      deal_type || 'Nachfolge', short_description,
      JSON.stringify(highlights || []),
      mandate_type || 'ma',
@@ -132,16 +132,16 @@ router.post('/my-project', authenticate, requireCompleteProfile(), wrap(async (r
   );
 
   db.auditLog(req.user.id, 'SELLER_SUBMITTED_PROJECT', 'project', projectId, codename, req.ip);
-  console.log(`\n📬 Neues Mandat eingereicht: "${codename}" von User #${req.user.id} — wartet auf Admin-Freigabe`);
+  console.log(`\n📬 Neues Mandat eingereicht: "${codename}" von User #${req.user.id}, wartet auf Admin-Freigabe`);
 
   res.status(201).json({ success: true, data: { id: projectId, message: 'Projekt eingereicht. Es wird nach Prüfung veröffentlicht.' } });
 }));
 
-// ── GET /:id/teaser — Public teaser (+ can_manage für eingeloggte Pfleger) ─
+// ── GET /:id/teaser: Public teaser (+ can_manage für eingeloggte Pfleger) ─
 router.get('/:id/teaser', optionalAuth, wrap(async (req, res) => {
   // Pfleger (Admin/Ersteller/Mitglied) sehen den Teaser auch im Entwurfsstatus
   let project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
-  // Sprint 19: Rolle auflösen — Pflegende UND Betrachter sehen das Mandat auch im Entwurf
+  // Sprint 19: Rolle auflösen: Pflegende UND Betrachter sehen das Mandat auch im Entwurf
   const role = req.user ? await projectRole(req.user, req.params.id) : null;
   const canManage = role === 'manager';
   if (!project && role) {
@@ -159,7 +159,7 @@ router.get('/:id/teaser', optionalAuth, wrap(async (req, res) => {
   });
 }));
 
-// ── GET /:id/teaser.pdf — Kurzprofil als PDF (mit Audit-Trail & Markierung) ──
+// ── GET /:id/teaser.pdf: Kurzprofil als PDF (mit Audit-Trail & Markierung) ──
 router.get('/:id/teaser.pdf', authenticate, wrap(async (req, res) => {
   const canManage = await canManageProject(req.user, req.params.id);
   let project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
@@ -178,7 +178,7 @@ router.get('/:id/teaser.pdf', authenticate, wrap(async (req, res) => {
   res.send(pdf);
 }));
 
-// ── PUT /:id — Mandat pflegen über den Marktplatz (Admin/Ersteller/Mitglied) ─
+// ── PUT /:id: Mandat pflegen über den Marktplatz (Admin/Ersteller/Mitglied) ─
 router.put('/:id', authenticate, wrap(async (req, res) => {
   if (!(await canManageProject(req.user, req.params.id))) {
     return res.status(403).json({ success: false, error: 'Keine Berechtigung zur Pflege dieses Mandats' });
@@ -232,7 +232,7 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Mandat aktualisiert' } });
 }));
 
-// ── POST /:id/image — Projektbild hochladen (Pfleger) ───────────────────────
+// ── POST /:id/image: Projektbild hochladen (Pfleger) ───────────────────────
 router.post('/:id/image', authenticate, wrap(async (req, res, next) => {
   if (!(await canManageProject(req.user, req.params.id))) {
     return res.status(403).json({ success: false, error: 'Keine Berechtigung' });
@@ -249,7 +249,7 @@ router.post('/:id/image', authenticate, wrap(async (req, res, next) => {
   });
 }));
 
-// ── GET /:id/image — Projektbild ausliefern (öffentlich, Teaser-Ebene) ──────
+// ── GET /:id/image: Projektbild ausliefern (öffentlich, Teaser-Ebene) ──────
 router.get('/:id/image', wrap(async (req, res) => {
   const p = await db.get('SELECT image_path FROM projects WHERE id = ?', [req.params.id]);
   if (!p || !p.image_path || !fs.existsSync(p.image_path)) {
@@ -281,13 +281,13 @@ router.post('/:id/questions', authenticate, wrap(async (req, res) => {
     [req.params.id, req.user.id, question.trim()]
   );
   db.activityLog(req.user.id, 'QA_QUESTION_ASKED', 'qa', qId, req.ip);
-  // Admin benachrichtigen — mit Direkt-Link zum Antworten
+  // Admin benachrichtigen: mit Direkt-Link zum Antworten
   const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [req.params.id]);
   const { sendProcessUpdateEmail } = require('../utils/email');
   sendProcessUpdateEmail({
     to: process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de',
     firstName: '',
-    title: `Neue Q&A-Frage — ${proj ? proj.codename : 'Mandat'}`,
+    title: `Neue Q&A-Frage: ${proj ? proj.codename : 'Mandat'}`,
     message: `<strong>${req.user.first_name} ${req.user.last_name}</strong> (${req.user.email}) fragt zum Mandat <strong>${proj ? proj.codename : ''}</strong>:<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${question.trim()}</span>`,
     ctaLabel: 'Frage direkt beantworten', ctaPath: `/projekte/${req.params.id}?tab=qa`,
   }).catch(() => {});
@@ -296,7 +296,7 @@ router.post('/:id/questions', authenticate, wrap(async (req, res) => {
 
 router.get('/:id/questions', authenticate, wrap(async (req, res) => {
   const isAdmin = ['super_admin', 'advisor'].includes(req.user.role);
-  // Käufer sehen ihre eigenen Fragen — plus die, die wir für alle Interessenten
+  // Käufer sehen ihre eigenen Fragen: plus die, die wir für alle Interessenten
   // freigegeben haben (FAQ). Der Fragesteller bleibt dort anonym.
   const rows = isAdmin
     ? await db.all(`SELECT q.*, u.first_name || ' ' || u.last_name AS buyer_name FROM qa_threads q JOIN users u ON u.id = q.buyer_id WHERE q.project_id = ? ORDER BY q.asked_at DESC`, [req.params.id])
@@ -311,7 +311,7 @@ router.get('/:id/questions', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: rows });
 }));
 
-// ── GET /:id — Full detail (requires auth + vollständiges Profil + NDA) ───
+// ── GET /:id: Full detail (requires auth + vollständiges Profil + NDA) ───
 router.get('/:id', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
   const project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
@@ -322,7 +322,7 @@ router.get('/:id', authenticate, requireCompleteProfile(), wrap(async (req, res)
     const nda = await db.get(`SELECT status FROM nda_requests WHERE user_id = ? AND project_id = ?`, [req.user.id, project.id]);
     ndaStatus = nda ? nda.status : null;
     // Zustandsautomat: Detaildaten erst ab Gate 'details' (dataroom_granted).
-    // Serverseitig erzwungen — nicht über Direkt-URLs/API umgehbar.
+    // Serverseitig erzwungen: nicht über Direkt-URLs/API umgehbar.
     const stage = await getStage(req.user.id, project.id);
     if (!stageAllows(stage, 'details')) {
       db.activityLog(req.user.id, 'ACCESS_DETAILS_DENIED', 'details', project.id, req.ip);

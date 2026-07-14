@@ -1,5 +1,5 @@
 /**
- * Sprint 15 — Connect & Interaktion.
+ * Sprint 15: Connect & Interaktion.
  * Erweitert messages um Mandatsbezug (project_id) und einen Nachrichtentyp
  * ('user' | 'system'), damit Prozess-Ereignisse (Intro, NDA, DD, LOI, Closing)
  * als Systemnachrichten in der Deal-Timeline des Chats erscheinen können.

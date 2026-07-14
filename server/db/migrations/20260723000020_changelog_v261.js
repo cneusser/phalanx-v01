@@ -1,12 +1,12 @@
-/** Changelog-Eintrag v0.261 (Sprint 12 — Ausführliche Bewertung 2.0). */
+/** Changelog-Eintrag v0.261 (Sprint 12: Ausführliche Bewertung 2.0). */
 const ENTRY = {
   version: 'v0.261', released_on: '2026-07-23',
-  title: 'Bewertung 2.0 — Cashflow, Sensitivität, Branchenvergleich',
+  title: 'Bewertung 2.0: Cashflow, Sensitivität, Branchenvergleich',
   items: [
-    'Discounted Cash Flow: Fünfjahresplanung, Kapitalkosten nach CAPM mit KMU-Zuschlägen, Fortführungswert — jede Annahme offengelegt',
+    'Discounted Cash Flow: Fünfjahresplanung, Kapitalkosten nach CAPM mit KMU-Zuschlägen, Fortführungswert, jede Annahme offengelegt',
     'Sensitivitätsmatrix: Wie verändert sich der Wert bei anderen Kapitalkosten und anderem Wachstum?',
     'Branchenvergleich: EBIT-Marge, Wachstum und Personalkostenquote gegen Quartilsbänder von 20 Branchen',
-    'Methodenvergleich: Multiplikator, Ertragswert und DCF nebeneinander — mit ehrlicher Spannweite',
+    'Methodenvergleich: Multiplikator, Ertragswert und DCF nebeneinander, mit ehrlicher Spannweite',
     'Leere Planungsfelder werden konservativ aus der Historie abgeleitet (Wachstum gedeckelt auf ±5 % p. a.)',
     'PDF-Report um DCF-Seite, Sensitivitätsmatrix und Benchmarking erweitert',
   ],

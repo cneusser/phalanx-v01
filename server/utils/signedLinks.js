@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 4 — Signierte, ablaufende Datei-Links (HMAC-SHA256).
+// Sprint 4: Signierte, ablaufende Datei-Links (HMAC-SHA256).
 // Der Link trägt Dokument-ID, Nutzer-ID und Ablaufzeit; jede Manipulation
 // invalidiert die Signatur. Standard-Gültigkeit: 15 Minuten.
 // ─────────────────────────────────────────────────────────────────────────────

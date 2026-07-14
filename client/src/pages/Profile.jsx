@@ -122,7 +122,7 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Sprint 13 — Sicherheit: Zwei-Faktor-Authentifizierung */}
+      {/* Sprint 13: Sicherheit: Zwei-Faktor-Authentifizierung */}
       <div style={{ marginBottom: '1.5rem' }}>
         <TwoFactorCard />
       </div>
@@ -132,7 +132,7 @@ export default function Profile() {
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.9rem 1rem', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#92400e' }}>
           <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
           <div>
-            <strong>Profil unvollständig.</strong> Bitte vervollständigen Sie Ihre Kontaktdaten — sie sind Voraussetzung,
+            <strong>Profil unvollständig.</strong> Bitte vervollständigen Sie Ihre Kontaktdaten, sie sind Voraussetzung,
             um Mandate im Detail einzusehen, Interesse zu bekunden{user?.role === 'seller' ? ' bzw. Mandate anzulegen' : ''}.
           </div>
         </div>
@@ -181,7 +181,7 @@ export default function Profile() {
         <div style={card}>
           <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '0.5rem', fontSize: '1rem' }}>Ihr Profil (Pitchbook)</h2>
           <p style={{ color: '#888', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
-            Stellen Sie sich {isBuyer ? 'als Investor' : 'als Unternehmen'} vor — diese Angaben helfen bei der Einordnung Ihrer Anfragen im Prozess.
+            Stellen Sie sich {isBuyer ? 'als Investor' : 'als Unternehmen'} vor, diese Angaben helfen bei der Einordnung Ihrer Anfragen im Prozess.
           </p>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>
@@ -223,7 +223,7 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Sprint 18: Benachrichtigungen — granulares Opt-in/Opt-out (DSGVO) */}
+        {/* Sprint 18: Benachrichtigungen: granulares Opt-in/Opt-out (DSGVO) */}
         <div style={card}>
           <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '0.5rem', fontSize: '1rem' }}>Benachrichtigungen</h2>
           <p style={{ color: '#888', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
@@ -231,7 +231,7 @@ export default function Profile() {
           </p>
           {[
             ['newsletter', 'Newsletter: neue Mandate', 'Ein Hinweis, sobald ein neues Mandat im Marktplatz veröffentlicht wird.'],
-            ['follow_updates', 'Updates zu Mandaten, denen ich folge', 'Änderungen, neue Unterlagen, Exposé und Statuswechsel (Due Diligence, LOI, Abschluss). Sie folgen einem Mandat automatisch, sobald Sie Interesse bekunden — oder manuell über den Stern.'],
+            ['follow_updates', 'Updates zu Mandaten, denen ich folge', 'Änderungen, neue Unterlagen, Exposé und Statuswechsel (Due Diligence, LOI, Abschluss). Sie folgen einem Mandat automatisch, sobald Sie Interesse bekunden, oder manuell über den Stern.'],
             ['similar_suggestions', 'Hinweise auf ähnliche Mandate', 'Passende neue Mandate auf Basis der Mandate, für die Sie sich bisher interessiert haben.'],
           ].map(([key, label, hint]) => (
             <label key={key} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', padding: '0.75rem 0', borderTop: '1px solid #eef4f9', cursor: 'pointer' }}>

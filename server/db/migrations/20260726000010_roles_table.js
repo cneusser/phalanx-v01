@@ -4,7 +4,7 @@
  * Bisher lag die Rechte-Matrix ausschließlich im Code. Das war sicher, aber starr:
  * Ein neues Teammitglied mit einem Zuschnitt zwischen „Assistenz" und „Berater"
  * ließ sich nicht abbilden. Jetzt liegen die Rollen in der Datenbank und sind im
- * Admin per Häkchen änderbar — inklusive eigener Rollen.
+ * Admin per Häkchen änderbar: inklusive eigener Rollen.
  *
  * Sicherheitsanker, die NICHT verhandelbar sind:
  *   · super_admin hat immer alle Rechte und lässt sich nicht beschneiden.
@@ -45,10 +45,10 @@ exports.up = async function (knex) {
     ['super_admin', 'Administrator', 'Vollzugriff auf alles, inklusive Nutzerverwaltung und Birdview.', 1, 10],
     ['tenant_owner', 'Mandanten-Eigentümer', 'Vollzugriff im eigenen Mandanten.', 1, 20],
     ['advisor', 'Berater', 'Eigene Mandate führen, CRM nutzen, Mails versenden.', 1, 30],
-    ['assistant', 'Assistenz', 'Pflegen und vorbereiten — ohne Mailversand und ohne Löschrechte.', 1, 40],
+    ['assistant', 'Assistenz', 'Pflegen und vorbereiten, ohne Mailversand und ohne Löschrechte.', 1, 40],
     ['analyst', 'Analyst', 'Nur lesen und auswerten.', 1, 50],
-    ['buyer', 'Investor / Käufer', 'Externer Nutzer — kein Zugriff auf interne Bereiche.', 0, 60],
-    ['seller', 'Verkäufer', 'Externer Nutzer — pflegt eigene Mandate.', 0, 70],
+    ['buyer', 'Investor / Käufer', 'Externer Nutzer, kein Zugriff auf interne Bereiche.', 0, 60],
+    ['seller', 'Verkäufer', 'Externer Nutzer: pflegt eigene Mandate.', 0, 70],
   ];
   for (const [key, label, description, isStaff, sort] of seed) {
     const exists = await knex('roles').where({ tenant_id: 1, key }).first().catch(() => null);
@@ -61,7 +61,7 @@ exports.up = async function (knex) {
     }
   }
 
-  // Eigene Rollen brauchen freie Rollen-Namen — der CHECK auf users.role fällt.
+  // Eigene Rollen brauchen freie Rollen-Namen: der CHECK auf users.role fällt.
   // Validiert wird stattdessen gegen die roles-Tabelle (in der Route).
   await knex.raw('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check').catch(() => {});
 };

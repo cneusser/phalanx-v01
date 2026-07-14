@@ -1,8 +1,8 @@
 /**
- * Sprint 8 — Container-Safe (Ordner, Bilder, beliebige Dateien je Mandat).
+ * Sprint 8: Container-Safe (Ordner, Bilder, beliebige Dateien je Mandat).
  *
  * safe_items: eigener, härter geschützter Bereich (nur Admin + Projekt-Pfleger,
- * KEIN Investor-Zugriff) — getrennt von Teaser/IM/Datenraum (documents).
+ * KEIN Investor-Zugriff): getrennt von Teaser/IM/Datenraum (documents).
  *   - parent_id NULLABLE → Ordnerbaum (is_folder = 1 für Ordner)
  *   - storage_key: Schlüssel beim StorageProvider (nur für Dateien)
  *   - checksum_sha256, size, mime, version (Versionierung bei Namenskollision)

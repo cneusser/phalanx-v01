@@ -1,18 +1,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 13 — Granulare Rechte (CRM V).
+// Sprint 13: Granulare Rechte (CRM V).
 //
 // Bisher galt: Wer „advisor" war, durfte alles, was der Admin durfte. Sobald Dritte
 // mit auf der Plattform arbeiten, ist das untragbar. Deshalb ein explizites
-// Rechte-Modell — eine Matrix, keine verstreuten if-Abfragen.
+// Rechte-Modell: eine Matrix, keine verstreuten if-Abfragen.
 //
 // Rollen (Staff):
 //   super_admin  Plattform-Eigentümer: alles, inkl. Nutzerverwaltung und Birdview
 //   tenant_owner Mandanten-Eigentümer: alles im eigenen Mandanten
 //   advisor      Berater: eigene Mandate führen, CRM nutzen, Mails versenden
-//   assistant    Assistenz: pflegen und vorbereiten — aber NICHT versenden, NICHT löschen
+//   assistant    Assistenz: pflegen und vorbereiten, aber NICHT versenden, NICHT löschen
 //   analyst      Nur-Lese-Rolle: sehen und auswerten, nichts verändern
 //
-// Rollen (extern): buyer, seller — unverändert, kein Staff-Zugriff.
+// Rollen (extern): buyer, seller: unverändert, kein Staff-Zugriff.
 //
 // Sichtbarkeit: advisor/assistant/analyst sehen nur Mandate, die ihnen gehören
 // oder in denen sie Mitglied sind (siehe scopeProjects). super_admin/tenant_owner
@@ -41,7 +41,7 @@ const PERMISSIONS = {
   ],
   assistant: [
     'crm.read', 'crm.write',
-    'mail.log',                       // sehen, was rausging — aber nicht selbst senden
+    'mail.log',                       // sehen, was rausging, aber nicht selbst senden
     'projects.read', 'projects.write',
     'valuation.read',
     'tasks.read', 'tasks.write',
@@ -99,7 +99,7 @@ const ROLE_LABELS = {
 // Die Rechte liegen in der Tabelle `roles` und sind im Admin änderbar. Damit die
 // Prüfung synchron und schnell bleibt, hält der Prozess einen Cache, der beim Start
 // und nach jeder Änderung neu geladen wird. Ist die Tabelle (noch) nicht da,
-// gilt die Code-Matrix — die Plattform bleibt also immer funktionsfähig.
+// gilt die Code-Matrix: die Plattform bleibt also immer funktionsfähig.
 let ROLE_CACHE = null;   // { key: { label, permissions:[], is_staff } }
 
 async function reloadRoles() {
@@ -144,7 +144,7 @@ function can(user, permission) {
   return p.includes('*') || p.includes(permission);
 }
 
-// Interne Rollen (Admin-Zugang) — aus der DB, sonst aus dem Code
+// Interne Rollen (Admin-Zugang): aus der DB, sonst aus dem Code
 function staffRoles() {
   if (ROLE_CACHE) return Object.keys(ROLE_CACHE).filter(k => ROLE_CACHE[k].is_staff);
   return STAFF_ROLES;
@@ -171,7 +171,7 @@ function requirePermission(...permissions) {
   };
 }
 
-// Sieht dieser Nutzer alle Mandate — oder nur die eigenen?
+// Sieht dieser Nutzer alle Mandate: oder nur die eigenen?
 // Vollsicht hängt am Recht 'projects.all' bzw. an den beiden Eigentümer-Rollen.
 function seesAllProjects(user) {
   if (!user) return false;

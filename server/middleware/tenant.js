@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 5 — Tenant-Auflösung über Subdomain.
+// Sprint 5: Tenant-Auflösung über Subdomain.
 // z. B. kunde1.capitalmatch.de → Tenant mit subdomain='kunde1'.
 // Fallback: Default-Tenant 1 (phalanx). Ergebnis liegt an req.tenantId /
 // req.tenant. Lookup wird 60 s im Speicher gecacht.

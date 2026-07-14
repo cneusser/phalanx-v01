@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Eye, LogOut } from 'lucide-react';
 
 /**
- * Birdview-Banner — immer sichtbar, solange ein Admin die Plattform mit den
+ * Birdview-Banner: immer sichtbar, solange ein Admin die Plattform mit den
  * Augen eines anderen Nutzers sieht. Unübersehbar, damit niemand vergisst, in
  * wessen Ansicht er sich befindet. Der Ausstieg ist immer einen Klick entfernt.
  */

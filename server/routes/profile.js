@@ -11,7 +11,7 @@ router.get('/', authenticate, wrap(async (req, res) => {
   const user = await db.get(`SELECT ${USER_FIELDS} FROM users WHERE id = ?`, [req.user.id]);
   const profile = await db.get('SELECT * FROM buyer_profiles WHERE user_id = ?', [req.user.id]);
   const parsed = profile ? { ...profile, industries: JSON.parse(profile.industries||'[]'), regions: JSON.parse(profile.regions||'[]'), deal_types: JSON.parse(profile.deal_types||'[]') } : null;
-  // Vollständigkeit mitliefern — Client kann Hinweis anzeigen
+  // Vollständigkeit mitliefern: Client kann Hinweis anzeigen
   const missing = missingProfileFields(user || {});
   res.json({ success: true, data: { user, profile: parsed, profile_complete: missing.length === 0, missing_fields: missing } });
 }));
@@ -51,7 +51,7 @@ async function loadOwnActivity(userId) {
   return [...audit, ...activity].sort((a, b) => new Date(b.ts) - new Date(a.ts));
 }
 
-// Sprachpräferenz (de|en) — wird beim Umschalten in der Oberfläche mitgeschrieben
+// Sprachpräferenz (de|en): wird beim Umschalten in der Oberfläche mitgeschrieben
 router.put('/language', authenticate, wrap(async (req, res) => {
   const lang = req.body.language === 'en' ? 'en' : 'de';
   await db.run('UPDATE users SET language = ? WHERE id = ?', [lang, req.user.id]).catch(() => {});

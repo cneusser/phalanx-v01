@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 7 — Ausführliche Bewertung (Login-Pflicht).
+// Sprint 7: Ausführliche Bewertung (Login-Pflicht).
 //   POST   /api/detailed-valuations            Entwurf anlegen
 //   GET    /api/detailed-valuations            eigene Bewertungen (Admin: alle)
 //   GET    /api/detailed-valuations/:id        eine Bewertung (Eigentümer/Admin)

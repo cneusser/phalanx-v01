@@ -84,7 +84,7 @@ export default function Navbar() {
         maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64,
       }}>
-        {/* Logo — bei White-Label-Tenants: Logo/Name des Mandanten */}
+        {/* Logo: bei White-Label-Tenants: Logo/Name des Mandanten */}
         <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           {branding ? (
             <>

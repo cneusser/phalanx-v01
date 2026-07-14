@@ -131,7 +131,7 @@ export default function ExposeView() {
         )}
 
         <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: '1.5rem', lineHeight: 1.5 }}>
-          Vertraulich — ausschließlich für den benannten Empfänger. Weitergabe an Dritte ohne schriftliche Zustimmung untersagt. Angaben ohne Gewähr; keine Anlage-, Rechts- oder Steuerberatung.
+          Vertraulich: ausschließlich für den benannten Empfänger. Weitergabe an Dritte ohne schriftliche Zustimmung untersagt. Angaben ohne Gewähr; keine Anlage-, Rechts- oder Steuerberatung.
         </div>
       </div>
     </div>

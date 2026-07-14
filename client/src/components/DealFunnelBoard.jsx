@@ -106,7 +106,7 @@ export default function DealFunnelBoard({ show }) {
   const parties = (board?.parties || []).filter(p => hideDropped ? p.party_status !== 'dropped' : true);
   const deal = deals.find(d => d.id === active);
 
-  // „Alle auswählen" — Kontakte mit Widerspruch werden gar nicht erst angehakt.
+  // „Alle auswählen": Kontakte mit Widerspruch werden gar nicht erst angehakt.
   const selectable = parties.filter(p => p.contact_id
     && p.consent_status !== 'opt_out' && p.contact_status !== 'do_not_contact').map(p => p.contact_id);
   const allSelected = selectable.length > 0 && selectable.every(id => selected.includes(id));
@@ -120,7 +120,7 @@ export default function DealFunnelBoard({ show }) {
 
   return (
     <div>
-      {/* Mandats-Auswahl — laufende Mandate als Reiter, abgeschlossene und Entwürfe im Klappmenü */}
+      {/* Mandats-Auswahl: laufende Mandate als Reiter, abgeschlossene und Entwürfe im Klappmenü */}
       {(() => {
         const isArchived = (d) => ['closed', 'withdrawn'].includes(d.deal_status) || d.status === 'archived';
         const live = deals.filter(d => !isArchived(d) && d.status !== 'draft');
@@ -172,7 +172,7 @@ export default function DealFunnelBoard({ show }) {
               .filter(k => !(board?.parties || []).some(p => p.contact_id === k.id))
               .map(k => (
                 <option key={k.id} value={k.id}>
-                  {[k.first_name, k.last_name].filter(Boolean).join(' ')}{k.companies ? ` — ${k.companies}` : ''}
+                  {[k.first_name, k.last_name].filter(Boolean).join(' ')}{k.companies ? `, ${k.companies}` : ''}
                 </option>
               ))}
           </select>
@@ -180,7 +180,7 @@ export default function DealFunnelBoard({ show }) {
             {Object.entries(ROLE_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
           <select value={addStage} onChange={e => setAddStage(e.target.value)} style={SELECT}>
-            {stages.map(s => <option key={s.key} value={s.key}>{s.key} — {s.label}</option>)}
+            {stages.map(s => <option key={s.key} value={s.key}>{s.key}: {s.label}</option>)}
           </select>
           <button onClick={addParty} disabled={!addContact} style={{
             background: addContact ? C.navy : '#cbd5e1', color: '#fff', border: 'none', borderRadius: 8,
@@ -243,7 +243,7 @@ export default function DealFunnelBoard({ show }) {
         </div>
       </div>
 
-      {/* Kampagnen des Mandats — Reaktionen und Reminder-Automatik */}
+      {/* Kampagnen des Mandats: Reaktionen und Reminder-Automatik */}
       {!!camps.length && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.7rem 0.9rem', marginBottom: '0.9rem' }}>
           <div style={{ fontSize: '0.72rem', fontWeight: 800, color: C.navy, marginBottom: '0.5rem' }}>Versendete Mailings</div>
@@ -380,7 +380,7 @@ export default function DealFunnelBoard({ show }) {
                           <span style={{ background: st.bg, color: st.color, padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.6rem', fontWeight: 700 }}>{st.label}</span>
                           <span style={{ fontSize: '0.6rem', color: C.muted }}>{ROLE_LABEL[p.party_role] || p.party_role}</span>
                           {p.consent_status === 'opt_in' && <ShieldCheck size={11} color="#059669" title="Einwilligung erteilt" />}
-                          {(p.consent_status === 'opt_out' || p.contact_status === 'do_not_contact') && <ShieldOff size={11} color="#dc2626" title="Widerspruch — nicht kontaktieren" />}
+                          {(p.consent_status === 'opt_out' || p.contact_status === 'do_not_contact') && <ShieldOff size={11} color="#dc2626" title="Widerspruch, nicht kontaktieren" />}
                           {invited && <Mail size={11} color={C.accent} title={`Einladung: ${p.invite_status}`} />}
                           {p.stagnant && (
                             <span title={`Seit ${p.days_in_stage} Tagen ohne Fortschritt`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: '#92400e', fontSize: '0.6rem', fontWeight: 700 }}>
@@ -408,7 +408,7 @@ export default function DealFunnelBoard({ show }) {
                       </div>
                     );
                   })}
-                  {!cards.length && <div style={{ fontSize: '0.68rem', color: '#cbd5e1', textAlign: 'center', padding: '0.8rem 0' }}>—</div>}
+                  {!cards.length && <div style={{ fontSize: '0.68rem', color: '#cbd5e1', textAlign: 'center', padding: '0.8rem 0' }}>k. A.</div>}
                 </div>
               );
             })}
@@ -467,7 +467,7 @@ export default function DealFunnelBoard({ show }) {
 
 // ── Massenmailing: Mandats-Ansprache mit Einwilligung + Pflege-Link ──────────
 function CampaignModal({ project, contactIds, onClose, onSent, show }) {
-  const [subject, setSubject] = useState(`[Vertraulich] ${project.codename} — vertrauliche Vorabinformation`);
+  const [subject, setSubject] = useState(`[Vertraulich] ${project.codename}, vertrauliche Vorabinformation`);
   const [intro, setIntro] = useState('');
   const [reminders, setReminders] = useState(true);
   const [preview, setPreview] = useState(null);
@@ -482,7 +482,7 @@ function CampaignModal({ project, contactIds, onClose, onSent, show }) {
   async function send() {
     if (!window.confirm(
       `${preview?.send || 0} Kontakt(e) zum Mandat „${project.codename}" anschreiben?\n\n` +
-      `Kontakte ohne Einwilligung erhalten eine Double-Opt-in-Anfrage — Unterlagen gibt es erst nach Zustimmung. ` +
+      `Kontakte ohne Einwilligung erhalten eine Double-Opt-in-Anfrage, Unterlagen gibt es erst nach Zustimmung. ` +
       `Widersprüche werden übersprungen.${reminders ? '\n\nReminder laufen automatisch an Tag 7 und Tag 21.' : ''}`)) return;
     setSending(true);
     try {
@@ -496,7 +496,7 @@ function CampaignModal({ project, contactIds, onClose, onSent, show }) {
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(13,27,54,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.4rem', width: 'min(640px, 100%)', maxHeight: '90vh', overflowY: 'auto' }}>
-        <h3 style={{ margin: '0 0 0.3rem', color: C.navy, fontSize: '1.05rem' }}>Mandats-Mailing — {project.codename}</h3>
+        <h3 style={{ margin: '0 0 0.3rem', color: C.navy, fontSize: '1.05rem' }}>Mandats-Mailing: {project.codename}</h3>
         <p style={{ margin: '0 0 1rem', fontSize: '0.8rem', color: C.muted, lineHeight: 1.5 }}>
           Eine Mail, drei Zwecke: anonymes Kurzprofil des Mandats, Einwilligung nach DSGVO (Double-Opt-in)
           und ein persönlicher Link zur Pflege der Kontaktdaten.
@@ -517,7 +517,7 @@ function CampaignModal({ project, contactIds, onClose, onSent, show }) {
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: C.text, cursor: 'pointer', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem 0.7rem' }}>
           <input type="checkbox" checked={reminders} onChange={e => setReminders(e.target.checked)} />
           <span>
-            <strong>Automatisch nachfassen</strong> — höfliche Erinnerung an <strong>Tag 7</strong>, abschließende Nachfrage an <strong>Tag 21</strong>.
+            <strong>Automatisch nachfassen</strong>: höfliche Erinnerung an <strong>Tag 7</strong>, abschließende Nachfrage an <strong>Tag 21</strong>.
             <span style={{ display: 'block', fontSize: '0.72rem', color: C.muted, marginTop: 2 }}>
               Jede Reaktion (Zustimmung, Absage, Statuswechsel im Funnel) stoppt die Serie sofort. Danach keine weitere Ansprache.
             </span>
@@ -576,14 +576,14 @@ function UpdateMailModal({ project, onClose, onSent, show }) {
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(13,27,54,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.4rem', width: 'min(560px, 100%)', maxHeight: '90vh', overflowY: 'auto' }}>
-        <h3 style={{ margin: '0 0 0.3rem', color: C.navy, fontSize: '1.05rem' }}>Prozess-Update — {project.codename}</h3>
+        <h3 style={{ margin: '0 0 0.3rem', color: C.navy, fontSize: '1.05rem' }}>Prozess-Update: {project.codename}</h3>
         <p style={{ margin: '0 0 1rem', fontSize: '0.8rem', color: C.muted, lineHeight: 1.5 }}>
           Geht ausschließlich an Beteiligte, die eingewilligt haben und noch im Prozess sind
           ({list === null ? '…' : list.length} Empfänger). Ausgestiegene und Widersprüche bleiben außen vor.
         </p>
         <textarea
           value={note} onChange={e => setNote(e.target.value)} rows={5}
-          placeholder={'z. B.: Der Zeitplan wurde angepasst — indikative Angebote werden bis zum 15.08. erbeten. Das Information Memorandum liegt in aktualisierter Fassung im Datenraum.'}
+          placeholder={'z. B.: Der Zeitplan wurde angepasst, indikative Angebote werden bis zum 15.08. erbeten. Das Information Memorandum liegt in aktualisierter Fassung im Datenraum.'}
           style={{ ...SELECT, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} />
         {list !== null && !!list.length && (
           <div style={{ marginTop: '0.7rem', fontSize: '0.74rem', color: C.muted, lineHeight: 1.6 }}>

@@ -1,5 +1,5 @@
 /**
- * Sprint 20 — Import des ersten Schwungs echter Phalanx-Kontakte.
+ * Sprint 20: Import des ersten Schwungs echter Phalanx-Kontakte.
  *
  * Quelle: seed-data/ma_funnel_contacts.json (Auswertung des Exchange-Mailverkehrs,
  * 233 Zeilen über 5 Mandate). Angelegt werden:
@@ -8,7 +8,7 @@
  *                     Kontaktaufnahme über die Plattform erst nach Double-Opt-in)
  *   • crm_company_contacts (Zuordnung)
  *   • projects       für RENOVAPRESS / FARADAY / Defacto als ENTWURF (nicht im
- *                     Marktplatz sichtbar) — Betongold und Cudd existieren bereits
+ *                     Marktplatz sichtbar): Betongold und Cudd existieren bereits
  *   • crm_deal_parties  mit Rolle, Funnel-Stufe, Status, Mailhistorie, nächstem Schritt
  *
  * Idempotent: läuft die Migration erneut, werden vorhandene Datensätze übersprungen.
@@ -54,7 +54,7 @@ const MISSING_PROJECTS = {
 
 exports.up = async function (knex) {
   const file = path.join(__dirname, '..', 'seed-data', 'ma_funnel_contacts.json');
-  if (!fs.existsSync(file)) { console.warn('[import] Seed-Datei fehlt — übersprungen'); return; }
+  if (!fs.existsSync(file)) { console.warn('[import] Seed-Datei fehlt, übersprungen'); return; }
   const rows = JSON.parse(fs.readFileSync(file, 'utf8'));
 
   const admin = await knex('users').where({ email: 'neusser@phalanx.de' }).first().catch(() => null);
@@ -68,7 +68,7 @@ exports.up = async function (knex) {
       const [ins] = await knex('projects').insert({
         tenant_id: 1, codename,
         industry: meta.industry, region: meta.region, deal_type: meta.deal_type,
-        revenue_band: '—', ebitda_band: '—',
+        revenue_band: 'k. A.', ebitda_band: 'k. A.',
         short_description: meta.short_description,
         highlights: JSON.stringify([]),
         status: 'draft', mandate_type: 'ma', created_by: adminId,
@@ -120,7 +120,7 @@ exports.up = async function (knex) {
       const [ins] = await knex('crm_contacts').insert({
         tenant_id: 1, first_name, last_name, email: r.email,
         notes: r.name && r.name.includes('/') ? `Weitere Ansprechpartner laut Mailverkehr: ${r.name}` : null,
-        // DSGVO: Bestandskontakte aus dem Mailverkehr — Einwilligung für die
+        // DSGVO: Bestandskontakte aus dem Mailverkehr, Einwilligung für die
         // Plattform-Ansprache liegt NICHT vor. Erst nach Double-Opt-in kontaktieren.
         consent_status: 'unknown',
         contact_status: 'active',

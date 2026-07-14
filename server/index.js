@@ -30,8 +30,8 @@ const limiterJson = (msg) => ({
   legacyHeaders: false,
   message: { success: false, error: msg },
 });
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 500, ...limiterJson('Zu viele Anfragen — bitte in einigen Minuten erneut versuchen.') });
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50, ...limiterJson('Zu viele Anmeldeversuche — bitte in 15 Minuten erneut versuchen.') });
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 500, ...limiterJson('Zu viele Anfragen, bitte in einigen Minuten erneut versuchen.') });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50, ...limiterJson('Zu viele Anmeldeversuche, bitte in 15 Minuten erneut versuchen.') });
 app.use('/api/', limiter);
 app.use('/api/auth/', authLimiter);
 
@@ -65,7 +65,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Serve React in production
-// Client ausliefern, sobald ein Build vorliegt — unabhängig von NODE_ENV.
+// Client ausliefern, sobald ein Build vorliegt, unabhängig von NODE_ENV.
 // Vorher hing das an NODE_ENV=production; fehlte die Variable, lieferte der Server
 // bei jedem Deep-Link (/projekte, /crm, F5, geteilte Links) nichts aus.
 // Der SPA-Fallback darf die API nicht verschlucken: /api/* wird durchgereicht.
@@ -79,7 +79,7 @@ if (fs.existsSync(path.join(clientDist, 'index.html'))) {
   });
   console.log('🖥️  Client-Build wird ausgeliefert:', clientDist);
 } else {
-  console.warn('⚠️  Kein Client-Build gefunden (client/dist/index.html) — nur die API ist erreichbar.');
+  console.warn('⚠️  Kein Client-Build gefunden (client/dist/index.html), nur die API ist erreichbar.');
 }
 
 app.use((err, req, res, next) => {
@@ -97,7 +97,7 @@ initialize().then(() => {
     // Sprint 10: Digest-Scheduler (daily/weekly Match-Benachrichtigungen)
     // Rollen-/Rechte-Matrix in den Cache laden (Fallback: Code-Matrix)
     try { require('./middleware/permissions').reloadRoles().then(m => m && console.log(`🔐 Rollen geladen: ${Object.keys(m).join(', ')}`)); }
-    catch (e) { console.warn('Rollen konnten nicht geladen werden — Code-Matrix greift:', e.message); }
+    catch (e) { console.warn('Rollen konnten nicht geladen werden, Code-Matrix greift:', e.message); }
     try { require('./utils/digest').startScheduler(); } catch (e) { console.warn('Digest-Scheduler nicht gestartet:', e.message); }
     try { require('./utils/campaigns').startScheduler(); } catch (e) { console.warn('Kampagnen-Scheduler nicht gestartet:', e.message); }
   });

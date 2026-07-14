@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 8 — Container-Safe (Ordner, Bilder, beliebige Dateien je Mandat).
+// Sprint 8: Container-Safe (Ordner, Bilder, beliebige Dateien je Mandat).
 // Zugriff: ausschließlich Admin + Projekt-Pfleger (can_manage). KEIN Investor.
 // Speicher über StorageProvider (local | s3/R2), per ENV umschaltbar.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18,14 +18,14 @@ const router = express.Router();
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
 const TRASH_DAYS = 30;
 
-// Sprint 19 — Rollentrennung: Pflegende dürfen alles, BETRACHTER nur lesen.
+// Sprint 19: Rollentrennung: Pflegende dürfen alles, BETRACHTER nur lesen.
 const access = require('../utils/projectAccess');
 const getFn = (req) => (sql, p) => scoped(req, (t) => t.get(sql, p));
 
 async function canManage(req, projectId) {
   return access.canManage(getFn(req), req.user, projectId);
 }
-// Schreib-/Löschzugriff (Upload, Ordner, Papierkorb, Publish) — nur Pflegende.
+// Schreib-/Löschzugriff (Upload, Ordner, Papierkorb, Publish), nur Pflegende.
 async function guard(req, res) {
   if (!(await canManage(req, req.params.projectId))) {
     res.status(403).json({ success: false, error: 'Kein Schreibzugriff auf den Safe dieses Mandats' });
@@ -33,7 +33,7 @@ async function guard(req, res) {
   }
   return true;
 }
-// Lesezugriff (Liste, Baum, Download, Speicherverbrauch) — auch Betrachter.
+// Lesezugriff (Liste, Baum, Download, Speicherverbrauch), auch Betrachter.
 async function guardRead(req, res) {
   if (!(await access.canView(getFn(req), req.user, req.params.projectId))) {
     res.status(403).json({ success: false, error: 'Kein Zugriff auf den Safe dieses Mandats' });

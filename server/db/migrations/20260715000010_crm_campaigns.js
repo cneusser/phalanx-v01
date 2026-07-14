@@ -1,5 +1,5 @@
 /**
- * Sprint 21 — CRM III: Mandats-Kampagnen (Massenmailing) + automatische Reminder.
+ * Sprint 21: CRM III: Mandats-Kampagnen (Massenmailing) + automatische Reminder.
  *
  *   crm_campaigns             Eine Ansprache-Welle je Mandat: „Einladung zum Mandat",
  *                             „Projekt-Update" oder freie Nachricht. Reminder-Automatik
@@ -12,7 +12,7 @@
  *
  * DSGVO: Es wird ausschließlich an Kontakte versendet, die weder widersprochen haben
  * noch auf „nicht kontaktieren" stehen. Nach der zweiten Erinnerung ohne Reaktion
- * endet die Ansprache endgültig (status = 'no_response') — kein Dauerfeuer.
+ * endet die Ansprache endgültig (status = 'no_response'), kein Dauerfeuer.
  */
 exports.up = async function (knex) {
   await knex.schema.createTable('crm_campaigns', (t) => {

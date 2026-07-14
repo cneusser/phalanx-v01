@@ -9,7 +9,7 @@ export const DEAL_STATUS_LABELS = {
   draft: 'Entwurf', teaser_live: 'Teaser live', outreach: 'Ansprache',
   in_diligence: 'In Diligence', loi: 'LoI', closed: 'Closed', withdrawn: 'Zurückgezogen',
 };
-// Muss den serverseitigen Übergängen entsprechen (dealStateMachine.js) —
+// Muss den serverseitigen Übergängen entsprechen (dealStateMachine.js), 
 // der Server validiert ohnehin jede Transition.
 export const DEAL_TRANSITIONS = {
   draft: ['teaser_live', 'withdrawn'],
@@ -34,9 +34,9 @@ const Section = ({ title, children }) => (
 );
 
 /**
- * Sprint 4 — Deal-Detail im Admin-CRM: Interessenten-Funnel mit granularen
+ * Sprint 4: Deal-Detail im Admin-CRM: Interessenten-Funnel mit granularen
  * Datenraum-Rechten, Q&A, Aufgaben, Aktivitätslog und Deal-Status-Übergängen.
- * Der CRM-Status wird AUS dem Zustandsautomaten gelesen — kein Doppelpflegen.
+ * Der CRM-Status wird AUS dem Zustandsautomaten gelesen, kein Doppelpflegen.
  */
 export default function DealCrmModal({ project, onClose, onChanged }) {
   const [dealStatus, setDealStatus] = useState(project.deal_status || 'teaser_live');

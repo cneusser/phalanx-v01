@@ -1,5 +1,5 @@
 /**
- * CapitalMatch — E-Mail-Benachrichtigungen
+ * CapitalMatch: E-Mail-Benachrichtigungen
  *
  * Sendet bei jedem Dokumenten-Download eine E-Mail an den Admin.
  *
@@ -60,9 +60,9 @@ async function sendDownloadNotification(opts) {
   const levelLabel = accessLevel === 'nda' ? 'NDA-Dokument' : accessLevel === 'approved' ? 'Freigegebenes Dokument' : 'Teaser';
 
   // Immer in die Logs schreiben (Railway-Dashboard zeigt dies)
-  console.log(`📥 DOWNLOAD | ${ts} | Dokument: "${documentName}" | Projekt: ${projectName} | Typ: ${levelLabel} | Von: ${user.first_name} ${user.last_name} <${user.email}> | Firma: ${user.company || '—'} | IP: ${ip}`);
+  console.log(`📥 DOWNLOAD | ${ts} | Dokument: "${documentName}" | Projekt: ${projectName} | Typ: ${levelLabel} | Von: ${user.first_name} ${user.last_name} <${user.email}> | Firma: ${user.company || 'k. A.'} | IP: ${ip}`);
 
-  const subject = `[CapitalMatch] Download: ${documentName} — ${user.first_name} ${user.last_name}`;
+  const subject = `[CapitalMatch] Download: ${documentName}, ${user.first_name} ${user.last_name}`;
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; color: #333;">
@@ -71,7 +71,7 @@ async function sendDownloadNotification(opts) {
           📥 Neuer Dokument-Download
         </h1>
         <p style="color: rgba(255,255,255,0.7); margin: 4px 0 0; font-size: 13px;">
-          CapitalMatch — Benachrichtigung
+          CapitalMatch: Benachrichtigung
         </p>
       </div>
       <div style="background: #fff; padding: 24px; border: 1px solid #DDE8F3; border-top: none; border-radius: 0 0 6px 6px;">
@@ -107,7 +107,7 @@ async function sendDownloadNotification(opts) {
           </tr>
           <tr>
             <td style="padding: 8px 0; color: #888; vertical-align: top;">Unternehmen</td>
-            <td style="padding: 8px 0;">${user.company || '—'}</td>
+            <td style="padding: 8px 0;">${user.company || 'k. A.'}</td>
           </tr>
           <tr style="background: #F4F8FC;">
             <td style="padding: 8px 6px; color: #888; vertical-align: top;">IP-Adresse</td>
@@ -123,7 +123,7 @@ async function sendDownloadNotification(opts) {
     </div>
   `;
 
-  // Versand über zentralen sendMail (Brevo-API bevorzugt, kein throw —
+  // Versand über zentralen sendMail (Brevo-API bevorzugt, kein throw, 
   // Download bleibt auch bei Mail-Fehler erfolgreich)
   await sendMail({ to, subject, html });
 }
@@ -143,7 +143,7 @@ async function sendViaBrevoApi({ to, subject, html, attachments }) {
     subject,
     htmlContent: html,
   };
-  // Anhänge (Base64) — Brevo erwartet [{ content, name }]
+  // Anhänge (Base64): Brevo erwartet [{ content, name }]
   if (attachments && attachments.length) {
     payload.attachment = attachments.map(a => ({
       content: a.encoding === 'base64' ? a.content : Buffer.from(a.content).toString('base64'),
@@ -167,7 +167,7 @@ async function sendViaBrevoApi({ to, subject, html, attachments }) {
 // ── Generischer Versand (Brevo-API bevorzugt, sonst SMTP) ───────────────────
 // Optional: attachments [{ filename, content, encoding, contentType }]
 // Ausgangsbuch: jede Mail wird protokolliert (Empfänger, Betreff, Art, HTML) und
-// im Audit-Trail als MAIL_SENT vermerkt — damit im Admin nachvollziehbar ist,
+// im Audit-Trail als MAIL_SENT vermerkt: damit im Admin nachvollziehbar ist,
 // welche Art von Mail wann an wen ging. Fehler hierbei dürfen den Versand nie stören.
 async function logMail({ to, subject, html, meta = {}, status = 'sent', error = null }) {
   try {
@@ -216,7 +216,7 @@ async function sendMail({ to, subject, html, attachments, meta }) {
   }
 }
 
-// Phalanx-Firmendaten (offizieller Briefkopf) — auch als Impressum in den Mails.
+// Phalanx-Firmendaten (offizieller Briefkopf), auch als Impressum in den Mails.
 const PHALANX_IMPRINT = {
   tagline: 'Werte sichern. Wachstum finanzieren. Weitblick etablieren.',
   name: 'Phalanx GmbH',
@@ -241,8 +241,8 @@ const mailShell = (title, bodyHtml, opts = {}) => {
   const p = PHALANX_IMPRINT;
   const promo = opts.promo !== false ? `
     <div style="margin-top: 26px; padding: 16px 18px; background: #0D2A4A; border-radius: 8px; color: #fff;">
-      <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">CapitalMatch — Ihr digitaler Marktplatz für Unternehmenstransaktionen</div>
-      <div style="font-size: 12.5px; color: rgba(255,255,255,0.85); line-height: 1.6;">Kauf, Verkauf, Nachfolge und Wachstumsfinanzierung — diskret, strukturiert und persönlich begleitet von der Phalanx GmbH. Sprechen Sie uns an, wir stehen Ihnen zur Verfügung.</div>
+      <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">CapitalMatch, der Marktplatz für Unternehmenstransaktionen</div>
+      <div style="font-size: 12.5px; color: rgba(255,255,255,0.85); line-height: 1.6;">Kauf, Verkauf, Nachfolge, Wachstumsfinanzierung. Diskret, strukturiert und persönlich begleitet von der Phalanx GmbH. Rufen Sie an, wenn Sie ein Vorhaben besprechen möchten.</div>
     </div>` : '';
   return `
   <div style="font-family: Arial, Helvetica, sans-serif; max-width: 620px; margin: 0 auto; color: #1a1a1a;">
@@ -270,9 +270,9 @@ async function sendPasswordResetEmail({ to, firstName, resetUrl, expires }) {
     subject: '[CapitalMatch] Passwort zurücksetzen',
     html: mailShell('Passwort zurücksetzen', `
       <p>Hallo ${firstName || ''},</p>
-      <p>für Ihr CapitalMatch-Konto wurde ein Passwort-Reset angefordert. Klicken Sie auf den folgenden Button, um ein neues Passwort zu vergeben:</p>
+      <p>jemand hat für Ihr CapitalMatch-Konto ein neues Passwort angefordert. Über den Button vergeben Sie es:</p>
       ${ctaButton('Neues Passwort vergeben', resetUrl)}
-      <p style="font-size:12px;color:#888;">Der Link ist gültig bis ${new Date(expires).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}. Falls Sie den Reset nicht angefordert haben, ignorieren Sie diese E-Mail.</p>
+      <p style="font-size:12px;color:#888;">Der Link gilt bis ${new Date(expires).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}. Waren Sie das nicht, ignorieren Sie diese Mail einfach. Ihr Passwort bleibt dann unverändert.</p>
     `, { promo: false }),
   });
 }
@@ -284,9 +284,9 @@ async function sendEmailVerification({ to, firstName, verifyUrl }) {
     subject: '[CapitalMatch] Bitte bestätigen Sie Ihre E-Mail-Adresse',
     html: mailShell('E-Mail-Adresse bestätigen', `
       <p>Hallo ${firstName || ''},</p>
-      <p>willkommen bei CapitalMatch! Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihre Registrierung abzuschließen. Erst danach wird Ihr Zugang geprüft und freigeschaltet.</p>
+      <p>willkommen bei CapitalMatch. Ein Klick fehlt noch: Bestätigen Sie Ihre Adresse, danach prüfen wir Ihren Zugang und schalten ihn frei.</p>
       ${ctaButton('E-Mail-Adresse bestätigen', verifyUrl)}
-      <p style="font-size:12px;color:#888;">Der Link ist 48 Stunden gültig. Falls Sie sich nicht registriert haben, ignorieren Sie diese E-Mail einfach.</p>
+      <p style="font-size:12px;color:#888;">Der Link gilt 48 Stunden. Haben Sie sich nicht registriert, ignorieren Sie diese Mail einfach.</p>
     `),
   });
 }
@@ -298,8 +298,8 @@ async function sendRegistrationConfirmationEmail({ to, firstName }) {
     subject: '[CapitalMatch] Ihre Registrierung ist eingegangen',
     html: mailShell('Registrierung eingegangen', `
       <p>Hallo ${firstName || ''},</p>
-      <p>vielen Dank für Ihre Registrierung auf der CapitalMatch-Plattform. Ihr Konto wird nun von unserem Team geprüft — Sie erhalten eine weitere E-Mail, sobald Ihr Zugang freigeschaltet ist. Das dauert in der Regel weniger als einen Werktag.</p>
-      <p style="font-size:12px;color:#888;">Hinweis zum Datenschutz: Sie haben bei der Registrierung eingewilligt, dass wir Ihre Angaben zur Verwaltung Ihres Zugangs und zur projektbezogenen Ansprache speichern und nutzen. Sie können diese Einwilligung jederzeit widerrufen und die Löschung Ihrer Daten verlangen (datenschutz@phalanx.de). Details in unserer Datenschutzerklärung.</p>
+      <p>danke für Ihre Registrierung. Wir sehen uns Ihr Konto jetzt an und melden uns, sobald der Zugang freigeschaltet ist. In der Regel dauert das keinen ganzen Werktag.</p>
+      <p style="font-size:12px;color:#888;">Datenschutz: Bei der Registrierung haben Sie eingewilligt, dass wir Ihre Angaben für die Verwaltung Ihres Zugangs und für die projektbezogene Ansprache speichern. Diese Einwilligung können Sie jederzeit widerrufen und Ihre Daten löschen lassen (datenschutz@phalanx.de). Einzelheiten stehen in unserer Datenschutzerklärung.</p>
     `),
   });
 }
@@ -312,7 +312,7 @@ async function sendAccountApprovedEmail({ to, firstName }) {
     subject: '[CapitalMatch] Ihr Zugang ist freigeschaltet',
     html: mailShell('Zugang freigeschaltet', `
       <p>Hallo ${firstName || ''},</p>
-      <p>gute Nachrichten: Ihr CapitalMatch-Konto wurde geprüft und freigeschaltet. Sie können sich ab sofort anmelden und Mandate einsehen, NDAs anfordern und Unterlagen abrufen.</p>
+      <p>Ihr Konto ist geprüft und offen. Ab sofort sehen Sie die Mandate, fordern NDAs an und rufen Unterlagen ab.</p>
       <p style="text-align:center; margin: 24px 0;">
         <a href="${loginUrl}" style="background:#1A4D8A;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">Jetzt anmelden</a>
       </p>
@@ -326,9 +326,9 @@ async function sendRegistrationNotification({ firstName, lastName, email, compan
   return sendMail({
     to,
     subject: `[CapitalMatch] Neue Registrierung: ${firstName} ${lastName}`,
-    html: mailShell('Neue Registrierung — Freigabe erforderlich', `
+    html: mailShell('Neue Registrierung: Freigabe erforderlich', `
       <p><strong>${firstName} ${lastName}</strong> (${role}) hat sich registriert und wartet auf Freigabe.</p>
-      <p>E-Mail: <a href="mailto:${email}">${email}</a><br/>Unternehmen: ${company || '—'}</p>
+      <p>E-Mail: <a href="mailto:${email}">${email}</a><br/>Unternehmen: ${company || 'k. A.'}</p>
       <p>Freigabe im Admin-Bereich unter „Nutzer".</p>
     `),
   });
@@ -355,7 +355,7 @@ async function sendProcessUpdateEmail({ to, firstName, title, message, ctaLabel,
 // ── CRM-Kampagnen-Mail (M&A-Ansprache) ──────────────────────────────────────
 // Vollständige Anrede, sachlicher Fließtext, ein klarer Haupt-CTA, optionaler
 // Sekundär-Link, Beraterunterschrift und ein rechtlicher Abbinder (Herkunft der
-// Daten, Widerspruchsmöglichkeit). Bewusst ohne Werbeblock — eine Erstansprache
+// Daten, Widerspruchsmöglichkeit). Bewusst ohne Werbeblock, eine Erstansprache
 // im M&A-Kontext ist eine geschäftliche Mitteilung, keine Kampagnen-Werbung.
 async function sendCampaignEmail({ to, subject, title, salutation, bodyHtml, ctaLabel, ctaPath, secondaryHtml, signatureHtml, legalHtml, meta }) {
   const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';

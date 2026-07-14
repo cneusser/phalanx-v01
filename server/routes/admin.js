@@ -1,4 +1,4 @@
-// CapitalMatch – Admin-Route — PostgreSQL/Knex
+// CapitalMatch – Admin-Route: PostgreSQL/Knex
 const express = require('express');
 const db = require('../db/database');
 const { authenticate, requireRole } = require('../middleware/auth');
@@ -6,16 +6,16 @@ const wrap = require('../utils/asyncHandler');
 const { setStage } = require('../middleware/gates');
 const { canTransitionDeal, DEAL_TRANSITIONS } = require('../utils/dealStateMachine');
 const router = express.Router();
-// Sprint 5 — Rollenmodell: super_admin (Plattform), tenant_owner (eigener
+// Sprint 5: Rollenmodell: super_admin (Plattform), tenant_owner (eigener
 // Mandant, RLS-beschränkt), advisor (Berater), auditor (nur Lesezugriff auf
 // Protokolle), seller, buyer.
 const perms = require('../middleware/permissions');
 const { requirePermission, can, PERMISSION_LABELS, ROLE_LABELS, permissionsFor } = perms;
 // Zutritt zum Admin-Bereich haben alle internen Rollen; was sie dort dürfen,
-// entscheidet die Rechte-Matrix (requirePermission) — nicht die Rolle allein.
+// entscheidet die Rechte-Matrix (requirePermission), nicht die Rolle allein.
 // Zutritt zum Admin-Bereich: alle als „intern" markierten Rollen (aus der
 // roles-Tabelle, Fallback Code-Matrix). Was jemand dort darf, entscheidet die
-// Rechte-Matrix — nicht die Rolle allein.
+// Rechte-Matrix: nicht die Rolle allein.
 const isAdmin = [authenticate, (req, res, next) => {
   if (!req.user) return res.status(401).json({ success: false, error: 'Nicht authentifiziert' });
   if (!perms.isStaff(req.user)) return res.status(403).json({ success: false, error: 'Keine Berechtigung' });
@@ -23,7 +23,7 @@ const isAdmin = [authenticate, (req, res, next) => {
 }];
 const canManageUsers = requirePermission('users.manage');
 
-// Aktionen in Klartext — damit im Dashboard steht, WAS passiert ist, nicht nur ein Konstantenname.
+// Aktionen in Klartext: damit im Dashboard steht, WAS passiert ist, nicht nur ein Konstantenname.
 const ACTIVITY_TEXT = {
   ACCESS_DOCLIST: 'hat die Dokumentenliste geöffnet',
   ACCESS_DOCLIST_DENIED: 'wollte die Dokumentenliste öffnen (abgewiesen)',
@@ -56,7 +56,7 @@ const isSuperAdmin = [authenticate, requireRole('super_admin')];
 const isAuditorOrAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner', 'auditor')];
 
 // Sprint 10: Käufer mit passendem Suchprofil (Sofort-Frequenz) benachrichtigen.
-// Sprint 18: gibt die Menge der benachrichtigten Nutzer zurück — Grundlage der
+// Sprint 18: gibt die Menge der benachrichtigten Nutzer zurück, Grundlage der
 // Anti-Doppel-Mail-Kaskade (Suchprofil → Ähnlichkeit → Newsletter).
 async function notifyMatchingBuyers(projectId) {
   const notified = new Set();
@@ -80,7 +80,7 @@ async function notifyMatchingBuyers(projectId) {
     if (!matches(c)) continue;
     sendProcessUpdateEmail({
       to: prof.email, firstName: prof.first_name,
-      title: `Neues passendes Mandat — ${p.codename}`,
+      title: `Neues passendes Mandat: ${p.codename}`,
       message: `zu Ihrem Suchprofil <strong>„${prof.name}"</strong> ist ein neues Mandat verfügbar: <strong>${p.codename}</strong> (${[p.industry, p.region].filter(Boolean).join(', ')}). Sehen Sie sich das Kurzprofil an und fordern Sie bei Interesse die vertraulichen Unterlagen an.`,
       ctaLabel: 'Mandat ansehen', ctaPath: `/projekte/${p.id}`,
     }).catch(() => {});
@@ -111,7 +111,7 @@ router.get('/stats', ...isAdmin, wrap(async (req, res) => {
            COUNT(*) FILTER (WHERE status='approved')::int  AS approved
     FROM nda_requests
   `);
-  // Datenraum-Zugriffe (7 Tage) — nur Aktionen, die tatsächlich protokolliert werden
+  // Datenraum-Zugriffe (7 Tage): nur Aktionen, die tatsächlich protokolliert werden
   const dr = await db.get(`
     SELECT COUNT(*)::int AS c FROM activity_log
     WHERE action IN ('DOWNLOAD_LINK_CREATED','SAFE_DOWNLOAD','EXPOSE_PDF','EXPOSE_VIEW','ACCESS_DETAILS','ACCESS_DOCLIST')
@@ -154,7 +154,7 @@ router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
     : `${col} >= now() - interval '${days} days'`;
   const safe = async (fn, fallback) => { try { return await fn(); } catch (e) { console.warn('[analytics]', e.message); return fallback; } };
 
-  // 1) Funnel — robuste Quellen (interests + nda_requests + projects.deal_status)
+  // 1) Funnel: robuste Quellen (interests + nda_requests + projects.deal_status)
   const funnel = await safe(async () => {
     const i = await db.get(`SELECT
         COUNT(*) FILTER (WHERE stage <> 'rejected')::int AS interested,
@@ -176,7 +176,7 @@ router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
     ];
   }, []);
 
-  // 2) Zeitreihen (täglich, im Fenster) — mit Lückenfüllung via generate_series
+  // 2) Zeitreihen (täglich, im Fenster): mit Lückenfüllung via generate_series
   const daySpan = days === null ? 365 : days;
   const seriesFor = (sql) => db.all(`
     WITH d AS (
@@ -193,7 +193,7 @@ router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
     messages:   await seriesFor(`SELECT created_at::date AS day, COUNT(*) c FROM messages WHERE type = 'user' GROUP BY 1`),
   }), { new_users: [], ndas: [], dataroom: [], messages: [] });
 
-  // 3) Mandats-Ranking (aktive Mandate) — Interessenten, NDAs, Alter, letzte Aktivität, Stagnation
+  // 3) Mandats-Ranking (aktive Mandate): Interessenten, NDAs, Alter, letzte Aktivität, Stagnation
   const mandates = await safe(() => db.all(`
     SELECT p.id, p.codename, p.industry, p.deal_status, p.mandate_type,
       EXTRACT(DAY FROM now() - p.created_at)::int AS age_days,
@@ -275,7 +275,7 @@ router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // ── Birdview: Ansicht als anderer Nutzer öffnen ────────────────────────────
-// Nur Super-Admin. Das ausgestellte Token trägt den Claim `imp` (eigene Id) —
+// Nur Super-Admin. Das ausgestellte Token trägt den Claim `imp` (eigene Id), 
 // damit ist der Zugriff serverseitig schreibgeschützt (siehe middleware/auth.js).
 router.post('/impersonate/:userId', ...isSuperAdmin, wrap(async (req, res) => {
   const targetId = Number(req.params.userId);
@@ -350,7 +350,7 @@ router.post('/projects', ...isAdmin, wrap(async (req, res) => {
       created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [
-    codename, industry, region, revenue_band || '—', ebitda_band || '—',
+    codename, industry, region, revenue_band || 'k. A.', ebitda_band || 'k. A.',
     deal_type || '', short_description, JSON.stringify(highlights || []), status || 'draft',
     mandate_type || 'ma', stage || null, investment_needed || null, equity_stake || null,
     post_money_valuation || null, tam_band || null, sector_emoji || null, location_city || null,
@@ -415,14 +415,14 @@ router.put('/projects/:id', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Aktualisiert' } });
 }));
 
-// Publish project (set active) — synchronisiert deal_status
+// Publish project (set active): synchronisiert deal_status
 router.put('/projects/:id/publish', ...isAdmin, wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename, deal_status FROM projects WHERE id = ?', [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
   await db.run(`UPDATE projects SET status = 'active', deal_status = CASE WHEN deal_status = 'draft' THEN 'teaser_live' ELSE deal_status END, updated_at = now() WHERE id = ?`, [req.params.id]);
   db.auditLog(req.user.id, 'PROJECT_PUBLISHED', 'project', req.params.id, project.codename, req.ip);
   db.activityLog(req.user.id, 'DEAL_STATUS_TEASER_LIVE', 'deal', req.params.id, req.ip);
-  // Sprint 10 + 18: Benachrichtigungs-Kaskade — jeder Nutzer erhält höchstens EINE Mail:
+  // Sprint 10 + 18: Benachrichtigungs-Kaskade: jeder Nutzer erhält höchstens EINE Mail:
   //   1) Suchprofil-Treffer  2) Ähnlichkeitsvorschlag  3) Newsletter
   (async () => {
     const notified = await notifyMatchingBuyers(req.params.id).catch(() => new Set());
@@ -431,7 +431,7 @@ router.put('/projects/:id/publish', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Projekt veröffentlicht' } });
 }));
 
-// Unpublish project (set draft) — synchronisiert deal_status
+// Unpublish project (set draft): synchronisiert deal_status
 router.put('/projects/:id/unpublish', ...isAdmin, wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
@@ -443,7 +443,7 @@ router.put('/projects/:id/unpublish', ...isAdmin, wrap(async (req, res) => {
 
 // ── Killswitch: Projekt ENDGÜLTIG löschen ──────────────────────────────────
 // Entfernt das Mandat samt aller abhängigen Daten (Interessen, NDAs, Q&A,
-// Aufgaben, Rechte, Zuordnungen — via FK-Kaskaden) und aller Dateien
+// Aufgaben, Rechte, Zuordnungen: via FK-Kaskaden) und aller Dateien
 // (Dokumente, Projektbild, signierte NDA-PDFs). Nicht umkehrbar.
 router.delete('/projects/:id', ...isAdmin, wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename, image_path FROM projects WHERE id = ?', [req.params.id]);
@@ -460,7 +460,7 @@ router.delete('/projects/:id', ...isAdmin, wrap(async (req, res) => {
   for (const n of ndaPdfs) { try { fs.unlinkSync(path.join(NDA_DIR, n.signed_pdf_path)); } catch { /* schon weg */ } }
   if (project.image_path) { try { fs.unlinkSync(project.image_path); } catch { /* schon weg */ } }
 
-  // Datensatz löschen — FK-Kaskaden räumen alle abhängigen Tabellen ab
+  // Datensatz löschen: FK-Kaskaden räumen alle abhängigen Tabellen ab
   await db.run(`DELETE FROM projects WHERE id = ?`, [project.id]);
 
   db.auditLog(req.user.id, 'PROJECT_KILLSWITCH', 'project', req.params.id,
@@ -471,7 +471,7 @@ router.delete('/projects/:id', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // ── Deal-Zustandsautomat (Sprint 2) ───────────────────────────────────────
-// Deal-Status setzen — nur erlaubte Übergänge (State Machine wird serverseitig
+// Deal-Status setzen: nur erlaubte Übergänge (State Machine wird serverseitig
 // erzwungen, kein freies Setzen möglich)
 router.put('/projects/:id/deal-status', ...isAdmin, wrap(async (req, res) => {
   const { deal_status } = req.body;
@@ -514,7 +514,7 @@ router.put('/projects/:id/deal-status', ...isAdmin, wrap(async (req, res) => {
     })();
   }
 
-  // Sprint 5 — Billing-Hook: Setup-Gebühr je AKTIVIERTEM Deal-Prozess
+  // Sprint 5: Billing-Hook: Setup-Gebühr je AKTIVIERTEM Deal-Prozess
   // (Feature-Flag: ENV BILLING_ENABLED=1 UND tenants.billing_enabled=1;
   //  doppelbuchungssicher über vorhandenes deal_setup-Event)
   try {
@@ -693,13 +693,13 @@ router.delete('/users/:id', ...isAdmin, canManageUsers, wrap(async (req, res) =>
     try { fs.unlinkSync(path.join(NDA_DIR, p.signed_pdf_path)); } catch { /* Datei ggf. schon weg */ }
   }
 
-  // Owner-Verbindung: ALTER TABLE (Trigger-Toggle) erfordert Tabellen-Owner —
+  // Owner-Verbindung: ALTER TABLE (Trigger-Toggle) erfordert Tabellen-Owner, 
   // dokumentierter DSGVO-Löschpfad, jede Nutzung wird protokolliert
   await db.ownerKnex.transaction(async (trx) => {
     await trx.raw(`SELECT set_config('app.tenant_id', '1', true)`);
     // Personenbezug in Audit-Logs entfernen (Aktionen bleiben pseudonymisiert erhalten)
     await trx.raw(`UPDATE audit_logs SET details = '[DSGVO-gelöscht]', ip_address = NULL, user_id = NULL WHERE user_id = ?`, [user.id]);
-    // activity_log ist append-only — Trigger für den dokumentierten Löschpfad kontrolliert aussetzen
+    // activity_log ist append-only, Trigger für den dokumentierten Löschpfad kontrolliert aussetzen
     await trx.raw(`ALTER TABLE activity_log DISABLE TRIGGER trg_activity_log_append_only`);
     await trx.raw(`UPDATE activity_log SET ip = NULL, actor_id = NULL WHERE actor_id = ?`, [user.id]);
     await trx.raw(`ALTER TABLE activity_log ENABLE TRIGGER trg_activity_log_append_only`);
@@ -743,7 +743,7 @@ router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {
       const { sendProcessUpdateEmail } = require('../utils/email');
       sendProcessUpdateEmail({
         to: buyer.email, firstName: buyer.first_name,
-        title: `Datenraum freigeschaltet — ${proj ? proj.codename : 'Mandat'}`,
+        title: `Datenraum freigeschaltet: ${proj ? proj.codename : 'Mandat'}`,
         message: `Ihr Zugang für das Mandat <strong>${proj ? proj.codename : ''}</strong> wurde vollständig freigegeben. Sie haben ab sofort Zugriff auf alle Detailinformationen und den Datenraum.`,
         ctaLabel: 'Zum Mandat', ctaPath: `/projekte/${nda.project_id}`,
       }).catch(() => {});
@@ -767,7 +767,7 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
       const { sendProcessUpdateEmail } = require('../utils/email');
       sendProcessUpdateEmail({
         to: buyer.email, firstName: buyer.first_name,
-        title: `Rückmeldung zu Ihrer Anfrage — ${proj ? proj.codename : 'Mandat'}`,
+        title: `Rückmeldung zu Ihrer Anfrage: ${proj ? proj.codename : 'Mandat'}`,
         message: `Ihre Interessensbekundung für das Mandat <strong>${proj ? proj.codename : ''}</strong> konnte leider nicht freigegeben werden. Bei Rückfragen wenden Sie sich gern an unser Team.`,
       }).catch(() => {});
     }
@@ -816,7 +816,7 @@ router.get('/roles', ...isAdmin, wrap(async (req, res) => {
 router.put('/roles/:key', ...isAdmin, canManageUsers, wrap(async (req, res) => {
   const key = req.params.key;
   if (key === 'super_admin') {
-    return res.status(403).json({ success: false, error: 'Der Administrator behält immer alle Rechte — das ist der Sicherheitsanker.' });
+    return res.status(403).json({ success: false, error: 'Der Administrator behält immer alle Rechte, das ist der Sicherheitsanker.' });
   }
   const role = await db.get('SELECT * FROM roles WHERE key = ?', [key]);
   if (!role) return res.status(404).json({ success: false, error: 'Rolle nicht gefunden' });
@@ -855,7 +855,7 @@ router.put('/roles/:key', ...isAdmin, canManageUsers, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Rolle gespeichert' } });
 }));
 
-// Eigene Rolle anlegen — auf Basis der bekannten Rechte
+// Eigene Rolle anlegen: auf Basis der bekannten Rechte
 router.post('/roles', ...isAdmin, canManageUsers, wrap(async (req, res) => {
   const label = String(req.body.label || '').trim();
   if (!label) return res.status(400).json({ success: false, error: 'Bitte einen Namen für die Rolle angeben.' });
@@ -879,7 +879,7 @@ router.post('/roles', ...isAdmin, canManageUsers, wrap(async (req, res) => {
   res.status(201).json({ success: true, data: { id, key } });
 }));
 
-// Eigene Rolle löschen — Systemrollen bleiben, und niemand darf in der Luft hängen
+// Eigene Rolle löschen: Systemrollen bleiben, und niemand darf in der Luft hängen
 router.delete('/roles/:key', ...isAdmin, canManageUsers, wrap(async (req, res) => {
   const role = await db.get('SELECT * FROM roles WHERE key = ?', [req.params.key]);
   if (!role) return res.status(404).json({ success: false, error: 'Rolle nicht gefunden' });
@@ -896,7 +896,7 @@ router.delete('/roles/:key', ...isAdmin, canManageUsers, wrap(async (req, res) =
   res.json({ success: true, data: { message: 'Rolle gelöscht' } });
 }));
 
-// Rolle eines Nutzers ändern — gegen die Rollen-Tabelle validiert, niemals die eigene.
+// Rolle eines Nutzers ändern: gegen die Rollen-Tabelle validiert, niemals die eigene.
 router.put('/users/:id/role', ...isAdmin, canManageUsers, wrap(async (req, res) => {
   const role = String(req.body.role || '');
   const known = await db.get('SELECT key FROM roles WHERE key = ?', [role]).catch(() => null);
@@ -920,7 +920,7 @@ router.put('/users/:id/role', ...isAdmin, canManageUsers, wrap(async (req, res) 
 
 // ── Mail-Ausgangsbuch: was ging wann an wen raus? ─────────────────────────
 router.get('/emails', ...isAdmin, requirePermission('mail.log'), wrap(async (req, res) => {
-  // WHERE dynamisch bauen — ein Platzhalter in „? IS NULL" lässt Postgres den Typ
+  // WHERE dynamisch bauen: ein Platzhalter in „? IS NULL" lässt Postgres den Typ
   // nicht ableiten und die Abfrage scheitert (Liste blieb dadurch leer).
   const where = [];
   const params = [];
@@ -1002,7 +1002,7 @@ router.put('/questions/:id/answer', ...isAdmin, wrap(async (req, res) => {
     const { sendProcessUpdateEmail } = require('../utils/email');
     sendProcessUpdateEmail({
       to: buyer.email, firstName: buyer.first_name,
-      title: `Ihre Frage wurde beantwortet — ${proj ? proj.codename : 'Mandat'}`,
+      title: `Ihre Frage wurde beantwortet: ${proj ? proj.codename : 'Mandat'}`,
       message: `zu Ihrer Frage im Mandat <strong>${proj ? proj.codename : ''}</strong> liegt nun eine Antwort unseres Transaktionsberaters vor:<br/><br/>`
         + `<span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#555;margin-bottom:10px;"><em>Ihre Frage:</em><br/>${q.question}</span>`
         + `<span style="display:block;background:#f0fdf4;border-left:3px solid #16a34a;padding:10px 14px;color:#166534;"><em>Antwort:</em><br/>${answer.trim()}</span>`,
@@ -1138,7 +1138,7 @@ router.post('/tenants', ...isSuperAdmin, wrap(async (req, res) => {
   });
 
   db.auditLog(req.user.id, 'TENANT_CREATED', 'tenant', tenantId, `${slug} (${subdomain || slug})`, req.ip);
-  res.status(201).json({ success: true, data: { id: tenantId, message: `Mandant "${name}" angelegt — erreichbar über Subdomain "${subdomain || slug}"` } });
+  res.status(201).json({ success: true, data: { id: tenantId, message: `Mandant "${name}" angelegt, erreichbar über Subdomain "${subdomain || slug}"` } });
 }));
 
 router.put('/tenants/:id', ...isSuperAdmin, wrap(async (req, res) => {
@@ -1208,7 +1208,7 @@ router.put('/valuation-multiples/:id', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // ── Activity + Audit (auditor: nur Lesezugriff hier) ──────────────────────
-// Aktivitäten in Klartext: WER hat WAS in WELCHEM Mandat getan — plus die IDs,
+// Aktivitäten in Klartext: WER hat WAS in WELCHEM Mandat getan, plus die IDs,
 // die einen Absprung in Kontakt, Unternehmen und Mandat erlauben.
 // Die Ressource-ID der Zugriffs-Aktionen IST die Projekt-ID (siehe projects.js),
 // deshalb lässt sich das Mandat sauber auflösen.

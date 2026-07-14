@@ -1,13 +1,13 @@
-/** Changelog-Eintrag v0.262 (Sprint 13 — CRM V: Rollen, 2FA, DSGVO). */
+/** Changelog-Eintrag v0.262 (Sprint 13: CRM V: Rollen, 2FA, DSGVO). */
 const ENTRY = {
   version: 'v0.262', released_on: '2026-07-24',
   title: 'Rollen, Zwei-Faktor-Schutz und DSGVO-Rechte',
   items: [
     'Zwei-Faktor-Authentifizierung (TOTP) mit Authenticator-App und einmaligen Backup-Codes',
     'Fünf interne Rollen mit klaren Rechten: Administrator, Mandanten-Eigentümer, Berater, Assistenz (pflegt, versendet nicht), Analyst (liest nur)',
-    'Berater und Assistenz sehen nur ihre eigenen Mandate — nicht mehr alles',
+    'Berater und Assistenz sehen nur ihre eigenen Mandate, nicht mehr alles',
     'Neuer Admin-Bereich „Rollen & Rechte": die Matrix ist offen einsehbar; Rollen werden im Nutzer-Tab zugewiesen',
-    'DSGVO: vollständige Datenauskunft je Kontakt (Art. 15) und Recht auf Vergessenwerden (Art. 17) — Nachweise bleiben erhalten',
+    'DSGVO: vollständige Datenauskunft je Kontakt (Art. 15) und Recht auf Vergessenwerden (Art. 17), Nachweise bleiben erhalten',
   ],
 };
 exports.up = async function (knex) {

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 17 — Gamification / XP.
+// Sprint 17: Gamification / XP.
 // Vergibt Punkte für ECHTE Prozessschritte (nicht bloßes Klicken) und für die
 // Abwicklung von Deals über die Plattform. Idempotent je (user, action, ref).
 // Läuft auf der Default-Tenant-Verbindung; alle Funktionen sind defensiv.

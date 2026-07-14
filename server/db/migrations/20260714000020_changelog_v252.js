@@ -1,11 +1,11 @@
-/** Changelog-Eintrag v0.252 (CRM IV — Kontakt-Selbstpflege-Portal). */
+/** Changelog-Eintrag v0.252 (CRM IV: Kontakt-Selbstpflege-Portal). */
 const ENTRY = {
   version: 'v0.252', released_on: '2026-07-14',
   title: 'Kontakte pflegen ihre Daten selbst',
   items: [
     'Persönlicher, befristeter Link: Kontakte sehen, was gespeichert ist, und korrigieren es selbst',
     'Pflegbar sind Kontaktdaten, Position, Brancheninteressen, geografischer Fokus, Ticketgröße und Investitionsschwerpunkt',
-    'Kommunikationswunsch wählbar — bis hin zur vollständigen Abmeldung (DSGVO)',
+    'Kommunikationswunsch wählbar, bis hin zur vollständigen Abmeldung (DSGVO)',
     'Jede Änderung wird protokolliert (Vorher/Nachher); wahlweise direkte Übernahme oder interne Freigabe',
   ],
 };

@@ -96,13 +96,13 @@ function MetricBox({ label, value }) {
       border: `1px solid ${C.border}`,
     }}>
       <div style={{ fontSize: '0.59rem', color: C.muted, fontWeight: 700, letterSpacing: '0.07em', marginBottom: '0.15rem' }}>{label}</div>
-      <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.text, lineHeight: 1.2 }}>{value || '—'}</div>
+      <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.text, lineHeight: 1.2 }}>{value || 'k. A.'}</div>
     </div>
   );
 }
 
 function LoadingSpinner() {
-  const t = useT();   // eigener Hook — die Komponente liegt außerhalb von <Projects>
+  const t = useT();   // eigener Hook: die Komponente liegt außerhalb von <Projects>
   return (
     <div style={{ textAlign: 'center', padding: '4rem', color: C.muted }}>
       <div style={{
@@ -250,7 +250,7 @@ export default function Projects() {
   const [error, setError] = useState('');
   const [ndaStatus, setNdaStatus] = useState({});
   const [ndaLoading, setNdaLoading] = useState({});
-  // Gesamtzahlen kommen vom Server (/projects/stats) — unabhängig vom aktiven
+  // Gesamtzahlen kommen vom Server (/projects/stats), unabhängig vom aktiven
   // Tab und von Filtern. null = lädt noch; 0 wird korrekt als 0 angezeigt.
   const [totalCounts, setTotalCounts] = useState({ all: null, ma: null, fundraising: null });
   const [viewMode, setViewMode] = useState('cards'); // cards | table (Dealum-Stil)
@@ -274,7 +274,7 @@ export default function Projects() {
     if (!name) return;
     try {
       await api.post('/community/search-profiles', { name, criteria: { ...sel }, notify_frequency: 'instant' });
-      setSaveMsg('Suchprofil gespeichert — Sie werden bei passenden Mandaten benachrichtigt.');
+      setSaveMsg('Suchprofil gespeichert: Sie werden bei passenden Mandaten benachrichtigt.');
       setTimeout(() => setSaveMsg(''), 4000);
     } catch (e) { setSaveMsg('Fehler: ' + e.message); }
   }
@@ -341,7 +341,7 @@ export default function Projects() {
 
   return (
     <div style={{ background: C.bg, minHeight: '100vh' }}>
-      {/* Hero Banner — solides Navy */}
+      {/* Hero Banner: solides Navy */}
       <div style={{ background: C.navy, padding: '3rem 1.5rem 2.5rem', color: '#fff' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div style={{ fontSize: '0.72rem', color: C.steel, letterSpacing: '0.1em', fontWeight: 600, marginBottom: '0.65rem' }}>
@@ -351,10 +351,10 @@ export default function Projects() {
             {t('projects.hero_title', 'Transaktionsmandate')}
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.68)', fontSize: '0.9rem', marginBottom: '1.5rem', maxWidth: 520 }}>
-            {t('projects.hero_sub', 'Anonymisierte M&A-Transaktionen und Startup-Finanzierungen — strukturiert, vertraulich, professionell begleitet.')}
+            {t('projects.hero_sub', 'Anonymisierte M&A-Transaktionen und Startup-Finanzierungen. Wer dahintersteht, erfahren Sie nach der NDA.')}
           </p>
 
-          {/* Filter-Buttons — always show global counts, not just filtered counts */}
+          {/* Filter-Buttons: always show global counts, not just filtered counts */}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {[
               { key: '', label: totalCounts.all === null ? `${t('projects.all', 'Alle')} (…)` : `${t('projects.all', 'Alle')} (${totalCounts.all})` },
@@ -500,12 +500,12 @@ export default function Projects() {
                               {p.codename}
                             </td>
                             <td style={{ padding: '0.6rem 0.8rem' }}><span style={{ background: p.mandate_type === 'fundraising' ? '#ede9fe' : C.bg, color: p.mandate_type === 'fundraising' ? '#5b21b6' : C.navy, padding: '0.1rem 0.45rem', borderRadius: 6, fontSize: '0.66rem', fontWeight: 700 }}>{p.mandate_type === 'fundraising' ? 'Startup' : 'M&A'}</span></td>
-                            <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.industry || '—'}</td>
-                            <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.region || '—'}</td>
-                            <td style={{ padding: '0.6rem 0.8rem', color: '#555', whiteSpace: 'nowrap' }}>{p.revenue_band || (p.mandate_type === 'fundraising' ? p.investment_needed : '—') || '—'}</td>
-                            <td style={{ padding: '0.6rem 0.8rem', color: '#555', whiteSpace: 'nowrap' }}>{p.ebitda_band || '—'}</td>
-                            <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.deal_type || '—'}</td>
-                            <td style={{ padding: '0.6rem 0.8rem', color: C.muted, whiteSpace: 'nowrap' }}>{p.created_at ? new Date(p.created_at).toLocaleDateString('de-DE') : '—'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.industry || 'k. A.'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.region || 'k. A.'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: '#555', whiteSpace: 'nowrap' }}>{p.revenue_band || (p.mandate_type === 'fundraising' ? p.investment_needed : 'k. A.') || 'k. A.'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: '#555', whiteSpace: 'nowrap' }}>{p.ebitda_band || 'k. A.'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.deal_type || 'k. A.'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: C.muted, whiteSpace: 'nowrap' }}>{p.created_at ? new Date(p.created_at).toLocaleDateString('de-DE') : 'k. A.'}</td>
                             <td style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}><span style={{ color: C.accent, fontWeight: 600, fontSize: '0.74rem', whiteSpace: 'nowrap' }}>{t('projects.view', 'Ansehen →')}</span></td>
                           </tr>
                         ))}

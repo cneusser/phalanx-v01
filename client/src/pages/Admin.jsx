@@ -16,7 +16,7 @@ import TaskBoard from '../components/TaskBoard';
 import MailOutbox from '../components/MailOutbox';
 import RoleMatrix from '../components/RoleMatrix';
 
-// Auswahllisten je Formularfeld (statt Freitext) — abhängig vom Mandatstyp
+// Auswahllisten je Formularfeld (statt Freitext), abhängig vom Mandatstyp
 const fieldOptions = (key, mandateType) => {
   if (key === 'industry') return NACE_INDUSTRIES;
   if (key === 'region') return BUNDESLAENDER;
@@ -197,12 +197,12 @@ export default function Admin() {
     } catch (e) { showMsg(e.message, 'error'); }
   }
 
-  // Birdview — Plattform aus Sicht eines Nutzers ansehen (schreibgeschützt, protokolliert)
+  // Birdview: Plattform aus Sicht eines Nutzers ansehen (schreibgeschützt, protokolliert)
   async function birdview(u) {
     const name = `${u.first_name} ${u.last_name}`.trim();
     if (!window.confirm(
       `Plattform als „${name}" (${u.email}) ansehen?\n\n` +
-      `• Die Ansicht ist SCHREIBGESCHÜTZT — Sie können nichts verändern.\n` +
+      `• Die Ansicht ist SCHREIBGESCHÜTZT, Sie können nichts verändern.\n` +
       `• Admin- und CRM-Bereich sind währenddessen gesperrt.\n` +
       `• Der Vorgang wird revisionssicher protokolliert.\n\n` +
       `Sie können jederzeit über das Banner oben zurückkehren.`)) return;
@@ -227,7 +227,7 @@ export default function Admin() {
   async function killProject(p) {
     if (!confirm(`Mandat "${p.codename}" ENDGÜLTIG löschen?\n\nAlle Interessenten-Zuordnungen, NDAs (inkl. signierter PDFs), Dokumente, Q&A und Aufgaben dieses Mandats werden unwiderruflich entfernt.`)) return;
     const typed = prompt(`Zur Bestätigung bitte den Codenamen eintippen:\n${p.codename}`);
-    if (typed !== p.codename) { showMsg('Abgebrochen — Codename stimmte nicht überein.', 'error'); return; }
+    if (typed !== p.codename) { showMsg('Abgebrochen, Codename stimmte nicht überein.', 'error'); return; }
     try {
       const r = await api.delete(`/admin/projects/${p.id}`);
       showMsg(r.message || 'Mandat endgültig gelöscht ✓');
@@ -614,7 +614,7 @@ export default function Admin() {
   }
 
   // Bezeichnung und Beschreibung eines Dokuments nachträglich ändern.
-  // Der Anzeigename ist unabhängig vom hochgeladenen Dateinamen — die Endung
+  // Der Anzeigename ist unabhängig vom hochgeladenen Dateinamen, die Endung
   // ergänzt der Server, damit die Datei beim Empfänger korrekt öffnet.
   async function saveDocMeta(projectId, docId, patch) {
     try {
@@ -746,7 +746,7 @@ export default function Admin() {
           <KPICard label="Datenraum-Zugriffe (7 Tage)" value={stats.dataroom.accesses_7d} sub="Ansichten & Downloads" icon={Eye} color="#0ea5e9" onClick={() => setActiveTab('activity')} />
           <KPICard label="Offene Wiedervorlagen" value={stats.tasks.open} sub={stats.tasks.due > 0 ? `⚠️ ${stats.tasks.due} überfällig` : 'nichts überfällig'} icon={ClipboardList} color={stats.tasks.due > 0 ? '#ef4444' : '#8b5cf6'} onClick={() => setActiveTab('tasks')} />
           <KPICard label="Offene Q&A-Fragen" value={stats.qa.open} sub="warten auf Antwort" icon={FileText} color={stats.qa.open > 0 ? '#f59e0b' : '#10b981'} onClick={() => setActiveTab('qa')} />
-          <KPICard label="Pipeline" value={stats.projects.active} sub="Deals im Prozess — Tab Pipeline" icon={Activity} color="#1D4E89" onClick={() => setActiveTab('pipeline')} />
+          <KPICard label="Pipeline" value={stats.projects.active} sub="Deals im Prozess, Tab Pipeline" icon={Activity} color="#1D4E89" onClick={() => setActiveTab('pipeline')} />
         </div>
       )}
 
@@ -762,7 +762,7 @@ export default function Admin() {
         >
           <span style={{ fontSize: '1.1rem' }}>⏳</span>
           <span style={{ fontSize: '0.875rem', color: '#92400e', fontWeight: 600 }}>
-            {stats.users.pending} neue Registrierung{stats.users.pending > 1 ? 'en warten' : ' wartet'} auf Freigabe — jetzt prüfen →
+            {stats.users.pending} neue Registrierung{stats.users.pending > 1 ? 'en warten' : ' wartet'} auf Freigabe, jetzt prüfen →
           </span>
         </div>
       )}
@@ -790,7 +790,7 @@ export default function Admin() {
       {/* Overview */}
       {activeTab === 'overview' && (
         <>
-        {/* Sprint 16: Cockpit-Toolbar — Zeitraum + Export */}
+        {/* Sprint 16: Cockpit-Toolbar: Zeitraum + Export */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', gap: '0.3rem', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.25rem' }}>
             {[['7d', '7 Tage'], ['30d', '30 Tage'], ['90d', '90 Tage'], ['ytd', 'YTD']].map(([k, lbl]) => (
@@ -932,7 +932,7 @@ export default function Admin() {
             {analytics.recent.map((a, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0', borderTop: i ? `1px solid ${C.border}` : 'none', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '0.8rem', color: C.text, flex: 1, minWidth: 260 }}>
-                  {/* Wer — Klick öffnet den Kontakt (wird bei Bedarf aus dem Konto angelegt) */}
+                  {/* Wer: Klick öffnet den Kontakt (wird bei Bedarf aus dem Konto angelegt) */}
                   {a.actor_id ? (
                     <span
                       onClick={() => openContactForUser({ id: a.actor_id })}
@@ -943,7 +943,7 @@ export default function Admin() {
                   ) : <strong>{a.actor}</strong>}
                   {' '}
                   <span style={{ color: '#475569' }}>{a.text || a.action}</span>
-                  {/* Wo — Klick öffnet das Mandat */}
+                  {/* Wo: Klick öffnet das Mandat */}
                   {a.project && (
                     <>
                       {' · '}
@@ -1058,7 +1058,7 @@ export default function Admin() {
                   <td style={{ padding: '0.75rem 1rem' }}>
                     <div style={{ fontWeight: 600, color: C.text, fontSize: '0.85rem' }}>{p.codename}</div>
                     {p.mandate_type === 'fundraising' && p.stage && (
-                      <div style={{ fontSize: '0.7rem', color: C.muted }}>{p.stage} · {p.investment_needed || '—'}</div>
+                      <div style={{ fontSize: '0.7rem', color: C.muted }}>{p.stage} · {p.investment_needed || 'k. A.'}</div>
                     )}
                   </td>
                   <td style={{ padding: '0.75rem 1rem', color: '#555', fontSize: '0.82rem' }}>{p.industry}</td>
@@ -1186,7 +1186,7 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Sprint 4: Pipeline (Kanban-CRM) — Status aus dem Zustandsautomaten, per Drag & Drop verschiebbar */}
+      {/* Sprint 4: Pipeline (Kanban-CRM): Status aus dem Zustandsautomaten, per Drag & Drop verschiebbar */}
       {activeTab === 'pipeline' && (
         <>
           <div style={{ fontSize: '0.78rem', color: C.muted, marginBottom: '0.75rem' }}>
@@ -1240,7 +1240,7 @@ export default function Admin() {
                       </div>
                     </div>
                   ))}
-                  {deals.length === 0 && <div style={{ fontSize: '0.7rem', color: '#bbb', textAlign: 'center', padding: '0.5rem 0' }}>—</div>}
+                  {deals.length === 0 && <div style={{ fontSize: '0.7rem', color: '#bbb', textAlign: 'center', padding: '0.5rem 0' }}>k. A.</div>}
                 </div>
               );
             })}
@@ -1370,9 +1370,9 @@ export default function Admin() {
                         <div style={{ fontWeight: 700, color: C.navy }}>
                           {k.is_decision_maker === 1 ? '★ ' : ''}{[k.title, k.first_name, k.last_name].filter(Boolean).join(' ')}
                         </div>
-                        <div style={{ color: C.muted, fontSize: '0.75rem' }}>{k.email || '—'}</div>
+                        <div style={{ color: C.muted, fontSize: '0.75rem' }}>{k.email || 'k. A.'}</div>
                       </td>
-                      <td style={{ padding: '0.6rem', color: C.muted }}>{k.companies || '—'}</td>
+                      <td style={{ padding: '0.6rem', color: C.muted }}>{k.companies || 'k. A.'}</td>
                       <td style={{ padding: '0.6rem' }}>
                         {blocked
                           ? <span style={{ background: '#fee2e2', color: '#991b1b', padding: '0.1rem 0.45rem', borderRadius: 10, fontSize: '0.7rem', fontWeight: 700 }}>Widerspruch</span>
@@ -1381,8 +1381,8 @@ export default function Admin() {
                             : <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.1rem 0.45rem', borderRadius: 10, fontSize: '0.7rem', fontWeight: 700 }}>offen</span>}
                       </td>
                       <td style={{ padding: '0.6rem', color: C.muted }}>{k.deals || 0}</td>
-                      <td style={{ padding: '0.6rem', color: C.muted }}>{k.last_mail ? new Date(k.last_mail).toLocaleDateString('de-DE') : '—'}</td>
-                      <td style={{ padding: '0.6rem', color: k.user_id ? '#059669' : C.muted, fontWeight: k.user_id ? 700 : 400 }}>{k.user_id ? 'aktiv' : '—'}</td>
+                      <td style={{ padding: '0.6rem', color: C.muted }}>{k.last_mail ? new Date(k.last_mail).toLocaleDateString('de-DE') : 'k. A.'}</td>
+                      <td style={{ padding: '0.6rem', color: k.user_id ? '#059669' : C.muted, fontWeight: k.user_id ? 700 : 400 }}>{k.user_id ? 'aktiv' : 'k. A.'}</td>
                     </tr>
                   );
                 })}
@@ -1534,7 +1534,7 @@ export default function Admin() {
               <tbody>
                 {valLeads.map(l => (
                   <tr key={l.id} style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: C.text }}>{l.lead_name || '—'}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: C.text }}>{l.lead_name || 'k. A.'}</td>
                     <td style={{ padding: '0.75rem 1rem' }}><a href={`mailto:${l.lead_email}`} style={{ color: C.navy }}>{l.lead_email}</a></td>
                     <td style={{ padding: '0.75rem 1rem', color: '#555', fontSize: '0.82rem' }}>{l.industry || l.nace_section}</td>
                     <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: C.text }}>{l.positive && l.corridor_base != null ? Math.round(l.corridor_base).toLocaleString('de-DE') + ' €' : 'n. b.'}</td>
@@ -1547,7 +1547,7 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Sprint 7: Ausführliche Bewertungen — Review */}
+      {/* Sprint 7: Ausführliche Bewertungen: Review */}
       {activeTab === 'detvals' && (
         <div>
           {detMsg && <div style={{ background: detMsg.includes('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 6, padding: '0.55rem 0.9rem', marginBottom: '0.85rem', fontSize: '0.82rem', color: detMsg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{detMsg}</div>}
@@ -1566,8 +1566,8 @@ export default function Admin() {
                         <td style={{ padding: '0.7rem 1rem', fontWeight: 600, color: C.text }}>{r.title || '(ohne Titel)'}</td>
                         <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.owner}<div style={{ fontSize: '0.72rem', color: C.muted }}>{r.owner_email}</div></td>
                         <td style={{ padding: '0.7rem 1rem' }}><span style={{ background: (r.status === 'reviewed' ? '#166534' : r.status === 'submitted' ? '#1D4E89' : '#64748B') + '18', color: r.status === 'reviewed' ? '#166534' : r.status === 'submitted' ? '#1D4E89' : '#64748B', fontWeight: 600, fontSize: '0.72rem', padding: '0.15rem 0.55rem', borderRadius: 20 }}>{r.status === 'reviewed' ? 'Geprüft' : r.status === 'submitted' ? 'Berechnet' : 'Entwurf'}</span></td>
-                        <td style={{ padding: '0.7rem 1rem', fontWeight: 600 }}>{r.positive && r.corridor_base != null ? Math.round(r.corridor_base).toLocaleString('de-DE') + ' €' : (r.status === 'draft' ? '—' : 'n. b.')}</td>
-                        <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.codename || '—'}</td>
+                        <td style={{ padding: '0.7rem 1rem', fontWeight: 600 }}>{r.positive && r.corridor_base != null ? Math.round(r.corridor_base).toLocaleString('de-DE') + ' €' : (r.status === 'draft' ? 'k. A.' : 'n. b.')}</td>
+                        <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.codename || 'k. A.'}</td>
                         <td style={{ padding: '0.7rem 1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {r.status !== 'draft' && <button onClick={() => downloadDetPdf(r.id)} style={{ background: C.bg, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', marginRight: 6 }}>PDF</button>}
                           <button onClick={() => openDetVal(r)} style={{ background: detOpen === r.id ? C.navy : '#fff', color: detOpen === r.id ? '#fff' : C.navy, border: `1px solid ${C.navy}`, borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>{detOpen === r.id ? 'Schließen' : 'Prüfen'}</button>
@@ -1587,7 +1587,7 @@ export default function Admin() {
                             <div>
                               <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: 4 }}>Mandat zuordnen (optional)</label>
                               <select value={detReview.project_id} onChange={e => setDetReview(s => ({ ...s, project_id: e.target.value }))} style={{ width: '100%', padding: '0.5rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.82rem' }}>
-                                <option value="">— kein Mandat —</option>
+                                <option value="">, kein Mandat, </option>
                                 {projects.map(p => <option key={p.id} value={p.id}>{p.codename}</option>)}
                               </select>
                             </div>
@@ -1683,7 +1683,7 @@ export default function Admin() {
               <tbody>
                 {feedbackList.map(f => (
                   <tr key={f.id} style={{ borderBottom: `1px solid ${C.border}`, verticalAlign: 'top' }}>
-                    <td style={{ padding: '0.7rem 1rem' }}>{f.user_name || '—'}<div style={{ fontSize: '0.72rem', color: C.muted }}>{f.user_email} · {f.role === 'seller' ? 'Verkäufer' : f.role === 'buyer' ? 'Käufer' : f.role}</div></td>
+                    <td style={{ padding: '0.7rem 1rem' }}>{f.user_name || 'k. A.'}<div style={{ fontSize: '0.72rem', color: C.muted }}>{f.user_email} · {f.role === 'seller' ? 'Verkäufer' : f.role === 'buyer' ? 'Käufer' : f.role}</div></td>
                     <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{{ idea: 'Idee', change: 'Änderung', bug: 'Fehler', other: 'Sonstiges' }[f.category] || f.category}</td>
                     <td style={{ padding: '0.7rem 1rem', color: C.text, maxWidth: 380 }}>{f.message}</td>
                     <td style={{ padding: '0.7rem 1rem' }}>
@@ -1771,10 +1771,10 @@ export default function Admin() {
                       <td style={{ padding: '0.65rem 1rem', fontSize: '0.8rem' }}>
                         {a.project
                           ? <Link to={`/projekte/${a.project.id}`} style={{ color: C.navy, fontWeight: 700, textDecoration: 'none' }}>{a.project.codename}</Link>
-                          : <span style={{ color: C.muted }}>—</span>}
+                          : <span style={{ color: C.muted }}>k. A.</span>}
                       </td>
                       <td style={{ padding: '0.65rem 1rem', fontSize: '0.78rem', color: '#555' }}>
-                        {a.company ? a.company.name : '—'}
+                        {a.company ? a.company.name : 'k. A.'}
                       </td>
                       <td style={{ padding: '0.65rem 1rem', color: '#777', fontSize: '0.78rem' }}>{a.details || '–'}</td>
                     </tr>
@@ -2249,11 +2249,11 @@ export default function Admin() {
             <div style={{ background: C.bg, borderRadius: 6, padding: '1rem', border: `1px solid ${C.border}`, marginBottom: '1rem', fontSize: '0.83rem' }}>
               <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.75rem', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>KONTAKTDATEN</div>
               <div>E-Mail: <strong>{userDetail.user.email}</strong></div>
-              <div>Telefon: <strong>{userDetail.user.phone || '—'}</strong></div>
+              <div>Telefon: <strong>{userDetail.user.phone || 'k. A.'}</strong></div>
               {userDetail.user.website && <div>Website: <a href={userDetail.user.website} target="_blank" rel="noreferrer" style={{ color: C.navy }}>{userDetail.user.website}</a></div>}
               {userDetail.user.linkedin_url && <div>LinkedIn: <a href={userDetail.user.linkedin_url} target="_blank" rel="noreferrer" style={{ color: C.navy }}>{userDetail.user.linkedin_url}</a></div>}
               <div style={{ marginTop: '0.4rem', color: C.muted, fontSize: '0.75rem' }}>
-                DSGVO-Einwilligung: {userDetail.user.privacy_consent_at ? new Date(userDetail.user.privacy_consent_at).toLocaleString('de-DE') : '—'} · Registriert: {new Date(userDetail.user.created_at).toLocaleDateString('de-DE')}
+                DSGVO-Einwilligung: {userDetail.user.privacy_consent_at ? new Date(userDetail.user.privacy_consent_at).toLocaleString('de-DE') : 'k. A.'} · Registriert: {new Date(userDetail.user.created_at).toLocaleDateString('de-DE')}
               </div>
             </div>
 
@@ -2269,9 +2269,9 @@ export default function Admin() {
             {userDetail.profile && (
               <div style={{ background: C.bg, borderRadius: 6, padding: '1rem', border: `1px solid ${C.border}`, marginBottom: '1rem', fontSize: '0.83rem' }}>
                 <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.75rem', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>INVESTMENT-SUCHPROFIL</div>
-                <div>Branchen: {userDetail.profile.industries.length ? userDetail.profile.industries.join(', ') : '—'}</div>
-                <div>Regionen: {userDetail.profile.regions.length ? userDetail.profile.regions.join(', ') : '—'}</div>
-                <div>Deal-Typen: {userDetail.profile.deal_types.length ? userDetail.profile.deal_types.join(', ') : '—'}</div>
+                <div>Branchen: {userDetail.profile.industries.length ? userDetail.profile.industries.join(', ') : 'k. A.'}</div>
+                <div>Regionen: {userDetail.profile.regions.length ? userDetail.profile.regions.join(', ') : 'k. A.'}</div>
+                <div>Deal-Typen: {userDetail.profile.deal_types.length ? userDetail.profile.deal_types.join(', ') : 'k. A.'}</div>
                 {userDetail.profile.notes && <div style={{ marginTop: '0.3rem' }}>Notizen: {userDetail.profile.notes}</div>}
               </div>
             )}

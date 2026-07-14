@@ -3,7 +3,7 @@ const ENTRY = {
   version: 'v0.265', released_on: '2026-07-27',
   title: 'Marktplatz repariert',
   items: [
-    'Der Marktplatz stürzte beim Laden ab und riss die ganze Seite mit — deshalb waren auch Impressum, Datenschutz und AGB nicht erreichbar',
+    'Der Marktplatz stürzte beim Laden ab und riss die ganze Seite mit, deshalb waren auch Impressum, Datenschutz und AGB nicht erreichbar',
     'Ursache: Die Ladeanzeige nutzte die Übersetzungsfunktion, ohne sie zu kennen (fehlender Hook)',
     'Zusätzlich prüft jetzt ein Test alle Dateien darauf, dass dieser Fehler nicht wieder auftreten kann',
   ],

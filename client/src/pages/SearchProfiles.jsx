@@ -35,7 +35,7 @@ export default function SearchProfiles() {
       <div style={{ background: C.navy, color: '#fff', padding: '2rem 1.5rem' }}>
         <div style={{ maxWidth: 820, margin: '0 auto' }}>
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.55rem' }}><Bookmark size={20} /> Meine Suchprofile</h1>
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: 4 }}>Gespeicherte Suchen — Sie werden benachrichtigt, sobald ein passendes Mandat verfügbar ist.</p>
+          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: 4 }}>Gespeicherte Suchen: Sie werden benachrichtigt, sobald ein passendes Mandat verfügbar ist.</p>
         </div>
       </div>
       <div style={{ maxWidth: 820, margin: '0 auto', padding: '1.75rem 1.5rem 4rem' }}>

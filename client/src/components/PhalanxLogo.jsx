@@ -1,4 +1,4 @@
-// Phalanx SVG Logo — recreated from www.phalanx.de brand assets
+// Phalanx SVG Logo: recreated from www.phalanx.de brand assets
 // Flower badge: 6-petal geometric flower in navy #14314F on steel-blue circle
 
 export default function PhalanxLogo({ size = 40, showText = true, textSize = 22, white = false }) {

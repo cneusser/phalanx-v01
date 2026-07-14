@@ -1,5 +1,5 @@
 /**
- * CRM IV — Kontakt-Selbstpflege-Portal.
+ * CRM IV: Kontakt-Selbstpflege-Portal.
  *
  * Externe Kontakte pflegen ihre Daten selbst über einen persönlichen,
  * gesicherten Link. Das hält die Datenbank aktuell und ist zugleich der

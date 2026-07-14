@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Stub-PaymentProvider (Mock) — protokolliert Abrechnungsvorgänge, ohne
+// Stub-PaymentProvider (Mock): protokolliert Abrechnungsvorgänge, ohne
 // echtes Geld zu bewegen. Beträge via ENV konfigurierbar (siehe index.js).
 // ─────────────────────────────────────────────────────────────────────────────
 const crypto = require('crypto');

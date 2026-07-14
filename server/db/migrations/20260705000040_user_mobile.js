@@ -1,5 +1,5 @@
 /**
- * Mobilnummer als Profilfeld (Pflicht) — Grundlage für spätere 2-Faktor-
+ * Mobilnummer als Profilfeld (Pflicht): Grundlage für spätere 2-Faktor-
  * Authentifizierung (SMS/TOTP). Separat von der bestehenden Festnetz-`phone`.
  */
 exports.up = async function (knex) {

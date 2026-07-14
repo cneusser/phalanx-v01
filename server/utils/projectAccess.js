@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 19 — Zugriffsrollen auf Mandatsebene (Grundlage für Einladungen).
+// Sprint 19: Zugriffsrollen auf Mandatsebene (Grundlage für Einladungen).
 //
 // Bis Sprint 18 galt: JEDE Zeile in project_members = Vollzugriff (pflegen,
 // Exposé veröffentlichen, Safe schreiben/löschen). Mit „Betrachter" (viewer)

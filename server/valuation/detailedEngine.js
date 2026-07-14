@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 7 — Engine der ausführlichen Bewertung (rein, testbar, ohne Seiteneffekte).
+// Sprint 7: Engine der ausführlichen Bewertung (rein, testbar, ohne Seiteneffekte).
 //
 // Aufbauend auf Sprint 6 (Branchen-/Größenklassen-Multiple). Zusätzlich:
 //   1. Bereinigung des nachhaltigen EBIT (GF-Gehalt, Einmaleffekte, Gesellschafter-Miete)
 //   2. Multiplikatorverfahren mit Scorecard-Anpassung + Größenabschlag
-//   3. Vereinfachtes Ertragswertverfahren (§199 BewG, Faktor 13,75) — Vergleichswert
+//   3. Vereinfachtes Ertragswertverfahren (§199 BewG, Faktor 13,75), Vergleichswert
 //   4. Ertragswert mit risikogerechtem Kapitalisierungszins (Basiszins + Marktrisiko
-//      + Scorecard-Risikozuschlag) — KMUrechner-Logik
+//      + Scorecard-Risikozuschlag): KMUrechner-Logik
 //   5. Kapitaldienstfähigkeits-Check aus Käufersicht (Modul 2): finanzierbarer Preis
 //   6. Substanzwert (optional) als Untergrenze
 //   + Werte-Korridor, Methodenvergleich, Sensitivität (±1 Multiple-Punkt).
@@ -44,7 +44,7 @@ function avg(values) {
   return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
-// Größenklasse (Micro/Small/Mid) aus Ø-Umsatz — identisch zu Sprint 6.
+// Größenklasse (Micro/Small/Mid) aus Ø-Umsatz, identisch zu Sprint 6.
 function pickSizeBand(avgRevenue, m) {
   let key, label;
   if (avgRevenue > 50e6) { key = 'mid'; label = 'Mid-Cap (> 50 Mio. € Umsatz)'; }
@@ -75,14 +75,14 @@ function annuityFactor(rate, years) {
  *   buyerYears (Default 7), buyerInterest (Default 0,065): Kapitaldienst-Parameter
  * @param {object} multiple  Zeile aus valuation_multiples (Branche×Größenklasse)
  */
-// Sprint 12 — Bewertung 2.0: DCF und Benchmarking ergänzen die bisherigen Verfahren.
+// Sprint 12: Bewertung 2.0: DCF und Benchmarking ergänzen die bisherigen Verfahren.
 // Beide sind optional: Ohne Planungsangaben rechnet die Engine wie bisher, mit
 // Planungsangaben kommt ein drittes, cashflowbasiertes Verfahren hinzu.
 const { evaluateDcf } = require('./dcf');
 const { compare, cagr } = require('./benchmarks');
 
 // Planungsannahmen: entweder vom Nutzer gesetzt oder aus der Historie abgeleitet.
-// Bewusst konservativ — wer nichts angibt, bekommt keine Wachstumsfantasie.
+// Bewusst konservativ: wer nichts angibt, bekommt keine Wachstumsfantasie.
 function planFromHistory(input, adjustedEbit) {
   const revenues = (input.revenues || []).map(v => num(v)).filter(v => v > 0);
   const revenueBase = revenues.length ? revenues[revenues.length - 1] : 0;
@@ -191,7 +191,7 @@ function evaluateDetailed(input, multiple, bench = null) {
     nwcPct: input.nwcPct != null ? num(input.nwcPct) : auto.nwcPct,
     years: num(input.planYears, 5),
     terminalGrowth: input.terminalGrowth != null ? num(input.terminalGrowth) : auto.terminalGrowth,
-    // Kapitalkosten — schwache Scorecard erhöht die Eigenkapitalkosten (Risikoprämie)
+    // Kapitalkosten: schwache Scorecard erhöht die Eigenkapitalkosten (Risikoprämie)
     baseRate: BASE_RATE,
     marketRiskPremium: input.marketRiskPremium != null ? num(input.marketRiskPremium) : 0.065,
     beta: input.beta != null ? num(input.beta) : 1.0,
@@ -267,7 +267,7 @@ function evaluateDetailed(input, multiple, bench = null) {
         valueHigh: round(evMultipleHigh),
       },
       simplifiedIncome: { factor: KAP_FAKTOR_BEWG, value: round(bewgValue),
-        note: 'Steuerlicher Vergleichswert (§199 BewG) — in der Praxis meist zu hoch.' },
+        note: 'Steuerlicher Vergleichswert (§199 BewG), in der Praxis meist zu hoch.' },
       income: {
         capRate: r2(capRate * 100),          // in %
         baseRate: r2(BASE_RATE * 100), marketRisk: r2(MARKET_RISK * 100), riskPremium: r2(riskPremium * 100),

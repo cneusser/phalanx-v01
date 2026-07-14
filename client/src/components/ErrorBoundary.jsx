@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Fehlergrenze: Wenn eine Seite abstürzt, zeigt React standardmäßig nichts an —
+// Fehlergrenze: Wenn eine Seite abstürzt, zeigt React standardmäßig nichts an, 
 // eine leere graue Fläche. Das ist der schlechteste Zustand: der Nutzer sieht
 // nichts, und wir erfahren nichts. Hier fangen wir den Fehler ab, zeigen ihn
 // verständlich an und geben einen Weg zurück.
@@ -20,7 +20,7 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     this.setState({ info });
-    // In die Konsole — damit der Fehler im Browser-Log auffindbar bleibt
+    // In die Konsole: damit der Fehler im Browser-Log auffindbar bleibt
     console.error('Seitenfehler:', error, info?.componentStack);
   }
 
@@ -34,7 +34,7 @@ export default class ErrorBoundary extends React.Component {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '3rem 1.5rem' }}>
         <h1 style={{ color: C.navy, fontSize: '1.4rem', marginBottom: '0.5rem' }}>Diese Seite konnte nicht geladen werden</h1>
         <p style={{ color: C.muted, fontSize: '0.9rem', lineHeight: 1.6 }}>
-          In der Anwendung ist ein Fehler aufgetreten. Die Meldung unten hilft bei der Behebung —
+          In der Anwendung ist ein Fehler aufgetreten. Die Meldung unten hilft bei der Behebung, 
           bitte schicken Sie sie uns, wenn das Problem bleibt.
         </p>
 

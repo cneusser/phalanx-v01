@@ -1,6 +1,6 @@
 /**
  * Nutzer-Stammdaten: Anrede (Pflicht), Titel (optional) und vollständige
- * Anschrift (Straße, PLZ, Ort) — für alle Rollen. Die Anschrift fließt
+ * Anschrift (Straße, PLZ, Ort): für alle Rollen. Die Anschrift fließt
  * u. a. in die NDA-Vertragsparteien ein.
  */
 exports.up = async function (knex) {

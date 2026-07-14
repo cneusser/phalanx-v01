@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 2 — Deal-Zustandsautomat (Sell-Side-Funnel)
+// Sprint 2: Deal-Zustandsautomat (Sell-Side-Funnel)
 //
 // Zwei Ebenen:
 //   1. Deal-Status (projects.deal_status): Zustand des Mandats
-//   2. Interest-Stage (interests.stage): Zustand je Interessent — Grundlage
+//   2. Interest-Stage (interests.stage): Zustand je Interessent, Grundlage
 //      für ALLE Zugriffs-Gates. Serverseitig strikt durchgesetzt: Kein Nutzer
 //      erreicht eine Ressource, deren Gate seine Stage nicht passiert hat.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,7 +24,7 @@ const INTEREST_TRANSITIONS = {
 
 // Deal-Status-Übergänge
 // „outreach" (Ansprache): Teaser steht, die Käuferansprache läuft über den
-// CRM-Funnel — aber noch niemand ist in der Prüfung.
+// CRM-Funnel: aber noch niemand ist in der Prüfung.
 const DEAL_TRANSITIONS = {
   draft:        ['teaser_live', 'withdrawn'],
   teaser_live:  ['outreach', 'in_diligence', 'draft', 'withdrawn'],

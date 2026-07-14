@@ -26,7 +26,7 @@ const emptyInputs = () => ({
   industry: '', revenues: ['', '', ''], ebits: ['', '', ''],
   ownerSalaryAdjustment: '', oneOffs: '', shareholderRentAddback: '', netDebt: '',
   scorecard: {}, assetValue: '', assetDebt: '', buyerYears: '7', buyerInterest: '6,5',
-  // Sprint 12 — Planung & Kapitalkosten für den DCF (leer = aus der Historie abgeleitet)
+  // Sprint 12: Planung & Kapitalkosten für den DCF (leer = aus der Historie abgeleitet)
   personnelCosts: '',
   revenueGrowth: '', ebitMargin: '', capexPct: '', depreciationPct: '', nwcPct: '',
   planYears: '5', terminalGrowth: '1,0', beta: '1,0', sizePremium: '4,0', debtRatio: '0',
@@ -92,7 +92,7 @@ export default function DetailedValuation() {
       scorecard: inputs.scorecard,
       assetValue: num(inputs.assetValue), assetDebt: num(inputs.assetDebt),
       buyerYears: num(inputs.buyerYears) || 7, buyerInterest: (num(inputs.buyerInterest) || 6.5) / 100,
-      // Sprint 12 — DCF-Planung (leere Felder bleiben undefined → Ableitung aus der Historie)
+      // Sprint 12: DCF-Planung (leere Felder bleiben undefined → Ableitung aus der Historie)
       personnelCosts: num(inputs.personnelCosts) || undefined,
       revenueGrowth: pctOrUndef(inputs.revenueGrowth),
       ebitMargin: pctOrUndef(inputs.ebitMargin),
@@ -158,7 +158,7 @@ export default function DetailedValuation() {
         <div style={{ background: C.navy, color: '#fff', padding: '2.5rem 1.5rem 2rem' }}>
           <div style={{ maxWidth: 900, margin: '0 auto' }}>
             <h1 style={{ fontSize: '1.7rem', fontWeight: 700, marginBottom: '0.4rem' }}>Ausführliche Unternehmensbewertung</h1>
-            <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.92rem', maxWidth: 640 }}>Geführte, mehrstufige Bewertung mit Bereinigungsrechnung, Qualitäts-Scorecard, Ertragswert und Kapitaldienst-Check — als ausführlicher PDF-Report. Indikativ, kein IDW-S1-Gutachten.</p>
+            <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.92rem', maxWidth: 640 }}>Geführte, mehrstufige Bewertung mit Bereinigungsrechnung, Qualitäts-Scorecard, Ertragswert und Kapitaldienst-Check, als ausführlicher PDF-Report. Indikativ, kein IDW-S1-Gutachten.</p>
           </div>
         </div>
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.75rem 1.5rem 4rem' }}>
@@ -184,10 +184,10 @@ export default function DetailedValuation() {
                     {list.map(r => (
                       <tr key={r.id} style={{ borderBottom: `1px solid ${C.border}` }}>
                         <td style={{ padding: '0.7rem 1rem', fontWeight: 600, color: C.text, cursor: 'pointer' }} onClick={() => openOne(r)}>{r.title || '(ohne Titel)'}</td>
-                        <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.industry || '—'}</td>
+                        <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.industry || 'k. A.'}</td>
                         <td style={{ padding: '0.7rem 1rem' }}><span style={{ background: STATUS_COLOR[r.status] + '18', color: STATUS_COLOR[r.status], fontWeight: 600, fontSize: '0.72rem', padding: '0.15rem 0.55rem', borderRadius: 20 }}>{STATUS_LABEL[r.status] || r.status}</span></td>
-                        <td style={{ padding: '0.7rem 1rem', fontWeight: 600 }}>{r.positive && r.corridor_base != null ? eur(r.corridor_base) : (r.status === 'draft' ? '—' : 'n. b.')}</td>
-                        <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.codename || '—'}</td>
+                        <td style={{ padding: '0.7rem 1rem', fontWeight: 600 }}>{r.positive && r.corridor_base != null ? eur(r.corridor_base) : (r.status === 'draft' ? 'k. A.' : 'n. b.')}</td>
+                        <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.codename || 'k. A.'}</td>
                         <td style={{ padding: '0.7rem 1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <button onClick={() => openOne(r)} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', cursor: 'pointer', marginRight: 6 }}>Öffnen</button>
                           {r.status !== 'draft' && <button onClick={() => downloadPdf(r.id)} style={{ background: C.steel, color: C.navy, border: 'none', borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>PDF</button>}
@@ -224,7 +224,7 @@ export default function DetailedValuation() {
         {msg && <div style={{ background: msg.includes('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: msg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{msg}</div>}
 
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.75rem' }}>
-          {/* STEP 0 — Finanzdaten */}
+          {/* STEP 0: Finanzdaten */}
           {step === 0 && (
             <div>
               <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '1rem', marginBottom: '1.1rem' }}>
@@ -236,11 +236,11 @@ export default function DetailedValuation() {
                   </select>
                 </div>
               </div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Umsatz (€) — letzte 3 Jahre</div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Umsatz (€): letzte 3 Jahre</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                 {yearLabels.map((yl, i) => <div key={i}><label style={{ ...LABEL, fontWeight: 400, color: C.muted }}>{yl}</label><input value={inputs.revenues[i]} onChange={e => setArr('revenues', i, e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /></div>)}
               </div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>EBIT / Betriebsergebnis (€) — letzte 3 Jahre</div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>EBIT / Betriebsergebnis (€): letzte 3 Jahre</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.1rem' }}>
                 {yearLabels.map((yl, i) => <div key={i}><label style={{ ...LABEL, fontWeight: 400, color: C.muted }}>{yl}</label><input value={inputs.ebits[i]} onChange={e => setArr('ebits', i, e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /></div>)}
               </div>
@@ -254,7 +254,7 @@ export default function DetailedValuation() {
             </div>
           )}
 
-          {/* STEP 1 — Scorecard */}
+          {/* STEP 1: Scorecard */}
           {step === 1 && (
             <div>
               <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: '1rem' }}>Bewerten Sie je Faktor von −2 (sehr schwach) bis +2 (sehr gut). Das verschiebt Multiple und Risikozins.</div>
@@ -272,7 +272,7 @@ export default function DetailedValuation() {
             </div>
           )}
 
-          {/* STEP 2 — Substanz & Käufer */}
+          {/* STEP 2: Substanz & Käufer */}
           {step === 2 && (
             <div>
               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Substanzwert (optional)</div>
@@ -288,7 +288,7 @@ export default function DetailedValuation() {
             </div>
           )}
 
-          {/* STEP 3 — Planung & Kapitalkosten (DCF) */}
+          {/* STEP 3: Planung & Kapitalkosten (DCF) */}
           {step === 3 && (
             <div>
               <div style={{ background: '#EDF4FA', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.8rem 1rem', marginBottom: '1.25rem', fontSize: '0.8rem', color: '#475569', lineHeight: 1.55 }}>
@@ -321,7 +321,7 @@ export default function DetailedValuation() {
             </div>
           )}
 
-          {/* STEP 4 — Ergebnis */}
+          {/* STEP 4: Ergebnis */}
           {step === 4 && (
             <div>
               {!result ? (
@@ -329,7 +329,7 @@ export default function DetailedValuation() {
                   <AlertTriangle size={22} style={{ marginBottom: 8 }} /><div>Noch kein Ergebnis. Klicken Sie auf „Berechnen".</div>
                 </div>
               ) : !result.positive ? (
-                <div style={{ display: 'flex', gap: '0.6rem', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '1rem', fontSize: '0.85rem', color: '#92400e' }}><AlertTriangle size={18} style={{ flexShrink: 0 }} /><span>Das bereinigte nachhaltige Ergebnis ist nicht positiv — ertragsorientierte Verfahren liefern hier keinen sinnvollen Wert.</span></div>
+                <div style={{ display: 'flex', gap: '0.6rem', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '1rem', fontSize: '0.85rem', color: '#92400e' }}><AlertTriangle size={18} style={{ flexShrink: 0 }} /><span>Das bereinigte nachhaltige Ergebnis ist nicht positiv, ertragsorientierte Verfahren liefern hier keinen sinnvollen Wert.</span></div>
               ) : (
                 <div>
                   <div style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '0.9rem' }}>Enterprise Value · {result.industryLabel} · {result.sizeBand?.label}</div>
@@ -350,7 +350,7 @@ export default function DetailedValuation() {
                     <div><strong>Kapitaldienst:</strong> {result.affordability.verdict} (finanzierbar {eur(result.affordability.financeablePrice)})</div>
                     {result.methods.substance.value > 0 && <div><strong>Substanzwert:</strong> {eur(result.methods.substance.value)}</div>}
                   </div>
-                  {/* Sprint 12 — Methodenvergleich */}
+                  {/* Sprint 12: Methodenvergleich */}
                   {result.methodValues && result.methodValues.length > 2 && (
                     <div style={{ marginTop: '1.25rem', borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
                       <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.6rem' }}>Methodenvergleich (Enterprise Value)</div>
@@ -375,7 +375,7 @@ export default function DetailedValuation() {
                     </div>
                   )}
 
-                  {/* Sprint 12 — DCF */}
+                  {/* Sprint 12: DCF */}
                   {result.dcf && result.dcf.ok && (
                     <div style={{ marginTop: '1.25rem', borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
                       <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.6rem' }}>Discounted Cash Flow</div>
@@ -415,7 +415,7 @@ export default function DetailedValuation() {
                                     const center = mid && ci === Math.floor(row.values.length / 2);
                                     return (
                                       <td key={ci} style={{ padding: '0.3rem 0.5rem', textAlign: 'right', fontWeight: center ? 800 : 400, color: center ? C.navy : '#475569' }}>
-                                        {v.enterpriseValue == null ? '—' : eur(v.enterpriseValue)}
+                                        {v.enterpriseValue == null ? 'k. A.' : eur(v.enterpriseValue)}
                                       </td>
                                     );
                                   })}
@@ -431,11 +431,11 @@ export default function DetailedValuation() {
                     </div>
                   )}
 
-                  {/* Sprint 12 — Benchmarking */}
+                  {/* Sprint 12: Benchmarking */}
                   {result.benchmark && result.benchmark.available && result.benchmark.items?.length > 0 && (
                     <div style={{ marginTop: '1.25rem', borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
                       <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.2rem' }}>
-                        Branchenvergleich — Gesamtbild: {result.benchmark.verdict}
+                        Branchenvergleich: Gesamtbild: {result.benchmark.verdict}
                       </div>
                       <div style={{ fontSize: '0.72rem', color: C.muted, marginBottom: '0.7rem' }}>{result.benchmark.industry}</div>
                       {result.benchmark.items.map(it => {

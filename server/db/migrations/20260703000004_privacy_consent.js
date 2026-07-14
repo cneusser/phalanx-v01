@@ -6,7 +6,7 @@ exports.up = async function (knex) {
   await knex.schema.alterTable('users', (t) => {
     t.timestamp('privacy_consent_at', { useTz: true });
   });
-  // Bestandsnutzer: Einwilligung war implizit Teil der bisherigen Registrierung —
+  // Bestandsnutzer: Einwilligung war implizit Teil der bisherigen Registrierung, 
   // Zeitpunkt der Registrierung als bestmögliche Annäherung dokumentieren
   await knex.raw(`UPDATE users SET privacy_consent_at = created_at WHERE privacy_consent_at IS NULL`);
 };

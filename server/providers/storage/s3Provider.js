@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// S3Provider — S3-kompatibler Speicher (Cloudflare R2, AWS S3, Hetzner …).
+// S3Provider: S3-kompatibler Speicher (Cloudflare R2, AWS S3, Hetzner …).
 // Lädt @aws-sdk/client-s3 nur, wenn STORAGE_PROVIDER=s3 gewählt ist (Lazy Require),
 // damit der Default-Betrieb (local) das SDK nicht benötigt.
 //

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Wiedervorlagen — was liegt an, was ist überfällig.
+// Wiedervorlagen: was liegt an, was ist überfällig.
 // Aufgaben entstehen automatisch (eingegangene Antwort) oder manuell.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from 'react';
@@ -10,7 +10,7 @@ import ContactDrawer from './ContactDrawer';
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const IN = { padding: '0.5rem 0.65rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.83rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
 
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('de-DE') : '—';
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('de-DE') : 'k. A.';
 
 export default function TaskBoard({ show }) {
   const [tasks, setTasks] = useState([]);
@@ -123,7 +123,7 @@ export default function TaskBoard({ show }) {
         ))}
         {!tasks.length && (
           <div style={{ padding: '2.5rem', textAlign: 'center', color: C.muted, fontSize: '0.88rem' }}>
-            {showDone ? 'Noch nichts erledigt.' : 'Keine offenen Wiedervorlagen — alles im Griff.'}
+            {showDone ? 'Noch nichts erledigt.' : 'Keine offenen Wiedervorlagen, alles im Griff.'}
           </div>
         )}
       </div>

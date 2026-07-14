@@ -1,6 +1,6 @@
 /**
  * - projects.image_path: optionales Projektbild (Teaser-Ebene, anonymisiert wählen!)
- * - project_members: Nutzer-Zuordnung zu Projekten — zugeordnete Nutzer
+ * - project_members: Nutzer-Zuordnung zu Projekten, zugeordnete Nutzer
  *   (z. B. Verkäufer) dürfen das Mandat über den Marktplatz pflegen.
  */
 exports.up = async function (knex) {

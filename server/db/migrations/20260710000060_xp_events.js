@@ -1,5 +1,5 @@
 /**
- * Sprint 17 — Gamification / XP.
+ * Sprint 17: Gamification / XP.
  * Append-only Eventlog der vergebenen Punkte je Nutzer. Idempotent über
  * unique (user_id, action, ref_type, ref_id): ein Prozessschritt (z. B. NDA
  * signiert für Projekt X) zählt genau einmal. ref_type/ref_id sind NOT NULL

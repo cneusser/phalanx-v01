@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 6 — Bewertungs-PDF-Report in Phalanx-CI (indikativer Werte-Korridor).
+// Sprint 6: Bewertungs-PDF-Report in Phalanx-CI (indikativer Werte-Korridor).
 // Briefbogen-Anmutung: Phalanx-Logo, 1,5-Zeilenabstand & Blocksatz im Fließtext,
 // werblicher Abschluss-Block. Quelle der Multiples: DUB KMU-Multiples.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -74,10 +74,10 @@ function generateValuationReport(opts) {
     doc.font('Helvetica-Bold').fontSize(16).fillColor(NAVY).text('Ihr indikativer Unternehmenswert', L, doc.y);
     doc.moveDown(0.25);
     doc.font('Helvetica').fontSize(9.5).fillColor(GRAY)
-      .text([company ? `Unternehmen: ${company}` : null, name ? `Erstellt für: ${name}` : null, `Branche: ${industryLabel || '—'}`].filter(Boolean).join('   ·   '), L, doc.y, { width: PAGE_W });
+      .text([company ? `Unternehmen: ${company}` : null, name ? `Erstellt für: ${name}` : null, `Branche: ${industryLabel || 'k. A.'}`].filter(Boolean).join('   ·   '), L, doc.y, { width: PAGE_W });
     doc.moveDown(0.55);
     doc.font('Helvetica').fontSize(9.5).fillColor(BLACK).text(
-      `vielen Dank für Ihr Interesse. Auf Basis Ihrer Angaben haben wir einen indikativen Werte-Korridor für Ihr Unternehmen ermittelt. Er verbindet das marktübliche EBIT-Multiplikatorverfahren mit dem vereinfachten Ertragswertverfahren und dient als erste, fundierte Orientierung — der ideale Ausgangspunkt für ein persönliches Gespräch über Verkauf, Nachfolge oder Wachstumsfinanzierung.`,
+      `vielen Dank für Ihr Interesse. Auf Basis Ihrer Angaben haben wir einen indikativen Werte-Korridor für Ihr Unternehmen ermittelt. Er verbindet das marktübliche EBIT-Multiplikatorverfahren mit dem vereinfachten Ertragswertverfahren und dient als erste, fundierte Orientierung, der ideale Ausgangspunkt für ein persönliches Gespräch über Verkauf, Nachfolge oder Wachstumsfinanzierung.`,
       L, doc.y, PROSE(9.5));
     doc.moveDown(0.6);
 
@@ -116,7 +116,7 @@ function generateValuationReport(opts) {
     }
     if (!result.positive) {
       doc.font('Helvetica').fontSize(9).fillColor('#92400e')
-        .text('Hinweis: Das bereinigte nachhaltige Ergebnis ist nicht positiv. Ertragsorientierte Verfahren liefern hier keinen sinnvollen Wert — bitte sprechen Sie uns für eine individuelle Einschätzung an.', L, doc.y, PROSE(9));
+        .text('Hinweis: Das bereinigte nachhaltige Ergebnis ist nicht positiv. Ertragsorientierte Verfahren liefern hier keinen sinnvollen Wert, bitte sprechen Sie uns für eine individuelle Einschätzung an.', L, doc.y, PROSE(9));
       doc.moveDown(0.35);
     }
 
@@ -169,7 +169,7 @@ function generateValuationReport(opts) {
     doc.rect(L, ctaY, PAGE_W, ctaH).fillAndStroke(NAVY, NAVY);
     doc.font('Helvetica-Bold').fontSize(11).fillColor('#fff').text('Ihr nächster Schritt: eine belastbare Bewertung', L + 16, ctaY + 11, { width: PAGE_W - 32 });
     doc.font('Helvetica').fontSize(8.7).fillColor('rgba(255,255,255,0.88)').text(
-      'Dieser Quick-Check ist der Anfang. Für einen am Markt durchsetzbaren Preis ermitteln wir mit Ihnen eine fundierte Bewertung, bereiten Zahlen und Equity-Story professionell auf und begleiten Sie diskret bis zum Abschluss. Sprechen Sie uns unverbindlich an — wir stehen Ihnen gern persönlich zur Verfügung.',
+      'Dieser Quick-Check ist der Anfang. Für einen am Markt durchsetzbaren Preis ermitteln wir mit Ihnen eine fundierte Bewertung, bereiten Zahlen und Equity-Story professionell auf und begleiten Sie diskret bis zum Abschluss. Sprechen Sie uns unverbindlich an, wir stehen Ihnen gern persönlich zur Verfügung.',
       L + 16, ctaY + 28, { width: PAGE_W - 32, align: 'justify', lineGap: 2.5 });
     doc.font('Helvetica-Bold').fontSize(8.3).fillColor(STEEL).text(
       'Phalanx GmbH  ·  Helene-Lange-Straße 28, 91056 Erlangen  ·  neusser@phalanx.de  ·  www.capitalmatch.de',

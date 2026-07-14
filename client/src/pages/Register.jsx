@@ -67,7 +67,7 @@ export default function Register() {
     }
   };
 
-  // Success state — pending approval
+  // Success state: pending approval
   if (success) {
     return (
       <div style={{ minHeight: '100vh', background: `linear-gradient(135deg, #EBF7FC 0%, #F3F8FC 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem' }}>
@@ -79,7 +79,7 @@ export default function Register() {
             Bitte bestätigen Sie Ihre E-Mail
           </h2>
           <p style={{ color: C.gray, fontSize: '0.9rem', lineHeight: 1.7, marginBottom: '1.5rem' }}>
-            Fast geschafft! Wir haben Ihnen einen Bestätigungslink geschickt. Erst nach Bestätigung Ihrer E-Mail-Adresse ist die Registrierung abgeschlossen — anschließend prüft unser Team Ihren Zugang und schaltet ihn frei.
+            Fast geschafft! Wir haben Ihnen einen Bestätigungslink geschickt. Erst nach Bestätigung Ihrer E-Mail-Adresse ist die Registrierung abgeschlossen, anschließend prüft unser Team Ihren Zugang und schaltet ihn frei.
           </p>
           <div style={{ background: C.xLight, borderRadius: 8, padding: '0.9rem 1rem', border: `1px solid ${C.border}`, fontSize: '0.82rem', color: C.gray, marginBottom: '1.5rem' }}>
             <strong style={{ color: C.navy }}>Bestätigungs-E-Mail an:</strong> {form.email}<br/>
@@ -101,7 +101,7 @@ export default function Register() {
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
             <CapitalMatchLogo textSize={28} white={false} />
           </div>
-          <p style={{ color: C.gray, fontSize: '0.8rem' }}>Kostenlose Registrierung — Zugang zu exklusiven Mandaten</p>
+          <p style={{ color: C.gray, fontSize: '0.8rem' }}>Kostenlose Registrierung: Zugang zu exklusiven Mandaten</p>
         </div>
 
         {/* Role Toggle */}
@@ -199,7 +199,7 @@ export default function Register() {
           />
           <Field label="Position" value={form.position} onChange={set('position')} placeholder="Geschäftsführer" />
 
-          {/* Buyer type — only for buyers */}
+          {/* Buyer type: only for buyers */}
           {roleType === 'buyer' && (
             <div style={{ marginBottom: '0.9rem' }}>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.35rem' }}>
@@ -224,7 +224,7 @@ export default function Register() {
 
           {/* Phone */}
           <Field label="Mobilnummer" value={form.mobile} onChange={set('mobile')} placeholder="+49 170 1234567" required />
-          <div style={{ fontSize: '0.72rem', color: C.gray, marginTop: '-0.5rem', marginBottom: '0.7rem' }}>Pflichtangabe — Grundlage für die spätere 2-Faktor-Authentifizierung.</div>
+          <div style={{ fontSize: '0.72rem', color: C.gray, marginTop: '-0.5rem', marginBottom: '0.7rem' }}>Pflichtangabe: Grundlage für die spätere 2-Faktor-Authentifizierung.</div>
           <Field label="Telefon (optional)" value={form.phone} onChange={set('phone')} placeholder="+49 9131 123456" />
 
           {/* GDPR Checkbox */}

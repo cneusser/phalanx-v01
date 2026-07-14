@@ -1,14 +1,14 @@
 /**
- * Sprint 19 — CRM I: Unternehmen & Kontakte (Fundament des Sell-Side-CRM).
+ * Sprint 19: CRM I: Unternehmen & Kontakte (Fundament des Sell-Side-CRM).
  *
  *   crm_companies         Zentrale Unternehmensdatenbank (Käufer, Zielunternehmen,
  *                         Investoren, Berater …) inkl. Konzernverknüpfung.
  *   crm_contacts          Ansprechpartner mit DSGVO-Einwilligung/Kontaktstatus.
- *   crm_company_contacts  n:m — ein Kontakt kann mehreren Unternehmen zugeordnet
+ *   crm_company_contacts  n:m: ein Kontakt kann mehreren Unternehmen zugeordnet
  *                         sein; über started_on/ended_on entsteht die HISTORIE
  *                         früherer Positionen und Unternehmenswechsel.
  *
- * Alles mandantenfähig (tenant_id + RLS, fail closed) — Voraussetzung dafür,
+ * Alles mandantenfähig (tenant_id + RLS, fail closed), Voraussetzung dafür,
  * dass später Dritte das CRM nutzen können.
  */
 exports.up = async function (knex) {

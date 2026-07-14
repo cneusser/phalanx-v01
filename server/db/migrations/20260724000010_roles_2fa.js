@@ -1,5 +1,5 @@
 /**
- * Sprint 13 — CRM V: Rollen, 2-Faktor-Authentifizierung, DSGVO-Härtung.
+ * Sprint 13: CRM V: Rollen, 2-Faktor-Authentifizierung, DSGVO-Härtung.
  *
  *   users.totp_*        TOTP-Geheimnis (Base32), Aktivierungsstatus, Backup-Codes
  *                       (nur als Hash). Für Staff-Rollen erzwingbar über ENV
@@ -8,12 +8,12 @@
  *   Rollen              'assistant' (pflegen, aber nicht versenden/löschen) und
  *                       'analyst' (nur lesen) ergänzen super_admin / tenant_owner /
  *                       advisor. Die Rechte-Matrix liegt im Code
- *                       (middleware/permissions.js) — sie ist Teil des Audits und
+ *                       (middleware/permissions.js): sie ist Teil des Audits und
  *                       soll nicht still per SQL veränderbar sein.
  *
  *   crm_contacts.anonymized_at  Recht auf Vergessenwerden: Der Kontakt wird
  *                       anonymisiert (Name/E-Mail/Telefon gelöscht), die Historie
- *                       bleibt als Nachweis erhalten — inklusive der Tatsache,
+ *                       bleibt als Nachweis erhalten: inklusive der Tatsache,
  *                       dass gelöscht wurde.
  */
 exports.up = async function (knex) {

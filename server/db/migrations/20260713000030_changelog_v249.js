@@ -1,13 +1,13 @@
-/** Changelog-Eintrag v0.249 (Sprint 20 — Deal-Funnel, Kontakt-Import, DSGVO-Einladung, Teaser). */
+/** Changelog-Eintrag v0.249 (Sprint 20: Deal-Funnel, Kontakt-Import, DSGVO-Einladung, Teaser). */
 const ENTRY = {
   version: 'v0.249', released_on: '2026-07-13',
   title: 'Deal-Funnel, Kontakt-Import & DSGVO-Einladung',
   items: [
-    'Neutraler Teaser als One-Pager (PDF) — für angemeldete Nutzer herunterladbar',
+    'Neutraler Teaser als One-Pager (PDF): für angemeldete Nutzer herunterladbar',
     'Sell-Side-Funnel je Mandat: Longlist → Angesprochen → NDA → IM → Gespräch → LOI → Abschluss (Kanban mit Drag & Drop)',
     'Verweildauer je Stufe und automatische Warnung bei stagnierenden Vorgängen',
     'Erster Schwung echter Kontakte importiert (Unternehmen, Ansprechpartner, Funnel-Stand)',
-    'Einladung von Kontakten auf die Plattform streng DSGVO-konform: Double-Opt-in — ein Konto entsteht erst nach ausdrücklicher Einwilligung',
+    'Einladung von Kontakten auf die Plattform streng DSGVO-konform: Double-Opt-in, ein Konto entsteht erst nach ausdrücklicher Einwilligung',
     'Widerspruch wird dauerhaft respektiert („nicht kontaktieren")',
   ],
 };

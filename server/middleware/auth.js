@@ -6,18 +6,18 @@ const JWT_SECRET = process.env.JWT_SECRET || 'phalanx-secret';
 const USER_FIELDS = 'id, tenant_id, email, role, salutation, title, first_name, last_name, company, is_active';
 
 // Sprint 5 (RLS): Nutzer-Lookup im Kontext des über die Subdomain aufgelösten
-// Tenants — sonst wären Nutzer anderer Mandanten unsichtbar (fail closed).
+// Tenants: sonst wären Nutzer anderer Mandanten unsichtbar (fail closed).
 async function lookupUser(req, userId) {
   const fn = (d) => d.get(`SELECT ${USER_FIELDS} FROM users WHERE id = ?`, [userId]);
   return (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Birdview (Ansicht als anderer Nutzer) — STRENG SCHREIBGESCHÜTZT.
+// Birdview (Ansicht als anderer Nutzer): STRENG SCHREIBGESCHÜTZT.
 //
 // Trägt das Token den Claim `imp` (= Id des Admins), sieht der Aufrufer die
 // Plattform mit den Augen des Zielnutzers. In dieser Identität darf er NIEMALS
-// handeln — sonst könnte ein Admin versehentlich in fremdem Namen ein NDA
+// handeln: sonst könnte ein Admin versehentlich in fremdem Namen ein NDA
 // unterzeichnen, eine Nachricht senden oder Daten ändern.
 //
 //   erlaubt:  GET (Lesen) außerhalb von /api/admin und /api/crm + Beenden
@@ -54,7 +54,7 @@ function impersonationGuard(req, res) {
   if (req.method !== 'GET') {
     res.status(403).json({
       success: false, code: 'IMPERSONATION_READONLY',
-      error: 'Birdview ist schreibgeschützt — in fremder Identität sind keine Änderungen möglich. Bitte beenden Sie die Ansicht, um selbst zu handeln.',
+      error: 'Birdview ist schreibgeschützt, in fremder Identität sind keine Änderungen möglich. Bitte beenden Sie die Ansicht, um selbst zu handeln.',
     });
     return false;
   }
@@ -97,7 +97,7 @@ async function optionalAuth(req, res, next) {
   if (user && user.is_active) {
     req.user = user;
     await attachImpersonation(req, decoded);
-    // Auch hier greift der Schreibschutz — sonst wäre optionalAuth ein Schlupfloch.
+    // Auch hier greift der Schreibschutz: sonst wäre optionalAuth ein Schlupfloch.
     if (!impersonationGuard(req, res)) return;
   }
   next();

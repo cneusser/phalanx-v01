@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Zentrale, konfigurierbare Mandats-Stammdaten (Decknamen, Kennzahlen, Texte).
 // Wird von seed.js (Voll-Seed) und database.js (idempotente Migrationen) genutzt.
-// Kennzahlen hier ändern — NICHT im Code hartkodieren.
+// Kennzahlen hier ändern: NICHT im Code hartkodieren.
 //
 // HINWEIS Anonymisierung: Alle Felder unter `public` sind ohne Login/NDA
 // sichtbar (Teaser). Hier dürfen KEINE identifizierenden Angaben stehen.
@@ -29,17 +29,17 @@ const PROJECTS = [
       deal_type: 'Seed-Finanzierung',
       stage: 'Seed',
       mandate_type: 'fundraising',
-      revenue_band: '—',
-      ebitda_band: '—',
+      revenue_band: 'k. A.',
+      ebitda_band: 'k. A.',
       investment_needed: '€ 1,1 Mio.',
       equity_stake: '~26 %',
       post_money_valuation: '€ 3,5 Mio.',
       tam_band: '€ 9,3 Mrd.',
       sector_emoji: '🍲',
       short_description:
-        'Bio-Kraftsuppen & Functional Food für Darmgesundheit — vom organisch validierten Proof-of-Market zur Love Brand. Fast 1.000 Lifetime-Kunden ohne Paid Marketing, BIO-zertifiziert, 0g Zucker, 3 Jahre Haltbarkeit ohne Kühlkette.',
+        'Bio-Kraftsuppen & Functional Food für Darmgesundheit, vom organisch validierten Proof-of-Market zur Love Brand. Fast 1.000 Lifetime-Kunden ohne Paid Marketing, BIO-zertifiziert, 0g Zucker, 3 Jahre Haltbarkeit ohne Kühlkette.',
       highlights: [
-        'Organisch validierter Markt: fast 1.000 Lifetime-Kunden — ohne Paid Marketing',
+        'Organisch validierter Markt: fast 1.000 Lifetime-Kunden, ohne Paid Marketing',
         'Ø Bestellwert € 61 brutto, hohe Wiederkaufsrate & starke Shop-Conversion',
         'Listungen bei führendem LEH-Start-up-Programm & Online-Feinkosthändler; prominenter Markenbotschafter',
         'Klarer Pfad zur EBITDA-Profitabilität bis 2029 (Umsatzziel € 1,64 Mio.)',
@@ -58,12 +58,12 @@ const PROJECTS = [
       key_risks: 'Saisonalität (Winter-Schwerpunkt), Working Capital bei Wachstum, Abhängigkeit von Gründern',
       asking_price_band: '€ 3,5 Mio. Post-Money (Seed)',
       team_description:
-        'Gründerpaar (CEO & Co-Founder) — Branchenkenntnis Food & E-Commerce, organisches Community-Building. Namen nach NDA-Freigabe im Datenraum.',
+        'Gründerpaar (CEO & Co-Founder): Branchenkenntnis Food & E-Commerce, organisches Community-Building. Namen nach NDA-Freigabe im Datenraum.',
       problem_solution:
-        'Zeitarmut trifft Gesundheitsbewusstsein: Verbraucher wollen echte, nährstoffreiche Ernährung ohne Aufwand. Das Unternehmen liefert Clean-Label Bio-Kraftsuppen — fertig in Sekunden, 3 Jahre haltbar, kein Zucker.',
+        'Zeitarmut trifft Gesundheitsbewusstsein: Verbraucher wollen echte, nährstoffreiche Ernährung ohne Aufwand. Das Unternehmen liefert Clean-Label Bio-Kraftsuppen, fertig in Sekunden, 3 Jahre haltbar, kein Zucker.',
       use_of_funds: '45 % Paid Marketing & Growth · 25 % Working Capital · 20 % Team (COO) · 10 % NEM-Produktlinie',
       traction_highlights: [
-        'Fast 1.000 Lifetime-Kunden — 100 % organisch',
+        'Fast 1.000 Lifetime-Kunden: 100 % organisch',
         '€ 61 Ø Bestellwert brutto',
         'Listung führendes LEH-Start-up-Programm & Online-Feinkosthändler',
         'Prominenter Markenbotschafter (Extremsportler)',
@@ -77,14 +77,14 @@ const PROJECTS = [
         file_type: 'application/pdf',
         file_size: 2097152,
         access_level: 'public',
-        description: 'Investment Teaser Projekt Umami 2026 — zugänglich nach Registrierung und Admin-Freigabe',
+        description: 'Investment Teaser Projekt Umami 2026, zugänglich nach Registrierung und Admin-Freigabe',
       },
       {
         filename: 'Pitchdeck_Projekt_Umami_2026.pptx',
         file_type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         file_size: 8388608,
         access_level: 'nda',
-        description: 'Pitchdeck & Detailunterlagen — nur nach NDA-Unterzeichnung',
+        description: 'Pitchdeck & Detailunterlagen: nur nach NDA-Unterzeichnung',
       },
     ],
   },
@@ -97,18 +97,18 @@ const PROJECTS = [
       deal_type: 'Angel-Runde',
       stage: 'Angel Round',
       mandate_type: 'fundraising',
-      revenue_band: '—',
-      ebitda_band: '—',
+      revenue_band: 'k. A.',
+      ebitda_band: 'k. A.',
       investment_needed: '€ 1,1 Mio.',
       equity_stake: '20 %',
       post_money_valuation: '€ 5,5 Mio.',
       tam_band: '€ 238 Mrd.',
       sector_emoji: '🏭',
       short_description:
-        'Agentic Factory OS — KI-Agenten verbinden Maschinendaten mit dem Erfahrungswissen der Bediener. Erste Pilot-Installation bei einem Tier-1-Automotive-Zulieferer in Betrieb. 7 strukturelle USPs, kein Direktwettbewerber.',
+        'Agentic Factory OS: KI-Agenten verbinden Maschinendaten mit dem Erfahrungswissen der Bediener. Erste Pilot-Installation bei einem Tier-1-Automotive-Zulieferer in Betrieb. 7 strukturelle USPs, kein Direktwettbewerber.',
       highlights: [
         'First Mover: einziger Anbieter, der KI-Agenten + Operator-Kontextwissen end-to-end kombiniert',
-        'Live-Pilot bei Tier-1-Automotive-Zulieferer (Brasilien) — 4 Maschinen in täglichem Betrieb',
+        'Live-Pilot bei Tier-1-Automotive-Zulieferer (Brasilien), 4 Maschinen in täglichem Betrieb',
         'Hardware-Moat: proprietäre Kiosk- und Kamera-Hardware on-prem, DSGVO-konform',
         'Gründerteam: 25+ Jahre Industrieautomation, mehrere erfolgreiche Exits',
         'Fokussierte Angel-Runde: € 1,1 Mio. für 8+ Installationen & 12 Monate Runway',
@@ -116,7 +116,7 @@ const PROJECTS = [
     },
     details: {
       full_description:
-        'Das erste Agentic Factory OS, das KI-Agenten mit dem Kontextwissen der Maschinenbediener zu einer 360°-Lösung verbindet. Software + proprietäre Hardware (Kiosk, Kamera) über fünf Produktsegmente: Konnektivität, AI-Communication, UNS/SCADA, AI-Agents, Cloud/Enterprise. On-prem, hybrid oder Cloud — DSGVO-konform.',
+        'Das erste Agentic Factory OS, das KI-Agenten mit dem Kontextwissen der Maschinenbediener zu einer 360°-Lösung verbindet. Software + proprietäre Hardware (Kiosk, Kamera) über fünf Produktsegmente: Konnektivität, AI-Communication, UNS/SCADA, AI-Agents, Cloud/Enterprise. On-prem, hybrid oder Cloud, DSGVO-konform.',
       revenue_actual: null,
       ebitda_actual: null,
       revenue_trend: 'Aufbauphase / Pre-Revenue',
@@ -128,13 +128,13 @@ const PROJECTS = [
       team_description:
         'CEO/CTO: 25+ Jahre Machine Vision & Industrial Automation, mehrere Exits. COO/Legal: Corporate Law, Kapitalmarkt-Erfahrung. AI Dev Lead: Ph.D. Computer Science, 25+ Jahre KI. Namen nach NDA-Freigabe im Datenraum.',
       problem_solution:
-        'Maschinendaten ohne menschlichen Kontext erklären nur die Hälfte. Demographischer Wandel: erfahrene Bediener gehen, ihr Wissen geht mit. Die Lösung verbindet Maschinendaten in Echtzeit mit Bediener-Beobachtungen — KI-Agenten bewahren und übertragen Produktionswissen über Schichten hinweg.',
+        'Maschinendaten ohne menschlichen Kontext erklären nur die Hälfte. Demographischer Wandel: erfahrene Bediener gehen, ihr Wissen geht mit. Die Lösung verbindet Maschinendaten in Echtzeit mit Bediener-Beobachtungen, KI-Agenten bewahren und übertragen Produktionswissen über Schichten hinweg.',
       use_of_funds: '45 % Team & technische FTEs · 30 % Pilot-Rollout (8+ Installationen) · 15 % Produkt & Hardware · 10 % Go-to-Market',
       traction_highlights: [
-        'Live-Pilot bei Tier-1-Automotive-Zulieferer (Brasilien) — 4 Maschinen in täglichem Betrieb',
+        'Live-Pilot bei Tier-1-Automotive-Zulieferer (Brasilien), 4 Maschinen in täglichem Betrieb',
         'Pilot-Erweiterung + Extrusion Line mündlich vereinbart (schriftlich Juni 2026)',
         'Pipeline: Europa-Standorte des Pilotkunden (Polen & Spanien), Kosmetik/Food-Integrator, Spritzguss NRW',
-        '51 Marktplayer analysiert — kein Direktwettbewerber mit End-to-End-Lösung',
+        '51 Marktplayer analysiert: kein Direktwettbewerber mit End-to-End-Lösung',
       ],
       milestones: '12-Monats-Milestones: 8+ Installationen in Betrieb, 4 FTEs eingestellt, Pilots → recurring Revenue, IP-Anmeldung, Seed/Series-A positioniert',
     },
@@ -144,14 +144,14 @@ const PROJECTS = [
         file_type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         file_size: 1024000,
         access_level: 'public',
-        description: 'Investment Teaser Nexora (englisch) — zugänglich nach Registrierung und Admin-Freigabe',
+        description: 'Investment Teaser Nexora (englisch), zugänglich nach Registrierung und Admin-Freigabe',
       },
       {
         filename: 'Nexora_CIM_EN.pptx',
         file_type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         file_size: 5242880,
         access_level: 'nda',
-        description: 'Confidential Information Memorandum (CIM) — nur nach NDA-Unterzeichnung',
+        description: 'Confidential Information Memorandum (CIM), nur nach NDA-Unterzeichnung',
       },
     ],
   },

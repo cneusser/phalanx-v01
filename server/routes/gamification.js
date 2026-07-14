@@ -1,4 +1,4 @@
-// Sprint 17 — Gamification / XP: eigener Punktestand.
+// Sprint 17: Gamification / XP: eigener Punktestand.
 const express = require('express');
 const wrap = require('../utils/asyncHandler');
 const { authenticate } = require('../middleware/auth');

@@ -1,7 +1,7 @@
 /**
  * Seed: zwei neue Transaktionsmandate für den Marktplatz.
- *  - „Betongold" — Nachfolge-/Komplettverkauf einer Architekturbeton-Manufaktur (3. Gen.)
- *  - „Cudd"      — Transformations-/Turnaround-Case einer traditionsreichen Kindermarke
+ *  - „Betongold": Nachfolge-/Komplettverkauf einer Architekturbeton-Manufaktur (3. Gen.)
+ *  - „Cudd"     : Transformations-/Turnaround-Case einer traditionsreichen Kindermarke
  * Daten aus den realen Information Memoranda, jedoch ANONYMISIERT (keine Klar-/Kundennamen),
  * da der Marktplatz die Identität erst nach unterzeichneter NDA offenlegt.
  * Idempotent: legt je Projekt nur an, wenn der Codename noch nicht existiert.
@@ -27,7 +27,7 @@ const PROJECTS = [
       sector_emoji: '🏛️',
       short_description:
         'Familiengeführte Premium-Manufaktur für Architekturbeton (Sichtbeton SB 3+) in dritter ' +
-        'Generation. Fassaden, Tragwerke, Kirchen, Museen, Privatvillen — mit eigenem Schalungsbau ' +
+        'Generation. Fassaden, Tragwerke, Kirchen, Museen, Privatvillen, mit eigenem Schalungsbau ' +
         'als Kernkompetenz. Komplettverkauf (100 %, cash-/debt-free) im Rahmen einer Nachfolge; ' +
         'übergabebereiter Inhaber bleibt 12–24 Monate an Bord. Kapazitätsgrenzen = Wachstumshebel.',
       highlights: [
@@ -36,7 +36,7 @@ const PROJECTS = [
         'Architektengetriebene Stammkundschaft, kein Kunde > 15 % Umsatz',
         'Saubere Bilanz: Net-Cash-positiv, keine Bankschulden',
         'Solide Cash-Generierung trotz Bauflaute (Operating CF € 150–250k p. a.)',
-        'Abgelehnte Anfragen aus Kapazitätsgründen — Skalierungspotenzial für Käufer',
+        'Abgelehnte Anfragen aus Kapazitätsgründen: Skalierungspotenzial für Käufer',
       ],
     },
     details: {
@@ -50,7 +50,7 @@ const PROJECTS = [
         'Wege eines Komplettverkaufs (100 % Share Deal, cash-/debt-free) an einen strategischen ' +
         'Käufer übergeben und steht für eine Transition von 12–24 Monaten (optional länger) zur ' +
         'Verfügung. Die Auftragslage ist solide; zuletzt mussten Anfragen aus Kapazitätsgründen ' +
-        'abgelehnt werden — ein unmittelbarer Wachstumshebel für einen Erwerber mit Investitionskraft.',
+        'abgelehnt werden, ein unmittelbarer Wachstumshebel für einen Erwerber mit Investitionskraft.',
       revenue_actual: 3459775,
       ebitda_actual: 355000,
       revenue_trend: 'Solide trotz Bauflaute (2024 € 3,46 Mio., 2023 € 3,95 Mio.); Anfragen zuletzt kapazitätsbedingt abgelehnt',
@@ -70,8 +70,8 @@ const PROJECTS = [
         'Betontechnologe). Der Inhaber begleitet die Übergabe 12–24 Monate.',
       problem_solution:
         'Architekten und Bauherren im Hochpreissegment fordern höchste Sichtbeton-Qualität (SB 3+) für ' +
-        'komplexe Bauaufgaben. Das Unternehmen löst genau diese Aufgaben — inklusive eigenem ' +
-        'Schalungsbau — und ist dadurch von externen Zulieferern unabhängig.',
+        'komplexe Bauaufgaben. Das Unternehmen löst genau diese Aufgaben, inklusive eigenem ' +
+        'Schalungsbau, und ist dadurch von externen Zulieferern unabhängig.',
       use_of_funds:
         'Komplettverkauf/Nachfolge (kein Kapitalbedarf des Unternehmens). Erwerberseitig sinnvoll: ' +
         'Investition in Kapazitätsausbau und Produktlinien zur Hebung des Nachfrageüberhangs.',
@@ -149,7 +149,7 @@ const PROJECTS = [
       asking_price_band: 'Nach Vereinbarung; Struktur/Earn-out verhandelbar',
       team_description:
         'Erfahrenes operatives Management mit tiefem Markenverständnis; gezielt zu ergänzen um Digital-/' +
-        'E-Commerce- und Transformationskompetenz — bewusst offen für einen aktiven Mehrheitspartner.',
+        'E-Commerce- und Transformationskompetenz, bewusst offen für einen aktiven Mehrheitspartner.',
       problem_solution:
         'Eine bekannte, vertrauensstarke Kindermarke, die den Sprung ins digitale, margenstärkere ' +
         'Geschäft noch nicht vollständig vollzogen hat. Genau hier liegt der Wertsteigerungshebel für ' +

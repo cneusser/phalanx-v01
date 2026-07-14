@@ -53,7 +53,7 @@ export default function Contact() {
             <div style={{ textAlign: 'center', padding: '1.5rem 0.5rem' }}>
               <CheckCircle size={30} color="#16a34a" style={{ marginBottom: 10 }} />
               <div style={{ fontWeight: 700, color: C.navy, marginBottom: 4 }}>Vielen Dank!</div>
-              <div style={{ fontSize: '0.85rem', color: C.muted }}>Ihre Nachricht ist eingegangen — wir melden uns zeitnah.</div>
+              <div style={{ fontSize: '0.85rem', color: C.muted }}>Ihre Nachricht ist eingegangen, wir melden uns zeitnah.</div>
             </div>
           ) : (
             <>

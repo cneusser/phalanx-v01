@@ -1,8 +1,8 @@
 /**
- * Sprint 18 — Engagement-Mailings.
+ * Sprint 18: Engagement-Mailings.
  *  notification_prefs: granulare Opt-in/Opt-out je Nutzer (DSGVO: jederzeit abwählbar).
  *  watchlist.source:  unterscheidet manuelles Folgen (Stern) von Auto-Folgen bei Interesse.
- * Fehlt eine prefs-Zeile, gelten die Defaults (alles an) — die Zeile wird bei der
+ * Fehlt eine prefs-Zeile, gelten die Defaults (alles an), die Zeile wird bei der
  * ersten Änderung angelegt (Upsert).
  */
 exports.up = async function (knex) {

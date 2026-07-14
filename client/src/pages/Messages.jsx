@@ -103,7 +103,7 @@ export default function Messages() {
                     <span style={{ fontWeight: 700, color: C.text, fontSize: '0.85rem' }}>{t.name}</span>
                     {t.unread > 0 && <span style={{ background: C.accent, color: '#fff', borderRadius: 20, fontSize: '0.66rem', fontWeight: 700, padding: '0.05rem 0.4rem' }}>{t.unread}</span>}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.last || t.company || '—'}</div>
+                  <div style={{ fontSize: '0.75rem', color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.last || t.company || 'k. A.'}</div>
                 </div>
               ))}
           </div>

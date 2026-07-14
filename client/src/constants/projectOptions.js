@@ -4,13 +4,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const NACE_INDUSTRIES = [
-  { group: 'A–B — Landwirtschaft & Rohstoffe', options: [
+  { group: 'A–B: Landwirtschaft & Rohstoffe', options: [
     'A01 – Landwirtschaft & Jagd',
     'A02 – Forstwirtschaft',
     'A03 – Fischerei & Aquakultur',
     'B – Bergbau & Gewinnung von Steinen/Erden',
   ]},
-  { group: 'C — Verarbeitendes Gewerbe', options: [
+  { group: 'C: Verarbeitendes Gewerbe', options: [
     'C10 – Nahrungs- & Futtermittel',
     'C11 – Getränkeherstellung',
     'C13–15 – Textilien, Bekleidung, Leder',
@@ -30,30 +30,30 @@ export const NACE_INDUSTRIES = [
     'C31 – Möbel',
     'C32–33 – Sonstige Waren, Reparatur & Instandhaltung',
   ]},
-  { group: 'D–F — Energie, Ver-/Entsorgung, Bau', options: [
+  { group: 'D–F: Energie, Ver-/Entsorgung, Bau', options: [
     'D35 – Energieversorgung',
     'E36–39 – Wasser, Abwasser, Entsorgung, Recycling',
     'F41–43 – Baugewerbe',
   ]},
-  { group: 'G–I — Handel, Logistik, Gastgewerbe', options: [
+  { group: 'G–I: Handel, Logistik, Gastgewerbe', options: [
     'G45 – Kfz-Handel & -Reparatur',
     'G46 – Großhandel',
     'G47 – Einzelhandel & E-Commerce',
     'H49–53 – Verkehr, Logistik & Lagerei',
     'I55–56 – Beherbergung & Gastronomie',
   ]},
-  { group: 'J — Information & Kommunikation', options: [
+  { group: 'J: Information & Kommunikation', options: [
     'J58 – Verlagswesen & Software-Publishing',
     'J59–60 – Medien, Film & Rundfunk',
     'J61 – Telekommunikation',
     'J62 – Software-Entwicklung & IT-Dienstleistungen',
     'J63 – Informationsdienstleistungen & Datenverarbeitung',
   ]},
-  { group: 'K–L — Finanzen & Immobilien', options: [
+  { group: 'K–L: Finanzen & Immobilien', options: [
     'K64–66 – Finanz- & Versicherungsdienstleistungen',
     'L68 – Grundstücks- & Wohnungswesen',
   ]},
-  { group: 'M–N — Unternehmensdienstleistungen', options: [
+  { group: 'M–N: Unternehmensdienstleistungen', options: [
     'M69 – Rechts- & Steuerberatung, Wirtschaftsprüfung',
     'M70 – Unternehmensberatung & -führung',
     'M71 – Architektur- & Ingenieurbüros, technische Prüfung',
@@ -65,7 +65,7 @@ export const NACE_INDUSTRIES = [
     'N79 – Reisebüros & Reiseveranstalter',
     'N80–82 – Wach-, Gebäude- & Wirtschaftsdienste',
   ]},
-  { group: 'P–S — Bildung, Gesundheit, Freizeit', options: [
+  { group: 'P–S: Bildung, Gesundheit, Freizeit', options: [
     'P85 – Erziehung & Unterricht',
     'Q86 – Gesundheitswesen & Medizintechnik-Dienstleistungen',
     'Q87–88 – Heime & Sozialwesen',

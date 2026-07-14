@@ -1,7 +1,7 @@
 /**
  * Seed: vollständige Exposés (DUB-Raster + Sektionen) für „Betongold" und „Cudd".
  * Inhalte aus den realen Information Memoranda, jedoch ANONYMISIERT (keine Klar-,
- * Kunden- oder Personennamen) — der Marktplatz legt die Identität erst nach NDA offen.
+ * Kunden- oder Personennamen), der Marktplatz legt die Identität erst nach NDA offen.
  * keyfacts_json/sections_json sind TEXT-Spalten → JSON.stringify.
  * Idempotent: legt je Projekt nur an, wenn noch kein Exposé existiert (project_id UNIQUE).
  */
@@ -51,8 +51,8 @@ const EXPOSES = {
         'aufgewachsen, extern und international ausgebildet und sucht nun eine geregelte Nachfolge im Wege eines ' +
         'Komplettverkaufs an einen strategischen Käufer.',
       offering:
-        'Gefertigt werden Sichtbeton-Elemente der Klasse SB 3+ — glatte Oberflächen, Matrizen, gestockt, gestrahlt, ' +
-        'gesäuert — für Fassaden und Tragwerke sowie für Prestigebauten wie Kirchen, Museen, Verwaltungsbauten und ' +
+        'Gefertigt werden Sichtbeton-Elemente der Klasse SB 3+, glatte Oberflächen, Matrizen, gestockt, gestrahlt, ' +
+        'gesäuert, für Fassaden und Tragwerke sowie für Prestigebauten wie Kirchen, Museen, Verwaltungsbauten und ' +
         'Privatvillen. Kernkompetenz und zentrale Eintrittsbarriere ist der eigene Schalungs-/Formenbau im Haus: ' +
         'Die Formen für jedes Projekt werden intern gefertigt. Das spart Lieferzeit, sichert die Marge und macht das ' +
         'Unternehmen unabhängig von externen Zulieferern. Aufträge kommen wiederkehrend über renommierte ' +
@@ -60,7 +60,7 @@ const EXPOSES = {
       market:
         'Sichtbeton SB 3+ ist ein Nischenmarkt mit lediglich rund 30–50 qualifizierten Anbietern im DACH-Raum; ' +
         'die Eintrittsbarriere liegt in Know-how, Referenzen und Schalungsbau-Kompetenz. Während der Wohnungsbau ' +
-        'schwach bleibt, wachsen der öffentliche Hochbau und die energetische Sanierung — genau jene Segmente, in ' +
+        'schwach bleibt, wachsen der öffentliche Hochbau und die energetische Sanierung, genau jene Segmente, in ' +
         'denen Architekturbeton nachgefragt wird (erwartetes Segmentwachstum rund 8–10 % p. a. bis 2030). ' +
         'Über 60 % des deutschen Gebäudebestands ist älter als 40 Jahre; die EU-Gebäuderichtlinie treibt die ' +
         'Sanierung. Zudem setzen Investoren aufgrund von ESG-Berichtspflichten verstärkt auf langlebige Materialien: ' +
@@ -73,25 +73,25 @@ const EXPOSES = {
       financials:
         'Umsatzerlöse 2024: € 3,46 Mio. (2023: € 3,95 Mio.). Durchschnittliche EBITDA-Marge 2021–2024: 9,5 %; ' +
         'normalisiertes EBITDA (2025e) rund € 0,35 Mio. Der operative Cashflow liegt trotz Bauflaute stabil bei ' +
-        '€ 150–250k p. a. — das Premium-Segment ist deutlich weniger zyklisch als der Massenmarkt. Die Bilanz ist ' +
+        '€ 150–250k p. a., das Premium-Segment ist deutlich weniger zyklisch als der Massenmarkt. Die Bilanz ist ' +
         'sauber: Net-Cash-positiv, keine Bankschulden, keine erkennbaren W&I-relevanten Altlasten. Zum Closing ist ' +
         'ein Net Cash von rund € 0,2 Mio. geplant.',
       swot:
         'Stärken: Premium-Positionierung in einer fragmentierten Nische; vertikale Integration über den eigenen ' +
         'Schalungsbau; architektengetriebene, wiederkehrende Kundenbeziehungen ohne Klumpenrisiko; solide ' +
         'Cash-Generierung; saubere, schuldenfreie Bilanz; übergabebereiter Inhaber.\n\n' +
-        'Entwicklungspotenziale: Zuletzt mussten Anfragen aus Kapazitätsgründen abgelehnt werden — der Engpass ist ' +
+        'Entwicklungspotenziale: Zuletzt mussten Anfragen aus Kapazitätsgründen abgelehnt werden, der Engpass ist ' +
         'unmittelbar hebbar (freie Halle im zweiten Werk). Weitere Hebel: Ausbau der Produktlinien, gezielte ' +
         'Positionierung im wachsenden öffentlichen Hochbau und in der Sanierung.\n\n' +
         'Risiken: Verfügbarkeit gewerblich-technischer Fachkräfte; Abhängigkeit vom übergebenden Inhaber (durch die ' +
         '12–24-monatige Transition adressiert); Zyklik des Wohnungsbaus (durch das Prestigesegment gedämpft).',
       realestate:
-        'Produktion an zwei Werksstandorten. Im zweiten Werk besteht freie Hallenkapazität — die unmittelbare ' +
+        'Produktion an zwei Werksstandorten. Im zweiten Werk besteht freie Hallenkapazität, die unmittelbare ' +
         'Grundlage, um den bestehenden Nachfrageüberhang ohne größere Neuinvestition zu heben.',
       buyer:
         'Verkaufsgrund ist die altersbedingte, geregelte Nachfolge in dritter Generation. Gesucht wird ein ' +
         'strategischer Käufer mit Investitionskraft, der den Kapazitätsengpass löst und die Premium-Positionierung ' +
-        'fortführt — etwa ein Bau-/Baustoffunternehmen, ein Fassaden- oder Fertigteilspezialist oder ein Investor mit ' +
+        'fortführt, etwa ein Bau-/Baustoffunternehmen, ein Fassaden- oder Fertigteilspezialist oder ein Investor mit ' +
         'Buy-and-Build-Ansatz im fragmentierten DACH-Markt. Der Inhaber steht für einen strukturierten Übergang zur Verfügung.',
       process:
         'Q3/2026: Information Memorandum und Management-Präsentation. Q4/2026: indikative Angebote. ' +
@@ -122,28 +122,28 @@ const EXPOSES = {
         'Traditionsreiche deutsche Premium-Marke für hochwertige Plüsch- und Geschenkartikel für Kinder mit über ' +
         '50 Jahren Historie (Wurzeln des Unternehmens reichen bis ins 19. Jahrhundert). Seit Anfang der 1990er-Jahre ' +
         'ist die Marke konsequent auf Baby und Kind fokussiert. Über Generationen haben Eltern und Großeltern im ' +
-        'DACH-Raum der Marke bei den wichtigsten Momenten — allen voran der Geburt — vertraut. Die Marke steht für ' +
+        'DACH-Raum der Marke bei den wichtigsten Momenten, allen voran der Geburt, vertraut. Die Marke steht für ' +
         'europäisches Design, kompromisslose Sicherheitsstandards und den emotionalen Wert von Geschenken.',
       offering:
         'Das Sortiment umfasst Kuscheln/Plüsch, Baby- und Spielprodukte, Accessoires sowie Baby- und Kindermode. ' +
         'Aktuell erfolgt die Repositionierung zu einer fokussierten, digital-first Geschenkemarke für die „ersten ' +
-        '1000 Tage" eines Kindes — mit kuratiertem, emotional aufgeladenem Sortiment und datengetriebenen ' +
+        '1000 Tage" eines Kindes, mit kuratiertem, emotional aufgeladenem Sortiment und datengetriebenen ' +
         'Kundenbeziehungen. Vertriebskanäle: Fach- und Großhandel, Export, eigene Shops/Outlets sowie ein eigener ' +
         'Webshop als Basis des D2C-Ausbaus.',
       market:
-        'Der Markt für emotionale Geschenke rund um Geburt und frühe Kindheit wächst — insbesondere online. ' +
+        'Der Markt für emotionale Geschenke rund um Geburt und frühe Kindheit wächst, insbesondere online. ' +
         'Gleichzeitig steht der klassische stationäre Großhandel strukturell unter Druck (Konditionsdruck, ' +
         'rückläufige Flächen). Genau aus dieser Schere entsteht die Wertsteigerungsthese: eine vertrauensstarke ' +
         'Marke mit hoher Bekanntheit, die den Sprung in den margenstärkeren Direktvertrieb noch vor sich hat.',
       organization:
         'Rund 85 Vollzeitäquivalente (etwa 130 Köpfe) in Entwicklung, Marketing, Vertrieb, Logistik, Produktion, ' +
         'eigenen Shops/Outlets und Support. Das operative Management verfügt über tiefes Marken- und ' +
-        'Produktverständnis. Gezielt zu ergänzen sind Kompetenzen in Digital/E-Commerce und Transformationssteuerung — ' +
+        'Produktverständnis. Gezielt zu ergänzen sind Kompetenzen in Digital/E-Commerce und Transformationssteuerung, ' +
         'bewusst offen für einen aktiven Mehrheitspartner.',
       financials:
         'Umsatzerlöse 2025: € 13,1 Mio. (2024: € 14,7 Mio.; −10,6 %). Das laufende Jahr 2026 steuert auf eine ' +
         'Run-Rate von rund € 10 Mio. zu. Das Betriebsergebnis (EBIT) verbesserte sich 2025 deutlich auf −1,05 Mio. € ' +
-        '(Vorjahr: −2,0 Mio. €) — der Verlust wurde damit rund halbiert; der Turnaround greift. Bankverbindlichkeiten ' +
+        '(Vorjahr: −2,0 Mio. €): der Verlust wurde damit rund halbiert; der Turnaround greift. Bankverbindlichkeiten ' +
         'rund € 2,5 Mio.; Eigenkapitalquote 8,1 %. Die Fortführung ist an die konsequente Umsetzung der Transformation ' +
         'und deren Finanzierung geknüpft. Detaillierte Zahlen inkl. Jahresabschluss und laufendem Ergebnisreport nach NDA.',
       swot:
@@ -159,7 +159,7 @@ const EXPOSES = {
       buyer:
         'Gesucht wird ein Mehrheits- bzw. Transformationspartner, der die Transformation aktiv mitgestaltet und ' +
         'finanziert: Erfahrung in Konsumgütern/Markenführung und insbesondere in D2C/E-Commerce ist ausdrücklich ' +
-        'erwünscht — etwa ein strategischer Konsumgüterinvestor, ein Private-Equity-Haus mit Value-Creation-/' +
+        'erwünscht, etwa ein strategischer Konsumgüterinvestor, ein Private-Equity-Haus mit Value-Creation-/' +
         'Turnaround-Ansatz oder ein Familienunternehmen mit Digitalkompetenz. Verkaufsgrund ist die Vollendung der ' +
         'Transformation und die Finanzierung des Wachstums in Digital, Markenbekanntheit und Internationalisierung.',
       process:

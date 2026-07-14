@@ -1,4 +1,4 @@
-# CapitalMatch (Phalanx GmbH) — M&A- & Fundraising-Plattform
+# CapitalMatch (Phalanx GmbH) · M&A- & Fundraising-Plattform
 
 Ein sicherer Online-Marktplatz für Unternehmenstransaktionen und Startup-Finanzierungen.
 
@@ -19,7 +19,7 @@ Ertragswertverfahren §199 BewG) liefern einen **Werte-Korridor**
 **PDF-Report** in Phalanx-CI (Download + Mailversand); der Vorgang wird als
 **Bewertungs-Lead** im Admin (`Admin → Bewertungs-Leads`) erfasst.
 
-Branchen-Multiples liegen als **pflegbare** Werte in `valuation_multiples` — je
+Branchen-Multiples liegen als **pflegbare** Werte in `valuation_multiples`, je
 Branche (20 Kategorien) und **Größenklasse** (Micro < 5 Mio. €, Small 5–50 Mio. €,
 Mid > 50 Mio. € Umsatz) ein EBIT-Multiple von–bis. Die Engine wählt die
 Größenklasse automatisch anhand des Ø-Umsatzes. Quelle der Startwerte:
@@ -64,7 +64,7 @@ Bezahlschranke vorbereitet über `VALUATION_PAID` (Default aus). Daten in
 ## Container-Safe (Sprint 8)
 
 Sichere Ablage ganzer Ordner, Bilder und **beliebiger Dateitypen** je Mandat unter
-`/mandat/:id/safe` — getrennt von Teaser/IM/Datenraum. Zugriff **ausschließlich für
+`/mandat/:id/safe`: getrennt von Teaser/IM/Datenraum. Zugriff **ausschließlich für
 Admin und Projekt-Pfleger** (`can_manage`); **kein Investor-Zugriff** (härter als
 der Datenraum). Jeder Zugriff landet im `activity_log`/Audit.
 
@@ -72,7 +72,7 @@ Funktionen: Ordnerbaum, Multi-Upload inkl. ganzer Ordner (`webkitdirectory` +
 Drag & Drop), Bildergalerie, **SHA-256-Checksumme** je Datei, **Versionierung** bei
 Namenskollision, **Papierkorb** (Soft-Delete, 30 Tage) mit Wiederherstellen,
 Speicherverbrauch je Mandat. Über **„In Datenraum übernehmen"** wird eine Safe-Datei
-als `documents`-Eintrag kopiert (Zugriffsebene wählbar) — ab dann greifen die
+als `documents`-Eintrag kopiert (Zugriffsebene wählbar), ab dann greifen die
 bestehenden Gates/Wasserzeichen. Daten in `safe_items` (Ordnerbaum via `parent_id`,
 tenant_id + RLS).
 
@@ -174,11 +174,11 @@ npm run seed       # DESTRUKTIV: alles löschen + Auslieferungszustand seeden
 npm run dev        # Entwicklung (führt Migrationen + Seed beim Start aus)
 ```
 
-### Multi-Tenancy (Sprint 5 — AKTIV)
+### Multi-Tenancy (Sprint 5 · AKTIV)
 
 **Row-Level-Security ist scharf geschaltet** (ENABLE + FORCE auf allen
 Tenant-Tabellen): Jede Query ist auf `current_setting('app.tenant_id')`
-gefiltert — auch für den DB-Owner. Fail closed: ohne Session-Variable sind
+gefiltert, auch für den DB-Owner. Fail closed: ohne Session-Variable sind
 null Zeilen sichtbar. Jede Verbindung startet im Default-Tenant 1 (phalanx,
 `knexfile.js → pool.afterCreate`); Cross-Tenant-Operationen laufen
 ausschließlich über `db.withTenant(tenantId, fn)` (SET LOCAL in Transaktion).
@@ -189,7 +189,7 @@ Lesezugriff auf Aktivitäts-/Audit-Protokolle), `seller`, `buyer`.
 
 **Neuen Mandanten anlegen** (nur super_admin):
 `POST /api/admin/tenants` mit `{ slug, name, subdomain, owner_email,
-owner_password }` — legt Tenant + tenant_owner an. Erreichbar über die
+owner_password }`: legt Tenant + tenant_owner an. Erreichbar über die
 Subdomain (`kunde1.capitalmatch.de`); DNS/Custom-Domain in Railway auf die
 App zeigen lassen. Login/Registrierung/Token-Prüfung laufen automatisch im
 Tenant-Kontext der Subdomain.
@@ -198,7 +198,7 @@ Tenant-Kontext der Subdomain.
 `primary_color`, `accent_color`, `logo_url`, `subdomain`. Der Client lädt
 `GET /api/tenant/branding` und wendet Farben/Name in der Navigation an.
 
-### Billing (Sprint 5 — Feature-Flag)
+### Billing (Sprint 5 · Feature-Flag)
 
 Abrechnung über austauschbares **PaymentProvider-Interface**
 (`server/providers/payment/`, Standard: Stub). Aktiv nur wenn BEIDES gesetzt:
@@ -210,7 +210,7 @@ optionale Datenraum-Staffel. Alle Vorgänge landen in `billing_events`
 (`GET /api/admin/billing/events`). Preise via ENV:
 `BILLING_SUBSCRIPTION_CENTS`, `BILLING_DEAL_SETUP_CENTS`, `BILLING_DATAROOM_CENTS`.
 Echten Anbieter (z. B. Stripe) anbinden: Provider-Klasse implementieren,
-registrieren, `PAYMENT_PROVIDER=stripe` setzen — dokumentiert in
+registrieren, `PAYMENT_PROVIDER=stripe` setzen, dokumentiert in
 `providers/payment/index.js`.
 
 ### E-Signatur (Sprint 3)

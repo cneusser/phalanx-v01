@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Stub-SignatureProvider (Mock) — simuliert eine fortgeschrittene
+// Stub-SignatureProvider (Mock): simuliert eine fortgeschrittene
 // elektronische Signatur (eIDAS FES) mit sofortigem Abschluss.
 //
 // Verhalten:
@@ -7,7 +7,7 @@
 //   status()         liefert immer 'signed'
 //   fetchSignedDoc() liefert das Original-PDF + Evidenz-Metadaten zurück
 //
-// Der Stub hält Vorgänge nur im Prozessspeicher — die revisionssichere
+// Der Stub hält Vorgänge nur im Prozessspeicher, die revisionssichere
 // Ablage (PDF + SHA-256-audit_ref) übernimmt der NDA-Flow in der DB/auf Disk.
 // ─────────────────────────────────────────────────────────────────────────────
 const crypto = require('crypto');

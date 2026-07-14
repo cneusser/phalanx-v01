@@ -1,5 +1,5 @@
 /**
- * Sprint 3 — NDA-Automatik + E-Signatur.
+ * Sprint 3: NDA-Automatik + E-Signatur.
  *
  * - nda_templates: konfigurierbare NDA-Vorlage mit Platzhaltern
  *   ({{project_codename}}, {{buyer_name}}, {{court_venue}}, …)
@@ -34,7 +34,7 @@ exports.up = async function (knex) {
     t.text('provider_ref');
     t.text('signed_pdf_ref');
     t.timestamp('signed_at', { useTz: true });
-    t.text('audit_ref'); // SHA-256 des signierten PDFs — Manipulationsnachweis
+    t.text('audit_ref'); // SHA-256 des signierten PDFs, Manipulationsnachweis
     t.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
     t.index('tenant_id');
   });

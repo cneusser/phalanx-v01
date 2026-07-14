@@ -1,5 +1,5 @@
 // Nutzungsbedingungen (AGB) für die Plattform CapitalMatch.
-// Entwurf auf Basis der tatsächlichen Funktionsweise der Plattform — vor dem
+// Entwurf auf Basis der tatsächlichen Funktionsweise der Plattform, vor dem
 // Livegang anwaltlich prüfen lassen (siehe Hinweis am Ende der Seite).
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -32,7 +32,7 @@ export default function AGB() {
         CapitalMatch ist eine geschlossene Plattform, über die Phalanx Transaktionsmandate (Unternehmensverkauf,
         Nachfolge, Wachstumsfinanzierung) anonymisiert vorstellt und den weiteren Prozess strukturiert: Teaser,
         Vertraulichkeitsvereinbarung, Information Memorandum, Datenraum, Rückfragen und Kommunikation.
-        Diese Bedingungen regeln die Nutzung der Plattform — nicht die Beratungsleistung selbst.
+        Diese Bedingungen regeln die Nutzung der Plattform, nicht die Beratungsleistung selbst.
       </S>
 
       <S n="2" title="Kein Beratungs- oder Vermittlungsvertrag durch die Nutzung">
@@ -52,7 +52,7 @@ export default function AGB() {
       </S>
 
       <S n="4" title="Vertraulichkeit">
-        Sämtliche über die Plattform zugänglichen Informationen zu Mandaten sind vertraulich — auch dann, wenn sie
+        Sämtliche über die Plattform zugänglichen Informationen zu Mandaten sind vertraulich, auch dann, wenn sie
         anonymisiert sind. Der Nutzer verpflichtet sich, sie ausschließlich zur Prüfung der jeweiligen Transaktion zu
         verwenden, nicht zu vervielfältigen und Dritten nicht zugänglich zu machen. Für den Zugang zu
         Information Memorandum und Datenraum ist zusätzlich eine <strong>gesonderte Vertraulichkeitsvereinbarung
@@ -65,7 +65,7 @@ export default function AGB() {
       <S n="5" title="Protokollierung von Zugriffen">
         Zugriffe auf vertrauliche Unterlagen (Aufrufe, Downloads, Freigaben) werden protokolliert und dem jeweiligen
         Nutzerkonto zugeordnet. Das dient dem Schutz der Mandanten und der Nachvollziehbarkeit des Prozesses; die
-        Protokolle können dem Mandanten in aggregierter oder — bei Verstößen — personenbezogener Form offengelegt
+        Protokolle können dem Mandanten in aggregierter oder, bei Verstößen, personenbezogener Form offengelegt
         werden. Näheres regelt die <Link to="/datenschutz" style={{ color: C.accent, fontWeight: 700 }}>Datenschutzerklärung</Link>.
       </S>
 
@@ -95,7 +95,7 @@ export default function AGB() {
         Phalanx haftet unbeschränkt bei Vorsatz und grober Fahrlässigkeit sowie bei Verletzung von Leben, Körper oder
         Gesundheit und nach dem Produkthaftungsgesetz. Bei einfacher Fahrlässigkeit haftet Phalanx nur bei Verletzung
         einer wesentlichen Vertragspflicht (Kardinalpflicht) und begrenzt auf den bei Vertragsschluss typischerweise
-        vorhersehbaren Schaden. Im Übrigen ist die Haftung ausgeschlossen — insbesondere für Entscheidungen, die ein
+        vorhersehbaren Schaden. Im Übrigen ist die Haftung ausgeschlossen, insbesondere für Entscheidungen, die ein
         Nutzer auf Grundlage der über die Plattform erhaltenen Informationen oder der indikativen Bewertungsergebnisse
         trifft.
       </S>
@@ -109,8 +109,8 @@ export default function AGB() {
 
       <S n="11" title="Laufzeit und Beendigung">
         Das Nutzungsverhältnis läuft auf unbestimmte Zeit und kann von beiden Seiten jederzeit ohne Einhaltung einer
-        Frist beendet werden. Phalanx kann den Zugang bei Verstößen gegen diese Bedingungen — insbesondere gegen die
-        Vertraulichkeit — mit sofortiger Wirkung sperren. Vertraulichkeitspflichten bestehen über das Ende der Nutzung
+        Frist beendet werden. Phalanx kann den Zugang bei Verstößen gegen diese Bedingungen, insbesondere gegen die
+        Vertraulichkeit, mit sofortiger Wirkung sperren. Vertraulichkeitspflichten bestehen über das Ende der Nutzung
         hinaus fort.
       </S>
 
@@ -134,7 +134,7 @@ export default function AGB() {
 
       <div style={{ background: '#FFFBEB', border: '1px solid #fcd34d', borderRadius: 10, padding: '1rem 1.15rem', marginTop: '2rem', fontSize: '0.85rem', color: '#92400e', lineHeight: 1.7 }}>
         <strong>Hinweis:</strong> Dieser Text ist ein sorgfältig erstellter Entwurf, der die tatsächliche Funktionsweise
-        der Plattform abbildet — er ersetzt jedoch keine anwaltliche Prüfung. Vor dem öffentlichen Livegang sollten
+        der Plattform abbildet. Er ersetzt keine anwaltliche Prüfung. Vor dem öffentlichen Livegang sollten
         Nutzungsbedingungen, Datenschutzerklärung und NDA-Vorlage von einer Rechtsanwältin oder einem Rechtsanwalt
         geprüft und aufeinander abgestimmt werden.
       </div>

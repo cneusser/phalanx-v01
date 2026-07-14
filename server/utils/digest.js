@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 10 — Digest: täglicher/wöchentlicher Sammel-Versand neuer, zu einem
+// Sprint 10: Digest: täglicher/wöchentlicher Sammel-Versand neuer, zu einem
 // Käufer-Suchprofil passender Mandate. Fällig anhand last_notified_at (self-
 // healing über Server-Neustarts hinweg). „Sofort"-Profile werden bei Publish
 // separat benachrichtigt (routes/admin.js), hier nur daily/weekly.
@@ -48,11 +48,11 @@ async function runDigests() {
 
     if (hits.length) {
       const list = hits.slice(0, 15).map(p =>
-        `<li style="margin-bottom:6px;"><strong>${p.codename}</strong> — ${[p.industry, p.region].filter(Boolean).join(', ')}${p.revenue_band && p.revenue_band !== '—' ? ' · Umsatz ' + p.revenue_band : ''}</li>`).join('');
+        `<li style="margin-bottom:6px;"><strong>${p.codename}</strong>: ${[p.industry, p.region].filter(Boolean).join(', ')}${p.revenue_band && p.revenue_band !== 'k. A.' ? ' · Umsatz ' + p.revenue_band : ''}</li>`).join('');
       const freqLabel = freq === 'daily' ? 'täglichen' : 'wöchentlichen';
       sendProcessUpdateEmail({
         to: prof.email, firstName: prof.first_name,
-        title: `${hits.length} neue passende Mandate — Suchprofil „${prof.name}"`,
+        title: `${hits.length} neue passende Mandate: Suchprofil „${prof.name}"`,
         message: `in Ihrem ${freqLabel} Überblick zum Suchprofil <strong>„${prof.name}"</strong> gibt es ${hits.length} neue${hits.length === 1 ? 's' : ''} passende${hits.length === 1 ? 's' : ''} Mandat${hits.length === 1 ? '' : 'e'}:<br/><ul style="margin:12px 0;padding-left:18px;">${list}</ul>`,
         ctaLabel: 'Im Marktplatz ansehen', ctaPath: '/projekte',
       }).catch(() => {});

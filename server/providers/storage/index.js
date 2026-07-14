@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 8 — StorageProvider-Factory.
+// Sprint 8: StorageProvider-Factory.
 // Interface (alle Provider): put(key, buffer[, mime]) · get(key) → Buffer ·
 //   delete(key) · exists(key) · list(prefix) → [{ key, size }].
 // Auswahl über ENV STORAGE_PROVIDER = 'local' (Default) | 's3' (S3/R2-kompatibel).

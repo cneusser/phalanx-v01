@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 13 — 2-Faktor-Authentifizierung (TOTP nach RFC 6238).
+// Sprint 13: 2-Faktor-Authentifizierung (TOTP nach RFC 6238).
 //
 // Bewusst ohne externe Bibliothek: HMAC-SHA1 kommt aus Node-crypto, Base32 sind
 // 40 Zeilen. Kompatibel mit Google Authenticator, Microsoft Authenticator, 1Password,
-// Authy — alles, was den otpauth://-Standard spricht.
+// Authy: alles, was den otpauth://-Standard spricht.
 //
 // Sicherheitsentscheidungen:
 //   · 30-Sekunden-Schritte, 6 Ziffern (Standard)
@@ -49,7 +49,7 @@ function base32Decode(str) {
   return Buffer.from(out);
 }
 
-// Neues Geheimnis (160 Bit — RFC-Empfehlung für HMAC-SHA1)
+// Neues Geheimnis (160 Bit: RFC-Empfehlung für HMAC-SHA1)
 function generateSecret() {
   return base32Encode(crypto.randomBytes(20));
 }
@@ -71,7 +71,7 @@ function totp(secret, atMs = Date.now()) {
   return hotp(secret, Math.floor(atMs / 1000 / STEP));
 }
 
-// Zeitkonstanter Vergleich — verhindert, dass sich der Code über Laufzeit erraten lässt
+// Zeitkonstanter Vergleich: verhindert, dass sich der Code über Laufzeit erraten lässt
 function safeEqual(a, b) {
   const ba = Buffer.from(String(a));
   const bb = Buffer.from(String(b));

@@ -1,11 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 18 — Engagement-Mailings.
+// Sprint 18: Engagement-Mailings.
 //   • Auto-Folgen bei Interesse (Watchlist, source='auto') + manueller Stern
 //   • Änderungs-Mails an Follower (Publish, Deal-Status, Exposé, Mandatspflege)
 //   • Newsletter zu neuen Mandaten
 //   • Tag-/Kriterien-basierte Ähnlichkeitsvorschläge aus dem Interesse-Funnel
 //
-// WICHTIG — keine Doppel-Mails: beim Veröffentlichen läuft eine Kaskade
+// WICHTIG: keine Doppel-Mails: beim Veröffentlichen läuft eine Kaskade
 //   1) Suchprofil-Treffer (Sprint 10, bereits vorhanden)
 //   2) Ähnlichkeitsvorschlag (nur wer noch nicht in 1 war)
 //   3) Newsletter (nur wer noch nicht in 1 oder 2 war)
@@ -74,7 +74,7 @@ async function notifyFollowers(projectId, { title, message, ctaLabel = 'Mandat a
       if (!p.follow_updates) continue;
       sendProcessUpdateEmail({
         to: u.email, firstName: u.first_name,
-        title: `${title} — ${project.codename}`,
+        title: `${title}: ${project.codename}`,
         message,
         ctaLabel, ctaPath: `/projekte/${project.id}`,
       }).catch(() => {});
@@ -91,7 +91,7 @@ function similarityScore(a, b) {
   if (a.industry && a.industry === b.industry) s += 3;
   if (a.region && a.region === b.region) s += 2;
   if (a.mandate_type && a.mandate_type === b.mandate_type) s += 1;
-  if (a.revenue_band && a.revenue_band !== '—' && a.revenue_band === b.revenue_band) s += 1;
+  if (a.revenue_band && a.revenue_band !== 'k. A.' && a.revenue_band === b.revenue_band) s += 1;
   if (a.deal_type && a.deal_type === b.deal_type) s += 1;
   return s;
 }
@@ -128,7 +128,7 @@ async function userInterestSignals(userId) {
   } catch { return []; }
 }
 
-// Nutzer auf ein NEUES, ähnliches Mandat hinweisen — auf Basis ihres Interesse-Funnels.
+// Nutzer auf ein NEUES, ähnliches Mandat hinweisen, auf Basis ihres Interesse-Funnels.
 async function notifySimilarInterested(projectId, exclude = new Set()) {
   const notified = new Set();
   try {
@@ -164,10 +164,10 @@ async function notifySimilarInterested(projectId, exclude = new Set()) {
 
       sendProcessUpdateEmail({
         to: u.email, firstName: u.first_name,
-        title: `Ähnliches Mandat verfügbar — ${p.codename}`,
+        title: `Ähnliches Mandat verfügbar: ${p.codename}`,
         message: `auf Basis der Mandate, für die Sie sich bisher interessiert haben, könnte dieses neue Mandat zu Ihnen passen:<br/><br/>` +
-          `<strong>${p.codename}</strong> — ${[p.industry, p.region].filter(Boolean).join(', ')}` +
-          `${p.revenue_band && p.revenue_band !== '—' ? ' · Umsatz ' + p.revenue_band : ''}<br/>` +
+          `<strong>${p.codename}</strong>: ${[p.industry, p.region].filter(Boolean).join(', ')}` +
+          `${p.revenue_band && p.revenue_band !== 'k. A.' ? ' · Umsatz ' + p.revenue_band : ''}<br/>` +
           `<span style="color:#555;">${(p.short_description || '').slice(0, 220)}…</span>`,
         ctaLabel: 'Mandat ansehen', ctaPath: `/projekte/${p.id}`,
       }).catch(() => {});
@@ -195,10 +195,10 @@ async function notifyNewsletter(projectId, exclude = new Set()) {
 
       sendProcessUpdateEmail({
         to: u.email, firstName: u.first_name,
-        title: `Neues Mandat im Marktplatz — ${p.codename}`,
+        title: `Neues Mandat im Marktplatz: ${p.codename}`,
         message: `ein neues ${p.mandate_type === 'fundraising' ? 'Finanzierungs-' : 'Transaktions-'}Mandat ist verfügbar:<br/><br/>` +
-          `<strong>${p.codename}</strong> — ${[p.industry, p.region].filter(Boolean).join(', ')}` +
-          `${p.revenue_band && p.revenue_band !== '—' ? ' · Umsatz ' + p.revenue_band : ''}<br/>` +
+          `<strong>${p.codename}</strong>: ${[p.industry, p.region].filter(Boolean).join(', ')}` +
+          `${p.revenue_band && p.revenue_band !== 'k. A.' ? ' · Umsatz ' + p.revenue_band : ''}<br/>` +
           `<span style="color:#555;">${(p.short_description || '').slice(0, 220)}…</span><br/><br/>` +
           `<span style="font-size:12px;color:#888;">Sie erhalten diese Nachricht, weil Sie den Newsletter zu neuen Mandaten abonniert haben. ` +
           `Sie können ihn jederzeit in Ihrem Profil unter „Benachrichtigungen" abbestellen.</span>`,

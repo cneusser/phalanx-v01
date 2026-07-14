@@ -3,13 +3,13 @@ const ENTRY = {
   version: 'v0.264', released_on: '2026-07-26',
   title: 'Rollen selbst zuschneiden, Rechtstexte, keine grauen Seiten mehr',
   items: [
-    'Rechte werden per Häkchen vergeben und entzogen — je Rolle, mit Audit-Eintrag',
+    'Rechte werden per Häkchen vergeben und entzogen, je Rolle, mit Audit-Eintrag',
     'Eigene Rollen anlegen (z. B. Werkstudent, Externer Berater) auf Basis der bekannten Rechte',
-    'Neues Recht „Alle Mandate sehen" — ohne es sieht eine Rolle nur ihre eigenen Mandate',
+    'Neues Recht „Alle Mandate sehen": ohne es sieht eine Rolle nur ihre eigenen Mandate',
     'Nutzungsbedingungen (AGB) und Cookie-Richtlinie neu; Datenschutz um CRM-Ansprache, Protokolle und 2FA ergänzt',
     'Ehrlicher Cookie-Hinweis statt Schein-Consent: CapitalMatch setzt kein Tracking ein',
     'Fehlergrenze: Stürzt eine Seite ab, erscheint die Fehlermeldung statt einer leeren grauen Fläche',
-    'Der Client wird jetzt immer ausgeliefert, sobald ein Build vorliegt — Deep-Links und F5 funktionieren zuverlässig',
+    'Der Client wird jetzt immer ausgeliefert, sobald ein Build vorliegt, Deep-Links und F5 funktionieren zuverlässig',
   ],
 };
 exports.up = async function (knex) {

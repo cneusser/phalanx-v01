@@ -1,11 +1,11 @@
 /**
- * Sprint 6.1 — Multiples auf Branche × Größenklasse umstellen (DUB-Struktur).
+ * Sprint 6.1: Multiples auf Branche × Größenklasse umstellen (DUB-Struktur).
  *
  * valuation_multiples wird von „NACE-Abschnitt, ein Band" auf 20 Branchen mit
  * drei Größenklassen (Micro < 5 Mio. €, Small 5–50 Mio. €, Mid > 50 Mio. € Umsatz)
  * je EBIT-Multiple von–bis umgebaut. Umsatz-Multiple bleibt als Plausibilitätsband.
  *
- * Quelle der EBIT-Multiples: DUB KMU-Multiples (Stand Q2/2026) — im Admin pflegbar.
+ * Quelle der EBIT-Multiples: DUB KMU-Multiples (Stand Q2/2026), im Admin pflegbar.
  * Die Ergebnisse bleiben ausdrücklich INDIKATIV (kein IDW-S1-Gutachten, kein Marktpreis).
  */
 

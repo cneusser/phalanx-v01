@@ -1,7 +1,7 @@
-/** Changelog-Eintrag v0.243 (Sprint 17 — Gamification / XP). */
+/** Changelog-Eintrag v0.243 (Sprint 17: Gamification / XP). */
 const ENTRY = {
   version: 'v0.243', released_on: '2026-07-10',
-  title: 'XP & Level — Belohnung für echte Prozessschritte',
+  title: 'XP & Level: Belohnung für echte Prozessschritte',
   items: [
     'Sammeln Sie XP für echte Schritte: Interesse, NDA, Datenraum, Due Diligence, LOI',
     'Großer Bonus für Deals, die über die Plattform abgewickelt werden',

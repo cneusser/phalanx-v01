@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 19 — Mandats-Einladungen (Betrachter / Pflegender) mit Status-Funnel.
+// Sprint 19: Mandats-Einladungen (Betrachter / Pflegender) mit Status-Funnel.
 //
 //   Verwaltung (nur Pflegende des Mandats):
 //     POST   /project/:projectId              Einladung aussprechen
@@ -294,7 +294,7 @@ router.post('/token/:token/register', wrap(async (req, res) => {
   await acceptInvitation(inv, userId, req.ip);
   db.auditLog(userId, 'REGISTER_VIA_INVITE', 'user', userId, `Mandat #${inv.project_id} als ${ROLE_LABEL[inv.role]}`, req.ip);
 
-  // Direkt eingeloggt weiterleiten — der Token hat die Adresse bereits belegt.
+  // Direkt eingeloggt weiterleiten: der Token hat die Adresse bereits belegt.
   const jwtToken = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
   const user = await db.get('SELECT id, email, role, salutation, title, first_name, last_name, company FROM users WHERE id = ?', [userId]);
   res.status(201).json({ success: true, data: { token: jwtToken, user, project_id: inv.project_id, role: inv.role } });

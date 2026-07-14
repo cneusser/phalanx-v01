@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 9 — Exposé-Builder.
+// Sprint 9: Exposé-Builder.
 //   GET  /api/exposes/:projectId            Manager: voller Editor-Stand + Safe-Bilder;
 //                                           Käufer: nur published hinter IM-Gate
 //   PUT  /api/exposes/:projectId            Manager: speichern (Autosave)
@@ -47,7 +47,7 @@ const DEFAULT_SECTIONS = [
   { key: 'process', title: 'Prozess & nächste Schritte', enabled: true, body: '' },
 ];
 
-// Sprint 19 — Rollentrennung: „Betrachter" dürfen das Exposé sehen, aber nicht
+// Sprint 19: Rollentrennung: „Betrachter" dürfen das Exposé sehen, aber nicht
 // bearbeiten oder veröffentlichen.
 const access = require('../utils/projectAccess');
 const getFn = (req) => (sql, p) => scoped(req, (t) => t.get(sql, p));
@@ -82,7 +82,7 @@ async function reviewedCorridor(req, projectId) {
   try { const r = JSON.parse(v.results_json || '{}'); return r.corridor && r.positive ? r.corridor : null; } catch { return null; }
 }
 
-// ── GET — Editor (Manager) oder gated Web-Exposé (Käufer) ───────────────────
+// ── GET: Editor (Manager) oder gated Web-Exposé (Käufer) ───────────────────
 router.get('/:projectId', authenticate, wrap(async (req, res) => {
   const projectId = req.params.projectId;
   const project = await scoped(req, (t) => t.get('SELECT id, codename, mandate_type, industry, region, status FROM projects WHERE id = ?', [projectId]));
@@ -110,7 +110,7 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { expose: { ...expose, anonymized_ack: undefined }, project, corridor, can_manage: false } });
 }));
 
-// ── PUT — speichern (Manager, Autosave) ─────────────────────────────────────
+// ── PUT: speichern (Manager, Autosave) ─────────────────────────────────────
 router.put('/:projectId', authenticate, wrap(async (req, res) => {
   const projectId = req.params.projectId;
   if (!(await canManage(req, projectId))) return res.status(403).json({ success: false, error: 'Kein Zugriff' });
@@ -267,7 +267,7 @@ router.post('/:projectId/pdf-remove', authenticate, wrap(async (req, res) => {
   if (!(await canManage(req, projectId))) return res.status(403).json({ success: false, error: 'Kein Zugriff' });
   await scoped(req, (t) => t.run(`UPDATE exposes SET pdf_item_id = NULL, updated_by = ?, updated_at = now() WHERE project_id = ?`, [req.user.id, projectId]));
   db.auditLog(req.user.id, 'EXPOSE_PDF_REMOVE', 'expose', Number(projectId), null, req.ip);
-  res.json({ success: true, data: { message: 'Hochgeladenes PDF entfernt — es wird wieder generiert.' } });
+  res.json({ success: true, data: { message: 'Hochgeladenes PDF entfernt, es wird wieder generiert.' } });
 }));
 
 // ── PDF-Export: hochgeladenes PDF bevorzugt, sonst generiert (Wasserzeichen) ─

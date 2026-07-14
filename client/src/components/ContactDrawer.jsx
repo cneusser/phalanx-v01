@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Kontakt-360°-Ansicht (CRM V) — überall einsetzbar: aus dem Deal-Funnel, der
+// Kontakt-360°-Ansicht (CRM V): überall einsetzbar: aus dem Deal-Funnel, der
 // Kontaktliste oder dem Admin-Dashboard. Zeigt Stammdaten (editierbar), die
 // Mandats-Zuordnungen und eine chronologische Aktivitäten-Historie: was ist wann
 // rausgegangen (Einladung, Mailing, Reminder, Pflege-Link) und was kam zurück
@@ -27,7 +27,7 @@ const FIELDS = [
   ['location', 'Ort'], ['responsibility', 'Verantwortung'], ['linkedin_url', 'LinkedIn'],
 ];
 
-const fmt = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+const fmt = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'k. A.';
 
 export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   const [data, setData] = useState(null);
@@ -96,7 +96,7 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
     try {
       const r = await api.post(`/crm/contacts/${contactId}/messages`, { body: reply, subject: replySubject });
       setReply(''); setReplySubject('');
-      show(r.project ? `Antwort erfasst — Mandat ${r.project.codename}, Wiedervorlage angelegt ✓` : 'Antwort erfasst ✓');
+      show(r.project ? `Antwort erfasst: Mandat ${r.project.codename}, Wiedervorlage angelegt ✓` : 'Antwort erfasst ✓');
       await load(); onChanged && onChanged();
     } catch (e) { show('Fehler: ' + e.message); }
   }
@@ -118,7 +118,7 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
       .catch(e => show('Fehler: ' + e.message));
   }
 
-  // DSGVO: Recht auf Vergessenwerden (Art. 17) — personenbezogene Daten löschen,
+  // DSGVO: Recht auf Vergessenwerden (Art. 17): personenbezogene Daten löschen,
   // Prozesshistorie als Nachweis behalten.
   async function anonymize() {
     if (!window.confirm(
@@ -257,7 +257,7 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                         <div>
                           <div style={LBL}>Funnel-Stufe</div>
                           <select value={d.funnel_stage} onChange={e => setStage(d.party_id, e.target.value)} style={{ ...IN, marginTop: 3 }}>
-                            {STAGE_LABEL.map((l, i) => <option key={i} value={i}>{i} — {l}</option>)}
+                            {STAGE_LABEL.map((l, i) => <option key={i} value={i}>{i}: {l}</option>)}
                           </select>
                         </div>
                         <div>

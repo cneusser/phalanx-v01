@@ -3,7 +3,7 @@
  *
  *   email_log   Jede versendete Mail mit Empfänger, Betreff, Typ, Bezug (Kontakt,
  *               Nutzer, Mandat) und dem tatsächlich versendeten HTML. Damit ist im
- *               Admin nachvollziehbar, WAS wann an WEN rausging — und der
+ *               Admin nachvollziehbar, WAS wann an WEN rausging, und der
  *               Audit-Trail nennt die Mail-Art (MAIL_SENT).
  *
  *   Vorlagen    'profile_link'  Aufforderung zur Selbstpflege (der „Pflege-Link")
@@ -14,26 +14,26 @@ const TEMPLATES = [
   {
     tenant_id: 1, key: 'profile_link', name: 'Pflege-Link (Selbstpflege der Kontaktdaten)',
     stage: null, is_system: 1, is_active: 1, sort: 200,
-    subject: 'Ihre Angaben bei der Phalanx GmbH — bitte kurz prüfen',
+    subject: 'Ihre Angaben bei der Phalanx GmbH, bitte kurz prüfen',
     body:
       'damit wir Sie nur mit wirklich passenden Transaktionen ansprechen, bitten wir Sie um eine kurze Prüfung Ihrer bei uns ' +
-      'gespeicherten Angaben — Kontaktdaten, Position, Branchen- und Regionenfokus sowie Ticketgröße.\n\n' +
+      'gespeicherten Angaben: Kontaktdaten, Position, Branchen- und Regionenfokus sowie Ticketgröße.\n\n' +
       'Über den Button sehen Sie genau, was wir gespeichert haben, und können es selbst korrigieren. Der Link ist persönlich ' +
       'und 60 Tage gültig.\n\n' +
-      'Dort legen Sie auch fest, wie (oder ob) wir Sie künftig kontaktieren dürfen — bis hin zur vollständigen Abmeldung.',
+      'Dort legen Sie auch fest, wie (oder ob) wir Sie künftig kontaktieren dürfen, bis hin zur vollständigen Abmeldung.',
     cta_label: 'Angaben prüfen', cta_target: 'profile',
   },
   {
     tenant_id: 1, key: 'crm_invite', name: 'Plattform-Einladung mit Einwilligung (DSGVO)',
     stage: 1, is_system: 1, is_active: 1, sort: 210,
-    subject: 'Einladung zu CapitalMatch — Ihre Bestätigung erforderlich',
+    subject: 'Einladung zu CapitalMatch: Ihre Bestätigung erforderlich',
     body:
-      '{{berater}} (Phalanx GmbH) lädt Sie zu CapitalMatch ein — der Plattform, über die wir unsere M&A-Mandate strukturiert ' +
+      '{{berater}} (Phalanx GmbH) lädt Sie zu CapitalMatch ein, der Plattform, über die wir unsere M&A-Mandate strukturiert ' +
       'und vertraulich bereitstellen: Kurzprofile, Unterlagen nach NDA, Datenraum und direkte Kommunikation an einem Ort.\n\n' +
       'Wichtig (DSGVO): Wir legen kein Konto für Sie an und senden Ihnen keine weiteren Informationen, solange Sie nicht ' +
       'ausdrücklich zustimmen. Bitte bestätigen Sie Ihre Einwilligung über den Button. Sie können sie jederzeit mit Wirkung ' +
       'für die Zukunft widerrufen.\n\n' +
-      'Möchten Sie nicht kontaktiert werden, ignorieren Sie diese E-Mail einfach — oder klicken Sie auf der Bestätigungsseite ' +
+      'Möchten Sie nicht kontaktiert werden, ignorieren Sie diese E-Mail einfach, oder klicken Sie auf der Bestätigungsseite ' +
       'auf „Nicht kontaktieren".',
     cta_label: 'Einwilligung bestätigen', cta_target: 'consent',
   },

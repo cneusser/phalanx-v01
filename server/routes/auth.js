@@ -1,4 +1,4 @@
-// CapitalMatch – Auth-Route (Login, Register, Password Reset) — PostgreSQL/Knex
+// CapitalMatch – Auth-Route (Login, Register, Password Reset), PostgreSQL/Knex
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -13,14 +13,14 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 // ── POST /register ─────────────────────────────────────────────────────────
 // All new registrations require admin approval (is_approved = 0).
-// No token is returned — user sees a "pending" message.
+// No token is returned: user sees a "pending" message.
 router.post('/register', wrap(async (req, res) => {
   const { email, password, first_name, last_name, company, position, buyer_type, mobile, phone, role, privacy_consent, salutation, title } = req.body;
   if (!email || !password || !first_name || !last_name)
     return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen (Vorname, Nachname, E-Mail, Passwort)' });
   if (!mobile || String(mobile).trim().length < 6)
     return res.status(400).json({ success: false, error: 'Bitte geben Sie eine Mobilnummer an (Voraussetzung für die spätere 2-Faktor-Authentifizierung)' });
-  // Anrede ist Pflicht — für alle Rollen
+  // Anrede ist Pflicht, für alle Rollen
   if (!['Herr', 'Frau', 'Divers'].includes(salutation))
     return res.status(400).json({ success: false, error: 'Bitte wählen Sie eine Anrede (Herr, Frau oder Divers)' });
   if (password.length < 8)
@@ -64,13 +64,13 @@ router.post('/register', wrap(async (req, res) => {
 
   db.auditLog(userId, 'REGISTER', 'user', userId, `role=${userRole}`, req.ip);
 
-  console.log(`\n📬 Neue Registrierung: ${first_name} ${last_name} <${email}> — E-Mail-Bestätigung ausstehend`);
+  console.log(`\n📬 Neue Registrierung: ${first_name} ${last_name} <${email}>: E-Mail-Bestätigung ausstehend`);
   // Verifizierungs-Mail an den Nutzer (Registrierung erst nach Bestätigung abgeschlossen).
   const { sendEmailVerification } = require('../utils/email');
   const verifyUrl = `${process.env.FRONTEND_URL || 'https://www.capitalmatch.de'}/email-bestaetigen?token=${verifyToken}`;
   sendEmailVerification({ to: email.toLowerCase(), firstName: first_name, verifyUrl }).catch(() => {});
 
-  // Return pending status — NO TOKEN (erst E-Mail bestätigen, dann Admin-Freigabe)
+  // Return pending status: NO TOKEN (erst E-Mail bestätigen, dann Admin-Freigabe)
   return res.status(201).json({
     success: true,
     data: {
@@ -109,7 +109,7 @@ router.post('/login', wrap(async (req, res) => {
       error: 'Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse. Wir haben Ihnen bei der Registrierung einen Bestätigungslink gesendet.',
     });
   }
-  // Check approval — admins are always allowed
+  // Check approval: admins are always allowed
   if (!isAdmin && !user.is_approved) {
     db.auditLog(user.id, 'LOGIN_PENDING', 'user', user.id, null, req.ip);
     return res.status(403).json({
@@ -133,7 +133,7 @@ router.post('/login', wrap(async (req, res) => {
   res.json({ success: true, data: { token, user: safeUser } });
 }));
 
-// ── POST /login/2fa — zweiter Faktor prüfen ────────────────────────────────
+// ── POST /login/2fa: zweiter Faktor prüfen ────────────────────────────────
 // Akzeptiert einen 6-stelligen TOTP-Code oder einen Backup-Code (einmalig).
 router.post('/login/2fa', wrap(async (req, res) => {
   const { challenge, code } = req.body;
@@ -216,7 +216,7 @@ router.post('/2fa/disable', authenticate, wrap(async (req, res) => {
   const totp = require('../utils/totp');
   const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
   if (user.totp_enabled !== 1) return res.status(400).json({ success: false, error: '2FA ist nicht aktiv.' });
-  // Deaktivieren nur mit gültigem Code — sonst genügt ein gekaperter Cookie.
+  // Deaktivieren nur mit gültigem Code: sonst genügt ein gekaperter Cookie.
   if (!totp.verify(user.totp_secret, req.body.code)) {
     return res.status(401).json({ success: false, error: 'Zum Deaktivieren ist ein gültiger Code erforderlich.' });
   }
@@ -253,7 +253,7 @@ router.get('/me', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { user: req.user, profile } });
 }));
 
-// ── POST /impersonate/end — Birdview beenden ───────────────────────────────
+// ── POST /impersonate/end: Birdview beenden ───────────────────────────────
 // Muss auch im schreibgeschützten Zustand erlaubt sein (Ausnahme im Guard).
 router.post('/impersonate/end', authenticate, wrap(async (req, res) => {
   if (!req.impersonatedBy) {

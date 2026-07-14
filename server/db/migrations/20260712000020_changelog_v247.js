@@ -1,7 +1,7 @@
-/** Changelog-Eintrag v0.247 (Sprint 19a — Mandats-Einladungen mit Rollen & Funnel). */
+/** Changelog-Eintrag v0.247 (Sprint 19a: Mandats-Einladungen mit Rollen & Funnel). */
 const ENTRY = {
   version: 'v0.247', released_on: '2026-07-12',
-  title: 'Kontakte zu Mandaten einladen — als Betrachter oder Pflegender',
+  title: 'Kontakte zu Mandaten einladen: als Betrachter oder Pflegender',
   items: [
     'Pflegende können per E-Mail neue Kontakte zu einem Mandat einladen',
     'Zwei Rollen: „Betrachter" (nur lesen) und „Pflegender" (bearbeiten, Exposé, Unterlagen)',

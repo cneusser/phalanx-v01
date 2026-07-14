@@ -74,7 +74,7 @@ export default function ValuationCalculator() {
       const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
       const a = document.createElement('a'); a.href = url; a.download = d.filename || 'Unternehmensbewertung.pdf'; a.click();
       URL.revokeObjectURL(url);
-      setLeadMsg('Ihr Bewertungs-Report wurde erstellt und heruntergeladen — zusätzlich per E-Mail versendet.');
+      setLeadMsg('Ihr Bewertungs-Report wurde erstellt und heruntergeladen, zusätzlich per E-Mail versendet.');
     } catch (e) { setLeadMsg('Fehler: ' + e.message); }
     finally { setLeadLoading(false); }
   };
@@ -91,7 +91,7 @@ export default function ValuationCalculator() {
           </div>
           <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.6rem', lineHeight: 1.2 }}>Was ist Ihr Unternehmen wert?</h1>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.95rem', maxWidth: 620 }}>
-            Ermitteln Sie in 2 Minuten einen indikativen Werte-Korridor auf Basis von Branchen-Multiples und Ihrem bereinigten Ertrag — ganz ohne Login. Für eine belastbare Bewertung begleiten wir Sie persönlich.
+            Ermitteln Sie in 2 Minuten einen indikativen Werte-Korridor auf Basis von Branchen-Multiples und Ihrem bereinigten Ertrag, ganz ohne Login. Für eine belastbare Bewertung begleiten wir Sie persönlich.
           </p>
         </div>
       </div>
@@ -112,14 +112,14 @@ export default function ValuationCalculator() {
             <div><label style={LABEL}>Gründungsjahr</label><input value={foundingYear} onChange={e => setFoundingYear(e.target.value)} placeholder="2005" style={INPUT} /></div>
           </div>
 
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Umsatz (€) — letzte 3 Jahre</div>
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Umsatz (€): letzte 3 Jahre</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.1rem' }}>
             {yearLabels.map((yl, i) => (
               <div key={i}><label style={{ ...LABEL, fontWeight: 400, color: C.muted }}>{yl}</label>
                 <input value={rev[i]} onChange={e => setRev(r => r.map((v, j) => j === i ? e.target.value : v))} placeholder="0" style={INPUT} inputMode="numeric" /></div>
             ))}
           </div>
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>EBIT / Betriebsergebnis (€) — letzte 3 Jahre</div>
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>EBIT / Betriebsergebnis (€): letzte 3 Jahre</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
             {yearLabels.map((yl, i) => (
               <div key={i}><label style={{ ...LABEL, fontWeight: 400, color: C.muted }}>{yl}</label>
@@ -161,7 +161,7 @@ export default function ValuationCalculator() {
         {result && (
           <div id="val-result" style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: '1.75rem', marginBottom: '1.5rem' }}>
             <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: C.navy, marginBottom: '0.4rem' }}>Ihr indikativer Werte-Korridor</h2>
-            <p style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '1.25rem' }}>Enterprise Value · Branche: {result.industryLabel || '—'}{result.sizeBand ? ` · ${result.sizeBand.label}` : ''}</p>
+            <p style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '1.25rem' }}>Enterprise Value · Branche: {result.industryLabel || 'k. A.'}{result.sizeBand ? ` · ${result.sizeBand.label}` : ''}</p>
 
             {result.positive ? (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
@@ -175,7 +175,7 @@ export default function ValuationCalculator() {
             ) : (
               <div style={{ display: 'flex', gap: '0.6rem', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.9rem 1rem', marginBottom: '1.25rem', fontSize: '0.85rem', color: '#92400e' }}>
                 <AlertTriangle size={18} style={{ flexShrink: 0 }} />
-                <span>Das bereinigte nachhaltige Ergebnis ist nicht positiv — ertragsorientierte Verfahren liefern hier keinen sinnvollen Wert. Sprechen Sie uns für eine individuelle Einschätzung an.</span>
+                <span>Das bereinigte nachhaltige Ergebnis ist nicht positiv, ertragsorientierte Verfahren liefern hier keinen sinnvollen Wert. Sprechen Sie uns für eine individuelle Einschätzung an.</span>
               </div>
             )}
 
@@ -216,7 +216,7 @@ export default function ValuationCalculator() {
         {/* CTA */}
         <div style={{ background: C.navy, borderRadius: 10, padding: '1.75rem', color: '#fff', textAlign: 'center' }}>
           <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: '0.4rem' }}>Verkauf oder Nachfolge geplant?</div>
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', marginBottom: '1.1rem' }}>Wir begleiten Sie von der belastbaren Bewertung bis zum Abschluss — vertraulich und professionell.</p>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', marginBottom: '1.1rem' }}>Wir begleiten Sie von der belastbaren Bewertung bis zum Abschluss, vertraulich und professionell.</p>
           <Link to="/registrieren" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: C.steel, color: C.navy, padding: '0.7rem 1.75rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '0.9rem' }}>
             Jetzt Mandat starten <ChevronRight size={15} />
           </Link>

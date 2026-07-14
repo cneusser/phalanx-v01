@@ -1,11 +1,11 @@
 /** Changelog-Eintrag v0.259 (Mail-Ausgang, Vorlagen für Pflege-Link und Einladung, Doppelversand-Sperre). */
 const ENTRY = {
   version: 'v0.259', released_on: '2026-07-21',
-  title: 'Jede Mail nachvollziehbar — und Texte selbst ändern',
+  title: 'Jede Mail nachvollziehbar: und Texte selbst ändern',
   items: [
     'Neuer Admin-Bereich „Mail-Ausgang": jede versendete Mail mit Empfänger, Betreff, Art und dem Original zum Nachlesen',
     'Der Audit-Trail nennt jetzt die Art der Mail (MAIL_SENT: Einladung, Pflege-Link, Mandats-Mailing …)',
-    'Pflege-Link und DSGVO-Einladung sind jetzt Vorlagen — Text unter „Mailvorlagen" frei änderbar',
+    'Pflege-Link und DSGVO-Einladung sind jetzt Vorlagen, Text unter „Mailvorlagen" frei änderbar',
     'Doppelversand-Sperre: Läuft bereits ein Pflege-Link aus den letzten 14 Tagen, wird nachgefragt statt einfach erneut zu senden',
   ],
 };

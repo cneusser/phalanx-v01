@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 9 — Exposé-PDF (Phalanx-CI). Keyfacts-Grid + aktive Sektionen +
+// Sprint 9: Exposé-PDF (Phalanx-CI). Keyfacts-Grid + aktive Sektionen +
 // optionaler Bewertungskorridor + Hero-Bild + Empfänger-Wasserzeichen.
 // ─────────────────────────────────────────────────────────────────────────────
 const path = require('path');
@@ -65,7 +65,7 @@ function generateExposeReport(opts) {
     doc.font('Helvetica').fontSize(9.5).fillColor(GRAY).text('Anonymes Verkaufs-Exposé · vertraulich · nur für berechtigte Kaufinteressenten', L, doc.y, { width: PAGE_W });
     if (recipient) {
       doc.moveDown(0.2);
-      doc.font('Helvetica').fontSize(7.5).fillColor(GRAY).text(`Erstellt am ${stampStr} Uhr · heruntergeladen von ${recipient.name || '—'}${recipient.email ? ' (' + recipient.email + ')' : ''}`, L, doc.y, { width: PAGE_W });
+      doc.font('Helvetica').fontSize(7.5).fillColor(GRAY).text(`Erstellt am ${stampStr} Uhr · heruntergeladen von ${recipient.name || 'k. A.'}${recipient.email ? ' (' + recipient.email + ')' : ''}`, L, doc.y, { width: PAGE_W });
     }
     doc.moveDown(0.6);
 
@@ -74,7 +74,7 @@ function generateExposeReport(opts) {
       try { const h = 150; doc.image(heroBuffer, L, doc.y, { fit: [PAGE_W, h], align: 'center' }); doc.y += h + 12; doc.x = L; } catch {}
     }
 
-    // ── Keyfacts-Grid (2 Spalten) — VOLLSTÄNDIG DYNAMISCH ────────────────────
+    // ── Keyfacts-Grid (2 Spalten): VOLLSTÄNDIG DYNAMISCH ────────────────────
     // Jede Zelle wird vor dem Zeichnen vermessen (heightOfString). Die Zeilenhöhe
     // ist das Maximum beider Spalten, Label und Wert stehen übereinander. Damit
     // brechen beliebig lange Werte sauber um, statt in die nächste Zeile zu laufen.
@@ -125,7 +125,7 @@ function generateExposeReport(opts) {
       doc.moveDown(0.5);
     }
 
-    // Sektionen — pdfkit umbricht und paginiert den Fließtext automatisch
+    // Sektionen: pdfkit umbricht und paginiert den Fließtext automatisch
     for (const s of sections) {
       if (!s.enabled || !String(s.body || '').trim()) continue;
       section(s.title);
@@ -133,7 +133,7 @@ function generateExposeReport(opts) {
       doc.moveDown(0.6);
     }
 
-    // Disclaimer — Höhe messen, damit der Kasten nie über den Seitenrand läuft
+    // Disclaimer: Höhe messen, damit der Kasten nie über den Seitenrand läuft
     const dText = 'Dieses Exposé ist vertraulich und ausschließlich für den benannten Empfänger bestimmt. Eine Weitergabe an Dritte ist ohne schriftliche Zustimmung untersagt. Die Angaben beruhen auf Informationen des Mandanten; keine Gewähr für Vollständigkeit und Richtigkeit. Keine Anlage-, Rechts- oder Steuerberatung.';
     doc.font('Helvetica').fontSize(8);
     const dH = doc.heightOfString(dText, { width: PAGE_W - 24, lineGap: 1.5 }) + 30;
@@ -143,7 +143,7 @@ function generateExposeReport(opts) {
     doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Vertraulichkeitshinweis', L + 12, dY + 8);
     doc.font('Helvetica').fontSize(8).fillColor(GRAY).text(dText, L + 12, dY + 20, { width: PAGE_W - 24, align: 'justify', lineGap: 1.5 });
 
-    // Footer je Seite — mit Empfänger-Wasserzeichen
+    // Footer je Seite: mit Empfänger-Wasserzeichen
     const rTag = recipient ? `Vertraulich · ${recipient.name || ''}${recipient.email ? ' · ' + recipient.email : ''}` : 'Vertraulich';
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {

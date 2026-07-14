@@ -1,13 +1,13 @@
-/** Changelog-Eintrag v0.246 (Sprint 18 — Engagement-Mailings). */
+/** Changelog-Eintrag v0.246 (Sprint 18: Engagement-Mailings). */
 const ENTRY = {
   version: 'v0.246', released_on: '2026-07-11',
   title: 'Newsletter, Folgen & Hinweise auf ähnliche Mandate',
   items: [
-    'Newsletter zu neuen Mandaten — jederzeit im Profil abbestellbar',
+    'Newsletter zu neuen Mandaten: jederzeit im Profil abbestellbar',
     'Mandaten folgen: automatisch bei Interesse, zusätzlich manuell per Stern',
     'Updates zu gefolgten Mandaten per E-Mail (Änderungen, Exposé, Due Diligence, LOI, Abschluss)',
     'Hinweise auf ähnliche Mandate auf Basis Ihres bisherigen Interesses',
-    'Neuer Bereich „Benachrichtigungen" im Profil — granular an-/abwählbar',
+    'Neuer Bereich „Benachrichtigungen" im Profil, granular an-/abwählbar',
     '„Ähnliche Mandate" direkt auf der Mandatsseite',
   ],
 };

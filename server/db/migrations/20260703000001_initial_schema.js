@@ -74,8 +74,8 @@ exports.up = async function (knex) {
     t.text('codename').notNullable().unique();
     t.text('industry').notNullable();
     t.text('region').notNullable();
-    t.text('revenue_band').notNullable().defaultTo('—');
-    t.text('ebitda_band').notNullable().defaultTo('—');
+    t.text('revenue_band').notNullable().defaultTo('k. A.');
+    t.text('ebitda_band').notNullable().defaultTo('k. A.');
     t.text('deal_type').notNullable().defaultTo('');
     t.text('short_description').notNullable();
     t.text('highlights').notNullable().defaultTo('[]');

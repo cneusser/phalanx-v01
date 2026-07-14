@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Knex-Konfiguration — PostgreSQL via DATABASE_URL
+// Knex-Konfiguration: PostgreSQL via DATABASE_URL
 //
 // Produktion (Railway): DATABASE_URL wird vom Railway-Postgres-Plugin gesetzt
 //   (Reference Variable, siehe README → "Datenbank / Railway").
@@ -10,7 +10,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const connectionString = process.env.DATABASE_URL;
 
-// SSL nur für externe Verbindungen (Railway-Proxy etc.) — nicht für
+// SSL nur für externe Verbindungen (Railway-Proxy etc.), nicht für
 // localhost oder das interne Railway-Netz (…railway.internal).
 const needsSsl = connectionString
   && !/localhost|127\.0\.0\.1|railway\.internal/.test(connectionString);

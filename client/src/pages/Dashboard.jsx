@@ -66,7 +66,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.75)', maxWidth: 200, lineHeight: 1.5 }}>
-            Punkte sammeln Sie für echte Schritte: NDA, Datenraum, Due Diligence — und den Abschluss über die Plattform.
+            Punkte sammeln Sie für echte Schritte: NDA, Datenraum, Due Diligence, und den Abschluss über die Plattform.
           </div>
         </div>
       )}

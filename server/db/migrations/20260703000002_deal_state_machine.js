@@ -1,5 +1,5 @@
 /**
- * Sprint 2 — Deal-Zustandsautomat mit Gates.
+ * Sprint 2: Deal-Zustandsautomat mit Gates.
  *
  * - projects.deal_status: Sell-Side-Funnel-Status des Mandats
  *     draft → teaser_live → in_diligence → loi → closed (+ withdrawn)
@@ -7,7 +7,7 @@
  * - interests: Interessenten-Funnel je Deal (Gate-Grundlage)
  *     requested → nda_pending → nda_signed → im_granted → dataroom_granted → loi
  *     (+ rejected). Backfill aus nda_requests.
- * - permissions: granulare Ressourcen-Rechte (read/download/qa) — Sprint 4
+ * - permissions: granulare Ressourcen-Rechte (read/download/qa), Sprint 4
  * - activity_log: append-only (Trigger verhindert UPDATE/DELETE, auch für Admins)
  * - documents: category (teaser/im/dataroom), folder, version, storage_ref, watermark
  */
@@ -88,7 +88,7 @@ exports.up = async function (knex) {
     t.index(['tenant_id', 'ts']);
     t.index('action');
   });
-  // Append-only auf DB-Ebene erzwingen — gilt auch für Admins/Anwendungscode
+  // Append-only auf DB-Ebene erzwingen: gilt auch für Admins/Anwendungscode
   await knex.raw(`
     CREATE OR REPLACE FUNCTION activity_log_append_only() RETURNS trigger AS $$
     BEGIN

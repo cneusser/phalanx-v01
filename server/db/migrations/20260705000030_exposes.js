@@ -1,5 +1,5 @@
 /**
- * Sprint 9 — Exposé-Builder (Struktur nach DUB, Inhalt nach KERN/HWK).
+ * Sprint 9: Exposé-Builder (Struktur nach DUB, Inhalt nach KERN/HWK).
  *
  * exposes: ein strukturiertes Verkaufs-Exposé je Mandat.
  *   - status: draft | published

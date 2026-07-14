@@ -7,14 +7,14 @@ import logoUrl from '../assets/capitalmatch-logo.png';
 
 // CapitalMatch brand colors (weiter von anderen Komponenten genutzt)
 export const CM = {
-  light: '#29ABE2',  // "Capital" — sky blue
-  dark:  '#1A4D8A',  // "Match"   — deep navy
+  light: '#29ABE2',  // "Capital": sky blue
+  dark:  '#1A4D8A',  // "Match"  : deep navy
 };
 
 const FONT = "'Nunito', 'Poppins', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
 
 /**
- * CapitalMatch Logo — offizielle Bildmarke.
+ * CapitalMatch Logo: offizielle Bildmarke.
  *
  * Props (API unverändert zu früher):
  *   textSize  – Basisgröße in px (steuert die Logo-Höhe; default 22)

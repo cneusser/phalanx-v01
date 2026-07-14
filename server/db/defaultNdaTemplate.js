@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Standard-NDA-Vorlage (Sprint 3) — wird beim ersten Start in nda_templates
+// Standard-NDA-Vorlage (Sprint 3): wird beim ersten Start in nda_templates
 // geseedet und ist danach in der DB konfigurierbar (Admin/SQL).
 //
 // Platzhalter (werden beim Generieren aus Buyer-/Deal-Daten befüllt):

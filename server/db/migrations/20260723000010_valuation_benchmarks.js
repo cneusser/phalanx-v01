@@ -1,9 +1,9 @@
 /**
- * Sprint 12 — Bewertung 2.0: Branchen-Benchmarks.
+ * Sprint 12: Bewertung 2.0: Branchen-Benchmarks.
  *
  * Orientierungswerte für KMU im DACH-Raum (EBIT-Marge, Umsatzwachstum,
  * Personalkostenquote) als Quartilsbänder. Bewusst als Startwerte hinterlegt und
- * im Admin pflegbar — sie sind Gesprächsanker, keine amtliche Statistik.
+ * im Admin pflegbar: sie sind Gesprächsanker, keine amtliche Statistik.
  * Quelle offen ausgewiesen (Phalanx-Schätzung auf Basis DUB/FINANCE/Destatis-Bänder).
  */
 const SOURCE = 'Phalanx-Schätzung (DUB-KMU-Multiples, FINANCE-M&A-Panel, Destatis-Kostenstrukturen), Q2/2026';

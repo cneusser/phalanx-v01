@@ -1,8 +1,8 @@
 /**
- * Sprint 5 — Multi-Tenant scharf schalten + Kommerzialisierung.
+ * Sprint 5: Multi-Tenant scharf schalten + Kommerzialisierung.
  *
  * 1. Row-Level-Security (ENABLE + FORCE) auf allen Tenant-Tabellen:
- *    Jede Query ist ZWINGEND auf current_setting('app.tenant_id') gefiltert —
+ *    Jede Query ist ZWINGEND auf current_setting('app.tenant_id') gefiltert, 
  *    auch für den Tabellen-Owner (FORCE). Die Session-Variable wird beim
  *    Verbindungsaufbau auf den Default-Tenant gesetzt (knexfile afterCreate);
  *    Cross-Tenant-Operationen laufen über db.withTenant() (SET LOCAL).

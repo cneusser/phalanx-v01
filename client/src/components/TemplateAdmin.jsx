@@ -67,7 +67,7 @@ export default function TemplateAdmin({ show }) {
     if (!name) return;
     try {
       await api.post('/crm/templates', {
-        name, subject: '[Vertraulich] {{mandat}} — ', body: 'Text der Vorlage …\n\n{{anrede}} wird automatisch vorangestellt.',
+        name, subject: '[Vertraulich] {{mandat}}: ', body: 'Text der Vorlage …\n\n{{anrede}} wird automatisch vorangestellt.',
         cta_target: 'project', cta_label: 'Mandat ansehen',
       });
       show('Vorlage angelegt ✓'); load();
@@ -123,8 +123,8 @@ export default function TemplateAdmin({ show }) {
             <div>
               <div style={LBL}>Prozessschritt</div>
               <select value={form.stage ?? ''} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))} style={IN}>
-                <option value="">— keiner —</option>
-                {stages.map(s => <option key={s.key} value={s.key}>{s.key} — {s.label}</option>)}
+                <option value="">, keiner, </option>
+                {stages.map(s => <option key={s.key} value={s.key}>{s.key}: {s.label}</option>)}
               </select>
             </div>
             <div>
@@ -197,7 +197,7 @@ export default function TemplateAdmin({ show }) {
             )}
             {sel.is_system === 1 && (
               <span style={{ fontSize: '0.72rem', color: C.muted, alignSelf: 'center' }}>
-                Systemvorlage — änderbar, aber nicht löschbar (deaktivieren genügt).
+                Systemvorlage: änderbar, aber nicht löschbar (deaktivieren genügt).
               </span>
             )}
           </div>

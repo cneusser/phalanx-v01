@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 7 — Mehrseitiger PDF-Report der ausführlichen Bewertung (Phalanx-CI).
+// Sprint 7: Mehrseitiger PDF-Report der ausführlichen Bewertung (Phalanx-CI).
 // Nutzt denselben Briefbogen-Stil wie der Quick-Check-Report (Sprint 6).
 // ─────────────────────────────────────────────────────────────────────────────
 const path = require('path');
@@ -76,7 +76,7 @@ function generateDetailedReport(opts) {
     doc.font('Helvetica-Bold').fontSize(16).fillColor(NAVY).text('Ausführliche Unternehmensbewertung', L, doc.y);
     doc.moveDown(0.25);
     doc.font('Helvetica').fontSize(9.5).fillColor(GRAY)
-      .text([company ? `Unternehmen: ${company}` : null, name ? `Erstellt für: ${name}` : null, `Branche: ${result.industryLabel || '—'}`, result.sizeBand ? result.sizeBand.label : null].filter(Boolean).join('   ·   '), L, doc.y, { width: PAGE_W });
+      .text([company ? `Unternehmen: ${company}` : null, name ? `Erstellt für: ${name}` : null, `Branche: ${result.industryLabel || 'k. A.'}`, result.sizeBand ? result.sizeBand.label : null].filter(Boolean).join('   ·   '), L, doc.y, { width: PAGE_W });
     doc.moveDown(0.55);
     doc.font('Helvetica').fontSize(9.5).fillColor(BLACK).text(
       'Diese indikative Bewertung kombiniert das EBIT-Multiplikatorverfahren (mit branchen-, größen- und qualitätsabhängigem Multiple), das vereinfachte Ertragswertverfahren (§199 BewG), einen ertragswertorientierten Ansatz mit risikogerechtem Kapitalisierungszins sowie einen Kapitaldienstfähigkeits-Check aus Käufersicht. Ergebnis ist ein Werte-Korridor, kein Punktwert.',
@@ -97,7 +97,7 @@ function generateDetailedReport(opts) {
     });
     doc.x = L; doc.y = y0 + 56 + 10;
     if (result.equity) { doc.font('Helvetica').fontSize(8.5).fillColor(GRAY).text(`Nach Abzug der Netto-Finanzschulden (${eur(result.netDebt)}) ergibt sich ein indikativer Equity Value von ca. ${eur(result.equity.base)} (Basis).`, L, doc.y, { width: PAGE_W }); doc.moveDown(0.3); }
-    if (!result.positive) { doc.font('Helvetica').fontSize(9).fillColor('#92400e').text('Das bereinigte nachhaltige Ergebnis ist nicht positiv — ertragsorientierte Verfahren liefern hier keinen sinnvollen Wert. Bitte sprechen Sie uns für eine individuelle Einschätzung an.', L, doc.y, PROSE(9)); doc.moveDown(0.3); }
+    if (!result.positive) { doc.font('Helvetica').fontSize(9).fillColor('#92400e').text('Das bereinigte nachhaltige Ergebnis ist nicht positiv, ertragsorientierte Verfahren liefern hier keinen sinnvollen Wert. Bitte sprechen Sie uns für eine individuelle Einschätzung an.', L, doc.y, PROSE(9)); doc.moveDown(0.3); }
     doc.moveDown(0.4);
 
     // ── Bereinigungsrechnung ──────────────────────────────────────────────────
@@ -146,7 +146,7 @@ function generateDetailedReport(opts) {
       doc.moveDown(0.3); ensure(30);
       doc.font('Helvetica-Bold').fontSize(9.5).fillColor(ACCENT).text('d) Substanzwert (Untergrenze)', L, doc.y);
       doc.font('Helvetica').fontSize(9).fillColor(BLACK).text(
-        `Verkehrswerte ${eur(m.substance.assetValue)} abzüglich zugeordneter Schulden ${eur(m.substance.assetDebt)} = ${eur(m.substance.value)}.${m.substance.exceedsBase ? ' Hinweis: Der Substanzwert liegt über dem ertragsorientierten Basiswert — bei substanzstarken Unternehmen bildet er die realistische Untergrenze.' : ''}`,
+        `Verkehrswerte ${eur(m.substance.assetValue)} abzüglich zugeordneter Schulden ${eur(m.substance.assetDebt)} = ${eur(m.substance.value)}.${m.substance.exceedsBase ? ' Hinweis: Der Substanzwert liegt über dem ertragsorientierten Basiswert, bei substanzstarken Unternehmen bildet er die realistische Untergrenze.' : ''}`,
         L, doc.y, PROSE(9));
     }
     doc.moveDown(0.5);
@@ -159,7 +159,7 @@ function generateDetailedReport(opts) {
     kv([
       ['Finanzierbarer Kaufpreis (Näherung)', eur(a.financeablePrice)],
       ['Basis-Korridor (Enterprise Value)', eur(result.corridor.base)],
-      ['Deckungsgrad (finanzierbar / Basis)', a.dscr != null ? mx(a.dscr) : '—'],
+      ['Deckungsgrad (finanzierbar / Basis)', a.dscr != null ? mx(a.dscr) : 'k. A.'],
     ]);
     doc.moveDown(0.15); ensure(14);
     doc.font('Helvetica-Oblique').fontSize(8).fillColor(GRAY).text(`Annahme: ${a.buyerYears} Jahre Finanzierung, ${pct(a.buyerInterest)} Zins, freier Cashflow ${eur(a.freeCashForDebt)}.`, L, doc.y, { width: PAGE_W });
@@ -174,7 +174,7 @@ function generateDetailedReport(opts) {
     doc.rect(L, ctaY, PAGE_W, ctaH).fillAndStroke(NAVY, NAVY);
     doc.font('Helvetica-Bold').fontSize(11).fillColor('#fff').text('Von der Bewertung zum Abschluss', L + 16, ctaY + 11, { width: PAGE_W - 32 });
     doc.font('Helvetica').fontSize(8.7).fillColor('rgba(255,255,255,0.88)').text(
-      'Diese indikative Bewertung ist die Grundlage. Für einen am Markt durchsetzbaren Preis verproben wir die Annahmen, bereiten Zahlen und Equity-Story auf und begleiten Sie diskret durch den gesamten Verkaufs- oder Nachfolgeprozess. Sprechen Sie uns an — wir stehen Ihnen persönlich zur Verfügung.',
+      'Diese indikative Bewertung ist die Grundlage. Für einen am Markt durchsetzbaren Preis verproben wir die Annahmen, bereiten Zahlen und Equity-Story auf und begleiten Sie diskret durch den gesamten Verkaufs- oder Nachfolgeprozess. Sprechen Sie uns an, wir stehen Ihnen persönlich zur Verfügung.',
       L + 16, ctaY + 28, { width: PAGE_W - 32, align: 'justify', lineGap: 2.5 });
     doc.font('Helvetica-Bold').fontSize(8.3).fillColor(STEEL).text('Phalanx GmbH  ·  Helene-Lange-Straße 28, 91056 Erlangen  ·  neusser@phalanx.de  ·  www.capitalmatch.de', L + 16, ctaY + ctaH - 15, { width: PAGE_W - 32 });
     doc.x = L; doc.y = ctaY + ctaH + 10;
@@ -237,7 +237,7 @@ function generateDetailedReport(opts) {
       ], true);
       doc.moveDown(0.5);
       doc.font('Helvetica-Oblique').fontSize(8).fillColor(GRAY).text(
-        `Hinweis: ${mx(d.terminalShare)} % des Werts stecken im Fortführungswert. Je höher dieser Anteil, desto stärker hängt das Ergebnis an langfristigen Annahmen — die Sensitivitätsmatrix zeigt, wie stark.`,
+        `Hinweis: ${mx(d.terminalShare)} % des Werts stecken im Fortführungswert. Je höher dieser Anteil, desto stärker hängt das Ergebnis an langfristigen Annahmen, die Sensitivitätsmatrix zeigt, wie stark.`,
         PROSE(8));
       doc.moveDown(0.8);
 
@@ -261,7 +261,7 @@ function generateDetailedReport(opts) {
           const center = isBase && ci === Math.floor(row.values.length / 2);
           doc.font(center ? 'Helvetica-Bold' : (isBase ? 'Helvetica-Bold' : 'Helvetica'))
             .fillColor(center ? ACCENT : (isBase ? NAVY : BLACK));
-          doc.text(v.enterpriseValue == null ? '—' : eur(v.enterpriseValue), L + 70 + ci * cw, y, { width: cw, align: 'right' });
+          doc.text(v.enterpriseValue == null ? 'k. A.' : eur(v.enterpriseValue), L + 70 + ci * cw, y, { width: cw, align: 'right' });
         });
         doc.y = y + 14; doc.x = L;
       });

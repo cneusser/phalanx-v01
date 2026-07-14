@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 3 — Austauschbares E-Signatur-Provider-Interface (eIDAS)
+// Sprint 3: Austauschbares E-Signatur-Provider-Interface (eIDAS)
 //
 // interface SignatureProvider {
 //   /**
@@ -36,7 +36,7 @@
 //      SIGNATURE_PROVIDER=<anbieter>
 //      SIGNATURE_LEVEL=fes|qes
 //      <ANBIETER>_API_KEY=…
-// Kein weiterer Codeeingriff nötig — der NDA-Flow spricht nur das Interface.
+// Kein weiterer Codeeingriff nötig: der NDA-Flow spricht nur das Interface.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const StubSignatureProvider = require('./StubSignatureProvider');
@@ -51,7 +51,7 @@ function getSignatureProvider() {
   const key = (process.env.SIGNATURE_PROVIDER || 'stub').toLowerCase();
   const Provider = PROVIDERS[key];
   if (!Provider) {
-    throw new Error(`Unbekannter SIGNATURE_PROVIDER "${key}" — verfügbar: ${Object.keys(PROVIDERS).join(', ')}`);
+    throw new Error(`Unbekannter SIGNATURE_PROVIDER "${key}", verfügbar: ${Object.keys(PROVIDERS).join(', ')}`);
   }
   return new Provider({ level: process.env.SIGNATURE_LEVEL || 'fes' });
 }

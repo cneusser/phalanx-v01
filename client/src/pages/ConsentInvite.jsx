@@ -78,7 +78,7 @@ export default function ConsentInvite() {
           <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: C.navy, margin: 0 }}>Einladung zu CapitalMatch</h1>
         </div>
         <p style={{ fontSize: '0.88rem', color: C.text, lineHeight: 1.7 }}>
-          <strong>{inv.inviter}</strong> lädt Sie zu CapitalMatch ein — der Plattform, über die die Phalanx GmbH ihre
+          <strong>{inv.inviter}</strong> lädt Sie zu CapitalMatch ein: der Plattform, über die die Phalanx GmbH ihre
           M&A-Mandate vertraulich bereitstellt: anonymisierte Kurzprofile, Unterlagen nach NDA, Datenraum und direkte
           Kommunikation an einem Ort.
         </p>
@@ -105,12 +105,12 @@ export default function ConsentInvite() {
           </div>
         )}
 
-        {/* Schritt 1 — Einwilligung (Double-Opt-in) */}
+        {/* Schritt 1: Einwilligung (Double-Opt-in) */}
         {['invited', 'opened'].includes(inv.status) && (
           <div style={{ marginTop: '1.25rem' }}>
             <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.1rem' }}>
               <div style={{ fontSize: '0.75rem', fontWeight: 700, color: C.muted, letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
-                SCHRITT 1 — EINWILLIGUNG (DSGVO)
+                SCHRITT 1: EINWILLIGUNG (DSGVO)
               </div>
               <p style={{ fontSize: '0.84rem', color: C.text, lineHeight: 1.7, margin: 0 }}>
                 Bevor wir ein Konto für Sie anlegen oder Ihnen Mandatsinformationen zusenden, benötigen wir Ihre
@@ -121,7 +121,7 @@ export default function ConsentInvite() {
                 <span style={{ fontSize: '0.83rem', color: '#333', lineHeight: 1.6 }}>
                   Ich willige ein, dass die Phalanx GmbH meine Kontaktdaten (<strong>{inv.email}</strong>) speichert und mich
                   im Rahmen von CapitalMatch zu M&A-Mandaten und passenden Transaktionsgelegenheiten kontaktiert.
-                  Ich kann diese Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen — per E-Mail oder direkt in
+                  Ich kann diese Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, per E-Mail oder direkt in
                   meinem Profil. Es gilt die <Link to="/datenschutz" target="_blank" style={{ color: C.accent }}>Datenschutzerklärung</Link>.
                 </span>
               </label>
@@ -144,11 +144,11 @@ export default function ConsentInvite() {
           </div>
         )}
 
-        {/* Schritt 2 — Konto anlegen (erst nach Einwilligung) */}
+        {/* Schritt 2: Konto anlegen (erst nach Einwilligung) */}
         {inv.status === 'consented' && (
           <form onSubmit={register} style={{ marginTop: '1.25rem' }}>
             <div style={{ background: '#d1fae5', borderRadius: 8, padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#065f46', marginBottom: '1rem' }}>
-              <CheckCircle size={15} style={{ verticalAlign: -2 }} /> Einwilligung bestätigt — danke! Legen Sie jetzt Ihr Konto an.
+              <CheckCircle size={15} style={{ verticalAlign: -2 }} /> Einwilligung bestätigt: danke! Legen Sie jetzt Ihr Konto an.
             </div>
             {inv.has_account ? (
               <div style={{ fontSize: '0.87rem', color: C.text }}>

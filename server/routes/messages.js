@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 11 — In-App-Chat & Kontakte.
+// Sprint 11: In-App-Chat & Kontakte.
 //   Kontakte:  POST /connections {email}  ·  GET /connections  ·  PUT /connections/:id {action}
 //   Nachrichten: GET /threads  ·  GET /thread/:userId  ·  POST /send {recipient_id, body}
 // Nachrichten nur zwischen bestätigten Kontakten (oder mit Admin/Berater).
@@ -141,7 +141,7 @@ router.post('/send', authenticate, msgLimiter, wrap(async (req, res) => {
   res.status(201).json({ success: true, data: { id } });
 }));
 
-// ── Sprint 15: „Interesse → Chat" — Berater zum Mandat kontaktieren ─────────
+// ── Sprint 15: „Interesse → Chat": Berater zum Mandat kontaktieren ─────────
 // Verbindet den Käufer mit dem Mandatsberater und öffnet den Chat-Thread
 // (auch ohne NDA). Gibt die Partner-Id (Berater) zurück, damit der Client den
 // Thread direkt öffnen kann.

@@ -1,5 +1,5 @@
 /**
- * Sprint 23 — Posteingang (BCC-Ingest) & Wiedervorlagen.
+ * Sprint 23: Posteingang (BCC-Ingest) & Wiedervorlagen.
  *
  *   crm_messages   Ein- und ausgehende E-Mails am Kontakt. Eingehende Mails kommen
  *                  entweder über den BCC-/Inbound-Webhook (Provider: Brevo, Mailgun,

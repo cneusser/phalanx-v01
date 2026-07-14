@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 6 — Bewertungsrechner (öffentlicher Quick-Check als Lead-Magnet).
+// Sprint 6: Bewertungsrechner (öffentlicher Quick-Check als Lead-Magnet).
 //   POST /api/valuation/quick   anonym: Werte-Korridor berechnen (kein Speichern)
 //   POST /api/valuation/report  Lead-E-Mail + Consent: speichern + PDF (Download + Mail)
 // Feature-Flag: VALUATION_ENABLED (Default: an). Rate-Limit für den öffentlichen Rechner.
@@ -18,7 +18,7 @@ const enabled = () => process.env.VALUATION_ENABLED !== '0';
 const valLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, max: 40,
   standardHeaders: true, legacyHeaders: false,
-  message: { success: false, error: 'Zu viele Bewertungsanfragen — bitte in einigen Minuten erneut versuchen.' },
+  message: { success: false, error: 'Zu viele Bewertungsanfragen, bitte in einigen Minuten erneut versuchen.' },
 });
 
 // Branchen-Key aus der Auswahl ableiten (Slug; Fallback 'sonstige')
@@ -47,7 +47,7 @@ function parseInput(body) {
   };
 }
 
-// ── POST /quick — anonymer Sofort-Korridor ─────────────────────────────────
+// ── POST /quick: anonymer Sofort-Korridor ─────────────────────────────────
 router.post('/quick', valLimiter, optionalAuth, wrap(async (req, res) => {
   if (!enabled()) return res.status(404).json({ success: false, error: 'Bewertung derzeit nicht verfügbar' });
   const input = parseInput(req.body);
@@ -59,7 +59,7 @@ router.post('/quick', valLimiter, optionalAuth, wrap(async (req, res) => {
   res.json({ success: true, data: { result, industry_key: key } });
 }));
 
-// ── POST /report — Lead + PDF-Report (E-Mail + DSGVO-Consent) ──────────────
+// ── POST /report: Lead + PDF-Report (E-Mail + DSGVO-Consent) ──────────────
 router.post('/report', valLimiter, optionalAuth, wrap(async (req, res) => {
   if (!enabled()) return res.status(404).json({ success: false, error: 'Bewertung derzeit nicht verfügbar' });
   const { email, name, company, privacy_consent } = req.body;
@@ -96,7 +96,7 @@ router.post('/report', valLimiter, optionalAuth, wrap(async (req, res) => {
   sendMail({
     to: process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de',
     subject: `[CapitalMatch] Neuer Bewertungs-Lead: ${name || email}`,
-    html: `<p>Neuer Bewertungs-Lead über den Quick-Check:</p><p>${name || '—'} · <a href="mailto:${email}">${email}</a>${company ? ' · ' + company : ''}<br/>Branche: ${result.industryLabel || key} · Korridor (Basis): ${result.positive ? Math.round(result.corridor.base).toLocaleString('de-DE') + ' €' : 'n. b.'}</p>`,
+    html: `<p>Neuer Bewertungs-Lead über den Quick-Check:</p><p>${name || 'k. A.'} · <a href="mailto:${email}">${email}</a>${company ? ' · ' + company : ''}<br/>Branche: ${result.industryLabel || key} · Korridor (Basis): ${result.positive ? Math.round(result.corridor.base).toLocaleString('de-DE') + ' €' : 'n. b.'}</p>`,
   }).catch(() => {});
 
   db.auditLog(req.user ? req.user.id : null, 'VALUATION_LEAD', 'valuation', null, email.toLowerCase(), req.ip);

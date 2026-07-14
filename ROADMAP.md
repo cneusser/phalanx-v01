@@ -1,11 +1,11 @@
-# CapitalMatch — Roadmap: Bewertung, Container-Safe, Exposé-Builder
+# CapitalMatch · Roadmap: Bewertung, Container-Safe, Exposé-Builder
 
 Stand: Juli 2026 · Analysebasis: kmurechner.de, KERN-Unternehmenswertrechner,
 HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-Multiples.
 
 > **Konsolidierte Fassung.** Ersetzt die früheren Dateien `ROADMAP-SPRINT-6-9.md`
 > und `ROADMAP_Sprint6-9.md`, deren Sprint-Nummerierung voneinander abwich. Es geht
-> kein Thema verloren — die Reihenfolge ist unten verbindlich festgelegt.
+> kein Thema verloren: die Reihenfolge ist unten verbindlich festgelegt.
 
 ---
 
@@ -20,8 +20,8 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | 9 | Exposé-Builder (DUB-Standard, IM-Gate) | ✅ fertig |
 | 10 | Käufer-UX: Deal-Liste + Suchprofile + Match-Benachrichtigungen | ✅ fertig (Tabelle, Suchprofile, Sofort- + Digest-Match, Merkliste/Tags) |
 | 11 | In-App-Chat & Kontakte (Netzwerk) | ✅ Kern fertig (Kontakte, 1:1-Chat, Mail-Benachrichtigung) |
-| — | E-Mail-Verifizierung + Paygate-Vorbereitung ausf. Bewertung | ✅ (Verifizierung Pflicht; Paywall greift ab 31.08.2026) |
-| — | Mobile-First / responsive Darstellung (v0.238) | ✅ (Hamburger-Nav, stapelnde Layouts, scrollbare Tabellen) |
+| · | E-Mail-Verifizierung + Paygate-Vorbereitung ausf. Bewertung | ✅ (Verifizierung Pflicht; Paywall greift ab 31.08.2026) |
+| · | Mobile-First / responsive Darstellung (v0.238) | ✅ (Hamburger-Nav, stapelnde Layouts, scrollbare Tabellen) |
 | **12** | **Ausführliche Bewertung 2.0 (datengetrieben, DCF, Benchmarking)** | ✅ Kern fertig (DCF mit WACC/Terminal Value, Sensitivitätsmatrix, Branchen-Benchmarks, Methodenvergleich, erweiterter PDF-Report) |
 | 13 | 2-Faktor-Authentifizierung (TOTP) | ✅ fertig (TOTP nach RFC 6238, Backup-Codes, Pflicht per REQUIRE_2FA_STAFF) |
 | 14 | **CRM / Beziehungs- & Deal-Management (Sell-Side)** | geplant (Analyse folk.app, Konzept unten) |
@@ -29,13 +29,14 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | **16** | **Admin-Dashboard 2.0 (Analytics, Funnel, Kennzahlen, interaktiv)** | ✅ Kern fertig (Funnel, Sparklines, Ranking, Badges, CSV-Export) |
 | 17 | **Gamification / XP-Punktesystem (Interaktion & Deal-Abwicklung)** | ✅ Kern fertig (XP-Events, Level, Vergabe an NDA/DD/LOI/Closing, „Mein Bereich"-Badge) |
 | 18 | **Engagement-Mailings: Newsletter, Folgen-Option, Änderungs-Mails, Ähnlichkeits-Matching** | ✅ Kern fertig (Newsletter, Auto-/Manuell-Folgen, Follower-Mails, Ähnlichkeits-Score, Opt-out-Center) |
-| 19 | **CRM I — Unternehmen & Kontakte** (Stammdaten, Dubletten, Verknüpfungen, Import) | ✅ Kern fertig (Unternehmen, Kontakte, n:m + Historie, Konzern, Dubletten, CSV; + Mandats-Einladungen) |
-| 20 | **CRM II — Transaktionen, Beteiligtenrollen & konfigurierbarer Kanban-Funnel** | ✅ Kern fertig (Funnel-Board, Rollen, Verweildauer, Stagnation; Import echter Kontakte) |
-| 21 | **CRM III — Kommunikation & Aufgaben** (Mandats-Mailings, Reminder, Vorlagen, BCC-Ingest) | ✅ Kern fertig (Massenmailing, Double-Opt-in + Pflege-Link in einer Mail, Reminder Tag 7/21, Prozess-Updates, **11 Prozess-Mailvorlagen + Admin-Editor**); ✅ BCC-Ingest + Wiedervorlagen fertig) |
-| 22 | **CRM IV — Dokumente, Suche/Auswertungen & Kontakt-Selbstpflege-Portal** | ▶ Selbstpflege-Portal ✅ fertig (Link, Protokoll, Freigabe, Abmeldung); Dokumente/Auswertungen offen |
-| 23 | **CRM V — Rollen/Rechte granular, API/Webhooks, Multi-Tenant, DSGVO-Härtung + 2FA** | ✅ Kern fertig (5 Rollen + Rechte-Matrix, Mandats-Sichtbarkeit, 2FA, DSGVO-Auskunft + Anonymisierung); API/Webhooks offen |
-| — | Mehrsprachigkeit DE/EN | ▶ Fundament fertig (Umschalter, i18n-Kontext, Navigation); Seiten werden schrittweise übersetzt |
-| 24 | **CRM VI — Ausbaustufen** (Anreicherung, Käufer-Matching, E-Signatur, Datenraum, Mobile, Portal) | geplant |
+| 19 | **CRM I: Unternehmen & Kontakte** (Stammdaten, Dubletten, Verknüpfungen, Import) | ✅ Kern fertig (Unternehmen, Kontakte, n:m + Historie, Konzern, Dubletten, CSV; + Mandats-Einladungen) |
+| 20 | **CRM II: Transaktionen, Beteiligtenrollen & konfigurierbarer Kanban-Funnel** | ✅ Kern fertig (Funnel-Board, Rollen, Verweildauer, Stagnation; Import echter Kontakte) |
+| 21 | **CRM III: Kommunikation & Aufgaben** (Mandats-Mailings, Reminder, Vorlagen, BCC-Ingest) | ✅ Kern fertig (Massenmailing, Double-Opt-in + Pflege-Link in einer Mail, Reminder Tag 7/21, Prozess-Updates, **11 Prozess-Mailvorlagen + Admin-Editor**); ✅ BCC-Ingest + Wiedervorlagen fertig) |
+| 22 | **CRM IV: Dokumente, Suche/Auswertungen & Kontakt-Selbstpflege-Portal** | ▶ Selbstpflege-Portal ✅ fertig (Link, Protokoll, Freigabe, Abmeldung); Dokumente/Auswertungen offen |
+| 23 | **CRM V: Rollen/Rechte granular, API/Webhooks, Multi-Tenant, DSGVO-Härtung + 2FA** | ✅ Kern fertig (5 Rollen + Rechte-Matrix, Mandats-Sichtbarkeit, 2FA, DSGVO-Auskunft + Anonymisierung); API/Webhooks offen |
+| · | Mehrsprachigkeit DE/EN | ▶ Fundament fertig (Umschalter, i18n-Kontext, Navigation); Seiten werden schrittweise übersetzt |
+| 24 | **CRM VI: Ausbaustufen** (Anreicherung, Käufer-Matching, E-Signatur, Datenraum, Mobile, Portal) | geplant |
+| · | Sprache: menschliche Texte, kein Gedankenstrich, Textwächter im Build (v0.267) | ✅ fertig |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →
@@ -47,7 +48,7 @@ eine R2/S3-Entscheidung voraussetzt und logisch mit dem Exposé-Builder zusammen
 
 ---
 
-## Sprint 6 — Bewertungs-Quick-Check (öffentlich) — ✅ FERTIG
+## Sprint 6 · Bewertungs-Quick-Check (öffentlich) · ✅ FERTIG
 
 Öffentlicher, anonymer Unternehmenswert-Rechner unter `/unternehmenswert` (ohne Login).
 Zwei Verfahren (EBIT-Multiplikator + vereinfachtes Ertragswertverfahren §199 BewG) →
@@ -62,14 +63,14 @@ Phalanx-Briefbogen (Logo, Tagline, 1,5-zeilig, Blocksatz, werblicher Abschluss-B
 
 ---
 
-## Sprint 7 — Ausführliche Bewertung (Engine + Report) — ✅ FERTIG
+## Sprint 7 · Ausführliche Bewertung (Engine + Report) · ✅ FERTIG
 
-**Ziel:** Geführte, mehrstufige Bewertung für registrierte Verkäufer/Leads — das
+**Ziel:** Geführte, mehrstufige Bewertung für registrierte Verkäufer/Leads, das
 Fundament für das langfristige „ZDF → Bewertung"-Tool. Baut auf Sprint 6 auf.
 
 **Datenmodell (Migration):** neue Tabelle `detailed_valuations(id, tenant_id, user_id,
 project_id NULLABLE, status[draft|submitted|reviewed], inputs_json, results_json,
-report_pdf_ref, reviewed_by, created_at, updated_at)` — tenant_id + RLS (fail closed).
+report_pdf_ref, reviewed_by, created_at, updated_at)`, tenant_id + RLS (fail closed).
 
 **Fragebogen (Stepper, jederzeit als Entwurf speicherbar):**
 1. **Finanzdaten:** GuV-Kernzeilen 3 Ist-Jahre + laufendes/Planjahr (Umsatz,
@@ -77,19 +78,19 @@ report_pdf_ref, reviewed_by, created_at, updated_at)` — tenant_id + RLS (fail 
    Einmaleffekte, Mieten an Gesellschafter), Nettoverschuldung (Cash, Darlehen →
    Equity-Bridge light).
 2. **Qualitative Faktoren (Scorecard):** Inhaberabhängigkeit, Kundenkonzentration
-   (> x % Umsatz je Kunde — DUB weist das prominent aus), Team/zweite Ebene,
+   (> x % Umsatz je Kunde: DUB weist das prominent aus), Team/zweite Ebene,
    Marktposition/Wettbewerb, Saisonalität/Zyklizität, Investitionsstau,
-   Digitalisierung/Prozesse — je Faktor Zu-/Abschlag auf das Multiple.
+   Digitalisierung/Prozesse: je Faktor Zu-/Abschlag auf das Multiple.
 3. **Substanz (optional):** Verkehrswerte Maschinen/Immobilien, Schulden →
    Substanzwert als Untergrenze.
 
 **Engine (`server/valuation/detailedEngine.js`, reine Funktionen + Tests):**
 - Multiplikatorverfahren: bereinigtes Ø-EBIT × (Branchen-/Größenklassen-Multiple aus
   Sprint 6 ± Scorecard-Anpassung, Größenabschlag < 1 Mio. € EBIT).
-- Vereinfachtes Ertragswertverfahren (§199 BewG, Faktor 13,75) — Vergleichswert
+- Vereinfachtes Ertragswertverfahren (§199 BewG, Faktor 13,75), Vergleichswert
   mit Steuer-Kontext-Hinweis.
 - Ertragswert mit risikogerechtem Zins (Basiszins + Marktrisiko + individuelle
-  Zuschläge aus Scorecard — KMUrechner-Logik).
+  Zuschläge aus Scorecard: KMUrechner-Logik).
 - Kapitaldienstfähigkeits-Check (KMUrechner Modul 2): Ist der Korridor aus Käufersicht
   über ~6–8 Jahre finanzierbar? → dämpft überhöhte Preiserwartungen.
 - Ergebnis: Wertkorridor + Methodenvergleich + Sensitivität (± 1 Multiple-Punkt).
@@ -101,25 +102,25 @@ Kommentar) vor Versand. Verknüpfbar mit Mandat (`project_id`) → Preisband im 
 referenzierbar (Sprint 9).
 
 **Preis:** optional hinter dem bestehenden Billing-Flag (`BILLING_ENABLED`) als
-kostenpflichtige Position — der öffentliche Quick-Check (Sprint 6) bleibt gratis.
+kostenpflichtige Position: der öffentliche Quick-Check (Sprint 6) bleibt gratis.
 
 **Aufwand:** 1–1,5 Sprints. Abhängigkeiten: Sprint 6 (Multiples-Tabelle, Lead-Übernahme).
 
 ---
 
-## Sprint 8 — Container-Safe (Ordner-Uploads, Object Storage)
+## Sprint 8 · Container-Safe (Ordner-Uploads, Object Storage)
 
-**Ziel:** Komplette Ordner, Bilder und beliebige Dateien je Mandat sicher ablegen —
+**Ziel:** Komplette Ordner, Bilder und beliebige Dateien je Mandat sicher ablegen, 
 getrennt von Teaser/IM/Datenraum, als Quelle für Exposé und gezielte Freigaben.
 
 **Architektur:**
-- **StorageProvider-Interface** (`server/providers/storage/`): `put/get/delete/list` —
+- **StorageProvider-Interface** (`server/providers/storage/`): `put/get/delete/list`, 
   `LocalVolumeProvider` (Default, heutiges Verhalten) und `S3Provider` (S3-kompatibel:
   Cloudflare R2 / Hetzner / AWS; ENV `STORAGE_PROVIDER`, `S3_ENDPOINT/BUCKET/KEY/SECRET`).
   Empfehlung: **R2** (kein Egress-Entgelt, S3-API).
 - **Migration:** `safe_items(id, tenant_id, project_id, parent_id NULLABLE → Ordnerbaum,
   name, is_folder, storage_key, size, mime, checksum_sha256, version, uploaded_by,
-  created_at)` — eigene Zone, kein Dokumenten-Level.
+  created_at)`: eigene Zone, kein Dokumenten-Level.
 - **Zugriff:** ausschließlich Admin + Projekt-Pfleger (`can_manage`). **Kein**
   Investor-Zugriff (härter als Datenraum). Jeder Zugriff ins `activity_log`.
 - **Freigabe-Workflow:** „In Datenraum/IM/Teaser übernehmen" kopiert ein Safe-Item als
@@ -127,17 +128,17 @@ getrennt von Teaser/IM/Datenraum, als Quelle für Exposé und gezielte Freigaben
 
 **UI:** Datei-Explorer im Mandat (Ordnerbaum, Multi-Upload ganzer Ordner via
 `webkitdirectory` + Drag&Drop, Bildgalerie, Fortschritt, Versionierung bei Kollision,
-Papierkorb 30 Tage, Speicherverbrauch je Mandat/Tenant — Anknüpfung Billing-Staffel).
+Papierkorb 30 Tage, Speicherverbrauch je Mandat/Tenant, Anknüpfung Billing-Staffel).
 
 **Akzeptanz:** 500-Dateien-Ordner stabil · Safe für Investoren unter keiner URL
 erreichbar (Gate-Test) · Checksummen verifiziert · Provider per ENV umschaltbar ·
 Killswitch löscht Safe mit.
 
-**Entscheidung vorab:** R2/S3-Konto anlegen — sonst Start auf Volume mit klarem Limit.
+**Entscheidung vorab:** R2/S3-Konto anlegen: sonst Start auf Volume mit klarem Limit.
 
 ---
 
-## Sprint 9 — Exposé-Builder (DUB-Standard, IM-Gate) — ✅ FERTIG
+## Sprint 9 · Exposé-Builder (DUB-Standard, IM-Gate) · ✅ FERTIG
 
 Umgesetzt: Migration `exposes` (RLS), Editor mit DUB-Keyfacts-Raster + ein-/
 ausblendbaren Sektionen, Titelbild/Galerie aus dem Container-Safe, Autosave,
@@ -149,7 +150,7 @@ Kaufpreisvorstellung. Offen als Folgeausbau: automatische Ableitung der
 
 ### Ursprüngliche Planung
 
-**Ziel:** Professionelle Exposés strukturell nach DUB, inhaltlich nach KERN/HWK — als
+**Ziel:** Professionelle Exposés strukturell nach DUB, inhaltlich nach KERN/HWK, als
 gated Web-Exposé (erweitert die Detail-Tabs) und PDF-Export in CI; anonymes Kurzprofil
 (Teaser) wird daraus abgeleitet.
 
@@ -168,7 +169,7 @@ Potenziale (SWOT-light) · 8. Immobilien/Anlagen · 9. Käuferanforderungen & Ve
 
 **Editor & Ausspielung:** Sektionseditor in der Mandats-Pflege (Admin + `can_manage`,
 Autosave, Vorschau) · Web-Exposé hinter dem bestehenden **IM-Gate** (nda_signed/
-im_granted — „erst NDA, dann Exposé") · PDF-Export mit Empfänger-Wasserzeichen ·
+im_granted: „erst NDA, dann Exposé") · PDF-Export mit Empfänger-Wasserzeichen ·
 Kurzprofil-Ableitung speist Teaser-Karte + öffentliche Detailseite (Anonymisierungs-
 Checkliste vor Publikation).
 
@@ -176,7 +177,7 @@ Checkliste vor Publikation).
 
 ---
 
-## Sprint 10 — Käufer-UX: Deal-Liste, Suchprofile, Match-Benachrichtigungen (teilweise ✅)
+## Sprint 10 · Käufer-UX: Deal-Liste, Suchprofile, Match-Benachrichtigungen (teilweise ✅)
 
 Vorbilder: **Dealum** (Funnel-Tabelle) und **Dealsuite** (flexible Filter, gespeicherte
 Suchen, tägliche/wöchentliche Match-Benachrichtigungen, diskretes Netzwerk).
@@ -201,7 +202,7 @@ Deal (volles Käufer-CRM).
 
 ---
 
-## Sprint 11 — In-App-Chat & Kontakte (Netzwerk)
+## Sprint 11 · In-App-Chat & Kontakte (Netzwerk)
 
 - Direktnachrichten zwischen berechtigten Kontakten (nach NDA/Freigabe); Kontakte
   gegenseitig hinzufügen/annehmen (Netzwerk wie Dealsuite).
@@ -211,7 +212,7 @@ Deal (volles Käufer-CRM).
 
 ---
 
-## Querschnitt-Ergänzung — Prozess-Benachrichtigungen
+## Querschnitt-Ergänzung · Prozess-Benachrichtigungen
 
 Jeder Funnel-Schritt löst eine **Branded-Mail** (Phalanx-Header + Impressum-Footer,
 werblicher Ton) aus: Registrierung, Freigabe, NDA angefordert/signiert/freigegeben,
@@ -220,7 +221,7 @@ IM/Datenraum-Freigabe, neue Unterlagen, Q&A-Frage/-Antwort, LOI. Ziel: der Kunde
 
 ---
 
-## Sprint 12 — Ausführliche Bewertung 2.0 (datengetrieben) — Ausbaustufe
+## Sprint 12 · Ausführliche Bewertung 2.0 (datengetrieben) · Ausbaustufe
 
 Langfrist-Wunsch, nach genügend Mandaten: aus Zahlen/Daten/Fakten automatisiert eine
 belastbarere indikative Bewertung, angereichert mit Marktdaten.
@@ -237,7 +238,7 @@ belastbarere indikative Bewertung, angereichert mit Marktdaten.
 
 ---
 
-## Sprint 14 — CRM / Beziehungs- & Deal-Management (Sell-Side) — geplant
+## Sprint 14 · CRM / Beziehungs- & Deal-Management (Sell-Side) · geplant
 
 **Motiv.** Langfristiger Mehrwert für Phalanx als M&A-Sell-Side-Berater *und* für die
 Kunden (Verkäufer/Käufer). Vorbild-Analyse: **folk.app** („CRM für den Vertrieb").
@@ -245,7 +246,7 @@ folk baut auf fünf Säulen: (1) **Migrieren/Zentralisieren** aller Kontakte aus
 Mail/Kalender/Netzwerken, (2) **Erfassen** von Leads per LinkedIn-Erweiterung (folkX),
 (3) **Anreichern** fehlender Kontaktdaten per 1-Klick (Waterfall-Enrichment),
 (4) **Outreach** mit KI-Entwürfen, E-Mail-Sequenzen und automatisierten Follow-ups,
-(5) **Close** über anpassbare, kollaborative Pipelines mit Dashboards — alles auf einer
+(5) **Close** über anpassbare, kollaborative Pipelines mit Dashboards, alles auf einer
 **einheitlichen Multi-Channel-Zeitleiste** (WhatsApp/Gmail/LinkedIn), plus Rollen/Rechte,
 Mobile-App und API. Kern-Verkaufsargument: „ein CRM, das die Nachverfolgung übernimmt,
 damit man Zeit für Beziehungen hat".
@@ -260,7 +261,7 @@ Buyer-Longlist je Mandat, Deal-Pipeline mit Stages, Aufgaben/Wiedervorlagen und
 Reporting.
 
 **Zwei Nutzergruppen (bewusst getrennt).**
-- *Intern (Phalanx-Cockpit):* Christians Arbeits-CRM — Käuferlisten, Ansprache-Status,
+- *Intern (Phalanx-Cockpit):* Christians Arbeits-CRM, Käuferlisten, Ansprache-Status,
   Wiedervorlagen, Pipeline über alle Mandate, Reporting.
 - *Kunde (Mehrwert im Produkt):* Verkäufer sehen transparent den Ansprache-/Interesse-
   Status ihrer Buyer-Longlist; Käufer sehen ihre verfolgten Deals als kleine Pipeline
@@ -269,10 +270,10 @@ Reporting.
 **Umsetzungsstufen (an CapitalMatch-Architektur angepasst: Postgres/Knex, RLS je
 `tenant_id`, Provider-Stubs für externe Dienste).**
 
-*Stufe A — CRM-Kern (hoher Nutzen, geringe Abhängigkeit):*
+*Stufe A: CRM-Kern (hoher Nutzen, geringe Abhängigkeit):*
 - Migration `crm_contacts` (Person/Organisation, Typ Käufer/Verkäufer/Intermediär/
   Investor, Quelle, Tags, Owner) + `crm_interactions` (append-only Zeitleiste:
-  Mail/Call/Meeting/Note, verknüpft mit Mandat & Kontakt) — beide mit RLS.
+  Mail/Call/Meeting/Note, verknüpft mit Mandat & Kontakt), beide mit RLS.
 - **Buyer-Longlist je Mandat**: `deal_buyers` (Mandat × Kontakt × Ansprache-Status:
   identifiziert → angesprochen → NDA → IM → Q&A → LOI → raus). Speist sich aus
   bestehenden NDA-/Exposé-Zugriffen automatisch.
@@ -281,19 +282,19 @@ Reporting.
 - **Aufgaben/Wiedervorlagen**: `crm_tasks` (fällig am, Owner, verknüpft) + Reminder-Mail
   über den bestehenden Digest-/Scheduler-Mechanismus.
 
-*Stufe B — Produktivität & Reporting:*
+*Stufe B: Produktivität & Reporting:*
 - **Unified Timeline** je Kontakt/Deal: bündelt Interaktionen + Plattform-Events
   (NDA signiert, IM angesehen, Frage gestellt) an einer Stelle.
 - **Dashboards**: Funnel je Mandat (wie viele Käufer je Stage), Conversion, Alter der
-  Deals, überfällige Wiedervorlagen — nutzt vorhandene Chart-/Dashboard-Kompetenz.
+  Deals, überfällige Wiedervorlagen: nutzt vorhandene Chart-/Dashboard-Kompetenz.
 - **Serien-Outreach** an Buyer-Longlist mit Vorlagen (Teaser-Versand) über den
   bestehenden Brevo-Mailweg; Sequenzen/Follow-ups optional über Scheduler.
 
-*Stufe C — Anreicherung & Kanäle (externe Abhängigkeiten, als Provider-Stubs):*
+*Stufe C: Anreicherung & Kanäle (externe Abhängigkeiten, als Provider-Stubs):*
 - **Kontakt-Anreicherung** (Firmendaten/E-Mail) über austauschbaren Enrichment-Provider
-  (Stub wie Storage/Payment) — DSGVO-konform, opt-in, Quellennachweis.
+  (Stub wie Storage/Payment): DSGVO-konform, opt-in, Quellennachweis.
 - **Import** aus Outlook/Gmail/CSV; später leichte LinkedIn-Erfassung (Lesezeichen/
-  Bookmarklet statt Scraping — rechtlich sauber halten).
+  Bookmarklet statt Scraping: rechtlich sauber halten).
 - **Kanäle**: E-Mail zuerst; WhatsApp/LinkedIn nur, wenn rechtlich/AGB-seitig tragfähig.
 
 **Abgrenzung/Prinzipien.** Kein Vollersatz für HubSpot/Salesforce, sondern ein
@@ -308,17 +309,17 @@ und rechtlich prüfpflichtig.
 
 ---
 
-## Sprint 15 — Connect & Interaktion Käufer ↔ Verkäufer — geplant
+## Sprint 15 · Connect & Interaktion Käufer ↔ Verkäufer · geplant
 
 **Motiv.** Der bestehende In-App-Chat (Sprint 11) wird zum Herzstück der Vernetzung
-zwischen Käufer und Verkäufer entlang des gesamten Deal-Prozesses — statt loser
+zwischen Käufer und Verkäufer entlang des gesamten Deal-Prozesses, statt loser
 Nachrichten ein geführter, prozessgetriebener Austausch. Vorbild ist die **AddedVal.io-
 Strecke**: Der Interessent lädt ein Pitch Deck / bekundet Interesse → das System stellt
 per E-Mail eine **Intro** her („Get to know each other", Reply-all) → beide Seiten sind
 verbunden. Zusätzlich erhalten Nutzer **regelmäßige E-Mails über neue Pitch Decks/Mandate**
 (bei uns bereits als Digest vorhanden). Diese Mechanik übertragen wir sauber auf beide
 Fokusstränge der Plattform: **Transaktion (M&A)** *und* **Startup-Finanzierung**
-(letzteres bereits mit Beispielen bestückt: Projekt Umami, Nexora — sowie neu Betongold
+(letzteres bereits mit Beispielen bestückt: Projekt Umami, Nexora, sowie neu Betongold
 [Nachfolge/Skalierung] und Cudd [Transformation] im M&A-Strang).
 
 **Kernidee: „Interesse → Intro → Chat".** Aus einer Interessens-/Deck-Anfrage wird
@@ -332,12 +333,12 @@ automatisiert eine Verbindung + ein Chat-Thread, kontextbezogen zum Mandat.
   sodass Verkäufer/Berater und Interessent im Deal-Kontext sprechen; Sichtbarkeit/
   Freigabe gestuft (anonym → nach NDA Klarname).
 - **Prozess-Trigger & Statuswechsel im Chat:** Systemnachrichten bei Meilensteinen
-  (NDA angefragt/signiert, IM freigegeben, Q&A gestellt, LOI) — der Chat wird zur
+  (NDA angefragt/signiert, IM freigegeben, Q&A gestellt, LOI), der Chat wird zur
   Deal-Timeline. Baut auf `deal_status` (teaser_live→in_diligence→loi→closed) auf.
 - **Benachrichtigungen:** E-Mail + In-App bei neuer Nachricht/Statuswechsel; Opt-in
   „neue passende Mandate" nutzt die bestehende Digest-/Match-Engine.
 - **Moderation/Diskretion:** Berater (Admin) kann Intros kuratieren/freigeben, bevor
-  Klarnamen geteilt werden — passend zum vertraulichen M&A-Kontext (Unterschied zu
+  Klarnamen geteilt werden: passend zum vertraulichen M&A-Kontext (Unterschied zu
   AddedVal, wo Intros offener sind).
 
 *Technik:* nutzt vorhandene `connections`/`messages` (Sprint 11); Erweiterung um
@@ -346,42 +347,42 @@ Reminder über den bestehenden Scheduler. Alles mandantenfähig (RLS).
 
 ---
 
-## Sprint 16 — Admin-Dashboard 2.0 (Analytics & Auswertung) — als Nächstes
+## Sprint 16 · Admin-Dashboard 2.0 (Analytics & Auswertung) · als Nächstes
 
 **Motiv.** Das aktuelle Admin-Dashboard ist funktional, aber statisch: acht KPI-Kacheln
 plus ein fixer Schnellzugriff aus vier Blöcken zu je drei Links. Es fehlen (a) eine
 weniger starre, datengetriebene Gliederung und (b) echte **statistische Auswertungen**
 für das Transaktionscontrolling. Ziel ist ein **lebendiges Cockpit**, das den
-Deal-Funnel, Trends und Engpässe auf einen Blick zeigt — als Grundlage für Steuerung
+Deal-Funnel, Trends und Engpässe auf einen Blick zeigt, als Grundlage für Steuerung
 und (später) Gamification.
 
-**A — Weg von den statischen 3er-Blöcken.**
+**A: Weg von den statischen 3er-Blöcken.**
 - Der fixe Schnellzugriff wird zu **datengetragenen Kacheln**: jeder Einstieg trägt eine
   Live-Kennzahl/ein Badge (z. B. „NDA-Anfragen · 2 offen", „Q&A · 1 unbeantwortet",
   „Feedback · 3 neu"), sodass die Kachel Information statt bloßer Navigation liefert.
 - Layout wird **rollen-/kontextabhängig** und priorisiert nach Handlungsbedarf
   (offene Aufgaben zuerst), statt vier gleich aussehender Spalten.
 
-**B — Statistische Werte & Auswertungen.**
+**B: Statistische Werte & Auswertungen.**
 - **Deal-Funnel (Kern):** Teaser-Ansicht → Interesse/NDA angefragt → NDA signiert →
   Datenraum → LOI → Closing, je Mandat und aggregiert; mit **Conversion-Raten**
   (Interesse→NDA, NDA→Datenraum, →LOI) und **Ø Verweildauer je Phase**.
 - **Zeitreihen (7/30/90 Tage, YTD):** neue Nutzer, NDA-Anfragen, Datenraum-Zugriffe,
-  Nachrichten, veröffentlichte Mandate — als kompakte Sparklines/Balken.
+  Nachrichten, veröffentlichte Mandate: als kompakte Sparklines/Balken.
 - **Mandats-Ranking:** aktivste Mandate (Zugriffe/Interessenten) und **stagnierende
   Mandate** (kein Fortschritt seit X Tagen) als Handlungssignal.
 - **Deal-Alter & Pipeline-Wert:** Alter je Deal-Phase; optionale Summe der
   Ask-/Bewertungsbänder als indikativer Pipeline-Wert.
 - **Aktivitäts-Feed/Heatmap** aus `activity_log` (letzte Ereignisse, Aktivität je Tag).
 
-**C — Interaktivität.**
+**C: Interaktivität.**
 - **Zeitraum-Filter** (7/30/90/YTD) und **Mandats-Filter** global auf dem Dashboard.
 - KPI-Kacheln sind **klickbar** und öffnen den passenden, vorgefilterten Tab.
 - **Export** der Kennzahlen (CSV/PDF) fürs Reporting/Transaktionscontrolling.
 
 **Technik.**
 - Neuer, zeitfenster-parametrisierter Aggregations-Endpoint
-  `GET /api/admin/analytics/overview?range=30d` — bündelt Kennzahlen aus
+  `GET /api/admin/analytics/overview?range=30d`, bündelt Kennzahlen aus
   `activity_log`, `interests`, `nda_requests`, `messages`, `users`, `projects`
   (effiziente `GROUP BY`/Window-Queries, RLS/mandantenfähig, nur Admin/Berater).
 - **Visualisierung bewusst leichtgewichtig:** Inline-SVG-Sparklines/Balken statt
@@ -396,11 +397,11 @@ Datenmengen wachsen).
 
 ---
 
-## Sprint 17 — Gamification / XP-Punktesystem — geplant
+## Sprint 17 · Gamification / XP-Punktesystem · geplant
 
 **Motiv.** AddedVal.io nutzt sichtbare **XP/Level** („210 XP · Level Entdecker",
 „1001 free Downloads") als Aktivierungs- und Bindungsmechanik. Für CapitalMatch soll
-Gamification **echte Prozessfortschritte** belohnen — nicht bloßes Klicken —, um
+Gamification **echte Prozessfortschritte** belohnen, nicht bloßes Klicken, , um
 Interaktion und vor allem **abgeschlossene Deals über die Plattform** zu fördern.
 
 **Prinzip: Punkte für werthaltige Interaktion, große Boni für Abwicklung über die
@@ -418,16 +419,16 @@ Plattform.** Beispiel-Wertung (final zu kalibrieren):
 
 *Bausteine:*
 - **Event-basierte Vergabe:** XP hängen an denselben Prozess-Events wie Sprint 15
-  (NDA, DD/Q&A, LOI, Closing) — eine `xp_events`-Tabelle (append-only, idempotent je
+  (NDA, DD/Q&A, LOI, Closing): eine `xp_events`-Tabelle (append-only, idempotent je
   Event) + aggregierter Punktestand je Nutzer; Level-Schwellen (z. B. Entdecker →
   Insider → Dealmaker).
 - **Anzeige:** dezenter XP-/Level-Badge im „Mein Bereich" und Navbar (mobil-tauglich);
-  optionale (anonymisierte) Bestenliste — im vertraulichen M&A-Kontext bewusst
+  optionale (anonymisierte) Bestenliste, im vertraulichen M&A-Kontext bewusst
   zurückhaltend/opt-in.
 - **Anti-Gaming:** Punkte nur für verifizierte, nicht rückgängig gemachte Prozess-
   schritte; Missbrauchsschutz (kein XP für selbst ausgelöste Dummy-NDAs etc.).
 - **Belohnung real koppeln (optional, später):** XP schalten Vorteile frei (z. B.
-  Freischaltungen, Sichtbarkeit, Rabatte auf kostenpflichtige Bewertungen) — analog
+  Freischaltungen, Sichtbarkeit, Rabatte auf kostenpflichtige Bewertungen), analog
   AddedVals „free Downloads"/Virtual Shares, aber M&A-gerecht.
 
 *Abwägung/Prinzipien:* Gamification darf Seriosität und Vertraulichkeit nicht
@@ -437,7 +438,7 @@ Sprint 15 (Prozess-Trigger) und dem CRM (Sprint 14).
 
 ---
 
-## Sprint 18 — Engagement-Mailings: Newsletter, Folgen, Änderungs-Mails, Ähnlichkeit — geplant
+## Sprint 18 · Engagement-Mailings: Newsletter, Folgen, Änderungs-Mails, Ähnlichkeit · geplant
 
 **Motiv.** Käufer aktiv und automatisiert an passende Mandate heranführen (Vorbild
 AddedVal-Strecke „neue Pitch Decks per E-Mail"). Baut auf Digest-/Match-Engine (Sprint 10),
@@ -446,7 +447,7 @@ Merkliste/Watchlist und Suchprofilen auf.
 - **Newsletter zu neuen Mandaten:** opt-in Abo (alle neuen / gefiltert nach Branche,
   Region, Umsatz-/EBITDA-Band, Mandatstyp). Versand über den bestehenden Scheduler/Brevo;
   Frequenz sofort/täglich/wöchentlich; Abmeldelink (DSGVO).
-- **Folgen-Option je Mandat:** „Folgen"-Stern (baut auf Watchlist auf) — **automatisch bei
+- **Folgen-Option je Mandat:** „Folgen"-Stern (baut auf Watchlist auf), **automatisch bei
   Interesse/NDA** gesetzt, zusätzlich **manuell** per Sternchen. Wer folgt, erhält Updates.
 - **Änderungs-Mails bei Mandats-Updates:** Benachrichtigung an Follower/Interessenten bei
   relevanten Änderungen (neuer Teaser/IM, neue Dokumente, Preis-/Status-Änderung, neues Q&A).
@@ -460,7 +461,7 @@ Merkliste/Watchlist und Suchprofilen auf.
 
 ---
 
-## Sell-Side-CRM — mehrstufiger Ausbau (Sprint 19–24)
+## Sell-Side-CRM · mehrstufiger Ausbau (Sprint 19–24)
 
 **Zielbild.** Eine webbasierte, in CapitalMatch integrierte CRM-Anwendung für die
 Sell-Side-M&A-Beratung: modular, mit offenen Schnittstellen, schnell bedienbar (kein
@@ -475,7 +476,7 @@ revisionsfähige Änderungsprotokolle (`audit_logs`/`activity_log`); Verschlüss
 sensibler Daten; EU-Hosting; SSO über das bestehende Nutzerkonto; Übernahme des
 vorhandenen Rollen-/Rechtesystems; keine doppelte Datenhaltung; offene API + Webhooks.
 
-### Sprint 19 — CRM I: Unternehmen & Kontakte (Fundament)
+### Sprint 19 · CRM I: Unternehmen & Kontakte (Fundament)
 Entspricht Spec §1, §2 (+ Basis §10). **Mindestumfang-Kern.**
 - **Unternehmen** (`crm_companies`): Firmenname, Anschrift, Website, Branche, Umsatz,
   Mitarbeiterzahl, Region, Unternehmensart, Käuferkategorie, Investitionskriterien,
@@ -488,7 +489,7 @@ Entspricht Spec §1, §2 (+ Basis §10). **Mindestumfang-Kern.**
 - **Import/Export:** CSV/Excel (nutzt vorhandene xlsx-Kompetenz).
 - Aggregierte Ansicht: alle Kontakte, Transaktionen, Aufgaben, Kommunikation je Unternehmen.
 
-### Sprint 20 — CRM II: Transaktionen, Beteiligte & Kanban-Funnel
+### Sprint 20 · CRM II: Transaktionen, Beteiligte & Kanban-Funnel
 Entspricht Spec §4, §5. Baut auf vorhandener Projekt-/Deal-Pipeline auf.
 - **Transaktionen/Mandate** (Erweiterung des `projects`-Modells oder `crm_deals`):
   Projektname, interne Nr., Branche, Region, Umsatz, EBITDA, Kaufpreisvorstellung,
@@ -502,7 +503,7 @@ Entspricht Spec §4, §5. Baut auf vorhandener Projekt-/Deal-Pipeline auf.
   Drag-and-drop, automatische Status-/Zeitstempel, **Verweildauer je Stufe**, Warnung bei
   inaktiven/überfälligen Vorgängen; getrennte Funnel für Käuferansprache/Akquise/Investorenpflege.
 
-### Sprint 21 — CRM III: Aufgaben/Wiedervorlagen & Kommunikation
+### Sprint 21 · CRM III: Aufgaben/Wiedervorlagen & Kommunikation
 Entspricht Spec §6, §7. **Mindestumfang-Kern für Kommunikation.**
 - **Aktivitäten/Aufgaben/Wiedervorlagen** (`crm_tasks`): Zuordnung zu Kontakt/Unternehmen/
   Transaktion; Fälligkeit, Priorität, Verantwortlicher; Erinnerungen (Rückrufe, offene NDAs,
@@ -514,7 +515,7 @@ Entspricht Spec §6, §7. **Mindestumfang-Kern für Kommunikation.**
   automatische Zuordnung zu Kontakt/Unternehmen/Projekt; vollständige Historie; Kennzeichnung
   vertraulich/intern; Vermeidung doppelter Ansprache; Serienansprache mit Freigabeprozess.
 
-### Sprint 22 — CRM IV: Dokumente, Auswertungen & Selbstpflege-Portal
+### Sprint 22 · CRM IV: Dokumente, Auswertungen & Selbstpflege-Portal
 Entspricht Spec §3, §8, §9.
 - **Dokumentenmanagement:** Zuordnung zu Unternehmen/Kontakt/Transaktion, Versionierung,
   Versand-/Empfangsstatus, Vertraulichkeitskennzeichen, rollenabhängiger Zugriff, gängige
@@ -529,7 +530,7 @@ Entspricht Spec §3, §8, §9.
   Protokollierung; direkte Übernahme oder interne Freigabe; Abmeldung/Einschränkung der
   Kontaktaufnahme; automatische Aktualisierungs-Erinnerung. **DSGVO-zentral.**
 
-### Sprint 23 — CRM V: Rechte, Integration, Multi-Tenant, DSGVO + 2FA
+### Sprint 23 · CRM V: Rechte, Integration, Multi-Tenant, DSGVO + 2FA
 Entspricht Spec §10, §11, §12. **Voraussetzung für Nutzung durch Dritte.**
 - **Rollen/Rechte granular:** Administrator, Projektleiter, Projektmitarbeiter, externer
   Berater, Leseberechtigter, externer Kontakt; Rechte auf Modul-/Unternehmens-/Kontakt-/
@@ -537,13 +538,13 @@ Entspricht Spec §10, §11, §12. **Voraussetzung für Nutzung durch Dritte.**
   freigegebene Nutzer sichtbar; lückenlose Protokollierung.
 - **Integration/API:** eigenständiges, integrierbares Modul; REST-API + Webhooks;
   SSO über bestehendes Konto; Übernahme Stammdaten; Import bestehender CRM-/Excel-Kontakte.
-- **Mandantenfähigkeit aktiv schalten** (RLS-Fundament vorhanden) — echte Trennung je
+- **Mandantenfähigkeit aktiv schalten** (RLS-Fundament vorhanden), echte Trennung je
   Kanzlei/Beratung als Voraussetzung für Dritte.
 - **DSGVO-Härtung + 2FA** (vorm. Sprint 13): Zwei-Faktor (SMS/TOTP, Mobil-Pflicht bereits
   vorbereitet), Auftragsverarbeitung/Einwilligungen, Löschkonzept, Verschlüsselung, EU-Hosting,
   automatische Datensicherung, revisionsfähige Protokolle.
 
-### Sprint 24 — CRM VI: Ausbaustufen (später)
+### Sprint 24 · CRM VI: Ausbaustufen (später)
 Entspricht Spec §14. Nach Bedarf und Datenlage:
 - Datenanreicherung aus öffentlichen Quellen; Erkennung von Unternehmenswechseln bei Kontakten;
   KI-Zusammenfassung von Kommunikation; Next-Best-Action-Vorschläge; automatische E-Mail-
@@ -559,7 +560,7 @@ Entspricht Spec §14. Nach Bedarf und Datenlage:
 - Neue Tabellen immer mit `tenant_id` + RLS-Policy (Sprint-5-Muster, fail closed).
 - Alle Zugriffe/Downloads ins `activity_log` (append-only).
 - Externe Dienste (Storage/S3, AV-Scan, ggf. Marktdaten) als austauschbare
-  **Provider-Stubs** mit dokumentierter Anbindung — wie Signature/Payment.
+  **Provider-Stubs** mit dokumentierter Anbindung, wie Signature/Payment.
 - Haftung: Bewertungen durchgängig als **indikativ** deklariert (kein IDW-S1/S6-
   Gutachten). Getrennt von der bestehenden IDW-S6-Sanierungskompetenz.
 - Nach jedem Sprint: geänderte Dateien, Commit-Message (mit Versionsnummer),

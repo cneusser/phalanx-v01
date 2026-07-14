@@ -1,4 +1,4 @@
-/** Changelog-Eintrag v0.241 (Sprint 15 — Connect & Interaktion Käufer↔Berater). */
+/** Changelog-Eintrag v0.241 (Sprint 15: Connect & Interaktion Käufer↔Berater). */
 const ENTRY = {
   version: 'v0.241', released_on: '2026-07-10',
   title: 'Direkte Vernetzung: aus Interesse wird ein mandatsbezogener Chat',

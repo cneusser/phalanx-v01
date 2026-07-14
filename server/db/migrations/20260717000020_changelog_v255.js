@@ -4,7 +4,7 @@ const ENTRY = {
   title: 'Mailvorlagen für jeden Schritt im M&A-Prozess',
   items: [
     '11 fertige Vorlagen: Wiederaufnahme der Kommunikation, Erstansprache, Nachfassen, NDA, IM-Freigabe, Management-Gespräch, indikatives Angebot, Due Diligence, Absage, Prozessabschluss',
-    'Versand an einen einzelnen Kontakt oder an eine Auswahl im Funnel — mit Live-Vorschau der echten Mail',
+    'Versand an einen einzelnen Kontakt oder an eine Auswahl im Funnel, mit Live-Vorschau der echten Mail',
     'Platzhalter für Anrede, Mandat, Branche, Region, Umsatz, Frist; Eckdaten, Unterschrift und Rechtshinweis werden automatisch ergänzt',
     'Text pro Versand einmalig anpassbar, ohne die Vorlage zu ändern; Funnel-Stufe zieht auf Wunsch automatisch nach',
     'Neuer Admin-Tab „Mailvorlagen": alle Vorlagen einsehen, ändern, deaktivieren oder eigene ergänzen',

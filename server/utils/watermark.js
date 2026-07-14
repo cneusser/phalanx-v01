@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 4 — Dynamisches Wasserzeichen für Datenraum-Downloads.
+// Sprint 4: Dynamisches Wasserzeichen für Datenraum-Downloads.
 // Stempelt jede PDF-Seite diagonal mit Nutzer + Datum + Vertraulichkeitshinweis.
 // Nicht-PDF-Dateien werden unverändert ausgeliefert (Zugriff wird geloggt).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16,7 +16,7 @@ async function addWatermark(pdfBuffer, { name, email, date = new Date() }) {
   const small = await doc.embedFont(StandardFonts.Helvetica);
 
   const dateStr = date.toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  const mainText = `VERTRAULICH — ${name}`;
+  const mainText = `VERTRAULICH: ${name}`;
   const subText = `${email} · ${dateStr} · CapitalMatch Datenraum`;
 
   for (const page of doc.getPages()) {

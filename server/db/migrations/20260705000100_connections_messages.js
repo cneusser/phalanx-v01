@@ -1,5 +1,5 @@
 /**
- * Sprint 11 — In-App-Chat & Kontakte (Netzwerk).
+ * Sprint 11: In-App-Chat & Kontakte (Netzwerk).
  *   connections: Kontaktbeziehungen (Anfrage/Annahme) zwischen Nutzern.
  *   messages: 1:1-Direktnachrichten. Beides tenant_id + RLS (fail closed).
  * Nachrichten sind nur zwischen bestätigten Kontakten möglich (bzw. mit Admin/

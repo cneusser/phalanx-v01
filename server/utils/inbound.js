@@ -1,18 +1,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 23 — BCC-Ingest: eingehende E-Mails dem Kontakt zuordnen.
+// Sprint 23: BCC-Ingest: eingehende E-Mails dem Kontakt zuordnen.
 //
 // Zwei Wege führen hier herein:
 //   1) Provider-Webhook (Brevo Inbound, Mailgun, Postmark …) auf /api/inbound/email
-//      — Sie setzen die Plattform-Adresse ins BCC, die Antwort landet automatisch
+//      · Sie setzen die Plattform-Adresse ins BCC, die Antwort landet automatisch
 //        beim richtigen Kontakt.
 //   2) Manuelle Erfassung aus der Kontaktansicht (funktioniert ohne jede Provider-
-//      Konfiguration — Text einfügen, fertig).
+//      Konfiguration: Text einfügen, fertig).
 //
 // Was eine eingehende Antwort auslöst:
 //   · Nachricht in der Kontakt-Historie
 //   · Beteiligter gilt als „hat geantwortet" (replied = 1), Funnel mindestens
 //     Stufe 2 („Rückmeldung")
-//   · laufende Reminder zu diesem Kontakt werden gestoppt — niemand bekommt eine
+//   · laufende Reminder zu diesem Kontakt werden gestoppt, niemand bekommt eine
 //     Erinnerung, nachdem er geantwortet hat
 //   · Wiedervorlage „Antwort beantworten" in zwei Werktagen
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ function parseAddress(raw) {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr) ? addr : null;
 }
 
-// Zitierte Passagen und Signaturen kürzen — in der Historie zählt die Antwort,
+// Zitierte Passagen und Signaturen kürzen, in der Historie zählt die Antwort,
 // nicht die gesamte Mailhistorie.
 function cleanBody(text) {
   const s = String(text || '').replace(/\r\n/g, '\n');
@@ -37,7 +37,7 @@ function cleanBody(text) {
   return cut.trim().slice(0, 4000);
 }
 
-// Mandat aus dem Betreff erraten — unsere Vorlagen tragen den Codenamen im Betreff
+// Mandat aus dem Betreff erraten: unsere Vorlagen tragen den Codenamen im Betreff
 async function matchProject(subject) {
   const s = String(subject || '');
   if (!s) return null;
@@ -51,7 +51,7 @@ async function matchContact(email) {
   return db.get('SELECT * FROM crm_contacts WHERE lower(email) = ?', [email]).catch(() => null);
 }
 
-// Kernlogik — von Webhook UND manueller Erfassung genutzt
+// Kernlogik: von Webhook UND manueller Erfassung genutzt
 async function ingestReply({ from, to, subject, body, messageId, sentAt, source = 'webhook', contactId = null, projectId = null, actorId = null }) {
   const fromAddr = parseAddress(from);
   const contact = contactId
@@ -59,7 +59,7 @@ async function ingestReply({ from, to, subject, body, messageId, sentAt, source 
     : await matchContact(fromAddr);
 
   if (!contact) {
-    // Unbekannter Absender: nicht raten, nicht anlegen — nur protokollieren.
+    // Unbekannter Absender: nicht raten, nicht anlegen, nur protokollieren.
     db.auditLog(null, 'INBOUND_UNMATCHED', 'crm_contact', null, `${fromAddr || from} · ${String(subject || '').slice(0, 120)}`, null);
     return { matched: false, reason: 'Kein Kontakt zu dieser Absenderadresse' };
   }

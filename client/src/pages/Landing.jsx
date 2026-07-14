@@ -70,7 +70,7 @@ function ProjectAvatar({ name, color }) {
   );
 }
 
-// Kachel für ein Mandat — Daten kommen aus der API, nichts hartkodiert
+// Kachel für ein Mandat: Daten kommen aus der API, nichts hartkodiert
 function MandateTile({ p }) {
   const isStartup = p.mandate_type === 'fundraising';
   const metrics = isStartup
@@ -105,7 +105,7 @@ function MandateTile({ p }) {
         {metrics.map(([l, v]) => (
           <div key={l} style={{ flex: 1, background: C.bg, borderRadius: 6, padding: '0.45rem 0.5rem', textAlign: 'center', border: `1px solid ${C.border}` }}>
             <div style={{ fontSize: '0.6rem', color: C.muted, fontWeight: 700, marginBottom: '0.1rem' }}>{l}</div>
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: C.text }}>{v || '—'}</div>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: C.text }}>{v || 'k. A.'}</div>
           </div>
         ))}
       </div>
@@ -172,8 +172,8 @@ export default function Landing() {
             </div>
 
             <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '1.05rem', lineHeight: 1.7, marginBottom: '2rem' }}>
-              Der Marktplatz für M&A-Transaktionen und Startup-Finanzierung —
-              vom ersten Kontakt bis zum Signing. Diskret. Strukturiert. Zuverlässig.
+              Der Marktplatz für M&A-Transaktionen und Startup-Finanzierung.
+              Vom ersten Kontakt bis zum Signing. Diskret, strukturiert, verlässlich.
             </p>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <Link to="/projekte" style={{
@@ -241,17 +241,17 @@ export default function Landing() {
           display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2rem',
         }}>
           <StatBox
-            value={stats.ma.active > 0 ? `${stats.ma.active}` : '—'}
+            value={stats.ma.active > 0 ? `${stats.ma.active}` : 'k. A.'}
             label="M&A-Mandate"
             sublabel="Unternehmensverkauf"
           />
           <StatBox
-            value={stats.fundraising.active > 0 ? `${stats.fundraising.active}` : '—'}
+            value={stats.fundraising.active > 0 ? `${stats.fundraising.active}` : 'k. A.'}
             label="Fundraising-Mandate"
             sublabel="Seed · Angel · Series-A"
           />
           <StatBox
-            value={stats.investors > 0 ? `${stats.investors}+` : '—'}
+            value={stats.investors > 0 ? `${stats.investors}+` : 'k. A.'}
             label="Qualifizierte Investoren"
             sublabel="geprüft & freigegeben"
           />
@@ -296,18 +296,18 @@ export default function Landing() {
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
             <h2 style={{ fontSize: '2rem', fontWeight: 700, color: C.text, marginBottom: '0.75rem' }}>Warum CapitalMatch?</h2>
             <p style={{ color: C.muted, maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>
-              Wir kombinieren M&A-Expertise mit moderner Technologie für einen sicheren und effizienten Transaktionsprozess — von der Seed-Runde bis zur Nachfolge.
+              Wir führen Transaktionen von der Seed-Runde bis zur Nachfolge. Die Erfahrung kommt aus dem M&A-Geschäft, die Geschwindigkeit von der Plattform.
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
             <FeatureCard icon={TrendingUp} title="Startup-Finanzierung"
               text="Seed-, Angel- und Series-A-Mandate von geprüften Gründerteams. Investoren erhalten nach NDA vollständige CIMs und Finanzpläne." />
             <FeatureCard icon={Building2} title="M&A-Transaktionen"
-              text="Nachfolge, MBO, MBI und Wachstumskapital für den Mittelstand — diskret, anonymisiert und strukturiert begleitet." />
+              text="Nachfolge, MBO, MBI und Wachstumskapital für den Mittelstand. Anonymisiert veröffentlicht, persönlich begleitet." />
             <FeatureCard icon={Shield} title="Maximale Vertraulichkeit"
               text="Alle Mandate NDA-geschützt. Detailinformationen nur nach Registrierung, Identitätsprüfung und Freigabe." />
             <FeatureCard icon={FileText} title="Fundraising Advisory"
-              text="Phalanx GmbH begleitet Mandanten von der Teaser-Erstellung über den Investorenprozess bis zum Closing — persönlich und professionell." />
+              text="Die Phalanx GmbH begleitet Mandanten vom Teaser über den Investorenprozess bis zum Closing. Immer mit einem festen Ansprechpartner." />
           </div>
         </div>
       </section>
@@ -349,7 +349,7 @@ export default function Landing() {
           Bereit für Ihren nächsten Schritt?
         </h2>
         <p style={{ color: 'rgba(255,255,255,0.7)', maxWidth: 500, margin: '0 auto 2rem', lineHeight: 1.7 }}>
-          Registrieren Sie sich kostenlos und erhalten Sie Zugang zu exklusiven Transaktionsmandaten — vertraulich und professionell.
+          Registrieren Sie sich kostenlos. Danach sehen Sie die Mandate, die nicht öffentlich ausgeschrieben werden.
         </p>
         <Link to="/registrieren" style={{
           background: C.accent, color: '#fff',

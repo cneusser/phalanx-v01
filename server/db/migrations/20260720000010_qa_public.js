@@ -1,6 +1,6 @@
 /**
  * Q&A: Antworten können für alle Interessenten eines Mandats sichtbar geschaltet
- * werden (FAQ im Mandat) — statt dieselbe Frage zehnmal einzeln zu beantworten.
+ * werden (FAQ im Mandat): statt dieselbe Frage zehnmal einzeln zu beantworten.
  * Der Fragesteller bleibt dabei anonym; veröffentlicht wird nur Frage und Antwort.
  */
 exports.up = async function (knex) {

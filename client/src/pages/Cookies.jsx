@@ -1,4 +1,4 @@
-// Cookie-Richtlinie — was CapitalMatch im Browser speichert und was nicht.
+// Cookie-Richtlinie: was CapitalMatch im Browser speichert und was nicht.
 import React from 'react';
 import { Link } from 'react-router-dom';
 
@@ -22,7 +22,7 @@ const ENTRIES = [
   {
     name: 'cm_cookie_notice',
     art: 'Lokaler Speicher (localStorage)',
-    zweck: 'Merkt sich, dass Sie den Hinweis zu Cookies gesehen haben — damit er nicht bei jedem Besuch erscheint.',
+    zweck: 'Merkt sich, dass Sie den Hinweis zu Cookies gesehen haben, damit er nicht bei jedem Besuch erscheint.',
     dauer: 'Bis Sie den Browserspeicher löschen',
     rechtsgrundlage: 'Technisch erforderlich (§ 25 Abs. 2 Nr. 2 TTDSG)',
   },
@@ -67,8 +67,8 @@ export default function Cookies() {
       <h2 style={{ color: C.navy, fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.8rem' }}>Was wir nicht tun</h2>
       <p style={{ fontSize: '0.92rem', lineHeight: 1.75, color: '#334155', marginBottom: '1.2rem' }}>
         Kein Google Analytics, kein Facebook-Pixel, kein LinkedIn-Insight-Tag, keine Werbenetzwerke, kein
-        geräteübergreifendes Profiling. Wir protokollieren zwar Zugriffe auf vertrauliche Unterlagen — das ist bei
-        M&A-Prozessen unverzichtbar und im Interesse aller Beteiligten — aber innerhalb der Plattform, nicht über
+        geräteübergreifendes Profiling. Wir protokollieren zwar Zugriffe auf vertrauliche Unterlagen, das ist bei
+        M&A-Prozessen unverzichtbar und im Interesse aller Beteiligten, aber innerhalb der Plattform, nicht über
         Dritte und nicht für Werbezwecke. Näheres in der{' '}
         <Link to="/datenschutz" style={{ color: C.accent, fontWeight: 700 }}>Datenschutzerklärung</Link>.
       </p>
@@ -76,7 +76,7 @@ export default function Cookies() {
       <h2 style={{ color: C.navy, fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.8rem' }}>Kontrolle</h2>
       <p style={{ fontSize: '0.92rem', lineHeight: 1.75, color: '#334155' }}>
         Sie können den lokalen Speicher jederzeit in den Einstellungen Ihres Browsers löschen. Danach sind Sie
-        abgemeldet, und die Sprachwahl fällt auf Deutsch zurück — die Plattform funktioniert im Übrigen unverändert.
+        abgemeldet, und die Sprachwahl fällt auf Deutsch zurück, die Plattform funktioniert im Übrigen unverändert.
       </p>
 
       <div style={{ marginTop: '2.5rem', paddingTop: '1.25rem', borderTop: `1px solid ${C.border}`, fontSize: '0.8rem', color: C.muted, lineHeight: 1.7 }}>

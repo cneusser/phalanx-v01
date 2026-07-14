@@ -78,11 +78,11 @@ export default function TwoFactorCard() {
         <div style={{ background: msg.startsWith('Fehler') ? '#fee2e2' : '#d1fae5', color: msg.startsWith('Fehler') ? '#991b1b' : '#065f46', borderRadius: 8, padding: '0.6rem 0.8rem', fontSize: '0.82rem', marginBottom: '0.8rem' }}>{msg}</div>
       )}
 
-      {/* Backup-Codes — genau einmal sichtbar */}
+      {/* Backup-Codes: genau einmal sichtbar */}
       {codes && (
         <div style={{ background: '#FFFBEB', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.9rem 1rem', marginBottom: '0.9rem' }}>
           <div style={{ fontWeight: 800, color: '#92400e', fontSize: '0.85rem', marginBottom: 6 }}>
-            Backup-Codes — jetzt sichern, sie werden nicht wieder angezeigt
+            Backup-Codes: jetzt sichern, sie werden nicht wieder angezeigt
           </div>
           <div style={{ fontSize: '0.78rem', color: '#92400e', marginBottom: 8 }}>
             Jeder Code funktioniert einmal. Nutzen Sie sie, wenn Sie keinen Zugriff auf Ihr Telefon haben.
@@ -100,7 +100,7 @@ export default function TwoFactorCard() {
       {setup && (
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.9rem 1rem', marginBottom: '0.9rem' }}>
           <div style={{ fontSize: '0.82rem', color: C.text, marginBottom: 8, lineHeight: 1.6 }}>
-            <strong>1.</strong> Auf dem Handy: <a href={setup.otpauth_url} style={{ color: C.accent, fontWeight: 700 }}>diesen Link antippen</a> — er öffnet die Authenticator-App.
+            <strong>1.</strong> Auf dem Handy: <a href={setup.otpauth_url} style={{ color: C.accent, fontWeight: 700 }}>diesen Link antippen</a>: er öffnet die Authenticator-App.
             Am Rechner: das Geheimnis manuell in der App hinterlegen.
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>

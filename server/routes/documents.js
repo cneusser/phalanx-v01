@@ -33,12 +33,12 @@ async function checkDownloadAccess(user, doc, projectId) {
     return { ok: false, error: category === 'dataroom' ? 'Freigabe erforderlich' : 'NDA erforderlich' };
   }
   if (category === 'dataroom' && !(await hasPermission(user, projectId, 'download'))) {
-    return { ok: false, error: 'Kein Download-Recht für den Datenraum — bitte an den Berater wenden' };
+    return { ok: false, error: 'Kein Download-Recht für den Datenraum, bitte an den Berater wenden' };
   }
   return { ok: true };
 }
 
-// ── Datei ausliefern — PDFs aus IM/Datenraum mit dynamischem Wasserzeichen ──
+// ── Datei ausliefern: PDFs aus IM/Datenraum mit dynamischem Wasserzeichen ──
 async function streamDocument(res, doc, user, projectId, via) {
   const category = docCategory(doc);
   db.activityLog(user.id, via === 'signed' ? 'DOWNLOAD_SIGNED_LINK' : 'DOWNLOAD_DOCUMENT', category, doc.id, null);
@@ -169,7 +169,7 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
     for (const b of interested.filter(b => stageAllows(b.stage, category))) {
       sendProcessUpdateEmail({
         to: b.email, firstName: b.first_name,
-        title: `Neue Unterlagen verfügbar — ${proj ? proj.codename : 'Mandat'}`,
+        title: `Neue Unterlagen verfügbar: ${proj ? proj.codename : 'Mandat'}`,
         message: `Für das Mandat <strong>${proj ? proj.codename : ''}</strong> wurden neue Unterlagen bereitgestellt: <strong>${displayName}</strong>.`,
         ctaLabel: 'Unterlagen ansehen', ctaPath: `/projekte/${projectId}`,
       }).catch(() => {});
@@ -189,12 +189,12 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
   });
 }));
 
-// ── GET /api/documents/signed/:token — Download via signiertem Link ────────
+// ── GET /api/documents/signed/:token: Download via signiertem Link ────────
 // Keine Bearer-Auth nötig: die HMAC-Signatur MIT Ablaufzeit ist die
 // Autorisierung. Zugriffsrechte werden trotzdem erneut serverseitig geprüft.
 router.get('/signed/:token', wrap(async (req, res) => {
   const parsed = verifyDownloadToken(req.params.token);
-  if (!parsed) return res.status(403).json({ success: false, error: 'Link ungültig oder abgelaufen — bitte neuen Download-Link anfordern' });
+  if (!parsed) return res.status(403).json({ success: false, error: 'Link ungültig oder abgelaufen, bitte neuen Download-Link anfordern' });
 
   const user = await db.get('SELECT id, email, first_name, last_name, role, is_active FROM users WHERE id = ?', [parsed.userId]);
   const doc = await db.get('SELECT * FROM documents WHERE id = ?', [parsed.docId]);
@@ -207,7 +207,7 @@ router.get('/signed/:token', wrap(async (req, res) => {
   await streamDocument(res, doc, user, doc.project_id, 'signed');
 }));
 
-// ── POST /api/documents/:projectId/:docId/link — signierten Link erzeugen ──
+// ── POST /api/documents/:projectId/:docId/link, signierten Link erzeugen ──
 // Ablaufender Download-Link (Standard 15 Min.), z. B. zum Öffnen im Browser
 router.post('/:projectId/:docId/link', authenticate, wrap(async (req, res) => {
   const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [req.params.docId, req.params.projectId]);
@@ -329,7 +329,7 @@ router.patch('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
   const newLevel = ['public', 'nda', 'approved'].includes(access_level) ? access_level : doc.access_level;
   const newCategory = levelToCategory[newLevel] || doc.category;
 
-  // Bezeichnung ändern: Das ist der Name, den Interessenten sehen — er muss
+  // Bezeichnung ändern: Das ist der Name, den Interessenten sehen, er muss
   // unabhängig vom hochgeladenen Dateinamen korrigierbar sein. Pfadangaben und
   // Steuerzeichen fliegen raus, die Endung der echten Datei bleibt erhalten
   // (sonst öffnet der Browser die Datei falsch).

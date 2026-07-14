@@ -2,7 +2,7 @@
 // CLI-Voll-Reseed (DESTRUKTIV): löscht alle Fachdaten und spielt den
 // Auslieferungszustand aus seedData.js neu ein.
 //   node db/seed.js          (bzw. npm run seed)
-// Für den normalen Betrieb NICHT nötig — der Server seedet beim Start
+// Für den normalen Betrieb NICHT nötig, der Server seedet beim Start
 // idempotent (Admin-Upsert + Mandate nur, wenn die DB leer ist).
 // ─────────────────────────────────────────────────────────────────────────────
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
@@ -27,7 +27,7 @@ async function seed() {
   console.log(`   Admin:  ${ADMIN.email}  /  ${process.env.ADMIN_PASSWORD ? '(ADMIN_PASSWORD aus ENV)' : ADMIN.password}`);
   console.log('\n📁 Aktive Mandate:');
   for (const proj of PROJECTS) {
-    console.log(`   • ${proj.public.codename} — ${proj.public.deal_type} ${proj.public.investment_needed || ''}`);
+    console.log(`   • ${proj.public.codename}: ${proj.public.deal_type} ${proj.public.investment_needed || ''}`);
   }
   console.log('\n💡 Neue User müssen vom Admin freigegeben werden (is_approved = 1)');
 }

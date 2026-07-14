@@ -1,13 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Sprint 21 — CRM III: Mandats-Kampagnen, Reminder-Automatik, Projekt-Updates.
+// Sprint 21: CRM III: Mandats-Kampagnen, Reminder-Automatik, Projekt-Updates.
 //
 // Drei Bausteine:
-//   1) buildInviteMail   — professionelle Erstansprache zu einem Mandat: anonymes
+//   1) buildInviteMail  : professionelle Erstansprache zu einem Mandat: anonymes
 //                          Kurzprofil, Einwilligung (Double-Opt-in) und Pflege-Link
 //                          in EINER Mail.
-//   2) runReminders      — Nachfass nach 7 und 21 Tagen, solange keine Reaktion
+//   2) runReminders     : Nachfass nach 7 und 21 Tagen, solange keine Reaktion
 //                          vorliegt. Danach endgültig Schluss (kein Dauerfeuer).
-//   3) notifyProjectChange — Änderungen am Mandat an die aktiven Beteiligten,
+//   3) notifyProjectChange: Änderungen am Mandat an die aktiven Beteiligten,
 //                          die eingewilligt haben und noch im Prozess sind.
 //
 // DSGVO-Leitplanken (gelten überall in dieser Datei):
@@ -26,7 +26,7 @@ const DAY = 24 * 3600 * 1000;
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-// „Sehr geehrter Herr Dr. Meier," — mit sauberem Rückfall auf „Guten Tag,"
+// „Sehr geehrter Herr Dr. Meier,": mit sauberem Rückfall auf „Guten Tag,"
 function salutationFor(k) {
   const last = (k.last_name || '').trim();
   const t = (k.title || '').trim();
@@ -44,7 +44,7 @@ function signatureFor(u) {
     <span style="color:#666;">Tel. +49 9131-9 20 60 75 · <a href="mailto:${esc(u?.email || 'info@phalanx.de')}" style="color:#5B8FC9;text-decoration:none;">${esc(u?.email || 'info@phalanx.de')}</a></span>`;
 }
 
-// Rechtlicher Abbinder — Herkunft der Daten + Widerspruch
+// Rechtlicher Abbinder: Herkunft der Daten + Widerspruch
 function legalFor(profileToken) {
   const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
   const link = profileToken
@@ -52,7 +52,7 @@ function legalFor(profileToken) {
     : '';
   return `Wir schreiben Sie an, weil Sie im Rahmen unserer M&amp;A-Tätigkeit als möglicher Interessent für Transaktionen ` +
          `dieser Art geführt werden (Art. 6 Abs. 1 lit. f DSGVO). Sie können der Ansprache jederzeit und ohne Angabe von ` +
-         `Gründen widersprechen — eine formlose Antwort auf diese E-Mail genügt.${link}`;
+         `Gründen widersprechen: eine formlose Antwort auf diese E-Mail genügt.${link}`;
 }
 
 // Anonyme Eckdaten des Mandats (nichts, was das Unternehmen identifiziert)
@@ -60,8 +60,8 @@ function factsTable(p) {
   const rows = [
     ['Branche', p.industry],
     ['Region', p.region],
-    ['Umsatz', p.revenue_band && p.revenue_band !== '—' ? p.revenue_band : null],
-    ['EBITDA', p.ebitda_band && p.ebitda_band !== '—' ? p.ebitda_band : null],
+    ['Umsatz', p.revenue_band && p.revenue_band !== 'k. A.' ? p.revenue_band : null],
+    ['EBITDA', p.ebitda_band && p.ebitda_band !== 'k. A.' ? p.ebitda_band : null],
     ['Transaktionsart', p.deal_type],
   ].filter(([, v]) => v);
   if (!rows.length) return '';
@@ -79,34 +79,34 @@ function factsTable(p) {
 function buildInviteMail({ contact, project, inviter, intro, subject, inviteToken, profileToken, needsConsent }) {
   const code = esc(project.codename);
   const title = needsConsent
-    ? `${code} — vertrauliche Vorabinformation`
-    : `${code} — neues Mandat in Ihrem Suchraster`;
+    ? `${code}: vertrauliche Vorabinformation`
+    : `${code}: neues Mandat in Ihrem Suchraster`;
 
   const introHtml = intro
     ? `<p>${esc(intro).replace(/\n/g, '<br/>')}</p>`
-    : `<p>im Auftrag unseres Mandanten begleiten wir eine Transaktion, die Ihrem uns bekannten Suchprofil entspricht.
-        Wir stellen Ihnen das Vorhaben zunächst anonymisiert vor — die Identität des Unternehmens geben wir erst nach
-        Unterzeichnung einer Vertraulichkeitsvereinbarung preis.</p>`;
+    : `<p>wir begleiten im Auftrag unseres Mandanten eine Transaktion, die zu Ihrem Suchprofil passt, soweit es uns
+        bekannt ist. Vorgestellt wird das Vorhaben zunächst anonym. Wer dahintersteht, erfahren Sie, sobald eine
+        Vertraulichkeitsvereinbarung unterzeichnet ist.</p>`;
 
   const steps = `
-    <p style="margin:16px 0 6px;font-weight:700;color:#0D2A4A;font-size:13.5px;">Der weitere Weg</p>
+    <p style="margin:16px 0 6px;font-weight:700;color:#0D2A4A;font-size:13.5px;">So geht es weiter</p>
     <table style="width:100%;border-collapse:collapse;font-size:13px;color:#333;">
-      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;white-space:nowrap;">1.</td><td style="padding:3px 0;">Anonymer Teaser — unmittelbar nach Ihrer Bestätigung abrufbar</td></tr>
-      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;">2.</td><td style="padding:3px 0;">Vertraulichkeitsvereinbarung — digital gegenzeichnen, ohne Medienbruch</td></tr>
-      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;">3.</td><td style="padding:3px 0;">Information Memorandum und Datenraum — nach NDA freigeschaltet</td></tr>
+      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;white-space:nowrap;">1.</td><td style="padding:3px 0;">Anonymer Teaser, abrufbar direkt nach Ihrer Bestätigung</td></tr>
+      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;">2.</td><td style="padding:3px 0;">Vertraulichkeitsvereinbarung, digital gezeichnet, ohne Druckerei und Postweg</td></tr>
+      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;">3.</td><td style="padding:3px 0;">Information Memorandum und Datenraum, freigeschaltet nach der NDA</td></tr>
       <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;">4.</td><td style="padding:3px 0;">Management-Gespräch, indikatives Angebot, Due Diligence</td></tr>
     </table>`;
 
   const consentBlock = needsConsent ? `
     <div style="margin-top:18px;padding:12px 16px;background:#F4F8FC;border-left:3px solid #5B8FC9;font-size:12.5px;color:#44546A;line-height:1.6;">
-      <strong style="color:#0D2A4A;">Ihre Bestätigung (DSGVO):</strong> Wir legen kein Konto an und senden Ihnen keine
-      weiteren Unterlagen, solange Sie nicht ausdrücklich zustimmen. Mit dem Button bestätigen Sie Ihre Einwilligung —
-      widerrufbar jederzeit mit Wirkung für die Zukunft.
+      <strong style="color:#0D2A4A;">Ihre Bestätigung (DSGVO):</strong> Solange Sie nicht ausdrücklich zustimmen,
+      legen wir kein Konto an und schicken Ihnen keine Unterlagen. Mit dem Button erteilen Sie Ihre Einwilligung.
+      Zurücknehmen können Sie sie jederzeit, mit Wirkung für die Zukunft.
     </div>` : '';
 
   const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
   const secondary = profileToken
-    ? `<a href="${base}/profil-pflege?token=${profileToken}" style="color:#5B8FC9;">Suchprofil und Kontaktdaten prüfen</a> — damit wir Sie künftig nur mit passenden Mandaten ansprechen.`
+    ? `<a href="${base}/profil-pflege?token=${profileToken}" style="color:#5B8FC9;">Suchprofil und Kontaktdaten prüfen</a>. Dann sprechen wir Sie künftig nur zu Mandaten an, die wirklich passen.`
     : null;
 
   return {
@@ -129,17 +129,17 @@ function buildInviteMail({ contact, project, inviter, intro, subject, inviteToke
 function buildReminderMail({ contact, project, inviter, inviteToken, profileToken, needsConsent, round }) {
   const code = esc(project.codename);
   const last = round >= MAX_REMINDERS;
-  const title = last ? `${code} — abschließende Nachfrage` : `${code} — kurze Erinnerung`;
+  const title = last ? `${code}: letzte Nachfrage` : `${code}: kurze Erinnerung`;
 
   const body = last
-    ? `<p>wir hatten Ihnen vor drei Wochen das Mandat <strong>${code}</strong> vorgestellt. Da uns bislang keine
-        Rückmeldung erreicht hat, gehen wir davon aus, dass das Vorhaben derzeit nicht in Ihr Suchraster passt.</p>
-       <p>Das ist völlig in Ordnung — <strong>wir melden uns zu diesem Mandat nicht erneut.</strong> Sollte sich das
-        Bild ändern, genügt eine kurze Nachricht; der Zugang bleibt bis zum Prozessende offen.</p>`
-    : `<p>wir kommen kurz auf unsere Ansprache zum Mandat <strong>${code}</strong> zurück. Der Prozess läuft, die
-        Erstgespräche sind terminiert — ein Einstieg ist derzeit noch ohne Nachteil möglich.</p>
-       <p>Falls Sie ${needsConsent ? 'Interesse an den anonymen Eckdaten haben' : 'einen Blick auf die Unterlagen werfen möchten'},
-        genügt ein Klick. Falls nicht, freuen wir uns über eine kurze Absage — dann nehmen wir Sie aus dem Prozess heraus.</p>`;
+    ? `<p>vor drei Wochen haben wir Ihnen das Mandat <strong>${code}</strong> vorgestellt. Gehört haben wir seitdem
+        nichts. Wir lesen das als Desinteresse, und das ist völlig in Ordnung.</p>
+       <p><strong>Zu diesem Mandat melden wir uns nicht wieder.</strong> Wenn sich Ihre Einschätzung doch ändert,
+        genügt eine kurze Nachricht. Der Zugang bleibt bis zum Ende des Prozesses offen.</p>`
+    : `<p>kurz zurück zu unserer Ansprache zum Mandat <strong>${code}</strong>. Der Prozess läuft, die ersten
+        Gespräche stehen im Kalender. Wer jetzt einsteigt, verliert nichts.</p>
+       <p>Ein Klick genügt, wenn Sie ${needsConsent ? 'die anonymen Eckdaten sehen möchten' : 'einen Blick in die Unterlagen werfen möchten'}.
+        Wenn nicht, sagen Sie bitte kurz ab. Dann nehmen wir Sie aus dem Prozess und Sie haben Ruhe.</p>`;
 
   const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
   return {
@@ -168,14 +168,14 @@ function buildUpdateMail({ contact, project, inviter, changes, note, profileToke
     : '';
   return {
     to: contact.email,
-    subject: `[Vertraulich] ${code} — Aktualisierung im Prozess`,
-    title: `${code} — Aktualisierung`,
+    subject: `[Vertraulich] ${code}: Aktualisierung im Prozess`,
+    title: `${code}: Aktualisierung`,
     salutation: salutationFor(contact),
     bodyHtml: `
-      <p>Sie sind am Prozess <strong>${code}</strong> beteiligt. Es gibt eine Aktualisierung, die für Ihre Einschätzung relevant sein kann:</p>
+      <p>Sie sind am Prozess <strong>${code}</strong> beteiligt. Es hat sich etwas geändert, das Ihre Einschätzung betreffen kann:</p>
       ${note ? `<p style="background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;font-size:13.5px;color:#333;">${esc(note).replace(/\n/g, '<br/>')}</p>` : ''}
       ${list}
-      <p style="font-size:13.5px;color:#333;">Die aktualisierten Angaben stehen Ihnen auf der Plattform zur Verfügung. Bei Rückfragen erreichen Sie uns jederzeit direkt.</p>`,
+      <p style="font-size:13.5px;color:#333;">Die neuen Angaben liegen auf der Plattform für Sie bereit. Rufen Sie an, wenn etwas unklar ist.</p>`,
     ctaLabel: 'Aktualisierte Angaben ansehen',
     ctaPath: `/projekte/${project.id}`,
     signatureHtml: signatureFor(inviter),
@@ -323,7 +323,7 @@ async function notifyProjectChange(projectId, changes, { actorId = null, note = 
     INSERT INTO crm_campaigns (tenant_id, project_id, name, purpose, subject, intro, reminders_enabled, status, created_by, sent_at)
     VALUES (?, ?, ?, 'update', ?, ?, 0, 'sent', ?, now())`,
     [tenant?.tenant_id || 1, projectId, `Update ${project.codename}`,
-     `${project.codename} — Aktualisierung im Prozess`, note || (changes || []).join(' · '), actorId]);
+     `${project.codename}: Aktualisierung im Prozess`, note || (changes || []).join(' · '), actorId]);
 
   const { sendCampaignEmail } = require('./email');
   let sent = 0;
@@ -366,7 +366,7 @@ function materialChanges(before, after) {
     const a = before?.[f] == null ? '' : String(before[f]);
     const b = after?.[f] == null ? '' : String(after[f]);
     if (b && a !== b) {
-      out.push(f === 'short_description' ? `${label} überarbeitet` : `${label}: ${a || '—'} → ${b}`);
+      out.push(f === 'short_description' ? `${label} überarbeitet` : `${label}: ${a || 'k. A.'} → ${b}`);
     }
   }
   return out;

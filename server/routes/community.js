@@ -14,7 +14,7 @@ const isAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_own
 
 // Robot-/Spam-Schutz für Nachrichten: Rate-Limit + Honeypot + Zeit-/Human-Check.
 const msgLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 8, standardHeaders: true, legacyHeaders: false,
-  message: { success: false, error: 'Zu viele Nachrichten in kurzer Zeit — bitte etwas später erneut versuchen.' } });
+  message: { success: false, error: 'Zu viele Nachrichten in kurzer Zeit, bitte etwas später erneut versuchen.' } });
 // Prüft Honeypot-Feld (company_website) und die „kein Roboter"-Bestätigung.
 function robotCheck(req, res) {
   if (req.body.company_website) { res.status(400).json({ success: false, error: 'Spam erkannt.' }); return false; } // Honeypot

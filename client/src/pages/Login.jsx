@@ -30,7 +30,7 @@ export default function Login() {
   const [unverified, setUnverified] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
 
-  // Wohin nach erfolgreichem Login? (Rücksprung nur auf interne Pfade — kein Open Redirect)
+  // Wohin nach erfolgreichem Login? (Rücksprung nur auf interne Pfade, kein Open Redirect)
   const goAfterLogin = (user) => {
     if (redirect && redirect.startsWith('/')) navigate(redirect);
     else if (['super_admin', 'tenant_owner', 'advisor', 'assistant', 'analyst'].includes(user.role)) navigate('/admin');
@@ -123,12 +123,12 @@ export default function Login() {
         )}
 
         {/* Form */}
-        {/* Sprint 13 — Zweiter Faktor */}
+        {/* Sprint 13: Zweiter Faktor */}
         {challenge ? (
           <form onSubmit={submitCode}>
             <div style={{ background: '#EDF4FA', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.8rem 1rem', marginBottom: '1rem', fontSize: '0.83rem', color: '#475569', lineHeight: 1.55 }}>
               Ihr Konto ist mit <strong>Zwei-Faktor-Authentifizierung</strong> geschützt. Bitte geben Sie den
-              6-stelligen Code aus Ihrer Authenticator-App ein — oder einen Ihrer Backup-Codes.
+              6-stelligen Code aus Ihrer Authenticator-App ein, oder einen Ihrer Backup-Codes.
             </div>
             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0D1B36', marginBottom: 4 }}>
               Code

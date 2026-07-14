@@ -10,7 +10,7 @@ const INPUT = { width: '100%', padding: '0.55rem 0.75rem', border: `1px solid ${
 const LABEL = { display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#333', marginBottom: '0.3rem' };
 
 /**
- * Mandats-Pflege über den Marktplatz — für Admin, Ersteller und zugeordnete
+ * Mandats-Pflege über den Marktplatz: für Admin, Ersteller und zugeordnete
  * Projektmitglieder. Admin kann zusätzlich Status ändern und Nutzer zuordnen.
  */
 export default function ProjectEditModal({ project, onClose, onSaved }) {
@@ -134,7 +134,7 @@ export default function ProjectEditModal({ project, onClose, onSaved }) {
 
           {/* Projektbild */}
           <div style={{ marginBottom: '0.9rem' }}>
-            <label style={LABEL}>Projektbild (JPG/PNG/WebP, max. 5 MB — bitte anonymisiert wählen)</label>
+            <label style={LABEL}>Projektbild (JPG/PNG/WebP, max. 5 MB: bitte anonymisiert wählen)</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               {project.has_image === 1 && !imageFile && (
                 <img src={`/api/projects/${project.id}/image`} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, border: `1px solid ${C.border}` }} />
@@ -176,7 +176,7 @@ export default function ProjectEditModal({ project, onClose, onSaved }) {
                 <select value={newMemberId} onChange={e => setNewMemberId(e.target.value)} style={{ ...INPUT, flex: 1, background: '#fff' }}>
                   <option value="">Nutzer auswählen…</option>
                   {allUsers.filter(u => !members.some(m => m.user_id === u.id)).map(u => (
-                    <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.email}) — {u.role === 'seller' ? 'Verkäufer' : 'Investor'}</option>
+                    <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.email}): {u.role === 'seller' ? 'Verkäufer' : 'Investor'}</option>
                   ))}
                 </select>
                 <button type="button" onClick={addMember} disabled={!newMemberId} style={{ padding: '0.5rem 1rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, opacity: newMemberId ? 1 : 0.5 }}>
