@@ -93,7 +93,17 @@ exports.up = async function (knex) {
       const tenantId = await tenantOf(r.project_id);
       const cid = await contactForUser(r, tenantId);
       if (!cid) continue;
-      await upsertParty(r.project_id, cid, tenantId, FUNNEL_FROM_INTEREST[r.stage] ?? 2, 'interest', r.id);
+      let stage = FUNNEL_FROM_INTEREST[r.stage] ?? 2;
+      // Ohne unterschriebene NDA nicht über „NDA" (3) hinaus, auch wenn der Datenraum
+      // administrativ schon freigegeben wurde.
+      if (stage > 3) {
+        const nda = await knex('nda_requests')
+          .where({ user_id: r.id, project_id: r.project_id })
+          .orderBy('id', 'desc').first('signed_at', 'status').catch(() => null);
+        const signed = !!(nda && (nda.signed_at || nda.status === 'signed'));
+        if (!signed) stage = 3;
+      }
+      await upsertParty(r.project_id, cid, tenantId, stage, 'nda', r.id);
     }
   }
 

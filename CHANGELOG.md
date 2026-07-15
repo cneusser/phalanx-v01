@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.270 · 01.08.2026 · Anrede registrierter Nutzer, NDA-Stufe präzisiert
+- **Anrede auch für registrierte Nutzer**: Die bei der Registrierung erfasste Anrede (Herr/Frau/Divers) und der optionale Titel werden jetzt in Mails genutzt, „Sehr geehrter Herr Dr. Malessa," statt „Guten Tag Alexander Malessa,". Umgesetzt zentral in `resolvePerson` (`server/utils/email.js`): fehlt die Anrede am Aufruf, wird sie über die E-Mail-Adresse aus `users` nachgeschlagen. Keine der rund zwei Dutzend Aufrufstellen muss `salutation`/`title` mitliefern
+- **Korrektur zur Anrede-Aussage aus v0.268**: Registrierte Nutzer haben sehr wohl eine Anrede (Pflichtfeld bei der Registrierung); sie wurde bisher nur in den Mails nicht ausgelesen. Das ist jetzt behoben
+- **NDA-Stufe im Deal-Funnel präzisiert**: Eine freigegebene, aber noch nicht unterschriebene NDA hält den Interessenten in der Spalte „NDA" (Stufe 3). Erst die tatsächliche Unterschrift (`nda_requests.signed_at`) hebt ihn auf „IM / Unterlagen" (Stufe 4). Damit steht z. B. Herr Malessa (NDA freigegeben, nicht gezeichnet) korrekt in der NDA-Spalte. Gilt für die laufende Spiegelung und den Backfill
+- Verifiziert: `resolvePerson` liefert für registrierte Nutzer die förmliche Anrede und lässt CRM-Kontakte unverändert; dealSync-Tests um die NDA-Signatur erweitert (freigegeben → 3, unterschrieben → 4)
+
 ## v0.269 · 31.07.2026 · Interessenten aus der Plattform im Deal-Funnel
 - **Der Fehler bei Betongold**: Herr Malessa hatte die NDA-Freigabe, tauchte aber in keiner Funnel-Spalte auf. Grund: Der Funnel kannte nur CRM-Kontakte, NDA und Interesse leben in der Nutzer-Welt. Beide Welten sind jetzt verbunden
 - **Automatische Spiegelung** (`server/utils/dealSync.js`): Fordert ein Nutzer eine NDA an, zeigt Interesse oder beobachtet ein Mandat, wird zur E-Mail ein CRM-Kontakt gefunden oder angelegt und eine Partei im Funnel geführt, auf der passenden Stufe (NDA → NDA, Datenraum → IM/Unterlagen, Beobachten → Eingang). Zentrale Einbindung in `setStage`, dazu die Beobachten-Aktion

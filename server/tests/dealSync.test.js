@@ -6,9 +6,11 @@ const dbPath = require.resolve('../db/database');
 const calls = { inserts: [], updates: [] };
 let contactRow = null;   // was findet SELECT crm_contacts?
 let partyRow = null;     // was findet SELECT crm_deal_parties?
+let ndaRow = null;       // was findet SELECT nda_requests?
 
 require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
   get: async (sql) => {
+    if (/FROM nda_requests/.test(sql)) return ndaRow;
     if (/FROM users/.test(sql)) return { id: 7, email: 'A.Malessa@familytrust.de', first_name: 'Alexander', last_name: 'Malessa' };
     if (/FROM projects/.test(sql)) return { tenant_id: 1 };
     if (/FROM crm_contacts/.test(sql)) return contactRow;
@@ -37,15 +39,24 @@ ok('Beobachten landet im Eingang (Stufe 0)', planFor('watchlist').stage === 0 &&
 ok('Mailing landet auf Angesprochen (Stufe 1)', planFor('mailing').stage === 1);
 
 (async () => {
-  // 2) Kontakt fehlt, Partei fehlt → beide werden angelegt
-  contactRow = null; partyRow = null; calls.inserts = []; calls.updates = [];
+  // 2) NDA freigegeben, aber NICHT unterschrieben → bleibt auf „NDA" (Stufe 3)
+  contactRow = null; partyRow = null; ndaRow = { signed_at: null, status: 'approved' };
+  calls.inserts = []; calls.updates = [];
   await syncFromUser(7, 3, { kind: 'interest', interestStage: 'dataroom_granted' });
   const contactIns = calls.inserts.find(c => /INSERT INTO crm_contacts/.test(c.sql));
   const partyIns = calls.inserts.find(c => /INSERT INTO crm_deal_parties/.test(c.sql));
   ok('neuer CRM-Kontakt wird angelegt', !!contactIns);
   ok('Kontakt bekommt opt_in (registrierter Nutzer)', /'opt_in'/.test(contactIns.sql));
-  ok('neue Funnel-Partei wird angelegt', !!partyIns && partyIns.params.includes(4));
-  ok('Partei ist als inbound markiert', /'inbound'/.test(partyIns.sql) && partyIns.params.includes('interest'));
+  ok('freigegebene, ungezeichnete NDA bleibt Stufe 3 (NDA)', !!partyIns && partyIns.params.includes(3) && !partyIns.params.includes(4));
+  ok('Partei ist inbound mit Signal „nda"', /'inbound'/.test(partyIns.sql) && partyIns.params.includes('nda'));
+
+  // 2b) NDA unterschrieben → Stufe 4 (IM / Unterlagen)
+  contactRow = null; partyRow = null; ndaRow = { signed_at: '2026-07-15T10:00:00Z', status: 'signed' };
+  calls.inserts = [];
+  await syncFromUser(7, 3, { kind: 'interest', interestStage: 'dataroom_granted' });
+  const signedIns = calls.inserts.find(c => /INSERT INTO crm_deal_parties/.test(c.sql));
+  ok('unterschriebene NDA hebt auf Stufe 4', !!signedIns && signedIns.params.includes(4));
+  ndaRow = null;
 
   // 3) Kontakt existiert bereits (Match per E-Mail) → kein zweiter Kontakt
   contactRow = { id: 55 }; partyRow = null; calls.inserts = []; calls.updates = [];

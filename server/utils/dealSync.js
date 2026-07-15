@@ -58,7 +58,19 @@ async function syncFromUser(userId, projectId, opts = {}) {
     const contactId = await contactIdForUser(u, tenantId);
     if (!contactId) return;
 
-    const { stage, signal } = planFor(opts.kind, opts.interestStage);
+    let { stage, signal } = planFor(opts.kind, opts.interestStage);
+    // NDA-Feinabstimmung: „IM / Unterlagen" (Stufe 4) setzt eine unterschriebene NDA
+    // voraus. Ist die NDA nur freigegeben, aber noch nicht gegengezeichnet, bleibt es
+    // bei „NDA" (Stufe 3). So steht z. B. ein freigegebener, aber ungezeichneter
+    // Interessent korrekt in der NDA-Spalte.
+    if (opts.kind === 'interest' && stage >= 3) {
+      const nda = await db.get(
+        `SELECT signed_at, status FROM nda_requests WHERE user_id = ? AND project_id = ? ORDER BY id DESC LIMIT 1`,
+        [userId, projectId]).catch(() => null);
+      const signed = !!(nda && (nda.signed_at || nda.status === 'signed'));
+      if (!signed && stage > 3) stage = 3;
+      signal = 'nda';
+    }
     const existing = await db.get(
       'SELECT id, funnel_stage, party_status, source FROM crm_deal_parties WHERE project_id = ? AND contact_id = ?',
       [projectId, contactId]).catch(() => null);
