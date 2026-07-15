@@ -19,8 +19,8 @@ export default function LeadIngestModal({ deals = [], activeProjectId, onClose, 
     setBusy(true);
     try {
       const r = await api.post('/crm/leads/parse', { text });
-      setLead(r.data.lead);
-      if (r.data.matchedProject) { setMatched(r.data.matchedProject); setProjectId(r.data.matchedProject.id); }
+      setLead(r.lead);
+      if (r.matchedProject) { setMatched(r.matchedProject); setProjectId(r.matchedProject.id); }
     } catch (e) { show && show('Konnte die Anfrage nicht lesen: ' + e.message); }
     finally { setBusy(false); }
   };
@@ -31,8 +31,8 @@ export default function LeadIngestModal({ deals = [], activeProjectId, onClose, 
     setBusy(true);
     try {
       const r = await api.post('/crm/leads/ingest', { lead, project_id: projectId || null });
-      show && show(r.data.created ? 'Neuer Kontakt angelegt und in den Funnel gestellt.' : 'Kontakt aktualisiert und zugeordnet.');
-      onDone && onDone(r.data);
+      show && show(r.created ? 'Neuer Kontakt angelegt und in den Funnel gestellt.' : 'Kontakt aktualisiert und zugeordnet.');
+      onDone && onDone(r);
       onClose();
     } catch (e) { show && show('Übernahme fehlgeschlagen: ' + e.message); }
     finally { setBusy(false); }
