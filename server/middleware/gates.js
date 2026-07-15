@@ -66,6 +66,16 @@ async function setStage(userId, projectId, stage, actorId, ip) {
   if (stage !== 'rejected') {
     require('../utils/notify').autoFollow(userId, projectId).catch(() => {});
   }
+  // v0.269: dieselbe zentrale Stelle spiegelt den Interessenten in den Deal-Funnel.
+  // Bei 'rejected' die Partei auf 'dropped' setzen statt neu anzulegen.
+  if (stage === 'rejected') {
+    db.run(`UPDATE crm_deal_parties dp SET party_status = 'dropped'
+              FROM crm_contacts k, users u
+             WHERE dp.project_id = ? AND dp.contact_id = k.id
+               AND u.id = ? AND lower(k.email) = lower(u.email)`, [projectId, userId]).catch(() => {});
+  } else {
+    require('../utils/dealSync').syncFromUser(userId, projectId, { kind: 'interest', interestStage: stage, actorId }).catch(() => {});
+  }
   db.activityLog(actorId, `INTEREST_STAGE_${stage.toUpperCase()}`, 'interest', projectId, ip);
 }
 

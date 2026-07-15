@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.269 · 31.07.2026 · Interessenten aus der Plattform im Deal-Funnel
+- **Der Fehler bei Betongold**: Herr Malessa hatte die NDA-Freigabe, tauchte aber in keiner Funnel-Spalte auf. Grund: Der Funnel kannte nur CRM-Kontakte, NDA und Interesse leben in der Nutzer-Welt. Beide Welten sind jetzt verbunden
+- **Automatische Spiegelung** (`server/utils/dealSync.js`): Fordert ein Nutzer eine NDA an, zeigt Interesse oder beobachtet ein Mandat, wird zur E-Mail ein CRM-Kontakt gefunden oder angelegt und eine Partei im Funnel geführt, auf der passenden Stufe (NDA → NDA, Datenraum → IM/Unterlagen, Beobachten → Eingang). Zentrale Einbindung in `setStage`, dazu die Beobachten-Aktion
+- **Neue Spalte „Eingang"** ganz vorne im Deal-Funnel: sammelt frische Inbound-Leads (Beobachter, Favoriten), bevor sie aktiv bearbeitet werden. Karten aus der Plattform tragen die Markierung „Eingang" mit dem Signal (NDA, Interesse, beobachtet)
+- **Nur hochstufen, nie zurück**: Eine bestehende Partei wird höchstens auf eine höhere Stufe gehoben; eine aus der Ansprache stammende Partei behält ihre Herkunft; ein Ausstieg (`rejected`) setzt sie auf „ausgestiegen"
+- **Backfill**: Bestehende Interessenten und Beobachter wurden nachgetragen, damit niemand fehlt
+- Verifiziert: 11 Tests (`server/tests/dealSync.test.js`) für Stufen-Mapping, Kontakt-Anlage, Wiederverwendung und Update-statt-Doppelanlage; Build sauber
+
 ## v0.268 · 30.07.2026 · Anrede per Sie, Mandat im Mail-Ausgang
 - **Förmliche Anrede in allen Mails** (`greetingLine` in `server/utils/email.js`): Ist eine Anrede hinterlegt, wird sie mit Titel und Nachnamen verwendet (`Sehr geehrter Herr Dr. Meier,`), sonst `Guten Tag Vorname Nachname,`. Immer per Sie. Das bisherige `Hallo Alexander` in Prozess- und Systemmails ist damit weg. Die CRM-Kampagnenmails nutzten die Regel schon; jetzt gilt sie auch für Registrierung, Freischaltung, Passwort, NDA-, Q&A-, Datenraum- und Newsletter-Mails
 - **Hinweis zur Datenlage**: Registrierte Nutzer haben in der Datenbank keine Anrede/keinen Titel, deshalb greift bei ihnen `Guten Tag Vorname Nachname,`. CRM-Kontakte haben Anrede und Titel und werden voll förmlich angesprochen

@@ -37,6 +37,8 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | · | Mehrsprachigkeit DE/EN | ▶ Fundament fertig (Umschalter, i18n-Kontext, Navigation); Seiten werden schrittweise übersetzt |
 | 24 | **CRM VI: Ausbaustufen** (Anreicherung, Käufer-Matching, E-Signatur, Datenraum, Mobile, Portal) | geplant |
 | · | Sprache: menschliche Texte, kein Gedankenstrich, Textwächter im Build (v0.267) | ✅ fertig |
+| · | Anrede per Sie in allen Mails; Mandat-Spalte im Mail-Ausgang (v0.268) | ✅ fertig |
+| · | Inbound-Leads (NDA, Interesse, Beobachten) automatisch im Deal-Funnel, Spalte „Eingang" (v0.269) | ✅ fertig |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →

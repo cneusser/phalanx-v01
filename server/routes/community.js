@@ -184,6 +184,8 @@ router.post('/watchlist', authenticate, wrap(async (req, res) => {
   await scoped(req, (t) => t.run(`INSERT INTO watchlist (tenant_id, user_id, project_id) VALUES (?, ?, ?)`, [req.tenantId || 1, req.user.id, pid]));
   db.activityLog(req.user.id, 'WATCHLIST_ADD', 'project', pid, req.ip);
   require('../utils/xp').award(req.user.id, 'WATCHLIST_ADD', { refType: 'project', refId: pid }).catch(() => {});
+  // v0.269: Beobachter erscheint als Inbound-Lead im Funnel („Eingang").
+  require('../utils/dealSync').syncFromUser(req.user.id, pid, { kind: 'watchlist' }).catch(() => {});
   res.status(201).json({ success: true, data: { watched: true } });
 }));
 

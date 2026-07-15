@@ -8,6 +8,8 @@ const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', 
 const SELECT = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
 
 const ROLE_LABEL = { buyer: 'Käufer', advisor: 'Berater', seller: 'Verkäufer', bank: 'Bank', lawyer: 'Anwalt', target: 'Ziel', other: 'Sonstige' };
+// v0.269: Herkunft eines Inbound-Leads (aus der Plattform) für die „Eingang"-Markierung
+const INBOUND_LABEL = { nda: 'NDA', interest: 'Interesse', watchlist: 'beobachtet', mailing: 'Mailing', inbound: 'Eingang' };
 const STATUS_STYLE = {
   active: { label: 'aktiv', bg: '#d1fae5', color: '#065f46' },
   open: { label: 'offen', bg: '#f1f5f9', color: '#475569' },
@@ -106,13 +108,23 @@ export default function DealFunnelBoard({ show }) {
   const parties = (board?.parties || []).filter(p => hideDropped ? p.party_status !== 'dropped' : true);
   const deal = deals.find(d => d.id === active);
 
+  // v0.269: „Eingang" ganz vorne. Dorthin kommen frische Inbound-Leads (Beobachter,
+  // Favoriten), die noch nicht aktiv bearbeitet wurden (Stufe 0). NDA-/Interesse-Leads
+  // haben eine höhere Stufe und stehen in ihrer regulären Spalte.
+  const inboxCards = parties.filter(p => p.source === 'inbound' && (p.funnel_stage || 0) === 0);
+  const inboxIds = new Set(inboxCards.map(p => p.id));
+  const lanes = inboxCards.length ? [{ key: 'inbox', label: 'Eingang', inbox: true }, ...stages] : stages;
+  const cardsForLane = (lane) => lane.inbox
+    ? inboxCards
+    : parties.filter(p => p.funnel_stage === lane.key && !inboxIds.has(p.id));
+
   // „Alle auswählen": Kontakte mit Widerspruch werden gar nicht erst angehakt.
   const selectable = parties.filter(p => p.contact_id
     && p.consent_status !== 'opt_out' && p.contact_status !== 'do_not_contact').map(p => p.contact_id);
   const allSelected = selectable.length > 0 && selectable.every(id => selected.includes(id));
   const toggleAll = () => setSelected(allSelected ? [] : selectable);
-  const toggleColumn = (stageKey) => {
-    const ids = parties.filter(p => p.funnel_stage === stageKey && selectable.includes(p.contact_id)).map(p => p.contact_id);
+  // Auswahl über eine konkrete Kontaktliste (funktioniert für Stufen und „Eingang")
+  const toggleIds = (ids) => {
     if (!ids.length) return;
     const on = ids.every(id => selected.includes(id));
     setSelected(s => on ? s.filter(x => !ids.includes(x)) : [...new Set([...s, ...ids])]);
@@ -292,17 +304,18 @@ export default function DealFunnelBoard({ show }) {
 
           {/* Kanban */}
           <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-            {stages.map(s => {
-              const cards = parties.filter(p => p.funnel_stage === s.key);
+            {lanes.map(s => {
+              const cards = cardsForLane(s);
+              const dropStage = s.inbox ? 0 : s.key;   // Drop in „Eingang" = Stufe 0
               return (
                 <div
                   key={s.key}
                   onDragOver={(e) => { e.preventDefault(); setOverStage(s.key); }}
                   onDragLeave={() => setOverStage(null)}
-                  onDrop={() => { if (drag) moveTo(drag, s.key); setDrag(null); setOverStage(null); }}
+                  onDrop={() => { if (drag) moveTo(drag, dropStage); setDrag(null); setOverStage(null); }}
                   style={{
-                    minWidth: 210, flex: '1 0 210px', background: overStage === s.key ? '#EEF4FB' : C.bg,
-                    border: `1px solid ${overStage === s.key ? C.accent : C.border}`, borderRadius: 10, padding: '0.6rem',
+                    minWidth: 210, flex: '1 0 210px', background: overStage === s.key ? '#EEF4FB' : (s.inbox ? '#FFFBEB' : C.bg),
+                    border: `1px solid ${overStage === s.key ? C.accent : (s.inbox ? '#fcd34d' : C.border)}`, borderRadius: 10, padding: '0.6rem',
                   }}>
                   {(() => {
                     const colIds = cards.filter(p => selectable.includes(p.contact_id)).map(p => p.contact_id);
@@ -325,7 +338,7 @@ export default function DealFunnelBoard({ show }) {
                               type="checkbox"
                               checked={colAll}
                               ref={el => { if (el) el.indeterminate = colSel > 0 && !colAll; }}
-                              onChange={() => toggleColumn(s.key)}
+                              onChange={() => toggleIds(colIds)}
                               style={{ margin: 0 }}
                             />
                             {colSel ? `${colSel}/${colIds.length} ausgewählt` : `Stufe auswählen (${colIds.length})`}
@@ -379,6 +392,12 @@ export default function DealFunnelBoard({ show }) {
                         <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4, alignItems: 'center' }}>
                           <span style={{ background: st.bg, color: st.color, padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.6rem', fontWeight: 700 }}>{st.label}</span>
                           <span style={{ fontSize: '0.6rem', color: C.muted }}>{ROLE_LABEL[p.party_role] || p.party_role}</span>
+                          {p.source === 'inbound' && (
+                            <span title={`Aus der Plattform: ${INBOUND_LABEL[p.inbound_signal] || 'Eingang'}`}
+                              style={{ background: '#FEF3C7', color: '#92400e', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 700 }}>
+                              Eingang{p.inbound_signal && INBOUND_LABEL[p.inbound_signal] ? ` · ${INBOUND_LABEL[p.inbound_signal]}` : ''}
+                            </span>
+                          )}
                           {p.consent_status === 'opt_in' && <ShieldCheck size={11} color="#059669" title="Einwilligung erteilt" />}
                           {(p.consent_status === 'opt_out' || p.contact_status === 'do_not_contact') && <ShieldOff size={11} color="#dc2626" title="Widerspruch, nicht kontaktieren" />}
                           {invited && <Mail size={11} color={C.accent} title={`Einladung: ${p.invite_status}`} />}
