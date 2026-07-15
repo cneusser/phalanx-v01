@@ -703,101 +703,47 @@ router.get('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
 //   POST /leads/parse    zerlegt den eingefügten Text, ordnet ein Mandat zu (Vorschau)
 //   POST /leads/ingest   legt Kontakt an/aktualisiert, hängt ihn in den Funnel
 const { parseLead } = require('../utils/leadParser');
+const { findProjectByHint, ingestLead } = require('../utils/leadIngest');
 
-// Mandat aus dem Codename-Hinweis der Anfrage finden (ilike, nur eigene Mandate)
-async function matchProjectByHint(req, hint) {
-  if (!hint) return null;
-  const like = `%${String(hint).toLowerCase()}%`;
-  return scoped(req, (t) => t.get(
-    `SELECT id, codename FROM projects WHERE lower(codename) LIKE ? ORDER BY id DESC LIMIT 1`, [like])).catch(() => null);
-}
+// DB-Handle, das an den Mandanten des Requests gebunden ist
+const qFor = (req) => ({
+  get: (s, p) => scoped(req, (t) => t.get(s, p)),
+  all: (s, p) => scoped(req, (t) => t.all(s, p)),
+  run: (s, p) => scoped(req, (t) => t.run(s, p)),
+  insert: (s, p) => scoped(req, (t) => t.insert(s, p)),
+});
 
 router.post('/leads/parse', ...isStaff, wrap(async (req, res) => {
   const text = String(req.body.text || '');
   if (text.trim().length < 20) return res.status(400).json({ success: false, error: 'Bitte fügen Sie die vollständige Anfrage-E-Mail ein.' });
   const lead = parseLead(text);
-  const project = await matchProjectByHint(req, lead.projectHint);
+  const project = await findProjectByHint(qFor(req), lead.projectHint);
   res.json({ success: true, data: { lead, matchedProject: project || null } });
 }));
 
 router.post('/leads/ingest', ...isStaff, canWrite, wrap(async (req, res) => {
-  const tenant = req.tenantId || 1;
   // Der Admin darf die geparsten Felder vor dem Speichern korrigiert haben.
   const lead = req.body.lead && req.body.lead.contact ? req.body.lead : parseLead(String(req.body.text || ''));
-  const c = lead.contact || {};
-  if (!c.last_name && !c.email) return res.status(400).json({ success: false, error: 'Ohne Name oder E-Mail lässt sich kein Kontakt anlegen.' });
-
-  // Mandat: explizit gewählt oder aus dem Hinweis
-  let projectId = Number(req.body.project_id) || null;
-  if (!projectId) { const p = await matchProjectByHint(req, lead.projectHint); projectId = p ? p.id : null; }
-
-  const leadSource = lead.sourceLabel || 'Unternehmens-Marktplatz';
-  const leadRef = [lead.inserat ? `Inserat ${lead.inserat}` : '', lead.ref && lead.ref !== lead.inserat ? `Referenz ${lead.ref}` : '']
-    .filter(Boolean).join(', ');
-
-  // Kontakt: per E-Mail wiederverwenden, sonst neu. Herkunft immer festhalten.
-  let contact = c.email
-    ? await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE lower(email) = lower(?) LIMIT 1', [c.email]))
-    : null;
-  let contactId, created = false;
-  if (contact) {
-    contactId = contact.id;
-    await scoped(req, (t) => t.run(
-      `UPDATE crm_contacts SET
-         phone = COALESCE(NULLIF(?, ''), phone), location = COALESCE(NULLIF(?, ''), location),
-         lead_source = ?, lead_ref = ?, source = COALESCE(source, 'inbound')
-       WHERE id = ?`,
-      [c.phone || '', c.location || '', leadSource, leadRef, contactId]));
-  } else {
-    contactId = await scoped(req, (t) => t.insert(
-      `INSERT INTO crm_contacts (tenant_id, salutation, title, first_name, last_name, email, phone, location,
-                                 source, lead_source, lead_ref, consent_status, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'inbound', ?, ?, 'unknown', ?)`,
-      [tenant, c.salutation || null, c.title || null, c.first_name || '', c.last_name || (c.email || '').split('@')[0],
-       c.email || null, c.phone || null, c.location || null, leadSource, leadRef, req.user.id]));
-    created = true;
-  }
-
-  // Firma optional anlegen und verknüpfen (ohne Dublette bei der Verknüpfung)
-  if (c.company) {
-    const comp = await scoped(req, (t) => t.get('SELECT id FROM crm_companies WHERE lower(name) = lower(?) LIMIT 1', [c.company]))
-      || { id: await scoped(req, (t) => t.insert('INSERT INTO crm_companies (tenant_id, name, created_by) VALUES (?, ?, ?)', [tenant, c.company, req.user.id])) };
-    const linked = await scoped(req, (t) => t.get(
-      'SELECT id FROM crm_company_contacts WHERE company_id = ? AND contact_id = ? LIMIT 1', [comp.id, contactId])).catch(() => null);
-    if (!linked) {
-      await scoped(req, (t) => t.run(
-        'INSERT INTO crm_company_contacts (tenant_id, company_id, contact_id) VALUES (?, ?, ?)', [tenant, comp.id, contactId])).catch(() => {});
+  try {
+    const q = qFor(req);
+    const result = await ingestLead(q, {
+      tenant: req.tenantId || 1, lead,
+      projectId: Number(req.body.project_id) || null,
+      actorId: req.user.id, auditLog: db.auditLog,
+    });
+    // Direkt ansprechen (optional): nur wenn der Nutzer das Recht zum Mailversand
+    // hat und ein Mandat zugeordnet ist.
+    let approach = null;
+    if (req.body.auto_approach && result.project_id && can(req.user, 'mail.send')) {
+      approach = await require('../utils/outreach').sendFirstApproach(q, {
+        tenant: req.tenantId || 1, contactId: result.contact_id, projectId: result.project_id,
+        actorId: req.user.id, inviter: req.user,
+      });
     }
+    res.status(201).json({ success: true, data: { ...result, approach } });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
   }
-
-  // In den Funnel: aktiver Inbound-Lead. Eine Kaufanfrage ist eine echte Rückmeldung
-  // (Stufe 2), nicht bloß ein Beobachter. Vorhandene höhere Stufe bleibt erhalten.
-  let party = null;
-  if (projectId) {
-    const existing = await scoped(req, (t) => t.get(
-      'SELECT id, funnel_stage FROM crm_deal_parties WHERE project_id = ? AND contact_id = ?', [projectId, contactId]));
-    if (existing) {
-      await scoped(req, (t) => t.run(
-        `UPDATE crm_deal_parties SET funnel_stage = GREATEST(funnel_stage, 2), party_status = 'active',
-           source = CASE WHEN source = 'outreach' THEN source ELSE 'inbound' END,
-           inbound_signal = 'marketplace', inbound_at = now() WHERE id = ?`, [existing.id]));
-      party = existing.id;
-    } else {
-      party = await scoped(req, (t) => t.insert(
-        `INSERT INTO crm_deal_parties (tenant_id, project_id, contact_id, party_role, funnel_stage, party_status,
-                                       source, inbound_signal, inbound_at, created_by)
-         VALUES (?, ?, ?, 'buyer', 2, 'active', 'inbound', 'marketplace', now(), ?)`,
-        [tenant, projectId, contactId, req.user.id]));
-    }
-  }
-
-  db.auditLog(req.user.id, 'CRM_LEAD_INGEST', 'crm_contact', contactId,
-    `${leadSource}${leadRef ? ' · ' + leadRef : ''}${projectId ? ' · Mandat #' + projectId : ' · ohne Mandat'}`, req.ip);
-
-  res.status(201).json({ success: true, data: {
-    contact_id: contactId, created, project_id: projectId, party_id: party,
-    lead_source: leadSource, lead_ref: leadRef,
-  } });
 }));
 
 router.post('/deals/:projectId/parties', ...isStaff, canWrite, wrap(async (req, res) => {

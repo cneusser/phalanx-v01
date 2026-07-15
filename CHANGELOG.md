@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.272 · 02.08.2026 · Anfragen weiterleiten und automatisch ansprechen
+- **Weiterleiten per E-Mail (Brevo Inbound)**: Neben Copy-and-paste lassen sich Anfragen jetzt an eine Brevo-Eingangsadresse weiterleiten. Der Webhook `POST /api/inbound/lead` (abgesichert über `INBOUND_SECRET`) parst die Mail (`items[]`, `RawTextBody`) und legt den Lead an. Die Ingest-Logik liegt gemeinsam in `server/utils/leadIngest.js`, Copy-and-paste und Weiterleitung nutzen denselben Weg
+- **Direkt ansprechen**: Im Übernahme-Dialog gibt es die Option „Direkt ansprechen". Ist sie gesetzt und ein Mandat zugeordnet, geht die Erstansprache sofort raus, mit Einwilligung (Double-Opt-in), Pflege-Link und Herkunftshinweis. Die 7/21-Tage-Reminder greifen automatisch, weil eine wiederverwendbare Kampagne je Mandat geführt wird (`server/utils/outreach.js`)
+- **Automatik beim Weiterleiten**: `INBOUND_AUTO_OUTREACH=1` lässt die Erstansprache beim Webhook-Weg automatisch erfolgen
+- **Beim Hochladen**: Neue Unterlagen benachrichtigen weiterhin automatisch die berechtigten, eingewilligten Interessenten (bestehende Funktion, hier dokumentiert)
+- **Body-Limit** auf 8 MB erhöht, damit weitergeleitete Mails nicht abgewiesen werden
+- Verifiziert: gemeinsame Ingest-Logik mit 6 Tests (Mandat-Treffer, Anlegen, Update, Stufe „Rückmeldung"); Parser-Tests grün; Build sauber
+
 ## v0.271 · 01.08.2026 · Kaufanfragen aus Marktplätzen einlesen
 - **Anfrage einfügen**: Neuer Knopf im Deal-Funnel. Die komplette Anfrage-E-Mail eines Portals (DUB.de, nexxt-change u. a.) wird eingefügt, der Parser (`server/utils/leadParser.js`) erkennt Quelle, Name, Titel, E-Mail, Telefon, Firma, Adresse, Investortyp, Inseratsnummer und den Mandats-Hinweis
 - **Vorschau vor dem Anlegen**: Alle erkannten Felder sind editierbar; das Mandat wird über den Codename in der Referenz automatisch zugeordnet (z. B. „5381 Betongold" → Betongold), lässt sich aber überschreiben

@@ -35,8 +35,10 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50, ...limiterJso
 app.use('/api/', limiter);
 app.use('/api/auth/', authLimiter);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Limit erhöht: weitergeleitete Mails (Brevo Inbound) und Kampagnen-HTML können
+// größer als die Express-Standardgrenze von 100 kB sein.
+app.use(express.json({ limit: '8mb' }));
+app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 
 // Sprint 5: Tenant über Subdomain auflösen (Fallback: Default-Tenant)
 app.use(require('./middleware/tenant').resolveTenant);

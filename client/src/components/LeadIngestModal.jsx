@@ -13,6 +13,7 @@ export default function LeadIngestModal({ deals = [], activeProjectId, onClose, 
   const [lead, setLead] = useState(null);
   const [projectId, setProjectId] = useState(activeProjectId || '');
   const [matched, setMatched] = useState(null);
+  const [autoApproach, setAutoApproach] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const parse = async () => {
@@ -30,8 +31,10 @@ export default function LeadIngestModal({ deals = [], activeProjectId, onClose, 
   const ingest = async () => {
     setBusy(true);
     try {
-      const r = await api.post('/crm/leads/ingest', { lead, project_id: projectId || null });
-      show && show(r.created ? 'Neuer Kontakt angelegt und in den Funnel gestellt.' : 'Kontakt aktualisiert und zugeordnet.');
+      const r = await api.post('/crm/leads/ingest', { lead, project_id: projectId || null, auto_approach: autoApproach });
+      const base = r.created ? 'Neuer Kontakt angelegt und in den Funnel gestellt.' : 'Kontakt aktualisiert und zugeordnet.';
+      const sent = r.approach && r.approach.sent;
+      show && show(sent ? base + ' Erstansprache versendet.' : (autoApproach && !r.project_id ? base + ' (Ohne Mandat keine Ansprache.)' : base));
       onDone && onDone(r);
       onClose();
     } catch (e) { show && show('Übernahme fehlgeschlagen: ' + e.message); }
@@ -97,7 +100,12 @@ export default function LeadIngestModal({ deals = [], activeProjectId, onClose, 
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, fontSize: '0.82rem', color: C.text, cursor: 'pointer' }}>
+                <input type="checkbox" checked={autoApproach} onChange={e => setAutoApproach(e.target.checked)} />
+                <span>Direkt ansprechen: Erstansprache (mit Einwilligung und Herkunftshinweis) sofort senden{!projectId ? ' (benötigt ein Mandat)' : ''}</span>
+              </label>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14 }}>
                 <button onClick={() => setLead(null)} style={{ background: '#fff', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 1rem', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>Zurück</button>
                 <button onClick={ingest} disabled={busy || (!c.last_name && !c.email)} style={{
                   background: (!c.last_name && !c.email) ? '#cbd5e1' : C.navy, color: '#fff', border: 'none', borderRadius: 8,
