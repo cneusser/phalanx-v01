@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.273 · 03.08.2026 · Anfragen per Einfügen: der Standardweg
+- **Copy-and-paste ist der Standardweg**: Marktplatz-Anfragen werden direkt in der Plattform eingefügt, ohne Zusatztarif bei einem Maildienst. Der Dialog weist jetzt darauf hin
+- **Weiterleitung zurückgestellt**: Die Brevo-Inbound-Weiterleitung setzt bei Brevo den Professional-Tarif voraus und ist vorerst nicht aktiv. Der Webhook (`/api/inbound/lead`) bleibt im Code und ist einsatzbereit, sobald der Tarif vorliegt, es entstehen keine Kosten, solange er ungenutzt ist
+- **Klarstellung**: Das Versenden der Ansprache-Mails läuft über die Transactional-Funktion und funktioniert unabhängig vom Inbound-Tarif
+
 ## v0.272 · 02.08.2026 · Anfragen weiterleiten und automatisch ansprechen
 - **Weiterleiten per E-Mail (Brevo Inbound)**: Neben Copy-and-paste lassen sich Anfragen jetzt an eine Brevo-Eingangsadresse weiterleiten. Der Webhook `POST /api/inbound/lead` (abgesichert über `INBOUND_SECRET`) parst die Mail (`items[]`, `RawTextBody`) und legt den Lead an. Die Ingest-Logik liegt gemeinsam in `server/utils/leadIngest.js`, Copy-and-paste und Weiterleitung nutzen denselben Weg
 - **Direkt ansprechen**: Im Übernahme-Dialog gibt es die Option „Direkt ansprechen". Ist sie gesetzt und ein Mandat zugeordnet, geht die Erstansprache sofort raus, mit Einwilligung (Double-Opt-in), Pflege-Link und Herkunftshinweis. Die 7/21-Tage-Reminder greifen automatisch, weil eine wiederverwendbare Kampagne je Mandat geführt wird (`server/utils/outreach.js`)

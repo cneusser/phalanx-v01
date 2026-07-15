@@ -58,6 +58,7 @@ export default function LeadIngestModal({ deals = [], activeProjectId, onClose, 
             <>
               <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: 8, lineHeight: 1.5 }}>
                 Fügen Sie die komplette Anfrage-E-Mail ein (z. B. von DUB.de). Name, Kontaktdaten, Inseratsnummer und das Mandat werden automatisch erkannt.
+                Das läuft direkt hier in der Plattform, ohne Zusatztarif bei einem Maildienst.
               </div>
               <textarea
                 value={text} onChange={e => setText(e.target.value)} rows={12}
