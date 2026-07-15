@@ -82,6 +82,13 @@ function buildInviteMail({ contact, project, inviter, intro, subject, inviteToke
     ? `${code}: vertrauliche Vorabinformation`
     : `${code}: neues Mandat in Ihrem Suchraster`;
 
+  // Herkunft: Kam der Kontakt über einen Marktplatz (DUB.de u. a.) zu uns, sagen
+  // wir das gleich zu Beginn, damit klar ist, warum und woher wir schreiben.
+  const provenanceHtml = contact.lead_source
+    ? `<p>Sie haben über <strong>${esc(contact.lead_source)}</strong>${contact.lead_ref ? ` (${esc(contact.lead_ref)})` : ''}
+        Interesse an einer Transaktion bekundet. Genau dazu melden wir uns.</p>`
+    : '';
+
   const introHtml = intro
     ? `<p>${esc(intro).replace(/\n/g, '<br/>')}</p>`
     : `<p>wir begleiten im Auftrag unseres Mandanten eine Transaktion, die zu Ihrem Suchprofil passt, soweit es uns
@@ -114,7 +121,7 @@ function buildInviteMail({ contact, project, inviter, intro, subject, inviteToke
     subject: subject || `[Vertraulich] ${title}`,
     title,
     salutation: salutationFor(contact),
-    bodyHtml: `${introHtml}${factsTable(project)}
+    bodyHtml: `${provenanceHtml}${introHtml}${factsTable(project)}
       ${project.short_description ? `<p style="font-size:13.5px;color:#333;">${esc(project.short_description)}</p>` : ''}
       ${steps}${consentBlock}`,
     ctaLabel: needsConsent ? 'Einwilligung bestätigen und Kurzprofil ansehen' : 'Mandat ansehen',

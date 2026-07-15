@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
-import { Star, AlertTriangle, Mail, ShieldCheck, ShieldOff, Send, CheckSquare, Square, BellRing, Megaphone, FileText } from 'lucide-react';
+import { Star, AlertTriangle, Mail, ShieldCheck, ShieldOff, Send, CheckSquare, Square, BellRing, Megaphone, FileText, Inbox } from 'lucide-react';
 import ContactDrawer from './ContactDrawer';
 import TemplateSendModal from './TemplateSendModal';
+import LeadIngestModal from './LeadIngestModal';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const SELECT = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
@@ -32,6 +33,7 @@ export default function DealFunnelBoard({ show }) {
   const [camps, setCamps] = useState([]);               // versendete Kampagnen
   const [openContact, setOpenContact] = useState(null); // Kontakt-360°-Ansicht
   const [tplSend, setTplSend] = useState(false);        // Prozess-Mailvorlage versenden
+  const [leadIngest, setLeadIngest] = useState(false);  // Marktplatz-Anfrage einfügen
   // Kontakt direkt zum Mandat hinzufügen
   const [allContacts, setAllContacts] = useState([]);
   const [addContact, setAddContact] = useState('');
@@ -219,6 +221,13 @@ export default function DealFunnelBoard({ show }) {
         </div>
 
         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setLeadIngest(true)} title="Kaufanfrage aus einem Marktplatz (DUB.de u. a.) einfügen" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: C.navy,
+            border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem',
+            fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+          }}>
+            <Inbox size={14} /> Anfrage einfügen
+          </button>
           {active && (
             <button onClick={() => setUpdateMail(true)} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: C.navy,
@@ -468,6 +477,16 @@ export default function DealFunnelBoard({ show }) {
           contactId={openContact}
           onClose={() => setOpenContact(null)}
           onChanged={loadBoard}
+          show={show}
+        />
+      )}
+
+      {leadIngest && (
+        <LeadIngestModal
+          deals={deals}
+          activeProjectId={active || ''}
+          onClose={() => setLeadIngest(false)}
+          onDone={() => loadBoard()}
           show={show}
         />
       )}

@@ -24,7 +24,15 @@ const PLACEHOLDERS = [
   ['{{berater_mail}}', 'Ihre E-Mail-Adresse'],
   ['{{frist}}', 'Frist / Datum: vor dem Versand eingebbar'],
   ['{{datum}}', 'Heutiges Datum'],
+  ['{{herkunft}}', 'Woher der Kontakt stammt, z. B. „über die Deutsche Unternehmerbörse (DUB.de), Inserat 17392" (leer, wenn unbekannt)'],
 ];
+
+// Fertiger Herkunftssatz für die Ansprache eines eingelesenen Marktplatz-Leads.
+function herkunftSatz(contact = {}) {
+  if (!contact.lead_source) return '';
+  const ref = contact.lead_ref ? ` (${contact.lead_ref})` : '';
+  return `Ihre Anfrage haben wir über ${contact.lead_source}${ref} erhalten.`;
+}
 
 const CTA_TARGETS = ['project', 'consent', 'profile', 'none'];
 
@@ -47,6 +55,7 @@ function buildContext({ contact = {}, project = {}, inviter = {}, frist = '' }) 
     berater_tel: '+49 9131-9 20 60 75',
     frist: frist || 'k. A.',
     datum: d.toLocaleDateString('de-DE'),
+    herkunft: herkunftSatz(contact),
   };
 }
 
@@ -82,12 +91,18 @@ function buildFromTemplate({ template, contact, project, inviter, inviteToken, p
   const target = CTA_TARGETS.includes(template.cta_target) ? template.cta_target : 'project';
   const ctaPath = target === 'none' ? null : ctaPathFor(target, { project, inviteToken, profileToken });
 
+  // Herkunft automatisch voranstellen, wenn der Kontakt aus einem Marktplatz kam
+  // und die Vorlage sie nicht selbst über {{herkunft}} platziert.
+  const provenance = ctx.herkunft && !/\{\{\s*herkunft\s*\}\}/i.test(overrideBody || template.body)
+    ? `<p style="font-size:13.5px;line-height:1.65;color:#333;">${ctx.herkunft}</p>`
+    : '';
+
   return {
     to: contact.email,
     subject,
     title: render(template.name, ctx),
     salutation: ctx.anrede,
-    bodyHtml: bodyToHtml(bodyText) + (withFacts ? factsTable(project) : ''),
+    bodyHtml: provenance + bodyToHtml(bodyText) + (withFacts ? factsTable(project) : ''),
     ctaLabel: ctaPath ? (render(template.cta_label, ctx) || 'Mandat ansehen') : null,
     ctaPath,
     signatureHtml: signatureFor(inviter),

@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.271 · 01.08.2026 · Kaufanfragen aus Marktplätzen einlesen
+- **Anfrage einfügen**: Neuer Knopf im Deal-Funnel. Die komplette Anfrage-E-Mail eines Portals (DUB.de, nexxt-change u. a.) wird eingefügt, der Parser (`server/utils/leadParser.js`) erkennt Quelle, Name, Titel, E-Mail, Telefon, Firma, Adresse, Investortyp, Inseratsnummer und den Mandats-Hinweis
+- **Vorschau vor dem Anlegen**: Alle erkannten Felder sind editierbar; das Mandat wird über den Codename in der Referenz automatisch zugeordnet (z. B. „5381 Betongold" → Betongold), lässt sich aber überschreiben
+- **Übernahme**: Kontakt wird per E-Mail wiederverwendet oder neu angelegt, die Firma verknüpft, und als aktiver Inbound-Lead in die Funnel-Stufe „Rückmeldung" gestellt (`source=inbound`, Signal `marketplace`)
+- **Herkunft in der Ansprache**: Portal und Inseratsnummer werden am Kontakt gespeichert (`lead_source`, `lead_ref`). Die Erstansprache nennt sie automatisch („Sie haben über die Deutsche Unternehmerbörse (DUB.de), Inserat 17392 Interesse bekundet"), und der Platzhalter `{{herkunft}}` steht in allen Vorlagen zur Verfügung. So weiß der Angeschriebene, warum und woher wir schreiben
+- **Zwei Wege**: heute per Copy-and-paste im Admin. Ein Weiterleiten an eine feste Eingangsadresse (BCC/Postfach) ist als nächster Schritt vorbereitet, benötigt aber ein Eingangs-Postfach
+- Verifiziert: 15 Parser-Tests an der echten DUB-Mail (Quelle, Kontakt, Referenz, Mandats-Hinweis, Fallbacks); Provenance in Invite- und Vorlagenmails geprüft; Build sauber
+
 ## v0.270 · 01.08.2026 · Anrede registrierter Nutzer, NDA-Stufe präzisiert
 - **Anrede auch für registrierte Nutzer**: Die bei der Registrierung erfasste Anrede (Herr/Frau/Divers) und der optionale Titel werden jetzt in Mails genutzt, „Sehr geehrter Herr Dr. Malessa," statt „Guten Tag Alexander Malessa,". Umgesetzt zentral in `resolvePerson` (`server/utils/email.js`): fehlt die Anrede am Aufruf, wird sie über die E-Mail-Adresse aus `users` nachgeschlagen. Keine der rund zwei Dutzend Aufrufstellen muss `salutation`/`title` mitliefern
 - **Korrektur zur Anrede-Aussage aus v0.268**: Registrierte Nutzer haben sehr wohl eine Anrede (Pflichtfeld bei der Registrierung); sie wurde bisher nur in den Mails nicht ausgelesen. Das ist jetzt behoben
