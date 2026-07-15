@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.274 · 03.08.2026 · Gedankenstrich raus aus den gespeicherten Mailvorlagen
+- **Der Strich in der DSGVO-Einladung**: Die im Vorlagen-Editor sichtbaren Vorlagen (`crm_invite`, `profile_link`) trugen noch den Gedankenstrich, obwohl der Quellcode seit v0.267 sauber ist. Grund: Seed-Migrationen überschreiben bestehende Datenbankzeilen nicht, und v0.267 hatte genau diese beiden Vorlagen nicht mitgezogen
+- **Fix**: Migration `scrub_template_dashes` zieht die beiden Systemvorlagen aus der sauberen Quelle nach (nur wo nicht im Admin von Hand bearbeitet) und entfernt danach als Sicherheitsnetz jeden verbliebenen Strich aus allen Vorlagen (Betreff, Text, Name, Button). Damit ist der Gedankenstrich in keiner transaktionsbezogenen Mail mehr enthalten
+- Hinweis: Wirksam nach dem nächsten Deploy, weil die Bereinigung in der Datenbank läuft
+
 ## v0.273 · 03.08.2026 · Anfragen per Einfügen: der Standardweg
 - **Copy-and-paste ist der Standardweg**: Marktplatz-Anfragen werden direkt in der Plattform eingefügt, ohne Zusatztarif bei einem Maildienst. Der Dialog weist jetzt darauf hin
 - **Weiterleitung zurückgestellt**: Die Brevo-Inbound-Weiterleitung setzt bei Brevo den Professional-Tarif voraus und ist vorerst nicht aktiv. Der Webhook (`/api/inbound/lead`) bleibt im Code und ist einsatzbereit, sobald der Tarif vorliegt, es entstehen keine Kosten, solange er ungenutzt ist
