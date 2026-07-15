@@ -256,7 +256,7 @@ async function runReminders() {
       inviteToken: row.invite_token, profileToken: row.profile_token,
       needsConsent, round: row.reminder_count + 1,
     });
-    await sendCampaignEmail(mail).catch(() => {});
+    await sendCampaignEmail({ ...mail, meta: { type: 'campaign', templateKey: 'reminder', contactId: row.contact_id, projectId: row.project_id, tenantId: row.tenant_id || 1 } }).catch(() => {});
 
     const nextCount = row.reminder_count + 1;
     await db.run(
@@ -328,9 +328,9 @@ async function notifyProjectChange(projectId, changes, { actorId = null, note = 
   const { sendCampaignEmail } = require('./email');
   let sent = 0;
   for (const r of recipients) {
-    await sendCampaignEmail(buildUpdateMail({
+    await sendCampaignEmail({ ...buildUpdateMail({
       contact: r, project, inviter, changes, note, profileToken: r.profile_token,
-    })).catch(() => {});
+    }), meta: { type: 'campaign', templateKey: 'update', contactId: r.contact_id, projectId, tenantId: tenant?.tenant_id || 1 } }).catch(() => {});
     await db.run(`
       INSERT INTO crm_campaign_recipients (tenant_id, campaign_id, contact_id, email, status, sent_at)
       VALUES (?, ?, ?, ?, 'responded', now())

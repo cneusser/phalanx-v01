@@ -25,7 +25,7 @@ async function runDigests() {
   const now = Date.now();
   const profiles = await db.all(`
     SELECT sp.id, sp.name, sp.criteria_json, sp.notify_frequency, sp.last_notified_at,
-           u.email, u.first_name
+           u.email, u.first_name, u.last_name
     FROM search_profiles sp JOIN users u ON u.id = sp.user_id
     WHERE sp.notify_frequency IN ('daily','weekly') AND u.is_active = 1`);
   if (!profiles.length) return 0;
@@ -51,7 +51,7 @@ async function runDigests() {
         `<li style="margin-bottom:6px;"><strong>${p.codename}</strong>: ${[p.industry, p.region].filter(Boolean).join(', ')}${p.revenue_band && p.revenue_band !== 'k. A.' ? ' · Umsatz ' + p.revenue_band : ''}</li>`).join('');
       const freqLabel = freq === 'daily' ? 'täglichen' : 'wöchentlichen';
       sendProcessUpdateEmail({
-        to: prof.email, firstName: prof.first_name,
+        to: prof.email, firstName: prof.first_name, person: prof,
         title: `${hits.length} neue passende Mandate: Suchprofil „${prof.name}"`,
         message: `in Ihrem ${freqLabel} Überblick zum Suchprofil <strong>„${prof.name}"</strong> gibt es ${hits.length} neue${hits.length === 1 ? 's' : ''} passende${hits.length === 1 ? 's' : ''} Mandat${hits.length === 1 ? '' : 'e'}:<br/><ul style="margin:12px 0;padding-left:18px;">${list}</ul>`,
         ctaLabel: 'Im Marktplatz ansehen', ctaPath: '/projekte',

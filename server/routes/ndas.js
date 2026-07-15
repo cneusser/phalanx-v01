@@ -212,7 +212,7 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
     // Investor informieren: Signatur bestätigt + IM freigeschaltet
     const { sendProcessUpdateEmail } = require('../utils/email');
     sendProcessUpdateEmail({
-      to: user.email, firstName: user.first_name,
+      to: user.email, firstName: user.first_name, person: user,
       title: `NDA unterzeichnet: Informationsmemorandum freigeschaltet (${project.codename})`,
       message: `Ihre Vertraulichkeitsvereinbarung für <strong>${project.codename}</strong> wurde erfolgreich unterzeichnet. Das Informationsmemorandum und die Erstunterlagen sind ab sofort für Sie freigeschaltet. Nach der Datenraum-Freigabe durch unser Team erhalten Sie Zugriff auf die vollständigen Unterlagen.`,
       ctaLabel: 'Unterlagen ansehen', ctaPath: `/projekte/${req.params.projectId}`,
@@ -250,12 +250,12 @@ router.put('/:projectId/send', authenticate, wrap(async (req, res) => {
   db.auditLog(req.user.id, 'NDA_SENT', 'nda_request', nda.id, null, req.ip);
   // Investor informieren: NDA liegt zur Unterzeichnung bereit
   {
-    const buyer = await db.get('SELECT email, first_name FROM users WHERE id = ?', [targetUserId]);
+    const buyer = await db.get('SELECT email, first_name, last_name FROM users WHERE id = ?', [targetUserId]);
     const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [req.params.projectId]);
     if (buyer) {
       const { sendProcessUpdateEmail } = require('../utils/email');
       sendProcessUpdateEmail({
-        to: buyer.email, firstName: buyer.first_name,
+        to: buyer.email, firstName: buyer.first_name, person: buyer,
         title: `NDA bereit zur Unterzeichnung: ${proj ? proj.codename : 'Mandat'}`,
         message: `Ihre Vertraulichkeitsvereinbarung für das Mandat <strong>${proj ? proj.codename : ''}</strong> liegt bereit und kann jetzt online unterzeichnet werden.`,
         ctaLabel: 'NDA jetzt unterzeichnen', ctaPath: `/projekte/${req.params.projectId}`,

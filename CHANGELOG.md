@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.268 · 30.07.2026 · Anrede per Sie, Mandat im Mail-Ausgang
+- **Förmliche Anrede in allen Mails** (`greetingLine` in `server/utils/email.js`): Ist eine Anrede hinterlegt, wird sie mit Titel und Nachnamen verwendet (`Sehr geehrter Herr Dr. Meier,`), sonst `Guten Tag Vorname Nachname,`. Immer per Sie. Das bisherige `Hallo Alexander` in Prozess- und Systemmails ist damit weg. Die CRM-Kampagnenmails nutzten die Regel schon; jetzt gilt sie auch für Registrierung, Freischaltung, Passwort, NDA-, Q&A-, Datenraum- und Newsletter-Mails
+- **Hinweis zur Datenlage**: Registrierte Nutzer haben in der Datenbank keine Anrede/keinen Titel, deshalb greift bei ihnen `Guten Tag Vorname Nachname,`. CRM-Kontakte haben Anrede und Titel und werden voll förmlich angesprochen
+- **Mandat-Spalte im Mail-Ausgang**: Kampagnen- und Vorlagenmails schreiben jetzt die `project_id` ins Ausgangsbuch, dadurch zeigt die Spalte den Codename (Betongold, FARADAY) statt `k. A.`. Gilt für neue Sendungen; die bereits protokollierten Altmails bleiben ohne Zuordnung
+- Verifiziert: `greetingLine` mit sechs Fällen grün, Mail-Tests grün, Textwächter grün, Build sauber
+
 ## v0.267 · 29.07.2026 · Sprache aufgeräumt
 - **Alle Mailvorlagen neu geschrieben** (`server/db/mailTemplateSeed.js`, jetzt die einzige Quelle für die 11 Systemvorlagen): kürzere Sätze, klare Ansage, kein Textbaustein-Ton. Die Migration `texts_v267` zieht sie in der laufenden Datenbank nach, **außer** die Vorlage wurde im Admin von Hand bearbeitet (`updated_by` gesetzt). Handarbeit bleibt Handarbeit
 - **Einladung, Erinnerung, Prozess-Update** und die Systemmails (Registrierung, Freischaltung, Passwort, E-Mail-Bestätigung) sprechen wie ein Mensch statt wie ein Formular

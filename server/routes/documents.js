@@ -161,14 +161,14 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
     const category = levelToCategory[access_level] || 'im';
     const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [projectId]);
     const interested = await db.all(`
-      SELECT u.email, u.first_name, i.stage FROM interests i
+      SELECT u.email, u.first_name, u.last_name, i.stage FROM interests i
       JOIN users u ON u.id = i.buyer_id
       WHERE i.project_id = ? AND i.stage != 'rejected' AND u.is_active = 1
     `, [projectId]);
     const { sendProcessUpdateEmail } = require('../utils/email');
     for (const b of interested.filter(b => stageAllows(b.stage, category))) {
       sendProcessUpdateEmail({
-        to: b.email, firstName: b.first_name,
+        to: b.email, firstName: b.first_name, person: b,
         title: `Neue Unterlagen verfügbar: ${proj ? proj.codename : 'Mandat'}`,
         message: `Für das Mandat <strong>${proj ? proj.codename : ''}</strong> wurden neue Unterlagen bereitgestellt: <strong>${displayName}</strong>.`,
         ctaLabel: 'Unterlagen ansehen', ctaPath: `/projekte/${projectId}`,

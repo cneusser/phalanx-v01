@@ -66,14 +66,14 @@ async function notifyFollowers(projectId, { title, message, ctaLabel = 'Mandat a
     // ids stammen ausschließlich aus der DB (Zahlen) → sichere IN-Liste
     const ph = ids.map(() => '?').join(',');
     const users = await db.all(
-      `SELECT id, email, first_name FROM users WHERE id IN (${ph}) AND ${MAILABLE}`, ids);
+      `SELECT id, email, first_name, last_name FROM users WHERE id IN (${ph}) AND ${MAILABLE}`, ids);
     const { sendProcessUpdateEmail } = require('../utils/email');
     const notified = new Set();
     for (const u of users) {
       const p = await prefsFor(u.id);
       if (!p.follow_updates) continue;
       sendProcessUpdateEmail({
-        to: u.email, firstName: u.first_name,
+        to: u.email, firstName: u.first_name, person: u,
         title: `${title}: ${project.codename}`,
         message,
         ctaLabel, ctaPath: `/projekte/${project.id}`,
@@ -139,7 +139,7 @@ async function notifySimilarInterested(projectId, exclude = new Set()) {
 
     // Kandidaten: alle, die irgendwo Interesse/Watchlist haben (aber nicht bei DIESEM Mandat)
     const cand = await db.all(`
-      SELECT DISTINCT u.id, u.email, u.first_name
+      SELECT DISTINCT u.id, u.email, u.first_name, u.last_name
       FROM users u
       WHERE ${MAILABLE}
         AND u.id IN (
@@ -163,7 +163,7 @@ async function notifySimilarInterested(projectId, exclude = new Set()) {
       if (best < 3) continue; // mind. Branchentreffer
 
       sendProcessUpdateEmail({
-        to: u.email, firstName: u.first_name,
+        to: u.email, firstName: u.first_name, person: u,
         title: `Ähnliches Mandat verfügbar: ${p.codename}`,
         message: `auf Basis der Mandate, für die Sie sich bisher interessiert haben, könnte dieses neue Mandat zu Ihnen passen:<br/><br/>` +
           `<strong>${p.codename}</strong>: ${[p.industry, p.region].filter(Boolean).join(', ')}` +
@@ -186,7 +186,7 @@ async function notifyNewsletter(projectId, exclude = new Set()) {
        FROM projects WHERE id = ?`, [projectId]);
     if (!p) return notified;
 
-    const users = await db.all(`SELECT id, email, first_name FROM users WHERE ${MAILABLE}`);
+    const users = await db.all(`SELECT id, email, first_name, last_name FROM users WHERE ${MAILABLE}`);
     const { sendProcessUpdateEmail } = require('../utils/email');
     for (const u of users) {
       if (exclude.has(u.id)) continue;
@@ -194,7 +194,7 @@ async function notifyNewsletter(projectId, exclude = new Set()) {
       if (!prefs.newsletter || prefs.newsletter_freq === 'off') continue;
 
       sendProcessUpdateEmail({
-        to: u.email, firstName: u.first_name,
+        to: u.email, firstName: u.first_name, person: u,
         title: `Neues Mandat im Marktplatz: ${p.codename}`,
         message: `ein neues ${p.mandate_type === 'fundraising' ? 'Finanzierungs-' : 'Transaktions-'}Mandat ist verfügbar:<br/><br/>` +
           `<strong>${p.codename}</strong>: ${[p.industry, p.region].filter(Boolean).join(', ')}` +

@@ -77,7 +77,7 @@ async function introduceBuyer({ project, buyer, reason }) {
       });
       const { sendProcessUpdateEmail } = require('./email');
       sendProcessUpdateEmail({
-        to: buyer.email, firstName: buyer.first_name,
+        to: buyer.email, firstName: buyer.first_name, person: buyer,
         title: `Sie sind mit Ihrem Berater verbunden, ${project.codename}`,
         message: `Zu Ihrem Interesse an <strong>${project.codename}</strong> haben wir einen direkten Draht zu Ihrem Berater eingerichtet. Stellen Sie Ihre Fragen ab sofort bequem im Nachrichten-Bereich der Plattform, ohne Umweg über E-Mail.`,
         ctaLabel: 'Zum Chat', ctaPath: '/nachrichten',

@@ -230,6 +230,23 @@ const PHALANX_IMPRINT = {
   vat: 'USt-IdNr. DE 273 832 962',
 };
 
+// Anrede bilden. Regel (Wunsch CN, v0.268):
+//   · Ist eine Anrede (Herr/Frau) hinterlegt, sprechen wir formell an, mit Titel
+//     und Nachnamen: „Sehr geehrter Herr Dr. Meier,".
+//   · Fehlt die Anrede, bleibt es beim höflichen „Guten Tag Vorname Nachname,".
+//   · Wir bleiben immer beim Sie.
+// Akzeptiert sowohl DB-Zeilen (first_name/last_name) als auch camelCase (firstName).
+function greetingLine(person = {}) {
+  const t = String(person.title || '').trim();
+  const first = String(person.first_name ?? person.firstName ?? '').trim();
+  const last = String(person.last_name ?? person.lastName ?? '').trim();
+  const sal = String(person.salutation || '').trim();
+  if (last && sal === 'Herr') return `Sehr geehrter Herr ${[t, last].filter(Boolean).join(' ')},`;
+  if (last && sal === 'Frau') return `Sehr geehrte Frau ${[t, last].filter(Boolean).join(' ')},`;
+  const name = [first, last].filter(Boolean).join(' ');
+  return name ? `Guten Tag ${name},` : 'Guten Tag,';
+}
+
 // Werblicher CTA-Button (optional)
 const ctaButton = (label, url) => label && url ? `
   <p style="text-align:center; margin: 26px 0 6px;">
@@ -264,12 +281,12 @@ const mailShell = (title, bodyHtml, opts = {}) => {
 };
 
 // Passwort-Reset-Link an den Nutzer
-async function sendPasswordResetEmail({ to, firstName, resetUrl, expires }) {
+async function sendPasswordResetEmail({ to, firstName, person, resetUrl, expires }) {
   return sendMail({
     to,
     subject: '[CapitalMatch] Passwort zurücksetzen',
     html: mailShell('Passwort zurücksetzen', `
-      <p>Hallo ${firstName || ''},</p>
+      <p>${greetingLine(person || { first_name: firstName })}</p>
       <p>jemand hat für Ihr CapitalMatch-Konto ein neues Passwort angefordert. Über den Button vergeben Sie es:</p>
       ${ctaButton('Neues Passwort vergeben', resetUrl)}
       <p style="font-size:12px;color:#888;">Der Link gilt bis ${new Date(expires).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}. Waren Sie das nicht, ignorieren Sie diese Mail einfach. Ihr Passwort bleibt dann unverändert.</p>
@@ -278,12 +295,12 @@ async function sendPasswordResetEmail({ to, firstName, resetUrl, expires }) {
 }
 
 // E-Mail-Verifizierung: Link zum Abschluss der Registrierung
-async function sendEmailVerification({ to, firstName, verifyUrl }) {
+async function sendEmailVerification({ to, firstName, person, verifyUrl }) {
   return sendMail({
     to,
     subject: '[CapitalMatch] Bitte bestätigen Sie Ihre E-Mail-Adresse',
     html: mailShell('E-Mail-Adresse bestätigen', `
-      <p>Hallo ${firstName || ''},</p>
+      <p>${greetingLine(person || { first_name: firstName })}</p>
       <p>willkommen bei CapitalMatch. Ein Klick fehlt noch: Bestätigen Sie Ihre Adresse, danach prüfen wir Ihren Zugang und schalten ihn frei.</p>
       ${ctaButton('E-Mail-Adresse bestätigen', verifyUrl)}
       <p style="font-size:12px;color:#888;">Der Link gilt 48 Stunden. Haben Sie sich nicht registriert, ignorieren Sie diese Mail einfach.</p>
@@ -292,12 +309,12 @@ async function sendEmailVerification({ to, firstName, verifyUrl }) {
 }
 
 // Bestätigung an den Nutzer direkt nach der Registrierung
-async function sendRegistrationConfirmationEmail({ to, firstName }) {
+async function sendRegistrationConfirmationEmail({ to, firstName, person }) {
   return sendMail({
     to,
     subject: '[CapitalMatch] Ihre Registrierung ist eingegangen',
     html: mailShell('Registrierung eingegangen', `
-      <p>Hallo ${firstName || ''},</p>
+      <p>${greetingLine(person || { first_name: firstName })}</p>
       <p>danke für Ihre Registrierung. Wir sehen uns Ihr Konto jetzt an und melden uns, sobald der Zugang freigeschaltet ist. In der Regel dauert das keinen ganzen Werktag.</p>
       <p style="font-size:12px;color:#888;">Datenschutz: Bei der Registrierung haben Sie eingewilligt, dass wir Ihre Angaben für die Verwaltung Ihres Zugangs und für die projektbezogene Ansprache speichern. Diese Einwilligung können Sie jederzeit widerrufen und Ihre Daten löschen lassen (datenschutz@phalanx.de). Einzelheiten stehen in unserer Datenschutzerklärung.</p>
     `),
@@ -305,13 +322,13 @@ async function sendRegistrationConfirmationEmail({ to, firstName }) {
 }
 
 // Freischaltungs-Info an den Nutzer nach Admin-Approval
-async function sendAccountApprovedEmail({ to, firstName }) {
+async function sendAccountApprovedEmail({ to, firstName, person }) {
   const loginUrl = `${process.env.FRONTEND_URL || 'https://www.capitalmatch.de'}/login`;
   return sendMail({
     to,
     subject: '[CapitalMatch] Ihr Zugang ist freigeschaltet',
     html: mailShell('Zugang freigeschaltet', `
-      <p>Hallo ${firstName || ''},</p>
+      <p>${greetingLine(person || { first_name: firstName })}</p>
       <p>Ihr Konto ist geprüft und offen. Ab sofort sehen Sie die Mandate, fordern NDAs an und rufen Unterlagen ab.</p>
       <p style="text-align:center; margin: 24px 0;">
         <a href="${loginUrl}" style="background:#1A4D8A;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">Jetzt anmelden</a>
@@ -335,14 +352,14 @@ async function sendRegistrationNotification({ firstName, lastName, email, compan
 }
 
 // Generische Prozess-Benachrichtigung an den Investor (jeder Funnel-Schritt)
-async function sendProcessUpdateEmail({ to, firstName, title, message, ctaLabel, ctaPath, meta }) {
+async function sendProcessUpdateEmail({ to, firstName, person, title, message, ctaLabel, ctaPath, meta }) {
   const url = `${process.env.FRONTEND_URL || 'https://www.capitalmatch.de'}${ctaPath || ''}`;
   return sendMail({
     to,
     subject: `[CapitalMatch] ${title}`,
     meta: { type: 'process', ...(meta || {}) },
     html: mailShell(title, `
-      <p>Hallo ${firstName || ''},</p>
+      <p>${greetingLine(person || { first_name: firstName })}</p>
       <p>${message}</p>
       ${ctaLabel ? `<p style="text-align:center; margin: 24px 0;">
         <a href="${url}" style="background:#1A4D8A;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">${ctaLabel}</a>
@@ -380,6 +397,7 @@ async function sendCampaignEmail({ to, subject, title, salutation, bodyHtml, cta
 module.exports = {
   sendDownloadNotification,
   logMail,
+  greetingLine,
   sendCampaignEmail,
   sendMail,
   sendPasswordResetEmail,

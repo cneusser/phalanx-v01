@@ -789,7 +789,7 @@ async function createInvite(req, contact) {
     const { sendProcessUpdateEmail } = require('../utils/email');
     const inviter = [req.user.title, req.user.first_name, req.user.last_name].filter(Boolean).join(' ');
     sendProcessUpdateEmail({
-      to: contact.email, firstName: contact.first_name || '',
+      to: contact.email, firstName: contact.first_name || '', person: contact,
       title: 'Einladung zu CapitalMatch: Ihre Bestätigung erforderlich',
       message:
         `<strong>${inviter}</strong> (Phalanx GmbH) lädt Sie zu <strong>CapitalMatch</strong> ein. ` +
@@ -1039,7 +1039,7 @@ router.post('/contacts/:id/profile-link', ...isStaff, canSend, wrap(async (req, 
     }).catch(() => {});
   } else {
     sendProcessUpdateEmail({
-      to: contact.email, firstName: contact.first_name || '',
+      to: contact.email, firstName: contact.first_name || '', person: contact,
       title: 'Ihre Angaben bei der Phalanx GmbH: bitte kurz prüfen',
       message: `damit wir Sie nur mit passenden Transaktionen ansprechen, bitten wir Sie um eine kurze Prüfung Ihrer gespeicherten Angaben. Der Link ist persönlich und ${PROFILE_DAYS} Tage gültig.`,
       ctaLabel: 'Angaben prüfen', ctaPath: `/profil-pflege?token=${token}`,
@@ -1070,10 +1070,11 @@ router.post('/profile-links/bulk', ...isStaff, canSend, wrap(async (req, res) =>
       [req.tenantId || 1, cid, token, req.body.requires_approval ? 1 : 0, req.user.id, expires]));
     const { sendProcessUpdateEmail } = require('../utils/email');
     sendProcessUpdateEmail({
-      to: contact.email, firstName: contact.first_name || '',
+      to: contact.email, firstName: contact.first_name || '', person: contact,
       title: 'Ihre Angaben bei der Phalanx GmbH: bitte kurz prüfen',
       message: `damit wir Sie nur mit passenden Transaktionen ansprechen, bitten wir Sie um eine kurze Prüfung Ihrer gespeicherten Angaben. Der Link ist persönlich und ${PROFILE_DAYS} Tage gültig.`,
       ctaLabel: 'Angaben prüfen', ctaPath: `/profil-pflege?token=${token}`,
+      meta: { type: 'profile_link', contactId: contact.id, actorId: req.user.id },
     }).catch(() => {});
     sent++;
   }
@@ -1327,11 +1328,11 @@ router.post('/deals/:projectId/campaign', ...isStaff, canSend, wrap(async (req, 
         VALUES (?, ?, ?, 0, ?, ?)`, [tenant, cid, profileToken, req.user.id, pExp]));
     }
 
-    sendCampaignEmail(campaigns.buildInviteMail({
+    sendCampaignEmail({ ...campaigns.buildInviteMail({
       contact: k, project, inviter: req.user,
       intro: req.body.intro, subject: req.body.subject,
       inviteToken, profileToken, needsConsent,
-    })).catch(() => {});
+    }), meta: { type: 'campaign', templateKey: 'invite', contactId: cid, projectId, actorId: req.user.id, tenantId: tenant } }).catch(() => {});
 
     await scoped(req, (t) => t.run(`
       INSERT INTO crm_campaign_recipients (tenant_id, campaign_id, contact_id, email, invitation_id, profile_link_id, status, sent_at)
@@ -1552,12 +1553,12 @@ router.post('/deals/:projectId/send-template', ...isStaff, canSend, wrap(async (
       }
     }
 
-    sendCampaignEmail(mt.buildFromTemplate({
+    sendCampaignEmail({ ...mt.buildFromTemplate({
       template: tpl, contact: k, project, inviter: req.user,
       inviteToken, profileToken, frist: req.body.frist,
       overrideSubject: req.body.subject, overrideBody: req.body.body,
       withFacts: req.body.with_facts !== false,
-    })).catch(() => {});
+    }), meta: { type: 'campaign', templateKey: tpl.key, contactId: cid, projectId, actorId: req.user.id, tenantId: tenant } }).catch(() => {});
 
     await scoped(req, (t) => t.run(`
       INSERT INTO crm_campaign_recipients (tenant_id, campaign_id, contact_id, email, invitation_id, profile_link_id, status, sent_at)

@@ -41,7 +41,7 @@ router.post('/connections', authenticate, msgLimiter, wrap(async (req, res) => {
   db.activityLog(req.user.id, 'CONNECTION_REQUEST', 'connection', id, req.ip);
   const { sendProcessUpdateEmail } = require('../utils/email');
   sendProcessUpdateEmail({
-    to: target.email, firstName: target.first_name,
+    to: target.email, firstName: target.first_name, person: target,
     title: `Neue Kontaktanfrage von ${req.user.first_name} ${req.user.last_name}`,
     message: `<strong>${req.user.first_name} ${req.user.last_name}</strong> möchte sich auf CapitalMatch mit Ihnen vernetzen. Nehmen Sie die Anfrage an, um Nachrichten auszutauschen.`,
     ctaLabel: 'Anfrage ansehen', ctaPath: '/nachrichten',
@@ -124,7 +124,7 @@ router.get('/thread/:userId', authenticate, wrap(async (req, res) => {
 router.post('/send', authenticate, msgLimiter, wrap(async (req, res) => {
   const recipient_id = Number(req.body.recipient_id); const body = String(req.body.body || '').trim();
   if (!recipient_id || !body) return res.status(400).json({ success: false, error: 'Empfänger und Text erforderlich' });
-  const other = await scoped(req, (t) => t.get(`SELECT id, first_name, email, role FROM users WHERE id = ? AND is_active = 1`, [recipient_id]));
+  const other = await scoped(req, (t) => t.get(`SELECT id, first_name, last_name, email, role FROM users WHERE id = ? AND is_active = 1`, [recipient_id]));
   if (!other) return res.status(404).json({ success: false, error: 'Empfänger nicht gefunden' });
   if (!(await canMessage(req, req.user.id, recipient_id, req.user, other))) {
     return res.status(403).json({ success: false, error: 'Sie können erst schreiben, wenn die Kontaktanfrage angenommen wurde.' });
@@ -133,7 +133,7 @@ router.post('/send', authenticate, msgLimiter, wrap(async (req, res) => {
   db.activityLog(req.user.id, 'MESSAGE_SENT', 'message', id, req.ip);
   const { sendProcessUpdateEmail } = require('../utils/email');
   sendProcessUpdateEmail({
-    to: other.email, firstName: other.first_name,
+    to: other.email, firstName: other.first_name, person: other,
     title: `Neue Nachricht von ${req.user.first_name} ${req.user.last_name}`,
     message: `Sie haben eine neue Nachricht auf CapitalMatch erhalten:<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${body.slice(0, 400)}</span>`,
     ctaLabel: 'Antworten', ctaPath: '/nachrichten',

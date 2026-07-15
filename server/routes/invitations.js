@@ -66,7 +66,7 @@ router.post('/project/:projectId', authenticate, wrap(async (req, res) => {
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
 
   // Bereits Mitglied? → direkt Rolle setzen statt einzuladen
-  const existingUser = await db.get('SELECT id, first_name FROM users WHERE email = ?', [email]);
+  const existingUser = await db.get('SELECT id, first_name, last_name FROM users WHERE email = ?', [email]);
   if (existingUser) {
     const member = await db.get('SELECT id FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, existingUser.id]);
     if (member) return res.status(409).json({ success: false, error: 'Diese Person ist bereits Teil des Mandats.' });
@@ -96,7 +96,7 @@ function sendInviteMail({ email, token, role, message, project, inviter, existin
     : 'Sie erhalten <strong>Leserechte</strong> auf das Mandat (Ansehen, keine Änderungen).';
   sendProcessUpdateEmail({
     to: email,
-    firstName: existingUser ? existingUser.first_name : '',
+    firstName: existingUser ? existingUser.first_name : '', person: existingUser || {},
     title: `Einladung zum Mandat ${project.codename}`,
     message:
       `<strong>${inviterName}</strong> lädt Sie als <strong>${ROLE_LABEL[role]}</strong> zum Mandat ` +
@@ -149,7 +149,7 @@ router.post('/:id/resend', authenticate, wrap(async (req, res) => {
   const expires = new Date(Date.now() + EXPIRY_DAYS * 24 * 3600 * 1000);
   await db.run(`UPDATE project_invitations SET expires_at = ?, invited_at = now(), status = 'invited' WHERE id = ?`, [expires, inv.id]);
   const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [inv.project_id]);
-  const existingUser = await db.get('SELECT id, first_name FROM users WHERE email = ?', [inv.email]);
+  const existingUser = await db.get('SELECT id, first_name, last_name FROM users WHERE email = ?', [inv.email]);
   sendInviteMail({ email: inv.email, token: inv.token, role: inv.role, message: inv.message, project, inviter: req.user, existingUser });
   db.auditLog(req.user.id, 'PROJECT_INVITE_RESENT', 'project', inv.project_id, inv.email, req.ip);
   res.json({ success: true, data: { message: 'Erinnerung gesendet' } });
