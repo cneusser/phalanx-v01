@@ -246,6 +246,9 @@ export default function Admin() {
   }
 
   useEffect(() => { loadAll(); }, []);
+  // Herkunft der Kontakte (Plattform-Leads) für die Übersicht
+  const [leadSources, setLeadSources] = useState([]);
+  useEffect(() => { api.get('/crm/leads/sources').then(d => setLeadSources(d.sources || [])).catch(() => {}); }, []);
   // Sprint 16: Analytics beim Wechsel des Zeitraums nachladen
   const loadAnalytics = React.useCallback(async (r) => {
     try { setAnalytics(await api.get(`/admin/analytics?range=${r || range}`)); } catch (e) { console.error(e); }
@@ -837,6 +840,26 @@ export default function Admin() {
             </div>
           );
         })()}
+
+        {/* Herkunft der Kontakte: von welcher Plattform kamen die Leads? */}
+        {leadSources.length > 0 && (
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '1.25rem', marginBottom: '1.5rem' }}>
+            <h3 style={{ fontWeight: 700, color: C.text, marginBottom: '0.9rem', fontSize: '0.95rem' }}>
+              Herkunft der Kontakte <span style={{ fontWeight: 400, color: C.muted, fontSize: '0.8rem' }}>· woher unsere Leads kamen</span>
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.7rem' }}>
+              {leadSources.map(s => (
+                <div key={s.source} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.7rem 0.9rem' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: C.navy, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.source}</div>
+                    <div style={{ fontSize: '0.7rem', color: C.muted }}>zuletzt {s.last_at ? new Date(s.last_at).toLocaleDateString('de-DE') : '–'}</div>
+                  </div>
+                  <span style={{ fontSize: '1.3rem', fontWeight: 800, color: C.accent }}>{s.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Deal-Funnel + Conversion */}
         {analytics && analytics.funnel && analytics.funnel.length > 0 && (

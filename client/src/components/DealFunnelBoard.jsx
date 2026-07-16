@@ -44,12 +44,6 @@ export default function DealFunnelBoard({ show }) {
 
   useEffect(() => { api.get('/crm/contacts').then(setAllContacts).catch(() => {}); }, []);
 
-  // Woher kommen unsere Kontakte? (Plattform-Herkunft, für die Übersicht oben)
-  const [sources, setSources] = useState([]);
-  const loadSources = useCallback(() => {
-    api.get('/crm/leads/sources').then(d => setSources(d.sources || [])).catch(() => {});
-  }, []);
-  useEffect(() => { loadSources(); }, [loadSources]);
 
   async function addParty() {
     if (!addContact || !active) return;
@@ -185,19 +179,6 @@ export default function DealFunnelBoard({ show }) {
           </div>
         );
       })()}
-
-      {/* Plattform-Leads: woher kommen unsere Kontakte? */}
-      {!!sources.length && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', background: '#F0F6FF', border: '1px solid #DBEAFE', borderRadius: 10, padding: '0.55rem 0.8rem', marginBottom: '0.8rem' }}>
-          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#1e40af' }}>Plattform-Leads</span>
-          {sources.map(s => (
-            <span key={s.source} title={`Zuletzt: ${s.last_at ? new Date(s.last_at).toLocaleDateString('de-DE') : ''}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', border: '1px solid #DBEAFE', color: '#1e40af', padding: '0.12rem 0.5rem', borderRadius: 20, fontSize: '0.68rem', fontWeight: 700 }}>
-              ⬢ {sourceShort(s.source)} <span style={{ background: '#1e40af', color: '#fff', borderRadius: 10, padding: '0 0.35rem' }}>{s.count}</span>
-            </span>
-          ))}
-        </div>
-      )}
 
       {/* Kontakt direkt zum Mandat hinzufügen */}
       {active && (
@@ -513,7 +494,7 @@ export default function DealFunnelBoard({ show }) {
           deals={deals}
           activeProjectId={active || ''}
           onClose={() => setLeadIngest(false)}
-          onDone={() => { loadBoard(); loadSources(); }}
+          onDone={() => loadBoard()}
           show={show}
         />
       )}

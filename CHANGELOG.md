@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.276 · 04.08.2026 · Herkunft als Admin-Kachel, dezenter im Funnel
+- **Herkunft der Kontakte im Admin**: In der Übersicht gibt es jetzt eine Kachel „Herkunft der Kontakte" mit einer Zeile je Plattform (Quelle, Anzahl, zuletzt). So siehst du an einer Stelle, woher deine Leads kamen, ohne dass es an eine bestimmte Börse gebunden ist
+- **Funnel wieder ruhiger**: Die auffällige „Plattform-Leads"-Leiste über dem Deal-Funnel ist raus. Die dezente Markierung direkt an der Karte („⬢ DUB.de") bleibt, die fandest du gut
+- Hinweis: Die versendeten Mails stehen im Admin unter „Mail-Ausgang", ein Klick auf eine Zeile zeigt die Original-Mail
+
 ## v0.275 · 04.08.2026 · Automatik bis zur NDA, Plattform-Herkunft sichtbar
 - **Ansprache erklärt CapitalMatch**: Die Einladung sagt jetzt, dass CapitalMatch unsere eigene Plattform zur Abwicklung ist, lädt zur Registrierung ein (macht den Prozess für beide Seiten einfacher) und weist darauf hin, dass die NDA direkt nach der Registrierung automatisch kommt. Die Herkunft (Marktplatz, Inserat) steht weiterhin oben
 - **Automatik bis zur NDA**: Registriert sich ein per Mandats-Einladung angesprochener Kontakt, läuft ohne weiteres Zutun: Interesse wird gesetzt (Funnel rückt auf „NDA"), eine NDA-Anfrage wird angelegt und der Kontakt bekommt automatisch die E-Mail mit dem Link zum digitalen Zeichnen (`server/utils/outreach.js`, ausgelöst in `/invite/:token/register`). Nach der Unterschrift folgt das Information Memorandum automatisch. **Die Freigabe des Datenraums bleibt manuell**, das entscheidest weiterhin du
