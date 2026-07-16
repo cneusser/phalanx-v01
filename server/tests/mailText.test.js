@@ -59,6 +59,8 @@ for (const [name, mail] of [['Einladung', invite], ['Erinnerung 1', reminder1], 
   ok(`${name}: Anrede vollständig`, mail.salutation === 'Sehr geehrter Herr Dr. Baumgartner,');
 }
 ok('Einladung erklärt die Einwilligung', invite.bodyHtml.includes('DSGVO'));
+ok('Einladung erklärt CapitalMatch als eigene Plattform', invite.bodyHtml.includes('CapitalMatch ist unsere eigene Plattform'));
+ok('Einladung nennt die automatische NDA nach Registrierung', /automatisch die Vertraulichkeitsvereinbarung/i.test(invite.bodyHtml));
 ok('Zweite Erinnerung schließt den Vorgang ab', reminder2.title.includes('letzte Nachfrage'));
 ok('Widerspruch steht im Abbinder', invite.legalHtml.includes('widersprechen'));
 ok('EBITDA ohne Wert taucht in der Faktentabelle nicht auf', !invite.bodyHtml.includes('k. A.'));

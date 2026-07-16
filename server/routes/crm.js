@@ -669,6 +669,7 @@ router.get('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
   const rows = await scoped(req, (t) => t.all(`
     SELECT dp.*,
            k.first_name, k.last_name, k.email, k.consent_status, k.contact_status, k.is_decision_maker,
+           k.lead_source, k.lead_ref,
            c.name AS company_name,
            (SELECT status FROM crm_invitations i WHERE i.contact_id = dp.contact_id ORDER BY i.invited_at DESC LIMIT 1) AS invite_status
     FROM crm_deal_parties dp
@@ -712,6 +713,20 @@ const qFor = (req) => ({
   run: (s, p) => scoped(req, (t) => t.run(s, p)),
   insert: (s, p) => scoped(req, (t) => t.insert(s, p)),
 });
+
+// Übersicht: von welchen Plattformen kommen unsere Kontakte? (für die Admin-Ansicht)
+router.get('/leads/sources', ...isStaff, wrap(async (req, res) => {
+  const q = qFor(req);
+  const sources = await q.all(
+    `SELECT lead_source AS source, COUNT(*)::int AS count, MAX(created_at) AS last_at
+       FROM crm_contacts WHERE lead_source IS NOT NULL AND lead_source <> ''
+      GROUP BY lead_source ORDER BY count DESC`).catch(() => []);
+  const recent = await q.all(
+    `SELECT id, first_name, last_name, email, lead_source, lead_ref, created_at
+       FROM crm_contacts WHERE lead_source IS NOT NULL AND lead_source <> ''
+      ORDER BY id DESC LIMIT 15`).catch(() => []);
+  res.json({ success: true, data: { sources, recent } });
+}));
 
 router.post('/leads/parse', ...isStaff, wrap(async (req, res) => {
   const text = String(req.body.text || '');
@@ -1001,6 +1016,12 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
   await db.run(`UPDATE crm_invitations SET status = 'registered', registered_at = now(), user_id = ? WHERE id = ?`, [userId, inv.id]);
   if (inv.contact_id) await db.run(`UPDATE crm_contacts SET user_id = ? WHERE id = ?`, [userId, inv.contact_id]).catch(() => {});
   db.auditLog(userId, 'REGISTER_VIA_CRM_INVITE', 'user', userId, `${inv.email} · Einwilligung ${inv.consent_text_version}`, req.ip);
+
+  // Automatik: War die Einladung zu einem Mandat, geht direkt die NDA-Einladung raus.
+  // Der Prozess läuft damit ohne weiteres Zutun bis zur NDA; die Freigabe bleibt manuell.
+  if (inv.project_id) {
+    require('../utils/outreach').sendNdaInviteAfterRegister(db, { userId, projectId: inv.project_id }).catch(() => {});
+  }
 
   const token = jwt.sign({ userId }, process.env.JWT_SECRET || 'phalanx-secret', { expiresIn: '7d' });
   const user = await db.get('SELECT id, email, role, salutation, title, first_name, last_name, company FROM users WHERE id = ?', [userId]);

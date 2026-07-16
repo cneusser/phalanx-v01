@@ -10,7 +10,9 @@ const SELECT = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C
 
 const ROLE_LABEL = { buyer: 'Käufer', advisor: 'Berater', seller: 'Verkäufer', bank: 'Bank', lawyer: 'Anwalt', target: 'Ziel', other: 'Sonstige' };
 // v0.269: Herkunft eines Inbound-Leads (aus der Plattform) für die „Eingang"-Markierung
-const INBOUND_LABEL = { nda: 'NDA', interest: 'Interesse', watchlist: 'beobachtet', mailing: 'Mailing', inbound: 'Eingang' };
+const INBOUND_LABEL = { nda: 'NDA', interest: 'Interesse', watchlist: 'beobachtet', mailing: 'Mailing', marketplace: 'Marktplatz', inbound: 'Eingang' };
+// Kurzform der Herkunftsplattform: „Deutsche Unternehmerbörse (DUB.de)" → „DUB.de"
+const sourceShort = (s) => { if (!s) return ''; const m = s.match(/\(([^)]+)\)/); return m ? m[1] : s; };
 const STATUS_STYLE = {
   active: { label: 'aktiv', bg: '#d1fae5', color: '#065f46' },
   open: { label: 'offen', bg: '#f1f5f9', color: '#475569' },
@@ -41,6 +43,13 @@ export default function DealFunnelBoard({ show }) {
   const [addStage, setAddStage] = useState(0);
 
   useEffect(() => { api.get('/crm/contacts').then(setAllContacts).catch(() => {}); }, []);
+
+  // Woher kommen unsere Kontakte? (Plattform-Herkunft, für die Übersicht oben)
+  const [sources, setSources] = useState([]);
+  const loadSources = useCallback(() => {
+    api.get('/crm/leads/sources').then(d => setSources(d.sources || [])).catch(() => {});
+  }, []);
+  useEffect(() => { loadSources(); }, [loadSources]);
 
   async function addParty() {
     if (!addContact || !active) return;
@@ -176,6 +185,19 @@ export default function DealFunnelBoard({ show }) {
           </div>
         );
       })()}
+
+      {/* Plattform-Leads: woher kommen unsere Kontakte? */}
+      {!!sources.length && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', background: '#F0F6FF', border: '1px solid #DBEAFE', borderRadius: 10, padding: '0.55rem 0.8rem', marginBottom: '0.8rem' }}>
+          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#1e40af' }}>Plattform-Leads</span>
+          {sources.map(s => (
+            <span key={s.source} title={`Zuletzt: ${s.last_at ? new Date(s.last_at).toLocaleDateString('de-DE') : ''}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', border: '1px solid #DBEAFE', color: '#1e40af', padding: '0.12rem 0.5rem', borderRadius: 20, fontSize: '0.68rem', fontWeight: 700 }}>
+              ⬢ {sourceShort(s.source)} <span style={{ background: '#1e40af', color: '#fff', borderRadius: 10, padding: '0 0.35rem' }}>{s.count}</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Kontakt direkt zum Mandat hinzufügen */}
       {active && (
@@ -401,7 +423,12 @@ export default function DealFunnelBoard({ show }) {
                         <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4, alignItems: 'center' }}>
                           <span style={{ background: st.bg, color: st.color, padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.6rem', fontWeight: 700 }}>{st.label}</span>
                           <span style={{ fontSize: '0.6rem', color: C.muted }}>{ROLE_LABEL[p.party_role] || p.party_role}</span>
-                          {p.source === 'inbound' && (
+                          {p.lead_source ? (
+                            <span title={`Kam über ${p.lead_source}${p.lead_ref ? ` (${p.lead_ref})` : ''}`}
+                              style={{ background: '#DBEAFE', color: '#1e40af', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 700 }}>
+                              ⬢ {sourceShort(p.lead_source)}
+                            </span>
+                          ) : p.source === 'inbound' && (
                             <span title={`Aus der Plattform: ${INBOUND_LABEL[p.inbound_signal] || 'Eingang'}`}
                               style={{ background: '#FEF3C7', color: '#92400e', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 700 }}>
                               Eingang{p.inbound_signal && INBOUND_LABEL[p.inbound_signal] ? ` · ${INBOUND_LABEL[p.inbound_signal]}` : ''}
@@ -486,7 +513,7 @@ export default function DealFunnelBoard({ show }) {
           deals={deals}
           activeProjectId={active || ''}
           onClose={() => setLeadIngest(false)}
-          onDone={() => loadBoard()}
+          onDone={() => { loadBoard(); loadSources(); }}
           show={show}
         />
       )}

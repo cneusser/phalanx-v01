@@ -97,4 +97,52 @@ async function sendFirstApproach(q, { tenant = 1, contactId, projectId, actorId 
   return { sent: true, campaignId, needsConsent };
 }
 
-module.exports = { sendFirstApproach };
+// ── Automatische NDA-Einladung nach der Registrierung ────────────────────────
+// Registriert sich ein per Mandats-Einladung angesprochener Kontakt, soll er ohne
+// weiteres Zutun die Vertraulichkeitsvereinbarung zu genau diesem Mandat erhalten.
+// Ablauf: Interesse setzen (Funnel rückt auf „NDA"), eine NDA-Anfrage anlegen und
+// eine Mail mit dem Link zum digitalen Zeichnen schicken. Die spätere Freigabe des
+// Datenraums bleibt manuell (Aufgabe des Beraters).
+async function sendNdaInviteAfterRegister(dbh, { userId, projectId } = {}) {
+  try {
+    if (!userId || !projectId) return { sent: false, reason: 'Nutzer oder Mandat fehlt' };
+    const project = await dbh.get('SELECT id, codename, status FROM projects WHERE id = ?', [projectId]).catch(() => null);
+    if (!project || project.status !== 'active') return { sent: false, reason: 'Mandat nicht aktiv' };
+    const user = await dbh.get('SELECT id, email, salutation, title, first_name, last_name FROM users WHERE id = ?', [userId]).catch(() => null);
+    if (!user || !user.email) return { sent: false, reason: 'keine E-Mail' };
+
+    // Interesse setzen → Funnel rückt (dealSync) auf „NDA" (ohne Unterschrift Stufe 3)
+    try { await require('../middleware/gates').setStage(userId, projectId, 'requested', userId, null); } catch { /* darf den Ablauf nicht stoppen */ }
+
+    // NDA-Anfrage anlegen, falls noch keine besteht (Grundlage fürs Online-Zeichnen)
+    const existing = await dbh.get('SELECT id, status FROM nda_requests WHERE user_id = ? AND project_id = ?', [userId, projectId]).catch(() => null);
+    if (!existing) {
+      await dbh.insert(
+        `INSERT INTO nda_requests (user_id, project_id, status, requested_at) VALUES (?, ?, 'requested', now())`,
+        [userId, projectId]).catch(() => {});
+    }
+
+    const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
+    const { sendProcessUpdateEmail } = require('./email');
+    await sendProcessUpdateEmail({
+      to: user.email, person: user,
+      title: `Ihr Zugang ist da: NDA für ${project.codename} zeichnen`,
+      message:
+        `willkommen auf CapitalMatch, Ihr Konto ist aktiv. CapitalMatch ist unsere Plattform zur Abwicklung dieses ` +
+        `Mandats, hier laufen Unterlagen und Kommunikation zusammen.<br/><br/>` +
+        `Als nächster Schritt steht die Vertraulichkeitsvereinbarung zum Mandat <strong>${project.codename}</strong> für Sie ` +
+        `bereit. Sie zeichnen sie direkt auf der Plattform, ohne Ausdruck und ohne Postweg. Sobald sie unterschrieben ist, ` +
+        `erhalten Sie das Information Memorandum; den vollständigen Datenraum geben wir nach einer kurzen Prüfung frei.`,
+      ctaLabel: 'NDA jetzt zeichnen', ctaPath: `/projekte/${projectId}`,
+      meta: { type: 'process', templateKey: 'nda_invite_auto', projectId, userId },
+    }).catch(() => {});
+
+    if (dbh.auditLog) dbh.auditLog(userId, 'NDA_INVITE_AUTO', 'project', projectId, `Automatische NDA-Einladung nach Registrierung`, null);
+    return { sent: true };
+  } catch (e) {
+    console.warn('[outreach.sendNdaInviteAfterRegister]', e.message);
+    return { sent: false, reason: e.message };
+  }
+}
+
+module.exports = { sendFirstApproach, sendNdaInviteAfterRegister };

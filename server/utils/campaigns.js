@@ -91,16 +91,18 @@ function buildInviteMail({ contact, project, inviter, intro, subject, inviteToke
 
   const introHtml = intro
     ? `<p>${esc(intro).replace(/\n/g, '<br/>')}</p>`
-    : `<p>wir begleiten im Auftrag unseres Mandanten eine Transaktion, die zu Ihrem Suchprofil passt, soweit es uns
-        bekannt ist. Vorgestellt wird das Vorhaben zunächst anonym. Wer dahintersteht, erfahren Sie, sobald eine
-        Vertraulichkeitsvereinbarung unterzeichnet ist.</p>`;
+    : `<p>wir begleiten im Auftrag unseres Mandanten eine Transaktion, die zu Ihrem Profil passt. Vorgestellt wird das
+        Vorhaben zunächst anonym; wer dahintersteht, erfahren Sie nach Unterzeichnung einer Vertraulichkeitsvereinbarung.</p>
+       <p>CapitalMatch ist unsere eigene Plattform, über die wir solche Mandate abwickeln: Teaser, Vertraulichkeits-
+        vereinbarung, Unterlagen und die Kommunikation an einem Ort. Wenn Sie sich dort registrieren, läuft der Prozess
+        für uns beide schneller und sauberer, und Sie behalten Ihre Unterlagen jederzeit im Blick.</p>`;
 
   const steps = `
     <p style="margin:16px 0 6px;font-weight:700;color:#0D2A4A;font-size:13.5px;">So geht es weiter</p>
     <table style="width:100%;border-collapse:collapse;font-size:13px;color:#333;">
-      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;white-space:nowrap;">1.</td><td style="padding:3px 0;">Anonymer Teaser, abrufbar direkt nach Ihrer Bestätigung</td></tr>
-      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;">2.</td><td style="padding:3px 0;">Vertraulichkeitsvereinbarung, digital gezeichnet, ohne Druckerei und Postweg</td></tr>
-      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;">3.</td><td style="padding:3px 0;">Information Memorandum und Datenraum, freigeschaltet nach der NDA</td></tr>
+      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;white-space:nowrap;">1.</td><td style="padding:3px 0;">Sie bestätigen und registrieren sich, dauert eine Minute</td></tr>
+      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;">2.</td><td style="padding:3px 0;"><strong>Direkt danach erhalten Sie automatisch die Vertraulichkeitsvereinbarung zu diesem Mandat</strong>, digital zu zeichnen</td></tr>
+      <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;">3.</td><td style="padding:3px 0;">Nach Ihrer Unterschrift schalten wir Information Memorandum und Datenraum frei</td></tr>
       <tr><td style="padding:3px 8px 3px 0;color:#5B8FC9;font-weight:700;">4.</td><td style="padding:3px 0;">Management-Gespräch, indikatives Angebot, Due Diligence</td></tr>
     </table>`;
 

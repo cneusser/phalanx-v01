@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.275 · 04.08.2026 · Automatik bis zur NDA, Plattform-Herkunft sichtbar
+- **Ansprache erklärt CapitalMatch**: Die Einladung sagt jetzt, dass CapitalMatch unsere eigene Plattform zur Abwicklung ist, lädt zur Registrierung ein (macht den Prozess für beide Seiten einfacher) und weist darauf hin, dass die NDA direkt nach der Registrierung automatisch kommt. Die Herkunft (Marktplatz, Inserat) steht weiterhin oben
+- **Automatik bis zur NDA**: Registriert sich ein per Mandats-Einladung angesprochener Kontakt, läuft ohne weiteres Zutun: Interesse wird gesetzt (Funnel rückt auf „NDA"), eine NDA-Anfrage wird angelegt und der Kontakt bekommt automatisch die E-Mail mit dem Link zum digitalen Zeichnen (`server/utils/outreach.js`, ausgelöst in `/invite/:token/register`). Nach der Unterschrift folgt das Information Memorandum automatisch. **Die Freigabe des Datenraums bleibt manuell**, das entscheidest weiterhin du
+- **Plattform-Herkunft sichtbar**: Im Deal-Funnel zeigt jede Karte, über welche Plattform der Kontakt kam (z. B. „⬢ DUB.de"). Oben steht eine Übersicht „Plattform-Leads" mit Anzahl je Quelle (`GET /api/crm/leads/sources`)
+- Verifiziert: 8 Tests für die automatische NDA-Einladung (Guards, Stage, Anfrage, Mail, keine Dublette) plus erweiterte Mailtext-Tests; Build sauber
+
 ## v0.274 · 03.08.2026 · Gedankenstrich raus aus den gespeicherten Mailvorlagen
 - **Der Strich in der DSGVO-Einladung**: Die im Vorlagen-Editor sichtbaren Vorlagen (`crm_invite`, `profile_link`) trugen noch den Gedankenstrich, obwohl der Quellcode seit v0.267 sauber ist. Grund: Seed-Migrationen überschreiben bestehende Datenbankzeilen nicht, und v0.267 hatte genau diese beiden Vorlagen nicht mitgezogen
 - **Fix**: Migration `scrub_template_dashes` zieht die beiden Systemvorlagen aus der sauberen Quelle nach (nur wo nicht im Admin von Hand bearbeitet) und entfernt danach als Sicherheitsnetz jeden verbliebenen Strich aus allen Vorlagen (Betreff, Text, Name, Button). Damit ist der Gedankenstrich in keiner transaktionsbezogenen Mail mehr enthalten
