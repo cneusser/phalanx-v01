@@ -92,16 +92,30 @@ export default function DealFunnelBoard({ show }) {
   }
 
   const partyById = (id) => (board?.parties || []).find(p => p.id === id);
+  const [moveAsk, setMoveAsk] = useState(null);   // Bestätigung beim Verschieben
 
-  // Drop auf eine Käufer-Spalte: Stufe setzen; war es ein Beteiligter, wird er
-  // wieder zum Käufer.
-  async function dropOnStage(stage) {
+  // Drop auf eine Käufer-Spalte: fragt zur Sicherheit nach (verschiebt NICHT sofort,
+  // und schickt von sich aus keine Mail). Keine Änderung, wenn Stufe und Rolle gleich.
+  function dropOnStage(stage) {
     const p = partyById(drag);
     if (!p) return;
-    const patch = { funnel_stage: stage };
-    if ((p.party_role || 'buyer') !== 'buyer') patch.party_role = 'buyer';
-    try { await api.put(`/crm/parties/${p.id}`, patch); await loadBoard(); }
-    catch (e) { show('Fehler: ' + e.message); }
+    const isBuyer = (p.party_role || 'buyer') === 'buyer';
+    if (isBuyer && p.funnel_stage === stage) return;   // nichts zu tun
+    const label = (stages.find(s => s.key === stage) || {}).label || `Stufe ${stage}`;
+    setMoveAsk({ party: p, toStage: stage, toLabel: label, wasParticipant: !isBuyer });
+  }
+
+  async function applyMove(sendMail) {
+    if (!moveAsk) return;
+    const { party, toStage } = moveAsk;
+    const patch = { funnel_stage: toStage };
+    if ((party.party_role || 'buyer') !== 'buyer') patch.party_role = 'buyer';
+    try {
+      await api.put(`/crm/parties/${party.id}`, patch);
+      setMoveAsk(null);
+      await loadBoard();
+      if (sendMail) { setSelected([party.contact_id]); setTplSend(true); }
+    } catch (e) { show('Fehler: ' + e.message); }
   }
 
   // Drop auf die Beteiligten-Zone: aus einem Käufer wird ein Prozessbeteiligter
@@ -594,6 +608,25 @@ export default function DealFunnelBoard({ show }) {
           onDone={() => loadBoard()}
           show={show}
         />
+      )}
+
+      {moveAsk && (
+        <div onClick={() => setMoveAsk(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: 'min(460px, 96vw)', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', padding: '1.2rem 1.3rem' }}>
+            <div style={{ fontWeight: 800, color: C.navy, fontSize: '1rem', marginBottom: 6 }}>
+              {[moveAsk.party.first_name, moveAsk.party.last_name].filter(Boolean).join(' ')} nach „{moveAsk.toLabel}" verschieben?
+            </div>
+            <div style={{ fontSize: '0.85rem', color: C.muted, lineHeight: 1.5, marginBottom: 14 }}>
+              {moveAsk.wasParticipant && <>Der Kontakt wird dabei vom Beteiligten zum Käufer. </>}
+              Das Verschieben allein sendet <strong>keine</strong> E-Mail. Sie können den Kontakt hier optional gleich mit der passenden Prozess-Mail anschreiben.
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button onClick={() => setMoveAsk(null)} style={{ background: '#fff', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>Abbrechen</button>
+              <button onClick={() => applyMove(false)} style={{ background: '#fff', color: C.navy, border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>Nur verschieben</button>
+              <button onClick={() => applyMove(true)} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 1rem', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>Verschieben + Prozess-Mail</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {campDetail && (() => {

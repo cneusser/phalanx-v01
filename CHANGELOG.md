@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.290 · 12.08.2026 · Rückfrage beim Verschieben, Prozess-Übersicht
+- **Bestätigung beim Drag-and-drop**: Verschiebst du eine Karte auf eine andere Stufe, kommt jetzt eine kurze Rückfrage. Das Verschieben allein sendet weiterhin **keine** E-Mail; du kannst aber im selben Schritt „Verschieben + passende Prozess-Mail" wählen. So geht nichts ungewollt raus und nichts doppelt
+- **Prozess- und Automatik-Übersicht** (`PROZESS_UND_AUTOMATIK.md`): erklärt die Funnel-Stufen, welche Mails automatisch laufen (Erstansprache, 7/21-Reminder, NDA nach Registrierung, IM nach Unterschrift, Benachrichtigung bei neuen Unterlagen), was manuell bleibt und wie Doppelversand vermieden wird
+- Erinnerung: Der Kontakt-Reiter „Aktivitäten" zeigt seit v0.283 den vollständigen E-Mail- und Chat-Verlauf (Birdview am Kontakt)
+- Verifiziert: Build sauber und warnungsfrei
+
 ## v0.289 · 11.08.2026 · Beteiligte per Drag-and-drop führen
 - **Ziehen zwischen Funnel und Beteiligten**: Die Leiste „Mandant & Beteiligte" ist jetzt eine Ablagezone. Ziehst du eine Käufer-Karte hinein, wird sie zum Prozessbeteiligten und verlässt den Käufer-Funnel. Ziehst du eine Beteiligten-Karte in eine Funnel-Stufe, wird sie wieder zum Käufer auf dieser Stufe
 - Die Zone erscheint während des Ziehens auch dann, wenn noch keine Beteiligten da sind, und hebt sich als Ablageziel hervor
