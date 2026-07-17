@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.286 · 11.08.2026 · Verkäufer-Funnel über mehrere Mandate
+- **Mehr-Projekt-Funnel für den Mandanten**: Im Verkäufer-Dashboard sieht der Mandant jetzt einen echten, nur-lesbaren Funnel, ähnlich der Admin-Ansicht, aber reduziert. Hat er mehrere Mandate, wählt er sie über Reiter. Je Stufe (Longlist bis Abgeschlossen) Kennzahlen und die Namen der interessierten Parteien
+- **Vertraulich**: bewusst nur Namen (und optional Firma), keine Kontaktdaten, kein Bezug zu anderen Mandaten. Die Abfrage ist serverseitig auf das eigene Mandat begrenzt und nur für den verknüpften Verkäufer bzw. Berater/Admin zugänglich
+- Baut auf dem Prozessstand (v0.277) und der Verkäufer-Einladung (v0.280) auf; nutzt `GET /api/projects/:id/funnel-preview`
+- Verifiziert: Build sauber und warnungsfrei
+
 ## v0.285 · 10.08.2026 · Kontaktliste mit Seiten und A-Z, neue Rolle Prozessbeteiligter
 - **Seiten und A-Z in der Kontaktliste**: Oben eine anklickbare A-Z-Leiste (springt zu den Nachnamen mit dem Buchstaben), unten eine Seitengröße (10 / 25 / 50 / Alle) mit Seiten-Navigation. Kein endloses Scrollen mehr, auch bei vielen Kontakten. Die Suche oben bleibt
 - **Neue Beteiligten-Rolle „Prozessbeteiligter"** (Steuerberater, Wirtschaftsprüfer, Consultant): auswählbar bei der Mandats-Zuordnung, erscheint getrennt in der Leiste „Mandant & Beteiligte", nicht im Käufer-Funnel. Eigene Rechte lassen sich später über die Rollen-Matrix vergeben

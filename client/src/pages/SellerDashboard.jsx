@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { Plus, Building2, Clock, CheckCircle, X } from 'lucide-react';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
 import GroupedSelect from '../components/GroupedSelect';
+import SellerFunnel from '../components/SellerFunnel';
 import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING } from '../constants/projectOptions';
 
 const C = {
@@ -204,6 +205,9 @@ export default function SellerDashboard() {
           ))}
         </div>
       )}
+
+      {/* Mehr-Projekt-Funnel (nur lesen, ohne Kontaktdaten) */}
+      <SellerFunnel projects={myProjects} show={showMsg} />
 
       {/* Prozessstand (reduzierter Funnel für den Mandanten) */}
       {preview && (() => {
