@@ -20,6 +20,7 @@ const EVENT_COLOR = {
   consent: '#059669', register: '#059669', response: '#059669',
   selfcare: '#7c3aed', link: '#7c3aed', decline: '#dc2626',
   reply_in: '#059669', task: '#0f766e', task_done: '#64748b',
+  chat_in: '#0891b2', chat_out: '#1D4E89',
 };
 const FIELDS = [
   ['salutation', 'Anrede'], ['title', 'Titel'], ['first_name', 'Vorname'], ['last_name', 'Nachname'],

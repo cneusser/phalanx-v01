@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.283 · 09.08.2026 · Kompletter E-Mail- und Chat-Verlauf am Kontakt
+- **Jede Mail am Kontakt sichtbar**: Die Aktivitäten-Historie eines Kontakts zeigt jetzt das vollständige Mail-Ausgangsbuch, also wirklich jede Mail, die an ihn ging (Ansprache, Prozess-Mail, Einladung, NDA-Einladung, System-Mail), mit Betreff, Art und Status. So siehst du auf einen Blick, wer was bekommen hat, und vermeidest Doppelversand
+- **Chat am Kontakt**: Alle Plattform-Chat-Nachrichten des Kontakts (in beide Richtungen) tauchen jetzt ebenfalls in der Kontakt-Historie auf. Damit läuft die Zuordnung an einer Stelle zusammen
+- Kein Doppeleintrag mehr: Der Erstversand einer Kampagne kommt aus dem Ausgangsbuch, die Kampagnen-Sicht liefert nur noch Erinnerungen und Reaktionen
+- Verifiziert: Build sauber, Textwächter grün
+
 ## v0.282 · 09.08.2026 · NDA manuell vergeben, Projekt-Zugang sichtbar
 - **NDA manuell setzen**: In der Kontakt-Ansicht steht pro Mandat jetzt ein NDA-Feld: „kein NDA / angefragt / liegt vor". Das funktioniert auch für Kontakte ohne Plattform-Konto (offline unterzeichnete NDAs). Ist eine Online-Signatur vorhanden, wird sie zusätzlich als „online: unterzeichnet/angefragt" angezeigt
 - **Zugang zum Mandat**: Pro Mandat ein Schalter „Zugang zum Mandat" (Unterlagen/Datenraum). So siehst und steuerst du, ob der Kontakt Zugang hat

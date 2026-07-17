@@ -362,7 +362,7 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
     WHERE dp.contact_id = ? ORDER BY dp.funnel_stage DESC`, [contact.user_id || 0, req.params.id])).catch(() => []);
 
   // Aktivitäten-Timeline: Einladungen, Mailings, Reminder, Pflege-Links, Selbstpflege
-  const activity = await contactActivity(req, req.params.id);
+  const activity = await contactActivity(req, req.params.id, contact);
 
   // Plattform-Konto (falls der Kontakt registriert ist)
   const account = contact.user_id
@@ -387,9 +387,33 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
 }));
 
 // Aktivitäten eines Kontakts, chronologisch: was ist wann rausgegangen, was kam zurück?
-async function contactActivity(req, contactId) {
+const EMAIL_TYPE_LABEL = {
+  campaign: 'Ansprache', process: 'Prozess-Mail', invite: 'Einladung',
+  profile_link: 'Pflege-Link', system: 'System-Mail',
+};
+
+async function contactActivity(req, contactId, contact = null) {
   const ev = [];
   const push = (ts, type, label, detail) => { if (ts) ev.push({ ts, type, label, detail: detail || null }); };
+
+  const email = contact && contact.email ? String(contact.email) : null;
+  const userId = contact && contact.user_id ? contact.user_id : null;
+
+  // Vollständiges Mail-Ausgangsbuch für diesen Kontakt: JEDE Mail, die an ihn ging
+  // (Ansprache, Prozess, Einladung, NDA, System). Ein Klick zeigt später das Original.
+  const sentMails = await scoped(req, (t) => t.all(
+    `SELECT id, subject, mail_type, template_key, status, created_at
+       FROM email_log
+      WHERE contact_id = ?
+         OR (? IS NOT NULL AND user_id = ?)
+         OR (? IS NOT NULL AND lower(to_email) = lower(?))
+      ORDER BY created_at DESC LIMIT 60`,
+    [contactId, userId, userId, email, email])).catch(() => []);
+  for (const m of sentMails) {
+    const label = m.status === 'failed' ? 'E-Mail fehlgeschlagen' : 'E-Mail versendet';
+    const kind = EMAIL_TYPE_LABEL[m.mail_type] || m.mail_type || 'E-Mail';
+    push(m.created_at, 'mail', label, [kind, m.subject].filter(Boolean).join(': '));
+  }
 
   const invites = await scoped(req, (t) => t.all(
     `SELECT i.*, p.codename FROM crm_invitations i LEFT JOIN projects p ON p.id = i.project_id
@@ -409,10 +433,25 @@ async function contactActivity(req, contactId) {
     LEFT JOIN projects p ON p.id = c.project_id
     WHERE r.contact_id = ? ORDER BY r.sent_at DESC LIMIT 30`, [contactId])).catch(() => []);
   for (const m of mails) {
-    const what = m.purpose === 'update' ? 'Prozess-Update' : 'Mandats-Mailing';
-    push(m.sent_at, 'mail', `${what} versendet`, m.codename ? `Mandat ${m.codename}` : m.campaign_name);
+    // Der Erstversand steht bereits im Mail-Ausgangsbuch (email_log); hier nur die
+    // kampagnenspezifischen Ereignisse, damit nichts doppelt erscheint.
     push(m.last_reminder_at, 'reminder', `Erinnerung ${m.reminder_count}/2 versendet`, m.codename ? `Mandat ${m.codename}` : null);
     push(m.responded_at, 'response', 'Reaktion erfasst', m.skip_reason || null);
+  }
+
+  // Chat-Nachrichten (Plattform-Chat) des zum Kontakt gehörenden Nutzers
+  if (userId) {
+    const chat = await scoped(req, (t) => t.all(
+      `SELECT m.body, m.sender_id, m.created_at, p.codename
+         FROM messages m LEFT JOIN projects p ON p.id = m.project_id
+        WHERE m.sender_id = ? OR m.recipient_id = ?
+        ORDER BY m.created_at DESC LIMIT 30`, [userId, userId])).catch(() => []);
+    for (const c of chat) {
+      const fromContact = c.sender_id === userId;
+      push(c.created_at, fromContact ? 'chat_in' : 'chat_out',
+        fromContact ? 'Chat-Nachricht vom Kontakt' : 'Chat-Nachricht an den Kontakt',
+        [c.codename ? `Mandat ${c.codename}` : null, String(c.body || '').replace(/<[^>]+>/g, '').slice(0, 120)].filter(Boolean).join(' · ') || null);
+    }
   }
 
   const plinks = await scoped(req, (t) => t.all(
