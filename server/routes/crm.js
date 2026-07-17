@@ -690,7 +690,7 @@ const FUNNEL_STAGES = [
   { key: 7, label: 'Due Diligence' },
   { key: 8, label: 'Abgeschlossen' },
 ];
-const PARTY_ROLES = ['buyer', 'advisor', 'seller', 'bank', 'lawyer', 'target', 'other'];
+const PARTY_ROLES = ['buyer', 'advisor', 'seller', 'process', 'bank', 'lawyer', 'target', 'other'];
 const PARTY_STATUS = ['active', 'dropped', 'open', 'unclear'];
 const STAGNANT_DAYS = 30;
 

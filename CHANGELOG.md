@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.285 · 10.08.2026 · Kontaktliste mit Seiten und A-Z, neue Rolle Prozessbeteiligter
+- **Seiten und A-Z in der Kontaktliste**: Oben eine anklickbare A-Z-Leiste (springt zu den Nachnamen mit dem Buchstaben), unten eine Seitengröße (10 / 25 / 50 / Alle) mit Seiten-Navigation. Kein endloses Scrollen mehr, auch bei vielen Kontakten. Die Suche oben bleibt
+- **Neue Beteiligten-Rolle „Prozessbeteiligter"** (Steuerberater, Wirtschaftsprüfer, Consultant): auswählbar bei der Mandats-Zuordnung, erscheint getrennt in der Leiste „Mandant & Beteiligte", nicht im Käufer-Funnel. Eigene Rechte lassen sich später über die Rollen-Matrix vergeben
+- Verifiziert: Build sauber, Textwächter grün
+
 ## v0.284 · 10.08.2026 · Roboter-Test (Cloudflare Turnstile) bei Login und Registrierung
 - **Bot-Schutz**: Login und Registrierung prüfen jetzt optional einen Cloudflare-Turnstile-Test (kostenlos). Das erschwert automatisiertes Durchprobieren von Passwörtern und Massen-Registrierungen durch Bots
 - **Ohne Konfiguration inaktiv**: Erst wenn `TURNSTILE_SITE_KEY` (Browser) und `TURNSTILE_SECRET` (Server) gesetzt sind, erscheint der Test und wird serverseitig verifiziert. Ohne Schlüssel läuft alles unverändert weiter
