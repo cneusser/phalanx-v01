@@ -70,10 +70,13 @@ router.get('/stats', wrap(async (req, res) => {
 }));
 
 // ── GET /: Public list (active projects only) ─────────────────────────────
-router.get('/', wrap(async (req, res) => {
+router.get('/', optionalAuth, wrap(async (req, res) => {
   const { industry, region, deal_type, search, mandate_type, revenue_band, ebitda_band } = req.query;
   let query = `SELECT ${PUBLIC_FIELDS} FROM projects WHERE status = 'active'`;
   const params = [];
+  // Ein eingeloggter Nutzer sieht seine EIGENEN Mandate (als Verkäufer/Ersteller)
+  // nicht im Käufer-Marktplatz, er soll dort nicht auf sich selbst bieten.
+  if (req.user && req.user.id) { query += ' AND (created_by IS NULL OR created_by <> ?)'; params.push(req.user.id); }
   if (industry)     { query += ' AND industry = ?';     params.push(industry); }
   if (region)       { query += ' AND region = ?';       params.push(region); }
   if (deal_type)    { query += ' AND deal_type = ?';    params.push(deal_type); }

@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.288 · 11.08.2026 · Käufer- und Verkäuferrolle sauber getrennt
+- **Kein Bieten auf das eigene Mandat**: Ein eingeloggter Nutzer sieht seine eigenen Mandate (die er als Verkäufer/Ersteller eingestellt hat) nicht mehr im Käufer-Marktplatz und kann dort kein Interesse/keine NDA anfordern. Das war der Birdview-Fehler, bei dem der Verkäufer wie ein Käufer auf sich selbst schauen konnte
+- **Rollen bleiben getrennt**: Verkäufer bekommen kein Käufer-Suchprofil (nur die Pflege-/Prozessansicht ihres Mandats), Käufer keinen Verkäufer-Bereich. Basis für die spätere, ausführlichere und kostenpflichtige Verkäufer-Stufe
+- Umgesetzt serverseitig (`GET /api/projects` blendet eigene Mandate aus; NDA-Anfrage aufs eigene Mandat wird abgelehnt)
+- Verifiziert: Server-Syntax und Build sauber
+
 ## v0.287 · 11.08.2026 · Unternehmen mit Seiten und A-Z, kleinere Aufräumer
 - **Unternehmen-Liste** bekommt dieselbe A-Z-Leiste und Seiten-Navigation wie die Kontakte
 - **Standard-Seitengröße jetzt 10** (statt 25), für Kontakte und Unternehmen

@@ -32,8 +32,12 @@ const { requireCompleteProfile } = require('../utils/profileCompleteness');
 router.post('/', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
   const { project_id } = req.body;
   if (!project_id) return res.status(400).json({ success: false, error: 'project_id fehlt' });
-  const project = await db.get(`SELECT id, codename FROM projects WHERE id = ? AND status = 'active'`, [project_id]);
+  const project = await db.get(`SELECT id, codename, created_by FROM projects WHERE id = ? AND status = 'active'`, [project_id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+  // Kein NDA/Interesse am EIGENEN Mandat (Verkäufer/Ersteller kann nicht auf sich selbst bieten)
+  if (project.created_by === req.user.id) {
+    return res.status(403).json({ success: false, error: 'Dies ist Ihr eigenes Mandat. Ein Interesse ist hier nicht möglich.' });
+  }
   const existing = await db.get('SELECT * FROM nda_requests WHERE user_id = ? AND project_id = ?', [req.user.id, project_id]);
   if (existing) return res.status(409).json({ success: false, error: 'NDA bereits angefordert', data: { status: existing.status } });
 
