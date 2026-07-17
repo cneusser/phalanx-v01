@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Search, Building2 } from 'lucide-react';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
+import Turnstile from '../components/Turnstile';
 
 const C = {
   navy:    '#1A4D8A',
@@ -47,6 +48,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [tsToken, setTsToken] = useState('');
 
   const set = (k) => (e) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
@@ -56,7 +58,7 @@ export default function Register() {
     setLoading(true);
     setError('');
     try {
-      const result = await register({ ...form, role: roleType, privacy_consent: agreed });
+      const result = await register({ ...form, role: roleType, privacy_consent: agreed, turnstile_token: tsToken });
       if (result.pending) {
         setSuccess(true);
       }
@@ -244,6 +246,9 @@ export default function Register() {
               Die Einwilligung kann ich jederzeit mit Wirkung für die Zukunft widerrufen.
             </label>
           </div>
+
+          {/* Roboter-Test (nur sichtbar, wenn Cloudflare Turnstile konfiguriert ist) */}
+          <Turnstile onToken={setTsToken} />
 
           <button
             type="submit"

@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.284 · 10.08.2026 · Roboter-Test (Cloudflare Turnstile) bei Login und Registrierung
+- **Bot-Schutz**: Login und Registrierung prüfen jetzt optional einen Cloudflare-Turnstile-Test (kostenlos). Das erschwert automatisiertes Durchprobieren von Passwörtern und Massen-Registrierungen durch Bots
+- **Ohne Konfiguration inaktiv**: Erst wenn `TURNSTILE_SITE_KEY` (Browser) und `TURNSTILE_SECRET` (Server) gesetzt sind, erscheint der Test und wird serverseitig verifiziert. Ohne Schlüssel läuft alles unverändert weiter
+- Serverseitige Verifikation gegen die Cloudflare-API; das Widget wird nur angezeigt, wenn ein Site-Key hinterlegt ist (`GET /api/auth/config`)
+- Verifiziert: Build sauber, Textwächter grün
+
 ## v0.283 · 09.08.2026 · Kompletter E-Mail- und Chat-Verlauf am Kontakt
 - **Jede Mail am Kontakt sichtbar**: Die Aktivitäten-Historie eines Kontakts zeigt jetzt das vollständige Mail-Ausgangsbuch, also wirklich jede Mail, die an ihn ging (Ansprache, Prozess-Mail, Einladung, NDA-Einladung, System-Mail), mit Betreff, Art und Status. So siehst du auf einen Blick, wer was bekommen hat, und vermeidest Doppelversand
 - **Chat am Kontakt**: Alle Plattform-Chat-Nachrichten des Kontakts (in beide Richtungen) tauchen jetzt ebenfalls in der Kontakt-Historie auf. Damit läuft die Zuordnung an einer Stelle zusammen

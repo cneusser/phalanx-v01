@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n';
 import { api } from '../api/client';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
+import Turnstile from '../components/Turnstile';
 
 const C = {
   navy:    '#1A4D8A',
@@ -29,6 +30,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [unverified, setUnverified] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
+  const [tsToken, setTsToken] = useState('');
 
   // Wohin nach erfolgreichem Login? (Rücksprung nur auf interne Pfade, kein Open Redirect)
   const goAfterLogin = (user) => {
@@ -55,7 +57,7 @@ export default function Login() {
     setLoading(true);
     setError(''); setUnverified(false); setResendMsg('');
     try {
-      const user = await login(email, password);
+      const user = await login(email, password, tsToken);
       // Sprint 13: Zweiter Faktor verlangt → Code-Eingabe statt Weiterleitung
       if (user && user.twofa_required) { setChallenge(user.challenge); setLoading(false); return; }
       goAfterLogin(user);
@@ -204,11 +206,14 @@ export default function Login() {
           </div>
 
           {/* Passwort vergessen */}
-          <div style={{ textAlign: 'right', marginBottom: '1.5rem' }}>
+          <div style={{ textAlign: 'right', marginBottom: '0.75rem' }}>
             <Link to="/passwort-vergessen" style={{ fontSize: '0.8rem', color: C.steel, textDecoration: 'none', fontWeight: 500 }}>
               {t('auth.forgot', 'Passwort vergessen?')}
             </Link>
           </div>
+
+          {/* Roboter-Test (nur sichtbar, wenn Cloudflare Turnstile konfiguriert ist) */}
+          <Turnstile onToken={setTsToken} />
 
           <button
             type="submit"

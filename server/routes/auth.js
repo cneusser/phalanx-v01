@@ -14,8 +14,17 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 // ── POST /register ─────────────────────────────────────────────────────────
 // All new registrations require admin approval (is_approved = 0).
 // No token is returned: user sees a "pending" message.
+// Öffentliche Anmelde-Konfiguration (z. B. Turnstile-Site-Key fürs Frontend)
+router.get('/config', (req, res) => {
+  res.json({ success: true, data: { turnstile_site_key: process.env.TURNSTILE_SITE_KEY || null } });
+});
+
 router.post('/register', wrap(async (req, res) => {
-  const { email, password, first_name, last_name, company, position, buyer_type, mobile, phone, role, privacy_consent, salutation, title } = req.body;
+  const { email, password, first_name, last_name, company, position, buyer_type, mobile, phone, role, privacy_consent, salutation, title, turnstile_token } = req.body;
+  // Bot-Test (Cloudflare Turnstile), sofern konfiguriert
+  if (!(await require('../utils/turnstile').verifyTurnstile(turnstile_token, req.ip))) {
+    return res.status(400).json({ success: false, error: 'Bitte bestätigen Sie den Sicherheitscheck (kein Roboter).' });
+  }
   if (!email || !password || !first_name || !last_name)
     return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen (Vorname, Nachname, E-Mail, Passwort)' });
   if (!mobile || String(mobile).trim().length < 6)
@@ -83,8 +92,12 @@ router.post('/register', wrap(async (req, res) => {
 
 // ── POST /login ────────────────────────────────────────────────────────────
 router.post('/login', wrap(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, turnstile_token } = req.body;
   if (!email || !password) return res.status(400).json({ success: false, error: 'E-Mail und Passwort erforderlich' });
+  // Bot-Test (Cloudflare Turnstile), sofern konfiguriert, gegen automatisiertes Ausprobieren
+  if (!(await require('../utils/turnstile').verifyTurnstile(turnstile_token, req.ip))) {
+    return res.status(400).json({ success: false, error: 'Bitte bestätigen Sie den Sicherheitscheck (kein Roboter).' });
+  }
 
   // Sprint 5 (RLS): Lookup im Tenant-Kontext der Subdomain (Default: 1)
   const user = await db.withTenant(req.tenantId || 1, (t) =>

@@ -19,8 +19,8 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = async (email, password) => {
-    const data = await api.post('/auth/login', { email, password });
+  const login = async (email, password, turnstile_token) => {
+    const data = await api.post('/auth/login', { email, password, turnstile_token });
     // Sprint 13: Ist 2FA aktiv, kommt hier noch kein Token, sondern eine Challenge.
     if (data.twofa_required) return { twofa_required: true, challenge: data.challenge };
     localStorage.setItem('phalanx_token', data.token);
