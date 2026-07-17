@@ -9,6 +9,16 @@ const { initialize } = require('./db/database');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Sicherheits-Startcheck: In Produktion muss ein starkes JWT_SECRET gesetzt sein.
+// Ohne eigenen Wert würden Tokens mit einem öffentlich bekannten Default signiert,
+// dann könnte jeder gültige Sitzungen fälschen. Wir warnen laut (ohne den Start zu
+// blockieren, um ein laufendes Deployment nicht abzuwürgen).
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'phalanx-secret')) {
+  console.error('\n🔴 SICHERHEITSWARNUNG: JWT_SECRET ist nicht gesetzt (oder auf dem Default).');
+  console.error('   Bitte in Railway eine lange Zufallszeichenkette als JWT_SECRET hinterlegen.');
+  console.error('   Sonst lassen sich Anmelde-Tokens fälschen.\n');
+}
+
 // Railway/Reverse-Proxy: echte Client-IP aus X-Forwarded-For lesen.
 // Ohne dies zählt der Rate-Limiter ALLE Besucher als eine IP (globale Sperre)
 // und Audit-Logs enthalten nur die Proxy-IP.
