@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.279 · 07.08.2026 · „Reagiert" bedeutet jetzt wirklich reagiert
+- **Der Bug**: Ein Mailing zeigte „21 reagiert", obwohl niemand geantwortet hatte. Grund: Die Reminder-Automatik wertete jeden im Funnel aktiv geführten Kontakt als „reagiert", nicht erst eine echte Antwort
+- **Fix**: „Reagiert" zählt jetzt nur noch echte Reaktionen auf das Mailing: Einwilligung/Registrierung, Absage, Mailantwort oder Widerspruch. Aktiv im Funnel geführte Kontakte erscheinen als eigener Status „wird im Funnel geführt (kein Reminder)" und werden nicht mehr als Reaktion gezählt
+- Das Empfänger-Pop-up ist entsprechend beschriftet; bereits falsch gezählte Empfänger wurden per Migration korrigiert
+- Verifiziert: 8 Tests für die Reaktions-Definition; Build sauber
+
 ## v0.278 · 06.08.2026 · Recherchelisten aus Excel ins CRM
 - **Liste importieren (Excel/CSV)**: Neuer Knopf im CRM. Eine recherchierte Liste (z. B. 50 Kapitalgeber für Nexora) wird hochgeladen, die Spalten (Name, Firma, E-Mail, Ort, Notiz, Quelle) werden automatisch erkannt. Investoren-/Fondslisten ohne Personennamen werden korrekt behandelt (Fondsname dient als Kontakt- und Firmenname)
 - **Dubletten-Abgleich vor dem Speichern**: Der Report zeigt je Zeile „neu" oder „schon im CRM" und eine Zusammenfassung (gesamt, neu, vorhanden, ohne E-Mail). So sieht man vor dem Import, was dazukommt und was bereits da ist. Das CRM bleibt die eine Datenbank für die Ansprache

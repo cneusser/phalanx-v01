@@ -205,12 +205,15 @@ function reminderDue(row, now = Date.now()) {
   return (now - sent) >= dueAfter;
 }
 
+// Echte Reaktion auf das Mailing: Einwilligung/Registrierung, Absage, Antwort per
+// Mail oder Widerspruch. Bewusst NICHT: „der Kontakt ist im Funnel aktiv geführt".
+// Das ist ein manuell gesetzter Status des Beraters, keine Reaktion auf die Mail.
+// Sonst gälte jeder aktive Kontakt als „reagiert", auch ohne je geantwortet zu haben.
 function reactionOf(row) {
   if (row.consent_status === 'opt_out' || row.contact_status === 'do_not_contact') return 'Widerspruch';
   if (['consented', 'registered'].includes(row.invite_status)) return 'Einwilligung erteilt';
   if (row.invite_status === 'declined') return 'abgelehnt';
-  if (row.party_status && ['active', 'dropped'].includes(row.party_status)) return 'Rückmeldung erfasst';
-  if (row.replied) return 'Rückmeldung erfasst';
+  if (row.replied) return 'Antwort erhalten';
   return null;
 }
 
@@ -239,12 +242,20 @@ async function runReminders() {
   let sent = 0;
 
   for (const row of rows) {
-    // a) Reaktion oder Widerspruch → Serie beenden
+    // a) Echte Reaktion oder Widerspruch → Serie beenden
     const reaction = reactionOf(row);
     if (reaction) {
       await db.run(
         `UPDATE crm_campaign_recipients SET status = ?, skip_reason = ?, responded_at = now() WHERE id = ?`,
         [reaction === 'Widerspruch' ? 'skipped' : 'responded', reaction, row.id]).catch(() => {});
+      continue;
+    }
+    // a2) Kein echtes Signal, aber der Kontakt wird im Funnel aktiv geführt (oder ist
+    // ausgestiegen): keine Reminder mehr, aber das zählt NICHT als Reaktion.
+    if (row.party_status && ['active', 'dropped'].includes(row.party_status)) {
+      await db.run(
+        `UPDATE crm_campaign_recipients SET status = 'suppressed', skip_reason = 'wird im Funnel geführt' WHERE id = ?`,
+        [row.id]).catch(() => {});
       continue;
     }
     if (!row.email || !row.pid) continue;

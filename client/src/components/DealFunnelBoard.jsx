@@ -515,10 +515,11 @@ export default function DealFunnelBoard({ show }) {
         const R = campDetail.recipients;
         const name = (r) => [r.salutation, r.title, r.first_name, r.last_name].filter(Boolean).join(' ').trim() || r.email || 'Unbekannt';
         const groups = [
-          ['responded', 'Reagiert', '#065f46', '#d1fae5'],
+          ['responded', 'Reagiert (Einwilligung, Registrierung oder Antwort)', '#065f46', '#d1fae5'],
           ['reminded', 'Erinnert, noch offen', '#92400e', '#fef3c7'],
-          ['sent', 'Angeschrieben, keine Reaktion', '#475569', '#f1f5f9'],
-          ['no_response', 'Ohne Rückmeldung (beendet)', '#475569', '#f1f5f9'],
+          ['sent', 'Angeschrieben, wartet auf Reaktion', '#475569', '#f1f5f9'],
+          ['suppressed', 'Wird im Funnel geführt (kein Reminder)', '#3730a3', '#e0e7ff'],
+          ['no_response', 'Ohne Rückmeldung (Serie beendet)', '#475569', '#f1f5f9'],
           ['skipped', 'Nicht angeschrieben (Widerspruch)', '#991b1b', '#fee2e2'],
         ];
         return (
