@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.287 · 11.08.2026 · Unternehmen mit Seiten und A-Z, kleinere Aufräumer
+- **Unternehmen-Liste** bekommt dieselbe A-Z-Leiste und Seiten-Navigation wie die Kontakte
+- **Standard-Seitengröße jetzt 10** (statt 25), für Kontakte und Unternehmen
+- **„k. A." unter dem Namen entfernt**: Der leere Verantwortungsbereich wird nicht mehr als „k. A." angezeigt, nur noch wenn wirklich etwas hinterlegt ist
+- Verifiziert: Build sauber und warnungsfrei
+
 ## v0.286 · 11.08.2026 · Verkäufer-Funnel über mehrere Mandate
 - **Mehr-Projekt-Funnel für den Mandanten**: Im Verkäufer-Dashboard sieht der Mandant jetzt einen echten, nur-lesbaren Funnel, ähnlich der Admin-Ansicht, aber reduziert. Hat er mehrere Mandate, wählt er sie über Reiter. Je Stufe (Longlist bis Abgeschlossen) Kennzahlen und die Namen der interessierten Parteien
 - **Vertraulich**: bewusst nur Namen (und optional Firma), keine Kontaktdaten, kein Bezug zu anderen Mandaten. Die Abfrage ist serverseitig auf das eigene Mandat begrenzt und nur für den verknüpften Verkäufer bzw. Berater/Admin zugänglich

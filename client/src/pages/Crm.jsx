@@ -38,17 +38,54 @@ export default function Crm() {
   const [projects, setProjects] = useState([]);      // Mandate für die Zuordnung
   const [stages, setStages] = useState([]);
   const [changes, setChanges] = useState([]);        // offene Selbstpflege-Änderungen
-  // Kontaktliste: A-Z-Filter + Seiten
+  // Listen (Kontakte UND Unternehmen): A-Z-Filter + Seiten (Standard 10)
   const [letter, setLetter] = useState('');
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [letter, q, pageSize, tab]);
-  const initialOf = (k) => (String(k.last_name || k.first_name || k.companies || '').trim()[0] || '#').toUpperCase();
-  const contactsByLetter = letter
-    ? contacts.filter(k => (letter === '#' ? !/[A-Z]/.test(initialOf(k)) : initialOf(k) === letter))
-    : contacts;
-  const totalPages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(contactsByLetter.length / pageSize));
-  const pageContacts = pageSize === 'all' ? contactsByLetter : contactsByLetter.slice((page - 1) * pageSize, page * pageSize);
+  useEffect(() => { setPage(1); setLetter(''); }, [tab]);
+  useEffect(() => { setPage(1); }, [letter, q, pageSize]);
+  const initialLetter = (s) => (String(s || '').trim()[0] || '#').toUpperCase();
+  const byLetter = (arr, keyFn) => letter
+    ? arr.filter(x => (letter === '#' ? !/[A-Z]/.test(initialLetter(keyFn(x))) : initialLetter(keyFn(x)) === letter))
+    : arr;
+  const paginate = (arr) => pageSize === 'all' ? arr : arr.slice((page - 1) * pageSize, page * pageSize);
+  const pageCount = (arr) => pageSize === 'all' ? 1 : Math.max(1, Math.ceil(arr.length / pageSize));
+
+  const contactsByLetter = byLetter(contacts, k => k.last_name || k.first_name || k.companies);
+  const pageContacts = paginate(contactsByLetter);
+  const totalPages = pageCount(contactsByLetter);
+
+  const companiesByLetter = byLetter(companies, c => c.name);
+  const pageCompanies = paginate(companiesByLetter);
+  const totalPagesCompanies = pageCount(companiesByLetter);
+
+  const azBtn = (a) => ({ fontSize: '0.72rem', fontWeight: 700, padding: '0.2rem 0.45rem', borderRadius: 6, cursor: 'pointer', border: `1px solid ${a ? C.navy : C.border}`, background: a ? C.navy : '#fff', color: a ? '#fff' : C.muted });
+  const AZBar = () => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: '0.6rem', alignItems: 'center' }}>
+      <button onClick={() => setLetter('')} style={azBtn(!letter)}>Alle</button>
+      {'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('').map(L => (
+        <button key={L} onClick={() => setLetter(L)} style={azBtn(letter === L)}>{L}</button>
+      ))}
+    </div>
+  );
+  const Pager = ({ total, count, word }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginTop: '0.7rem', fontSize: '0.8rem', color: C.muted }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span>Pro Seite:</span>
+        {[10, 25, 50, 'all'].map(n => (
+          <button key={n} onClick={() => setPageSize(n)} style={{ fontWeight: 700, padding: '0.2rem 0.55rem', borderRadius: 6, cursor: 'pointer', border: `1px solid ${pageSize === n ? C.navy : C.border}`, background: pageSize === n ? C.navy : '#fff', color: pageSize === n ? '#fff' : C.muted }}>{n === 'all' ? 'Alle' : n}</button>
+        ))}
+        <span style={{ marginLeft: 8 }}>{count} {word}{letter ? ` mit „${letter}"` : ''}</span>
+      </div>
+      {pageSize !== 'all' && total > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} style={{ padding: '0.25rem 0.7rem', borderRadius: 6, border: `1px solid ${C.border}`, background: '#fff', cursor: page <= 1 ? 'default' : 'pointer', color: page <= 1 ? '#cbd5e1' : C.navy, fontWeight: 700 }}>Zurück</button>
+          <span>Seite {page} / {total}</span>
+          <button onClick={() => setPage(p => Math.min(total, p + 1))} disabled={page >= total} style={{ padding: '0.25rem 0.7rem', borderRadius: 6, border: `1px solid ${C.border}`, background: '#fff', cursor: page >= total ? 'default' : 'pointer', color: page >= total ? '#cbd5e1' : C.navy, fontWeight: 700 }}>Weiter</button>
+        </div>
+      )}
+    </div>
+  );
 
   const load = useCallback(async () => {
     try {
@@ -186,6 +223,8 @@ export default function Crm() {
 
       {/* Unternehmen */}
       {tab === 'companies' && (
+        <>
+        {AZBar()}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
             <thead>
@@ -198,7 +237,7 @@ export default function Crm() {
               </tr>
             </thead>
             <tbody>
-              {companies.map(c => (
+              {pageCompanies.map(c => (
                 <tr key={c.id} onClick={() => openCompany(c.id)} style={{ borderTop: `1px solid ${C.border}`, cursor: 'pointer' }}>
                   <td style={{ padding: '0.7rem 1rem' }}>
                     <div style={{ fontWeight: 700, color: C.navy }}>{c.name}</div>
@@ -213,10 +252,12 @@ export default function Crm() {
                   <td style={{ padding: '0.7rem 1rem', textAlign: 'right' }}><ChevronRight size={14} color={C.muted} /></td>
                 </tr>
               ))}
-              {!companies.length && <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: C.muted }}>Noch keine Unternehmen. Legen Sie eines an oder importieren Sie eine CSV-Datei.</td></tr>}
+              {!pageCompanies.length && <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: C.muted }}>{companies.length ? 'Keine Unternehmen für diesen Filter.' : 'Noch keine Unternehmen. Legen Sie eines an oder importieren Sie eine CSV-Datei.'}</td></tr>}
             </tbody>
           </table>
         </div>
+        {Pager({ total: totalPagesCompanies, count: companiesByLetter.length, word: 'Unternehmen' })}
+        </>
       )}
 
       {/* CRM IV: Offene Selbstpflege-Änderungen zur Freigabe */}
@@ -256,13 +297,7 @@ export default function Crm() {
       {/* Kontakte */}
       {tab === 'contacts' && (
         <>
-        {/* A-Z-Leiste */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: '0.6rem', alignItems: 'center' }}>
-          <button onClick={() => setLetter('')} style={{ fontSize: '0.72rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: 6, cursor: 'pointer', border: `1px solid ${!letter ? C.navy : C.border}`, background: !letter ? C.navy : '#fff', color: !letter ? '#fff' : C.muted }}>Alle</button>
-          {['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','#'].map(L => (
-            <button key={L} onClick={() => setLetter(L)} style={{ fontSize: '0.72rem', fontWeight: 700, padding: '0.2rem 0.45rem', borderRadius: 6, cursor: 'pointer', border: `1px solid ${letter === L ? C.navy : C.border}`, background: letter === L ? C.navy : '#fff', color: letter === L ? '#fff' : C.muted }}>{L}</button>
-          ))}
-        </div>
+        {AZBar()}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
             <thead>
@@ -283,7 +318,7 @@ export default function Crm() {
                       {k.is_decision_maker === 1 && <Star size={12} color="#f59e0b" fill="#f59e0b" />}
                       {[k.title, k.first_name, k.last_name].filter(Boolean).join(' ')}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: C.muted }}>{k.responsibility || 'k. A.'}</div>
+                    {k.responsibility && <div style={{ fontSize: '0.72rem', color: C.muted }}>{k.responsibility}</div>}
                   </td>
                   <td style={{ padding: '0.7rem 0.5rem', color: C.text }}>{k.companies || 'k. A.'}</td>
                   <td style={{ padding: '0.7rem 0.5rem', color: C.muted, fontSize: '0.76rem' }}>
@@ -321,24 +356,7 @@ export default function Crm() {
             </tbody>
           </table>
         </div>
-
-        {/* Seiten-Navigation + Seitengröße */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginTop: '0.7rem', fontSize: '0.8rem', color: C.muted }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>Pro Seite:</span>
-            {[10, 25, 50, 'all'].map(n => (
-              <button key={n} onClick={() => setPageSize(n)} style={{ fontWeight: 700, padding: '0.2rem 0.55rem', borderRadius: 6, cursor: 'pointer', border: `1px solid ${pageSize === n ? C.navy : C.border}`, background: pageSize === n ? C.navy : '#fff', color: pageSize === n ? '#fff' : C.muted }}>{n === 'all' ? 'Alle' : n}</button>
-            ))}
-            <span style={{ marginLeft: 8 }}>{contactsByLetter.length} Kontakt(e){letter ? ` mit „${letter}"` : ''}</span>
-          </div>
-          {pageSize !== 'all' && totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} style={{ padding: '0.25rem 0.7rem', borderRadius: 6, border: `1px solid ${C.border}`, background: '#fff', cursor: page <= 1 ? 'default' : 'pointer', color: page <= 1 ? '#cbd5e1' : C.navy, fontWeight: 700 }}>Zurück</button>
-              <span>Seite {page} / {totalPages}</span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={{ padding: '0.25rem 0.7rem', borderRadius: 6, border: `1px solid ${C.border}`, background: '#fff', cursor: page >= totalPages ? 'default' : 'pointer', color: page >= totalPages ? '#cbd5e1' : C.navy, fontWeight: 700 }}>Weiter</button>
-            </div>
-          )}
-        </div>
+        {Pager({ total: totalPages, count: contactsByLetter.length, word: 'Kontakt(e)' })}
         </>
       )}
 
