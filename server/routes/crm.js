@@ -349,6 +349,7 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
   // Sprint 20: Mandats-Zuordnungen dieses Kontakts (Rolle + Funnel-Stufe)
   const deals = await scoped(req, (t) => t.all(`
     SELECT dp.id AS party_id, dp.project_id, dp.party_role, dp.funnel_stage, dp.party_status, dp.next_step,
+           dp.nda_status, dp.access_granted,
            p.codename, p.status AS project_status,
            (SELECT CASE
                      WHEN nr.signed_at IS NOT NULL OR nr.status IN ('signed', 'approved') THEN 'signed'
@@ -356,7 +357,7 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
                      ELSE nr.status END
               FROM nda_requests nr
              WHERE nr.project_id = dp.project_id AND nr.user_id = ?
-             ORDER BY nr.id DESC LIMIT 1) AS nda_state
+             ORDER BY nr.id DESC LIMIT 1) AS nda_online
     FROM crm_deal_parties dp JOIN projects p ON p.id = dp.project_id
     WHERE dp.contact_id = ? ORDER BY dp.funnel_stage DESC`, [contact.user_id || 0, req.params.id])).catch(() => []);
 
@@ -679,14 +680,14 @@ router.get('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
            k.lead_source, k.lead_ref,
            c.name AS company_name,
            (SELECT status FROM crm_invitations i WHERE i.contact_id = dp.contact_id ORDER BY i.invited_at DESC LIMIT 1) AS invite_status,
-           -- NDA-Stand des zum Kontakt gehörenden Nutzers für DIESES Mandat
+           -- NDA-Stand des zum Kontakt gehörenden Nutzers für DIESES Mandat (online)
            (SELECT CASE
                      WHEN nr.signed_at IS NOT NULL OR nr.status IN ('signed', 'approved') THEN 'signed'
                      WHEN nr.status IN ('requested', 'sent', 'nda_pending') THEN 'open'
                      ELSE nr.status END
               FROM nda_requests nr
              WHERE nr.project_id = dp.project_id AND nr.user_id = k.user_id
-             ORDER BY nr.id DESC LIMIT 1) AS nda_state
+             ORDER BY nr.id DESC LIMIT 1) AS nda_online
     FROM crm_deal_parties dp
     LEFT JOIN crm_contacts k ON k.id = dp.contact_id
     LEFT JOIN crm_companies c ON c.id = dp.company_id
@@ -939,6 +940,17 @@ router.put('/parties/:id', ...isStaff, canWrite, wrap(async (req, res) => {
   if (req.body.party_role !== undefined && PARTY_ROLES.includes(req.body.party_role)) { sets.push('party_role = ?'); params.push(req.body.party_role); }
   for (const f of ['next_step', 'notes']) {
     if (req.body[f] !== undefined) { sets.push(`${f} = ?`); params.push(req.body[f] || null); }
+  }
+  // Manuelle NDA-Angabe (kein / angefragt / liegt vor)
+  if (req.body.nda_status !== undefined) {
+    const v = req.body.nda_status;
+    if (![null, '', 'open', 'signed'].includes(v)) return res.status(400).json({ success: false, error: 'Ungültiger NDA-Status' });
+    sets.push('nda_status = ?'); params.push(v || null);
+    sets.push('nda_signed_at = ?'); params.push(v === 'signed' ? new Date() : null);
+  }
+  // Zugang zum Mandat (Unterlagen/Datenraum) manuell setzen
+  if (req.body.access_granted !== undefined) {
+    sets.push('access_granted = ?'); params.push(req.body.access_granted ? 1 : 0);
   }
   if (!sets.length) return res.json({ success: true, data: { message: 'Nichts zu ändern' } });
 

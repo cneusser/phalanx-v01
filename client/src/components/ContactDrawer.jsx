@@ -90,6 +90,10 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
     try { await api.put(`/crm/parties/${partyId}`, { party_status: status }); await load(); onChanged && onChanged(); }
     catch (e) { show('Fehler: ' + e.message); }
   }
+  async function setPartyField(partyId, patch) {
+    try { await api.put(`/crm/parties/${partyId}`, patch); await load(); onChanged && onChanged(); }
+    catch (e) { show('Fehler: ' + e.message); }
+  }
 
   async function logReply() {
     if (reply.trim().length < 3) return;
@@ -268,6 +272,29 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                             <option value="unclear">unklar</option>
                             <option value="dropped">ausgestiegen</option>
                           </select>
+                        </div>
+                      </div>
+                      {/* NDA und Zugang zum Mandat */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.6rem' }}>
+                        <div>
+                          <div style={LBL}>NDA</div>
+                          <select value={d.nda_status || ''} onChange={e => setPartyField(d.party_id, { nda_status: e.target.value })} style={{ ...IN, marginTop: 3 }}>
+                            <option value="">kein NDA</option>
+                            <option value="open">angefragt</option>
+                            <option value="signed">liegt vor</option>
+                          </select>
+                          {d.nda_online && (
+                            <div style={{ fontSize: '0.66rem', color: d.nda_online === 'signed' ? '#059669' : '#92400e', marginTop: 2 }}>
+                              online: {d.nda_online === 'signed' ? 'unterzeichnet' : 'angefragt'}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <div style={LBL}>Zugang zum Mandat</div>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: '0.8rem', color: C.text, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={d.access_granted === 1} onChange={e => setPartyField(d.party_id, { access_granted: e.target.checked })} />
+                            {d.access_granted === 1 ? 'freigegeben' : 'kein Zugang'}
+                          </label>
                         </div>
                       </div>
                       {d.next_step && <div style={{ fontSize: '0.75rem', color: C.muted, marginTop: '0.5rem' }}>→ {d.next_step}</div>}

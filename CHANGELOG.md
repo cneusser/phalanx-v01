@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.282 · 09.08.2026 · NDA manuell vergeben, Projekt-Zugang sichtbar
+- **NDA manuell setzen**: In der Kontakt-Ansicht steht pro Mandat jetzt ein NDA-Feld: „kein NDA / angefragt / liegt vor". Das funktioniert auch für Kontakte ohne Plattform-Konto (offline unterzeichnete NDAs). Ist eine Online-Signatur vorhanden, wird sie zusätzlich als „online: unterzeichnet/angefragt" angezeigt
+- **Zugang zum Mandat**: Pro Mandat ein Schalter „Zugang zum Mandat" (Unterlagen/Datenraum). So siehst und steuerst du, ob der Kontakt Zugang hat
+- **Funnel-Karte**: Das NDA-Badge berücksichtigt jetzt beides, Online-Signatur und manuelle Angabe; zusätzlich zeigt ein „Zugang"-Badge, wenn der Zugang gesetzt ist
+- Warum du das Badge vorher nicht sahst: Es erschien nur bei registrierten Kontakten mit Online-NDA. Herr Malessa hat zwar eingewilligt, aber ohne unterzeichnete NDA, deshalb kein Badge. Jetzt kannst du es manuell führen
+- Endpunkt: `PUT /api/crm/parties/:id` akzeptiert `nda_status` und `access_granted`
+- Verifiziert: Build sauber, Textwächter grün
+
 ## v0.281 · 08.08.2026 · NDA-Status auf der Karte, Chat prominent
 - **NDA sichtbar am Kontakt**: Jede Funnel-Karte zeigt jetzt, ob eine NDA vorliegt, „NDA ✓" (grün, unterzeichnet oder freigegeben) oder „NDA offen" (gelb, angefragt, noch nicht gezeichnet). Auch in der Kontakt-Ansicht je Mandat sichtbar. Der Status kommt aus `nda_requests` über den mit dem Kontakt verknüpften Nutzer
 - **Chat prominent erreichbar**: „Nachrichten" steht jetzt für alle angemeldeten Nutzer (auch Admins) sichtbar in der oberen Leiste, mit Sprechblasen-Symbol und einem roten Zähler für ungelesene Nachrichten. Vorher war der Chat für Admins ausgeblendet und schwer zu finden
