@@ -761,6 +761,121 @@ router.post('/leads/ingest', ...isStaff, canWrite, wrap(async (req, res) => {
   }
 }));
 
+// ── Recherche-Liste (Excel/CSV) importieren ─────────────────────────────────
+// Zwei Schritte: analysieren (Vorschau + Dubletten-Abgleich) und anwenden
+// (Kontakte anlegen, dem Mandat zuordnen, optional einladen). Das „Match" gegen
+// den bestehenden CRM-Bestand zeigt, welche Kontakte neu und welche vorhanden sind.
+const multer = require('multer');
+const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 6 * 1024 * 1024 } });
+const { detectHeaderRow, guessMapping, buildContacts } = require('../utils/contactImport');
+
+function parseSheet(file) {
+  const name = (file.originalname || '').toLowerCase();
+  if (name.endsWith('.csv') || (file.mimetype || '').includes('csv')) {
+    const text = file.buffer.toString('utf8').replace(/^﻿/, '');
+    const first = text.split(/\r?\n/)[0] || '';
+    const delim = (first.match(/;/g) || []).length >= (first.match(/,/g) || []).length ? ';' : ',';
+    return text.split(/\r?\n/).map(l => l.split(delim).map(c => c.replace(/^"(.*)"$/, '$1')));
+  }
+  const XLSX = require('xlsx');
+  const wb = XLSX.read(file.buffer, { type: 'buffer' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+}
+
+router.post('/import/analyze', ...isStaff, canWrite, importUpload.single('file'), wrap(async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei empfangen.' });
+  let rows;
+  try { rows = parseSheet(req.file); } catch (e) { return res.status(400).json({ success: false, error: 'Datei nicht lesbar: ' + e.message }); }
+  if (!rows || rows.length < 2) return res.status(400).json({ success: false, error: 'Zu wenige Zeilen in der Datei.' });
+
+  const headerIdx = detectHeaderRow(rows);
+  const headers = (rows[headerIdx] || []).map(x => String(x == null ? '' : x));
+  const mapping = guessMapping(headers);
+  const contacts = buildContacts(rows, headerIdx, mapping).slice(0, 1000);
+
+  const q = qFor(req);
+  const emails = [...new Set(contacts.map(c => c.email).filter(Boolean))];
+  const byEmail = {};
+  if (emails.length) {
+    const rowsE = await q.all(`SELECT id, lower(email) AS email FROM crm_contacts WHERE lower(email) IN (${emails.map(() => '?').join(',')})`, emails).catch(() => []);
+    for (const r of rowsE) byEmail[r.email] = r;
+  }
+  const names = [...new Set(contacts.filter(c => !c.email && c.last_name).map(c => c.last_name.toLowerCase()))];
+  const byName = {};
+  if (names.length) {
+    const rowsN = await q.all(`SELECT id, lower(last_name) AS ln FROM crm_contacts WHERE lower(last_name) IN (${names.map(() => '?').join(',')})`, names).catch(() => []);
+    for (const r of rowsN) byName[r.ln] = r;
+  }
+  let neu = 0, vorhanden = 0, ohne_email = 0;
+  const enriched = contacts.map(c => {
+    const ex = (c.email && byEmail[c.email]) || (!c.email && c.last_name && byName[c.last_name.toLowerCase()]) || null;
+    if (!c.email) ohne_email++;
+    if (ex) vorhanden++; else neu++;
+    return { ...c, status: ex ? 'exists' : 'new', existingId: ex ? ex.id : null };
+  });
+  res.json({ success: true, data: { headers, mapping, headerRow: headerIdx, contacts: enriched, summary: { total: enriched.length, neu, vorhanden, ohne_email } } });
+}));
+
+router.post('/import/apply', ...isStaff, canWrite, wrap(async (req, res) => {
+  const q = qFor(req);
+  const tenant = req.tenantId || 1;
+  const list = (req.body.contacts || []).slice(0, 1000);
+  const projectId = Number(req.body.project_id) || null;
+  const sendInvite = req.body.send_invite === true;
+  if (!list.length) return res.status(400).json({ success: false, error: 'Keine Kontakte übergeben.' });
+  if (sendInvite && !can(req.user, 'mail.send')) return res.status(403).json({ success: false, error: 'Keine Berechtigung zum Mailversand.' });
+  if (sendInvite && !projectId) return res.status(400).json({ success: false, error: 'Zum Einladen bitte zuerst ein Mandat wählen.' });
+
+  const project = projectId ? await q.get('SELECT * FROM projects WHERE id = ?', [projectId]) : null;
+  const outreach = require('../utils/outreach');
+  let created = 0, reused = 0, attached = 0, invited = 0, blocked = 0;
+
+  for (const c of list) {
+    const email = String(c.email || '').toLowerCase();
+    let contact = email
+      ? await q.get('SELECT * FROM crm_contacts WHERE lower(email) = ? LIMIT 1', [email])
+      : (c.last_name ? await q.get('SELECT * FROM crm_contacts WHERE lower(last_name) = ? LIMIT 1', [String(c.last_name).toLowerCase()]) : null);
+    let contactId;
+    if (contact) { contactId = contact.id; reused++; }
+    else {
+      contactId = await q.insert(
+        `INSERT INTO crm_contacts (tenant_id, salutation, title, first_name, last_name, email, phone, location, notes,
+                                   source, lead_source, lead_ref, consent_status, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'inbound', 'Recherche', ?, 'unknown', ?)`,
+        [tenant, c.salutation || null, c.title || null, c.first_name || '', c.last_name || (email ? email.split('@')[0] : 'Kontakt'),
+         email || null, c.phone || null, c.location || null, c.notes || null, c.source || null, req.user.id]);
+      created++;
+      if (c.company) {
+        const comp = await q.get('SELECT id FROM crm_companies WHERE lower(name) = ? LIMIT 1', [String(c.company).toLowerCase()])
+          || { id: await q.insert('INSERT INTO crm_companies (tenant_id, name, created_by) VALUES (?, ?, ?)', [tenant, c.company, req.user.id]) };
+        const linked = await q.get('SELECT id FROM crm_company_contacts WHERE company_id = ? AND contact_id = ? LIMIT 1', [comp.id, contactId]).catch(() => null);
+        if (!linked) await q.run('INSERT INTO crm_company_contacts (tenant_id, company_id, contact_id) VALUES (?, ?, ?)', [tenant, comp.id, contactId]).catch(() => {});
+      }
+    }
+    if (projectId) {
+      const ex = await q.get('SELECT id FROM crm_deal_parties WHERE project_id = ? AND contact_id = ?', [projectId, contactId]);
+      if (!ex) {
+        await q.insert(
+          `INSERT INTO crm_deal_parties (tenant_id, project_id, contact_id, party_role, funnel_stage, party_status, source, created_by)
+           VALUES (?, ?, ?, 'buyer', 0, 'open', 'import', ?)`, [tenant, projectId, contactId, req.user.id]);
+        attached++;
+      }
+    }
+    if (sendInvite && project) {
+      const fresh = await q.get('SELECT consent_status, contact_status FROM crm_contacts WHERE id = ?', [contactId]);
+      if (fresh && (fresh.consent_status === 'opt_out' || fresh.contact_status === 'do_not_contact')) { blocked++; }
+      else {
+        const r = await outreach.sendFirstApproach(q, { tenant, contactId, projectId, actorId: req.user.id, inviter: req.user });
+        if (r && r.sent) invited++;
+      }
+    }
+  }
+  db.auditLog(req.user.id, 'CRM_LIST_IMPORT', 'crm_contact', null,
+    `${created} neu, ${reused} vorhanden${projectId ? ` · Mandat #${projectId}` : ''}${sendInvite ? ` · ${invited} eingeladen` : ''}`, req.ip);
+  res.json({ success: true, data: { created, reused, attached, invited, blocked } });
+}));
+
 router.post('/deals/:projectId/parties', ...isStaff, canWrite, wrap(async (req, res) => {
   const contactId = Number(req.body.contact_id);
   if (!contactId) return res.status(400).json({ success: false, error: 'contact_id fehlt' });

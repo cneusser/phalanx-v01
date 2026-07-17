@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.278 · 06.08.2026 · Recherchelisten aus Excel ins CRM
+- **Liste importieren (Excel/CSV)**: Neuer Knopf im CRM. Eine recherchierte Liste (z. B. 50 Kapitalgeber für Nexora) wird hochgeladen, die Spalten (Name, Firma, E-Mail, Ort, Notiz, Quelle) werden automatisch erkannt. Investoren-/Fondslisten ohne Personennamen werden korrekt behandelt (Fondsname dient als Kontakt- und Firmenname)
+- **Dubletten-Abgleich vor dem Speichern**: Der Report zeigt je Zeile „neu" oder „schon im CRM" und eine Zusammenfassung (gesamt, neu, vorhanden, ohne E-Mail). So sieht man vor dem Import, was dazukommt und was bereits da ist. Das CRM bleibt die eine Datenbank für die Ansprache
+- **In einem Rutsch**: neue Kontakte werden angelegt, optional einem Mandat zugeordnet (Longlist) und, auf Wunsch, alle direkt eingeladen. Die Einladung stellt das Projekt vor, nennt den Hintergrund und holt die Einwilligung ein; die 7/21-Tage-Reminder greifen automatisch. Widersprüche werden übersprungen
+- Endpunkte `POST /api/crm/import/analyze` und `POST /api/crm/import/apply`; xlsx-Parsing serverseitig (SheetJS)
+- Verifiziert: 14 Parser-Tests (Kopfzeilen-Erkennung, Spaltenzuordnung, Fonds- und Personenlisten) an der echten Nexora-Datei geprüft (51 Kontakte, 41 mit E-Mail); Build sauber
+- Hinweis: Die Einladung nutzt die Standard-Projektvorstellung. Eine voll personalisierte Fundraising-Mail mit einer „Warum ihr"-Zeile je Investor lässt sich später ergänzen, indem eine Excel-Spalte auf einen Platzhalter gemappt wird
+
 ## v0.277 · 05.08.2026 · Prozessstand für den Mandanten, Reaktionen sichtbar
 - **Verkäufer sieht seinen Funnel** (reduziert): Im Verkäufer-Dashboard gibt es bei aktiven Mandaten den Knopf „Prozessstand ansehen". Der Mandant sieht die interessierten Parteien (Name, optional Firma) und ihre Prozessstufe, **aber keine Kontaktdaten** (keine E-Mail, kein Telefon) und **keinen Bezug zu anderen Mandaten**. Endpunkt `GET /api/projects/:id/funnel-preview`, zugänglich nur für den Mandanten (`created_by`) sowie Berater/Admin
 - **Wer hat reagiert?**: In „Versendete Mailings" ist die Reaktions-Zahl jetzt anklickbar (auch „Empfänger"). Ein Pop-up listet die Empfänger mit Namen, gruppiert nach Status (reagiert, erinnert, ohne Rückmeldung, gesperrt). Klick auf einen Namen öffnet den Kontakt. Endpunkt `GET /api/crm/campaigns/:id/recipients`

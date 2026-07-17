@@ -42,6 +42,8 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | · | Anrede registrierter Nutzer in Mails; NDA-Stufe präzisiert (v0.270) | ✅ fertig |
 | · | Kaufanfragen aus Marktplätzen (DUB.de u. a.) per Einfügen einlesen, Herkunft in der Ansprache (v0.271) | ✅ fertig |
 | · | Anfragen per Brevo weiterleiten (Webhook) + automatische Erstansprache beim Übernehmen (v0.272) | ✅ fertig |
+| · | Automatik bis NDA nach Registrierung (v0.275); Prozessstand für Mandanten + Reaktions-Popup (v0.277) | ✅ fertig |
+| · | Recherchelisten aus Excel importieren, Dubletten-Abgleich, Massen-Einladung (v0.278) | ✅ fertig; per-Investor-Mailmerge offen |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →
