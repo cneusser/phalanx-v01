@@ -106,6 +106,49 @@ router.get('/my-projects', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: projects });
 }));
 
+// ── GET /:id/funnel-preview: reduzierter Funnel für den Verkäufer ───────────
+// Der Mandant (Verkäufer, der das Mandat eingestellt hat) sieht, wie weit sein
+// Prozess ist und WER interessiert ist, aber bewusst OHNE Kontaktdaten (keine
+// E-Mail, kein Telefon) und ohne jeden Bezug zu anderen Mandaten. Berater und
+// Admin sehen es ebenfalls; Käufer haben keinen Zugriff.
+const SELLER_STAGES = [
+  { key: 0, label: 'Longlist' }, { key: 1, label: 'Angesprochen' }, { key: 2, label: 'Rückmeldung' },
+  { key: 3, label: 'NDA' }, { key: 4, label: 'IM / Unterlagen' }, { key: 5, label: 'Gespräch' },
+  { key: 6, label: 'Angebot / LOI' }, { key: 7, label: 'Due Diligence' }, { key: 8, label: 'Abgeschlossen' },
+];
+router.get('/:id/funnel-preview', authenticate, wrap(async (req, res) => {
+  const project = await db.get('SELECT id, codename, created_by, status FROM projects WHERE id = ?', [req.params.id]);
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  const isStaff = ['super_admin', 'advisor', 'tenant_owner'].includes(req.user.role);
+  const isOwner = project.created_by === req.user.id;
+  if (!isStaff && !isOwner) return res.status(403).json({ success: false, error: 'Nicht berechtigt' });
+
+  const rows = await db.all(`
+    SELECT dp.funnel_stage, dp.party_status, dp.stage_changed_at,
+           k.salutation, k.title, k.first_name, k.last_name,
+           (SELECT c.name FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
+             WHERE cc.contact_id = k.id AND cc.ended_on IS NULL LIMIT 1) AS company_name
+    FROM crm_deal_parties dp
+    LEFT JOIN crm_contacts k ON k.id = dp.contact_id
+    WHERE dp.project_id = ? AND dp.party_role = 'buyer'
+    ORDER BY dp.funnel_stage DESC, dp.stage_changed_at DESC NULLS LAST`, [project.id]).catch(() => []);
+
+  // Bewusst reduziert: nur Name und (optional) Firma, KEINE Kontaktdaten, KEINE IDs,
+  // KEIN Bezug zu anderen Mandaten (die Abfrage ist ohnehin auf dieses Mandat begrenzt).
+  const parties = rows
+    .filter(r => r.party_status !== 'dropped')
+    .map(r => ({
+      name: [r.salutation, r.title, r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Interessent',
+      company: r.company_name || null,
+      funnel_stage: r.funnel_stage,
+      active: r.party_status === 'active',
+    }));
+  const counts = {};
+  SELLER_STAGES.forEach(s => { counts[s.key] = parties.filter(p => p.funnel_stage === s.key).length; });
+
+  res.json({ success: true, data: { project: { codename: project.codename, status: project.status }, stages: SELLER_STAGES, parties, counts } });
+}));
+
 // ── POST /my-project: Seller submits a new project (starts as draft) ─────
 // Setzt vollständiges Profil voraus (Kontaktdaten Pflicht vor Mandatsanlage)
 router.post('/my-project', authenticate, requireCompleteProfile(), wrap(async (req, res) => {

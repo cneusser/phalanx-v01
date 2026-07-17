@@ -50,6 +50,16 @@ export default function SellerDashboard() {
 
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
 
+  // Prozessstand (reduzierter Funnel) für ein eigenes Mandat
+  const [preview, setPreview] = useState(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
+  async function openPreview(pid) {
+    setPreviewBusy(true);
+    try { setPreview(await api.get(`/projects/${pid}/funnel-preview`)); }
+    catch (e) { setMsg('Prozessstand nicht verfügbar: ' + e.message); }
+    finally { setPreviewBusy(false); }
+  }
+
   useEffect(() => {
     if (user && !['seller', 'super_admin', 'advisor'].includes(user.role)) {
       navigate('/dashboard');
@@ -180,6 +190,12 @@ export default function SellerDashboard() {
                     <CheckCircle size={13} /> Veröffentlicht
                   </div>
                 )}
+                {p.status === 'active' && (
+                  <button onClick={() => openPreview(p.id)} disabled={previewBusy} style={{
+                    fontSize: '0.78rem', fontWeight: 700, color: C.navy, background: '#fff',
+                    border: `1.5px solid ${C.border}`, borderRadius: 6, padding: '0.4rem 0.8rem', cursor: 'pointer',
+                  }}>Prozessstand ansehen</button>
+                )}
                 <div style={{ fontSize: '0.72rem', color: '#aaa' }}>
                   {new Date(p.created_at).toLocaleDateString('de-DE')}
                 </div>
@@ -188,6 +204,47 @@ export default function SellerDashboard() {
           ))}
         </div>
       )}
+
+      {/* Prozessstand (reduzierter Funnel für den Mandanten) */}
+      {preview && (() => {
+        const d = preview;
+        const active = d.stages.filter(s => (d.counts[s.key] || 0) > 0);
+        const total = d.parties.length;
+        return (
+          <div onClick={() => setPreview(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, width: 'min(640px, 96vw)', maxHeight: '88vh', overflow: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.1rem 1.4rem', borderBottom: `1px solid ${C.border}` }}>
+                <div>
+                  <h2 style={{ fontWeight: 800, color: C.navy, fontSize: '1.05rem' }}>Prozessstand · {d.project.codename}</h2>
+                  <div style={{ fontSize: '0.75rem', color: C.gray }}>{total} Interessent(en) im Prozess</div>
+                </div>
+                <button onClick={() => setPreview(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999' }}><X size={20} /></button>
+              </div>
+              <div style={{ padding: '1.1rem 1.4rem' }}>
+                <p style={{ fontSize: '0.78rem', color: C.gray, marginBottom: '1rem', lineHeight: 1.5 }}>
+                  Sie sehen die interessierten Parteien und wie weit sie im Prozess sind. Aus Vertraulichkeitsgründen zeigen wir keine Kontaktdaten.
+                </p>
+                {!active.length && <div style={{ color: C.gray, fontSize: '0.85rem' }}>Noch keine Interessenten im Prozess.</div>}
+                {active.map(s => (
+                  <div key={s.key} style={{ marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.4rem' }}>
+                      <span style={{ fontWeight: 800, color: C.navy, fontSize: '0.9rem' }}>{s.label}</span>
+                      <span style={{ background: C.lightBg, color: C.navy, borderRadius: 10, padding: '0 0.5rem', fontSize: '0.72rem', fontWeight: 700 }}>{d.counts[s.key]}</span>
+                    </div>
+                    {d.parties.filter(p => p.funnel_stage === s.key).map((p, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0.28rem 0', borderTop: '1px solid #F1F5F9', fontSize: '0.85rem', color: '#334155' }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: p.active ? '#10b981' : '#cbd5e1', flexShrink: 0 }} />
+                        <span style={{ fontWeight: 600 }}>{p.name}</span>
+                        {p.company && <span style={{ color: C.gray }}>· {p.company}</span>}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* New Project Modal */}
       {showForm && (

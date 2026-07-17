@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.277 · 05.08.2026 · Prozessstand für den Mandanten, Reaktionen sichtbar
+- **Verkäufer sieht seinen Funnel** (reduziert): Im Verkäufer-Dashboard gibt es bei aktiven Mandaten den Knopf „Prozessstand ansehen". Der Mandant sieht die interessierten Parteien (Name, optional Firma) und ihre Prozessstufe, **aber keine Kontaktdaten** (keine E-Mail, kein Telefon) und **keinen Bezug zu anderen Mandaten**. Endpunkt `GET /api/projects/:id/funnel-preview`, zugänglich nur für den Mandanten (`created_by`) sowie Berater/Admin
+- **Wer hat reagiert?**: In „Versendete Mailings" ist die Reaktions-Zahl jetzt anklickbar (auch „Empfänger"). Ein Pop-up listet die Empfänger mit Namen, gruppiert nach Status (reagiert, erinnert, ohne Rückmeldung, gesperrt). Klick auf einen Namen öffnet den Kontakt. Endpunkt `GET /api/crm/campaigns/:id/recipients`
+- Verifiziert: Build sauber, bestehende Tests grün, Textwächter grün
+
 ## v0.276 · 04.08.2026 · Herkunft als Admin-Kachel, dezenter im Funnel
 - **Herkunft der Kontakte im Admin**: In der Übersicht gibt es jetzt eine Kachel „Herkunft der Kontakte" mit einer Zeile je Plattform (Quelle, Anzahl, zuletzt). So siehst du an einer Stelle, woher deine Leads kamen, ohne dass es an eine bestimmte Börse gebunden ist
 - **Funnel wieder ruhiger**: Die auffällige „Plattform-Leads"-Leiste über dem Deal-Funnel ist raus. Die dezente Markierung direkt an der Karte („⬢ DUB.de") bleibt, die fandest du gut

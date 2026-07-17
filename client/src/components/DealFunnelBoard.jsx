@@ -36,6 +36,14 @@ export default function DealFunnelBoard({ show }) {
   const [openContact, setOpenContact] = useState(null); // Kontakt-360°-Ansicht
   const [tplSend, setTplSend] = useState(false);        // Prozess-Mailvorlage versenden
   const [leadIngest, setLeadIngest] = useState(false);  // Marktplatz-Anfrage einfügen
+  const [campDetail, setCampDetail] = useState(null);   // { camp, recipients } für das Reaktions-Pop-up
+
+  async function openCampaign(c) {
+    try {
+      const d = await api.get(`/crm/campaigns/${c.id}/recipients`);
+      setCampDetail({ camp: c, recipients: d.recipients || [] });
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
   // Kontakt direkt zum Mandat hinzufügen
   const [allContacts, setAllContacts] = useState([]);
   const [addContact, setAddContact] = useState('');
@@ -279,10 +287,14 @@ export default function DealFunnelBoard({ show }) {
                 </div>
                 <div style={{ fontSize: '0.68rem', color: C.muted }}>
                   {new Date(c.sent_at || c.created_at).toLocaleDateString('de-DE')} · {c.recipients} Empfänger ·{' '}
-                  <span style={{ color: '#059669', fontWeight: 700 }}>{c.responded} Reaktion(en)</span>
+                  <button onClick={() => openCampaign(c)} title="Wer hat reagiert? Empfänger anzeigen"
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#059669', fontWeight: 700, textDecoration: 'underline' }}>
+                    {c.responded} Reaktion(en)
+                  </button>
                   {c.reminded > 0 && <> · {c.reminded} erinnert</>}
                   {c.no_response > 0 && <> · {c.no_response} ohne Rückmeldung</>}
                   {c.skipped > 0 && <> · {c.skipped} gesperrt</>}
+                  {' · '}<button onClick={() => openCampaign(c)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: C.accent, fontWeight: 600 }}>Empfänger</button>
                 </div>
               </div>
               {c.purpose !== 'update' && (
@@ -498,6 +510,55 @@ export default function DealFunnelBoard({ show }) {
           show={show}
         />
       )}
+
+      {campDetail && (() => {
+        const R = campDetail.recipients;
+        const name = (r) => [r.salutation, r.title, r.first_name, r.last_name].filter(Boolean).join(' ').trim() || r.email || 'Unbekannt';
+        const groups = [
+          ['responded', 'Reagiert', '#065f46', '#d1fae5'],
+          ['reminded', 'Erinnert, noch offen', '#92400e', '#fef3c7'],
+          ['sent', 'Angeschrieben, keine Reaktion', '#475569', '#f1f5f9'],
+          ['no_response', 'Ohne Rückmeldung (beendet)', '#475569', '#f1f5f9'],
+          ['skipped', 'Nicht angeschrieben (Widerspruch)', '#991b1b', '#fee2e2'],
+        ];
+        return (
+          <div onClick={() => setCampDetail(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: 'min(620px, 96vw)', maxHeight: '88vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.2rem', borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ fontWeight: 800, color: C.navy, fontSize: '0.95rem', minWidth: 0 }}>
+                  {campDetail.camp.name}
+                  <div style={{ fontWeight: 400, color: C.muted, fontSize: '0.72rem' }}>{R.length} Empfänger · wer hat reagiert?</div>
+                </div>
+                <button onClick={() => setCampDetail(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: '1.2rem' }}>×</button>
+              </div>
+              <div style={{ padding: '0.9rem 1.2rem' }}>
+                {groups.map(([key, label, color, bg]) => {
+                  const list = R.filter(r => r.status === key);
+                  if (!list.length) return null;
+                  return (
+                    <div key={key} style={{ marginBottom: '0.9rem' }}>
+                      <div style={{ display: 'inline-block', background: bg, color, fontSize: '0.66rem', fontWeight: 800, padding: '0.1rem 0.5rem', borderRadius: 10, marginBottom: '0.4rem' }}>{label} ({list.length})</div>
+                      {list.map((r, i) => (
+                        <div key={i} onClick={() => r.contact_id && (setCampDetail(null), setOpenContact(r.contact_id))}
+                          title={r.contact_id ? 'Kontakt öffnen' : ''}
+                          style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '0.3rem 0', borderTop: '1px solid #F1F5F9', cursor: r.contact_id ? 'pointer' : 'default' }}>
+                          <span style={{ fontSize: '0.82rem', color: C.text, fontWeight: 600 }}>{name(r)}
+                            {r.company_name && <span style={{ fontWeight: 400, color: C.muted }}> · {r.company_name}</span>}
+                          </span>
+                          <span style={{ fontSize: '0.68rem', color: C.muted, whiteSpace: 'nowrap' }}>
+                            {r.responded_at ? new Date(r.responded_at).toLocaleDateString('de-DE') : (r.reminder_count > 0 ? `${r.reminder_count}× erinnert` : '')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+                {!R.length && <div style={{ color: C.muted, fontSize: '0.85rem' }}>Noch keine Empfänger erfasst.</div>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {updateMail && deal && (
         <UpdateMailModal

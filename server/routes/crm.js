@@ -1443,6 +1443,20 @@ router.get('/deals/:projectId/campaigns', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { campaigns: rows, reminder_days: campaigns.REMINDER_DAYS } });
 }));
 
+// Wer hat auf ein Mailing reagiert? Empfängerliste mit Namen und Status.
+router.get('/campaigns/:id/recipients', ...isStaff, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT r.status, r.reminder_count, r.responded_at, r.sent_at, r.skip_reason, r.email,
+           k.id AS contact_id, k.salutation, k.title, k.first_name, k.last_name,
+           (SELECT c.name FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
+             WHERE cc.contact_id = k.id AND cc.ended_on IS NULL LIMIT 1) AS company_name
+    FROM crm_campaign_recipients r
+    LEFT JOIN crm_contacts k ON k.id = r.contact_id
+    WHERE r.campaign_id = ?
+    ORDER BY (r.status = 'responded') DESC, r.reminder_count DESC, k.last_name NULLS LAST`, [req.params.id]));
+  res.json({ success: true, data: { recipients: rows } });
+}));
+
 // Reminder-Automatik einer Kampagne an-/abschalten
 router.put('/campaigns/:id', ...isStaff, wrap(async (req, res) => {
   await scoped(req, (t) => t.run(`UPDATE crm_campaigns SET reminders_enabled = ? WHERE id = ?`,
