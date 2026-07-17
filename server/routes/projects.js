@@ -100,8 +100,12 @@ router.get('/my-projects', authenticate, wrap(async (req, res) => {
     return res.status(403).json({ success: false, error: 'Nicht berechtigt' });
   }
   const projects = (await db.all(
-    `SELECT ${PUBLIC_FIELDS}, created_by FROM projects WHERE created_by = ? ORDER BY created_at DESC`,
-    [req.user.id]
+    `SELECT ${PUBLIC_FIELDS}, created_by FROM projects
+      WHERE created_by = ?
+         OR id IN (SELECT dp.project_id FROM crm_deal_parties dp JOIN crm_contacts k ON k.id = dp.contact_id
+                    WHERE dp.party_role = 'seller' AND k.user_id = ?)
+      ORDER BY created_at DESC`,
+    [req.user.id, req.user.id]
   )).map(p => ({ ...p, highlights: JSON.parse(p.highlights || '[]') }));
   res.json({ success: true, data: projects });
 }));
@@ -121,7 +125,17 @@ router.get('/:id/funnel-preview', authenticate, wrap(async (req, res) => {
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
   const isStaff = ['super_admin', 'advisor', 'tenant_owner'].includes(req.user.role);
   const isOwner = project.created_by === req.user.id;
-  if (!isStaff && !isOwner) return res.status(403).json({ success: false, error: 'Nicht berechtigt' });
+  // Auch der eingeladene Verkäufer (als CRM-Kontakt mit party_role='seller' und
+  // verknüpftem Konto) darf den Prozessstand seines Mandats sehen.
+  let sellerLinked = false;
+  if (!isStaff && !isOwner) {
+    const s = await db.get(
+      `SELECT 1 AS ok FROM crm_deal_parties dp JOIN crm_contacts k ON k.id = dp.contact_id
+        WHERE dp.project_id = ? AND dp.party_role = 'seller' AND k.user_id = ? LIMIT 1`,
+      [project.id, req.user.id]).catch(() => null);
+    sellerLinked = !!s;
+  }
+  if (!isStaff && !isOwner && !sellerLinked) return res.status(403).json({ success: false, error: 'Nicht berechtigt' });
 
   const rows = await db.all(`
     SELECT dp.funnel_stage, dp.party_status, dp.stage_changed_at,

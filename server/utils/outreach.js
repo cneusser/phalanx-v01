@@ -145,4 +145,53 @@ async function sendNdaInviteAfterRegister(dbh, { userId, projectId } = {}) {
   }
 }
 
-module.exports = { sendFirstApproach, sendNdaInviteAfterRegister };
+// ── Verkäufer/Mandant zur Plattform einladen ─────────────────────────────────
+// Anders als die Käufer-Ansprache: der Mandant bekommt Zugang zum Prozessstand
+// seines eigenen Mandats (wer interessiert ist, wie weit), ohne Kontaktdaten
+// Dritter. Läuft über denselben Einwilligungs-/Registrierungsweg; bei der
+// Registrierung wird die Rolle „seller" gesetzt (siehe /invite/:token/register).
+async function sendSellerInvite(q, { tenant = 1, contactId, projectId, actorId = null, inviter = null } = {}) {
+  if (!contactId || !projectId) return { sent: false, reason: 'Kontakt oder Mandat fehlt' };
+  const contact = await q.get('SELECT * FROM crm_contacts WHERE id = ?', [contactId]).catch(() => null);
+  if (!contact || !contact.email) return { sent: false, reason: 'keine E-Mail' };
+  if (contact.consent_status === 'opt_out' || contact.contact_status === 'do_not_contact') return { sent: false, reason: 'Widerspruch' };
+  const project = await q.get('SELECT * FROM projects WHERE id = ?', [projectId]).catch(() => null);
+  if (!project) return { sent: false, reason: 'Mandat nicht gefunden' };
+
+  let token = null;
+  const open = await q.get(
+    `SELECT id, token FROM crm_invitations WHERE contact_id = ? AND status IN ('invited','opened')
+      AND (expires_at IS NULL OR expires_at > now()) ORDER BY id DESC LIMIT 1`, [contactId]).catch(() => null);
+  if (open) { token = open.token; }
+  else {
+    token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + INVITE_DAYS * 24 * 3600 * 1000);
+    await q.insert(
+      `INSERT INTO crm_invitations (tenant_id, contact_id, project_id, email, token, invited_by, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`, [tenant, contactId, projectId, contact.email, token, actorId, expires]);
+  }
+
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const code = esc(project.codename);
+  const { sendCampaignEmail } = require('./email');
+  await sendCampaignEmail({
+    to: contact.email,
+    subject: `[Vertraulich] ${code}: Ihr Zugang als Mandant`,
+    title: `${code}: Ihr Zugang zum Prozessstand`,
+    salutation: campaigns.salutationFor(contact),
+    bodyHtml:
+      `<p>für Ihr Mandat <strong>${code}</strong> richten wir Ihnen auf CapitalMatch einen persönlichen Zugang ein. ` +
+      `Dort sehen Sie jederzeit, wie weit der Prozess ist: welche Interessenten es gibt und auf welcher Stufe sie stehen. ` +
+      `Kontaktdaten der Interessenten zeigen wir aus Vertraulichkeitsgründen nicht.</p>` +
+      `<p>Mit dem Button bestätigen Sie kurz Ihre Einwilligung und legen Ihr Konto an. Danach ist der Prozessstand für Sie einsehbar.</p>`,
+    ctaLabel: 'Zugang einrichten',
+    ctaPath: `/einwilligung?token=${token}`,
+    signatureHtml: campaigns.signatureFor(inviter),
+    legalHtml: 'Diesen Zugang richten wir im Rahmen Ihres Mandats bei uns ein (Art. 6 Abs. 1 lit. b DSGVO). Sie können der Nutzung jederzeit widersprechen.',
+    meta: { type: 'invite', templateKey: 'seller_invite', contactId, projectId, actorId, tenantId: tenant },
+  }).catch(() => {});
+
+  return { sent: true };
+}
+
+module.exports = { sendFirstApproach, sendNdaInviteAfterRegister, sendSellerInvite };

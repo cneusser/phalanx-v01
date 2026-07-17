@@ -876,6 +876,18 @@ router.post('/import/apply', ...isStaff, canWrite, wrap(async (req, res) => {
   res.json({ success: true, data: { created, reused, attached, invited, blocked } });
 }));
 
+// Verkäufer/Mandant zur Plattform einladen (sieht danach den Prozessstand)
+router.post('/deals/:projectId/invite-seller', ...isStaff, canSend, wrap(async (req, res) => {
+  const contactId = Number(req.body.contact_id);
+  const projectId = Number(req.params.projectId);
+  if (!contactId) return res.status(400).json({ success: false, error: 'contact_id fehlt' });
+  const r = await require('../utils/outreach').sendSellerInvite(qFor(req), {
+    tenant: req.tenantId || 1, contactId, projectId, actorId: req.user.id, inviter: req.user,
+  });
+  if (r.sent) db.auditLog(req.user.id, 'CRM_SELLER_INVITE', 'crm_contact', contactId, `Mandat #${projectId}`, req.ip);
+  res.json({ success: true, data: r });
+}));
+
 router.post('/deals/:projectId/parties', ...isStaff, canWrite, wrap(async (req, res) => {
   const contactId = Number(req.body.contact_id);
   if (!contactId) return res.status(400).json({ success: false, error: 'contact_id fehlt' });
@@ -1115,6 +1127,15 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
   if (!['Herr', 'Frau', 'Divers'].includes(salutation)) return res.status(400).json({ success: false, error: 'Bitte wählen Sie eine Anrede' });
   if (!mobile || String(mobile).trim().length < 6) return res.status(400).json({ success: false, error: 'Bitte geben Sie eine Mobilnummer an' });
 
+  // Rolle aus der Deal-Partei ableiten: Ist der Kontakt Verkäufer/Mandant dieses
+  // Mandats, wird er als „seller" angelegt (bekommt Zugang zum Prozessstand, keine
+  // Käufer-Automatik). Sonst „buyer".
+  let role = 'buyer';
+  if (inv.project_id && inv.contact_id) {
+    const party = await db.get(`SELECT party_role FROM crm_deal_parties WHERE project_id = ? AND contact_id = ?`, [inv.project_id, inv.contact_id]).catch(() => null);
+    if (party && party.party_role === 'seller') role = 'seller';
+  }
+
   const bcrypt = require('bcryptjs');
   const jwt = require('jsonwebtoken');
   const password_hash = bcrypt.hashSync(String(password), 10);
@@ -1122,19 +1143,21 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
   const userId = await db.insert(`
     INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, mobile,
                        is_approved, is_active, email_verified, privacy_consent_at)
-    VALUES (?, ?, ?, 'buyer', ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, now())`,
-    [inv.tenant_id || 1, String(inv.email).toLowerCase(), password_hash, salutation, title || null,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, now())`,
+    [inv.tenant_id || 1, String(inv.email).toLowerCase(), password_hash, role, salutation, title || null,
      first_name, last_name, company || null, position || null, mobile]);
-  await db.run(`INSERT INTO buyer_profiles (tenant_id, user_id, industries, regions, deal_types) VALUES (?, ?, '[]', '[]', '[]')`,
-    [inv.tenant_id || 1, userId]).catch(() => {});
+  if (role === 'buyer') {
+    await db.run(`INSERT INTO buyer_profiles (tenant_id, user_id, industries, regions, deal_types) VALUES (?, ?, '[]', '[]', '[]')`,
+      [inv.tenant_id || 1, userId]).catch(() => {});
+  }
 
   await db.run(`UPDATE crm_invitations SET status = 'registered', registered_at = now(), user_id = ? WHERE id = ?`, [userId, inv.id]);
   if (inv.contact_id) await db.run(`UPDATE crm_contacts SET user_id = ? WHERE id = ?`, [userId, inv.contact_id]).catch(() => {});
   db.auditLog(userId, 'REGISTER_VIA_CRM_INVITE', 'user', userId, `${inv.email} · Einwilligung ${inv.consent_text_version}`, req.ip);
 
-  // Automatik: War die Einladung zu einem Mandat, geht direkt die NDA-Einladung raus.
-  // Der Prozess läuft damit ohne weiteres Zutun bis zur NDA; die Freigabe bleibt manuell.
-  if (inv.project_id) {
+  // Automatik nur für Käufer: War die Einladung zu einem Mandat, geht direkt die
+  // NDA-Einladung raus. Verkäufer bekommen keine NDA, sondern Zugang zum Prozessstand.
+  if (inv.project_id && role === 'buyer') {
     require('../utils/outreach').sendNdaInviteAfterRegister(db, { userId, projectId: inv.project_id }).catch(() => {});
   }
 

@@ -118,8 +118,21 @@ export default function DealFunnelBoard({ show }) {
 
   const toggle = (contactId) => setSelected(s => s.includes(contactId) ? s.filter(x => x !== contactId) : [...s, contactId]);
 
-  const parties = (board?.parties || []).filter(p => hideDropped ? p.party_status !== 'dropped' : true);
+  async function inviteSeller(contactId) {
+    try {
+      const r = await api.post(`/crm/deals/${active}/invite-seller`, { contact_id: contactId });
+      show(r.sent ? 'Einladung an den Verkäufer versendet.' : `Nicht versendet: ${r.reason || 'unbekannt'}`);
+      await loadBoard();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  const allParties = (board?.parties || []).filter(p => hideDropped ? p.party_status !== 'dropped' : true);
   const deal = deals.find(d => d.id === active);
+
+  // v0.280: Nur Käufer gehören in den Kauf-Funnel. Verkäufer/Mandant und weitere
+  // Beteiligte (Berater, Bank, Anwalt) werden getrennt darüber gezeigt.
+  const parties = allParties.filter(p => (p.party_role || 'buyer') === 'buyer');
+  const involved = (board?.parties || []).filter(p => (p.party_role || 'buyer') !== 'buyer');
 
   // v0.269: „Eingang" ganz vorne. Dorthin kommen frische Inbound-Leads (Beobachter,
   // Favoriten), die noch nicht aktiv bearbeitet wurden (Stufe 0). NDA-/Interesse-Leads
@@ -130,6 +143,9 @@ export default function DealFunnelBoard({ show }) {
   const cardsForLane = (lane) => lane.inbox
     ? inboxCards
     : parties.filter(p => p.funnel_stage === lane.key && !inboxIds.has(p.id));
+  // Käufer-bezogene Kennzahlen (statt der serverseitigen Gesamtzahlen inkl. Verkäufer)
+  const buyerReached = {};
+  stages.forEach(s => { buyerReached[s.key] = parties.filter(p => p.funnel_stage >= s.key).length; });
 
   // „Alle auswählen": Kontakte mit Widerspruch werden gar nicht erst angehakt.
   const selectable = parties.filter(p => p.contact_id
@@ -308,13 +324,42 @@ export default function DealFunnelBoard({ show }) {
         </div>
       )}
 
+      {deal && board && involved.length > 0 && (
+        <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, padding: '0.6rem 0.9rem', marginBottom: '0.9rem' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#5b21b6', marginBottom: '0.4rem' }}>Mandant &amp; Beteiligte <span style={{ fontWeight: 400, color: C.muted }}>· nicht Teil des Käufer-Funnels</span></div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            {involved.map(p => {
+              const registered = p.invite_status === 'registered';
+              const invited = ['invited', 'opened', 'consented'].includes(p.invite_status);
+              return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #DDD6FE', borderRadius: 8, padding: '0.4rem 0.6rem' }}>
+                  <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#5b21b6', background: '#EDE9FE', borderRadius: 8, padding: '0.05rem 0.4rem' }}>{ROLE_LABEL[p.party_role] || p.party_role}</span>
+                  <button onClick={() => setOpenContact(p.contact_id)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', color: C.accent }}>
+                    {[p.first_name, p.last_name].filter(Boolean).join(' ')}
+                  </button>
+                  {p.company_name && <span style={{ fontSize: '0.72rem', color: C.muted }}>· {p.company_name}</span>}
+                  {p.party_role === 'seller' && (
+                    registered
+                      ? <span style={{ fontSize: '0.66rem', color: '#065f46', fontWeight: 700 }}>✓ registriert</span>
+                      : <button onClick={() => inviteSeller(p.contact_id)} disabled={!p.email} title={p.email ? 'Verkäufer zur Plattform einladen (sieht den Prozessstand)' : 'Keine E-Mail hinterlegt'}
+                          style={{ fontSize: '0.68rem', fontWeight: 700, color: '#fff', background: p.email ? '#7c3aed' : '#c4b5fd', border: 'none', borderRadius: 6, padding: '0.2rem 0.55rem', cursor: p.email ? 'pointer' : 'default' }}>
+                          {invited ? 'Erneut einladen' : 'Einladen'}
+                        </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {deal && board && (
         <>
           {/* Funnel-Kennzahlen */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: '0.4rem', marginBottom: '1rem' }}>
             {stages.map(s => {
-              const reached = board.reached[s.key] || 0;
-              const prev = s.key > 0 ? (board.reached[s.key - 1] || 0) : null;
+              const reached = buyerReached[s.key] || 0;
+              const prev = s.key > 0 ? (buyerReached[s.key - 1] || 0) : null;
               const conv = prev ? Math.round((reached / Math.max(prev, 1)) * 100) : null;
               return (
                 <div key={s.key} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.5rem', textAlign: 'center' }}>

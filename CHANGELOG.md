@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.280 · 08.08.2026 · Verkäufer raus aus dem Käufer-Funnel, Verkäufer einladen
+- **Rollen getrennt**: Der Deal-Funnel zeigt in den Stufen-Spalten nur noch **Käufer**. Verkäufer/Mandant und weitere Beteiligte (Berater, Bank, Anwalt) stehen jetzt in einer eigenen Leiste „Mandant & Beteiligte" darüber. Herr Traxler taucht damit nicht mehr fälschlich in der Longlist auf; auch die Funnel-Kennzahlen zählen nur Käufer
+- **Verkäufer einladen**: In der Beteiligten-Leiste gibt es beim Verkäufer den Knopf „Einladen". Er bekommt eine Einladung zur Plattform (Einwilligung + Registrierung). Nach der Registrierung wird er als Rolle „seller" angelegt (keine Käufer-Automatik, keine NDA) und sieht in seinem Dashboard den **Prozessstand** seines Mandats (die reduzierte Funnel-Ansicht aus v0.277)
+- **Zugang sauber verknüpft**: Der registrierte Verkäufer ist über den CRM-Kontakt mit dem Mandat verbunden; die Prozessstand-Ansicht und „Meine Mandate" berücksichtigen das
+- Endpunkt `POST /api/crm/deals/:projectId/invite-seller`
+- Verifiziert: Build sauber, bestehende Tests grün
+
 ## v0.279 · 07.08.2026 · „Reagiert" bedeutet jetzt wirklich reagiert
 - **Der Bug**: Ein Mailing zeigte „21 reagiert", obwohl niemand geantwortet hatte. Grund: Die Reminder-Automatik wertete jeden im Funnel aktiv geführten Kontakt als „reagiert", nicht erst eine echte Antwort
 - **Fix**: „Reagiert" zählt jetzt nur noch echte Reaktionen auf das Mailing: Einwilligung/Registrierung, Absage, Mailantwort oder Widerspruch. Aktiv im Funnel geführte Kontakte erscheinen als eigener Status „wird im Funnel geführt (kein Reminder)" und werden nicht mehr als Reaktion gezählt
