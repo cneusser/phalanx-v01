@@ -91,6 +91,30 @@ export default function DealFunnelBoard({ show }) {
     catch (e) { show('Fehler: ' + e.message); }
   }
 
+  const partyById = (id) => (board?.parties || []).find(p => p.id === id);
+
+  // Drop auf eine Käufer-Spalte: Stufe setzen; war es ein Beteiligter, wird er
+  // wieder zum Käufer.
+  async function dropOnStage(stage) {
+    const p = partyById(drag);
+    if (!p) return;
+    const patch = { funnel_stage: stage };
+    if ((p.party_role || 'buyer') !== 'buyer') patch.party_role = 'buyer';
+    try { await api.put(`/crm/parties/${p.id}`, patch); await loadBoard(); }
+    catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  // Drop auf die Beteiligten-Zone: aus einem Käufer wird ein Prozessbeteiligter
+  // (aus dem Käufer-Funnel heraus). Bereits Beteiligte bleiben, wie sie sind.
+  async function dropOnInvolved() {
+    const p = partyById(drag);
+    if (!p) return;
+    if ((p.party_role || 'buyer') === 'buyer') {
+      try { await api.put(`/crm/parties/${p.id}`, { party_role: 'process' }); await loadBoard(); show('In „Beteiligte" verschoben (Prozessbeteiligter). Rolle im Kontakt änderbar.'); }
+      catch (e) { show('Fehler: ' + e.message); }
+    }
+  }
+
   async function moveTo(partyId, stage) {
     try { await api.put(`/crm/parties/${partyId}`, { funnel_stage: stage }); await loadBoard(); }
     catch (e) { show('Fehler: ' + e.message); }
@@ -324,15 +348,21 @@ export default function DealFunnelBoard({ show }) {
         </div>
       )}
 
-      {deal && board && involved.length > 0 && (
-        <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, padding: '0.6rem 0.9rem', marginBottom: '0.9rem' }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#5b21b6', marginBottom: '0.4rem' }}>Mandant &amp; Beteiligte <span style={{ fontWeight: 400, color: C.muted }}>· nicht Teil des Käufer-Funnels</span></div>
+      {deal && board && (involved.length > 0 || drag) && (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setOverStage('involved'); }}
+          onDragLeave={() => setOverStage(null)}
+          onDrop={() => { if (drag) dropOnInvolved(); setDrag(null); setOverStage(null); }}
+          style={{ background: overStage === 'involved' ? '#EDE9FE' : '#F5F3FF', border: `1px ${overStage === 'involved' ? 'dashed' : 'solid'} ${overStage === 'involved' ? '#7c3aed' : '#DDD6FE'}`, borderRadius: 10, padding: '0.6rem 0.9rem', marginBottom: '0.9rem' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#5b21b6', marginBottom: '0.4rem' }}>Mandant &amp; Beteiligte <span style={{ fontWeight: 400, color: C.muted }}>· nicht Teil des Käufer-Funnels · Karten hierher ziehen</span></div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            {!involved.length && <div style={{ fontSize: '0.72rem', color: '#a78bfa', padding: '0.3rem 0' }}>Karte hierher ziehen, um sie als Beteiligten zu führen.</div>}
             {involved.map(p => {
               const registered = p.invite_status === 'registered';
               const invited = ['invited', 'opened', 'consented'].includes(p.invite_status);
               return (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #DDD6FE', borderRadius: 8, padding: '0.4rem 0.6rem' }}>
+                <div key={p.id} draggable onDragStart={() => setDrag(p.id)} onDragEnd={() => { setDrag(null); setOverStage(null); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #DDD6FE', borderRadius: 8, padding: '0.4rem 0.6rem', cursor: 'grab' }}>
                   <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#5b21b6', background: '#EDE9FE', borderRadius: 8, padding: '0.05rem 0.4rem' }}>{ROLE_LABEL[p.party_role] || p.party_role}</span>
                   <button onClick={() => setOpenContact(p.contact_id)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', color: C.accent }}>
                     {[p.first_name, p.last_name].filter(Boolean).join(' ')}
@@ -381,7 +411,7 @@ export default function DealFunnelBoard({ show }) {
                   key={s.key}
                   onDragOver={(e) => { e.preventDefault(); setOverStage(s.key); }}
                   onDragLeave={() => setOverStage(null)}
-                  onDrop={() => { if (drag) moveTo(drag, dropStage); setDrag(null); setOverStage(null); }}
+                  onDrop={() => { if (drag) dropOnStage(dropStage); setDrag(null); setOverStage(null); }}
                   style={{
                     minWidth: 210, flex: '1 0 210px', background: overStage === s.key ? '#EEF4FB' : (s.inbox ? '#FFFBEB' : C.bg),
                     border: `1px solid ${overStage === s.key ? C.accent : (s.inbox ? '#fcd34d' : C.border)}`, borderRadius: 10, padding: '0.6rem',

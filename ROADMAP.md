@@ -46,6 +46,7 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | · | Recherchelisten aus Excel importieren, Dubletten-Abgleich, Massen-Einladung (v0.278) | ✅ fertig; per-Investor-Mailmerge offen |
 | · | Reaktions-Definition, NDA/Zugang manuell, E-Mail+Chat am Kontakt, Turnstile, Sicherheits-Review (v0.279-v0.284) | ✅ fertig |
 | · | Kontaktliste Seiten/A-Z, Rolle Prozessbeteiligter, Verkäufer-Funnel über mehrere Mandate (v0.285-v0.286) | ✅ fertig |
+| · | Unternehmen-Seiten, Käufer-/Verkäufertrennung, Beteiligte per Drag-and-drop (v0.287-v0.289) | ✅ fertig |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →

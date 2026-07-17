@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.289 · 11.08.2026 · Beteiligte per Drag-and-drop führen
+- **Ziehen zwischen Funnel und Beteiligten**: Die Leiste „Mandant & Beteiligte" ist jetzt eine Ablagezone. Ziehst du eine Käufer-Karte hinein, wird sie zum Prozessbeteiligten und verlässt den Käufer-Funnel. Ziehst du eine Beteiligten-Karte in eine Funnel-Stufe, wird sie wieder zum Käufer auf dieser Stufe
+- Die Zone erscheint während des Ziehens auch dann, wenn noch keine Beteiligten da sind, und hebt sich als Ablageziel hervor
+- Die genaue Rolle (Berater, Verkäufer, Steuerberater, WP, Consultant) stellst du danach im Kontakt bzw. über die Zuordnung ein
+- Verifiziert: Build sauber und warnungsfrei
+
 ## v0.288 · 11.08.2026 · Käufer- und Verkäuferrolle sauber getrennt
 - **Kein Bieten auf das eigene Mandat**: Ein eingeloggter Nutzer sieht seine eigenen Mandate (die er als Verkäufer/Ersteller eingestellt hat) nicht mehr im Käufer-Marktplatz und kann dort kein Interesse/keine NDA anfordern. Das war der Birdview-Fehler, bei dem der Verkäufer wie ein Käufer auf sich selbst schauen konnte
 - **Rollen bleiben getrennt**: Verkäufer bekommen kein Käufer-Suchprofil (nur die Pflege-/Prozessansicht ihres Mandats), Käufer keinen Verkäufer-Bereich. Basis für die spätere, ausführlichere und kostenpflichtige Verkäufer-Stufe
