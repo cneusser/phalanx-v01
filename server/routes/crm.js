@@ -349,9 +349,16 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
   // Sprint 20: Mandats-Zuordnungen dieses Kontakts (Rolle + Funnel-Stufe)
   const deals = await scoped(req, (t) => t.all(`
     SELECT dp.id AS party_id, dp.project_id, dp.party_role, dp.funnel_stage, dp.party_status, dp.next_step,
-           p.codename, p.status AS project_status
+           p.codename, p.status AS project_status,
+           (SELECT CASE
+                     WHEN nr.signed_at IS NOT NULL OR nr.status IN ('signed', 'approved') THEN 'signed'
+                     WHEN nr.status IN ('requested', 'sent', 'nda_pending') THEN 'open'
+                     ELSE nr.status END
+              FROM nda_requests nr
+             WHERE nr.project_id = dp.project_id AND nr.user_id = ?
+             ORDER BY nr.id DESC LIMIT 1) AS nda_state
     FROM crm_deal_parties dp JOIN projects p ON p.id = dp.project_id
-    WHERE dp.contact_id = ? ORDER BY dp.funnel_stage DESC`, [req.params.id])).catch(() => []);
+    WHERE dp.contact_id = ? ORDER BY dp.funnel_stage DESC`, [contact.user_id || 0, req.params.id])).catch(() => []);
 
   // Aktivitäten-Timeline: Einladungen, Mailings, Reminder, Pflege-Links, Selbstpflege
   const activity = await contactActivity(req, req.params.id);
@@ -671,7 +678,15 @@ router.get('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
            k.first_name, k.last_name, k.email, k.consent_status, k.contact_status, k.is_decision_maker,
            k.lead_source, k.lead_ref,
            c.name AS company_name,
-           (SELECT status FROM crm_invitations i WHERE i.contact_id = dp.contact_id ORDER BY i.invited_at DESC LIMIT 1) AS invite_status
+           (SELECT status FROM crm_invitations i WHERE i.contact_id = dp.contact_id ORDER BY i.invited_at DESC LIMIT 1) AS invite_status,
+           -- NDA-Stand des zum Kontakt gehörenden Nutzers für DIESES Mandat
+           (SELECT CASE
+                     WHEN nr.signed_at IS NOT NULL OR nr.status IN ('signed', 'approved') THEN 'signed'
+                     WHEN nr.status IN ('requested', 'sent', 'nda_pending') THEN 'open'
+                     ELSE nr.status END
+              FROM nda_requests nr
+             WHERE nr.project_id = dp.project_id AND nr.user_id = k.user_id
+             ORDER BY nr.id DESC LIMIT 1) AS nda_state
     FROM crm_deal_parties dp
     LEFT JOIN crm_contacts k ON k.id = dp.contact_id
     LEFT JOIN crm_companies c ON c.id = dp.company_id

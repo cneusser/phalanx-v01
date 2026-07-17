@@ -472,6 +472,12 @@ export default function DealFunnelBoard({ show }) {
                               Eingang{p.inbound_signal && INBOUND_LABEL[p.inbound_signal] ? ` · ${INBOUND_LABEL[p.inbound_signal]}` : ''}
                             </span>
                           )}
+                          {p.nda_state === 'signed' && (
+                            <span title="NDA liegt unterzeichnet vor" style={{ background: '#d1fae5', color: '#065f46', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 800 }}>NDA ✓</span>
+                          )}
+                          {p.nda_state === 'open' && (
+                            <span title="NDA angefragt, noch nicht unterzeichnet" style={{ background: '#fef3c7', color: '#92400e', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 800 }}>NDA offen</span>
+                          )}
                           {p.consent_status === 'opt_in' && <ShieldCheck size={11} color="#059669" title="Einwilligung erteilt" />}
                           {(p.consent_status === 'opt_out' || p.contact_status === 'do_not_contact') && <ShieldOff size={11} color="#dc2626" title="Widerspruch, nicht kontaktieren" />}
                           {invited && <Mail size={11} color={C.accent} title={`Einladung: ${p.invite_status}`} />}

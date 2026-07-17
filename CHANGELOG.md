@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.281 · 08.08.2026 · NDA-Status auf der Karte, Chat prominent
+- **NDA sichtbar am Kontakt**: Jede Funnel-Karte zeigt jetzt, ob eine NDA vorliegt, „NDA ✓" (grün, unterzeichnet oder freigegeben) oder „NDA offen" (gelb, angefragt, noch nicht gezeichnet). Auch in der Kontakt-Ansicht je Mandat sichtbar. Der Status kommt aus `nda_requests` über den mit dem Kontakt verknüpften Nutzer
+- **Chat prominent erreichbar**: „Nachrichten" steht jetzt für alle angemeldeten Nutzer (auch Admins) sichtbar in der oberen Leiste, mit Sprechblasen-Symbol und einem roten Zähler für ungelesene Nachrichten. Vorher war der Chat für Admins ausgeblendet und schwer zu finden
+- Verifiziert: Build sauber, Textwächter grün
+
 ## v0.280 · 08.08.2026 · Verkäufer raus aus dem Käufer-Funnel, Verkäufer einladen
 - **Rollen getrennt**: Der Deal-Funnel zeigt in den Stufen-Spalten nur noch **Käufer**. Verkäufer/Mandant und weitere Beteiligte (Berater, Bank, Anwalt) stehen jetzt in einer eigenen Leiste „Mandant & Beteiligte" darüber. Herr Traxler taucht damit nicht mehr fälschlich in der Longlist auf; auch die Funnel-Kennzahlen zählen nur Käufer
 - **Verkäufer einladen**: In der Beteiligten-Leiste gibt es beim Verkäufer den Knopf „Einladen". Er bekommt eine Einladung zur Plattform (Einwilligung + Registrierung). Nach der Registrierung wird er als Rolle „seller" angelegt (keine Käufer-Automatik, keine NDA) und sieht in seinem Dashboard den **Prozessstand** seines Mandats (die reduzierte Funnel-Ansicht aus v0.277)

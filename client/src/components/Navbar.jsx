@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n';
-import { User, LogOut, Settings, LayoutDashboard, Shield, Menu, X } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Shield, Menu, X, MessageSquare } from 'lucide-react';
 import CapitalMatchLogo from './CapitalMatchLogo';
 import useIsMobile from '../hooks/useIsMobile';
+import { api } from '../api/client';
 
 // CapitalMatch brand palette – exported for use across the platform
 export const C = {
@@ -47,6 +48,37 @@ export default function Navbar() {
   }, [dropdownOpen]);
 
   useEffect(() => { setOpen(false); setDropdownOpen(false); }, [location.pathname]);
+
+  // Ungelesene Nachrichten für die prominente Chat-Anzeige (auch für Admins)
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    if (!user) { setUnread(0); return; }
+    let alive = true;
+    const load = () => api.get('/messages/threads')
+      .then(list => { if (alive) setUnread((list || []).reduce((s, th) => s + (th.unread || 0), 0)); })
+      .catch(() => {});
+    load();
+    const id = setInterval(load, 60000);   // einmal pro Minute aktualisieren
+    return () => { alive = false; clearInterval(id); };
+  }, [user, location.pathname]);
+
+  // Prominenter Nachrichten-/Chat-Link mit Icon und Ungelesen-Zähler
+  const chatLink = (mobile = false) => {
+    const active = location.pathname.startsWith('/nachrichten');
+    return (
+      <Link to="/nachrichten" onClick={() => setOpen(false)} style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', position: 'relative',
+        color: '#fff', background: active ? C.steel : 'rgba(255,255,255,0.14)',
+        border: `1px solid ${active ? C.steel : 'rgba(255,255,255,0.28)'}`, borderRadius: 8,
+        padding: mobile ? '0.6rem 0.9rem' : '0.35rem 0.75rem', fontWeight: 700, fontSize: mobile ? '1rem' : '0.9rem',
+      }}>
+        <MessageSquare size={16} /> {t('nav.messages', 'Nachrichten')}
+        {unread > 0 && (
+          <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: '0.62rem', fontWeight: 800, padding: '0 0.35rem', minWidth: 16, textAlign: 'center' }}>{unread}</span>
+        )}
+      </Link>
+    );
+  };
 
   const handleLogout = () => {
     logout();
@@ -104,13 +136,14 @@ export default function Navbar() {
           {navLink('/projekte', t('nav.marketplace', 'Marktplatz'))}
           {navLink('/unternehmenswert', t('nav.valuation', 'Unternehmenswert'))}
           {user && !isAdmin && navLink('/bewertung', t('nav.detailed_valuation', 'Bewertung'))}
-          {user && !isAdmin && navLink('/nachrichten', t('nav.messages', 'Nachrichten'))}
           {user && !isAdmin && navLink('/feedback', t('nav.feedback', 'Feedback'))}
           {navLink('/kontakt', t('nav.contact', 'Kontakt'))}
           {!user && navLink('/registrieren', t('nav.register', 'Registrieren'))}
           {user && !isAdmin && navLink('/dashboard', t('nav.dashboard', 'Mein Bereich'))}
           {isAdmin && navLink('/crm', 'CRM')}
           {isAdmin && navLink('/admin', 'Admin')}
+          {/* Chat prominent, für alle angemeldeten Nutzer (auch Admin) */}
+          {user && chatLink(false)}
         </div>
         )}
 
@@ -231,8 +264,10 @@ export default function Navbar() {
       {/* Mobile-Menü (aufklappbar) */}
       {isMobile && open && (
         <div style={{ background: branding ? branding.primary_color : C.navy, borderTop: '1px solid rgba(255,255,255,0.12)', padding: '0.5rem 1.25rem 1rem' }}>
+          {/* Chat oben und prominent */}
+          {user && <div style={{ padding: '0.5rem 0' }}>{chatLink(true)}</div>}
           {[['/projekte', t('nav.marketplace', 'Marktplatz')], ['/unternehmenswert', t('nav.valuation', 'Unternehmenswert')],
-            ...(user && !isAdmin ? [['/bewertung', t('nav.detailed_valuation', 'Bewertung')], ['/nachrichten', t('nav.messages', 'Nachrichten')], ['/feedback', t('nav.feedback', 'Feedback')]] : []),
+            ...(user && !isAdmin ? [['/bewertung', t('nav.detailed_valuation', 'Bewertung')], ['/feedback', t('nav.feedback', 'Feedback')]] : []),
             ['/kontakt', t('nav.contact', 'Kontakt')],
             ...(user && !isAdmin ? [['/dashboard', t('nav.dashboard', 'Mein Bereich')]] : []),
             ...(isAdmin ? [['/crm', 'CRM'], ['/admin', 'Admin']] : []),
