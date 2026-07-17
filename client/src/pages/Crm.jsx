@@ -339,7 +339,7 @@ export default function Crm() {
             </div>
           )}
         </div>
-        </>)}
+        </>
       )}
 
       {/* Sprint 20: Sell-Side-Funnel je Mandat (Longlist → Closing) */}
