@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n';
-import { User, LogOut, Settings, LayoutDashboard, Shield, Menu, X, MessageSquare } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Shield, Menu, X, MessageSquare, Store } from 'lucide-react';
 import CapitalMatchLogo from './CapitalMatchLogo';
 import useIsMobile from '../hooks/useIsMobile';
 import { api } from '../api/client';
@@ -228,7 +228,15 @@ export default function Navbar() {
                       display: 'flex', alignItems: 'center', gap: '0.6rem',
                       padding: '0.65rem 1rem', color: C.dark, textDecoration: 'none', fontSize: '0.875rem',
                     }}>
-                      <LayoutDashboard size={14} color={C.navy} /> Dashboard
+                      <LayoutDashboard size={14} color={C.navy} /> {(user.role === 'seller' || isAdmin) ? 'Käufer-Bereich' : 'Dashboard'}
+                    </Link>
+                  )}
+                  {(user.role === 'seller' || isAdmin) && (
+                    <Link to="/verkaeuferdashboard" onClick={() => setDropdownOpen(false)} style={{
+                      display: 'flex', alignItems: 'center', gap: '0.6rem',
+                      padding: '0.65rem 1rem', color: C.dark, textDecoration: 'none', fontSize: '0.875rem',
+                    }}>
+                      <Store size={14} color={C.navy} /> Verkäufer-Bereich
                     </Link>
                   )}
                   <Link to="/profil" onClick={() => setDropdownOpen(false)} style={{

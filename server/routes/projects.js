@@ -143,7 +143,7 @@ router.get('/:id/funnel-preview', authenticate, wrap(async (req, res) => {
   if (!isStaff && !isOwner && !sellerLinked) return res.status(403).json({ success: false, error: 'Nicht berechtigt' });
 
   const rows = await db.all(`
-    SELECT dp.funnel_stage, dp.party_status, dp.stage_changed_at,
+    SELECT dp.funnel_stage, dp.party_status, dp.stage_changed_at, dp.identity_revealed,
            k.salutation, k.title, k.first_name, k.last_name,
            (SELECT c.name FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
              WHERE cc.contact_id = k.id AND cc.ended_on IS NULL LIMIT 1) AS company_name
@@ -152,13 +152,16 @@ router.get('/:id/funnel-preview', authenticate, wrap(async (req, res) => {
     WHERE dp.project_id = ? AND dp.party_role = 'buyer'
     ORDER BY dp.funnel_stage DESC, dp.stage_changed_at DESC NULLS LAST`, [project.id]).catch(() => []);
 
-  // Bewusst reduziert: nur Name und (optional) Firma, KEINE Kontaktdaten, KEINE IDs,
-  // KEIN Bezug zu anderen Mandaten (die Abfrage ist ohnehin auf dieses Mandat begrenzt).
+  // Bewusst reduziert: KEINE Kontaktdaten, KEINE IDs, KEIN Bezug zu anderen Mandaten.
+  // Der Klarname erscheint erst nach der Namensnennung (Demasking, Stufe C), vorher anonym.
   const parties = rows
     .filter(r => r.party_status !== 'dropped')
     .map(r => ({
-      name: [r.salutation, r.title, r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Interessent',
-      company: r.company_name || null,
+      name: r.identity_revealed === 1
+        ? ([r.salutation, r.title, r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Interessent')
+        : 'Interessent (anonym)',
+      company: r.identity_revealed === 1 ? (r.company_name || null) : null,
+      revealed: r.identity_revealed === 1,
       funnel_stage: r.funnel_stage,
       active: r.party_status === 'active',
     }));
@@ -166,6 +169,76 @@ router.get('/:id/funnel-preview', authenticate, wrap(async (req, res) => {
   SELLER_STAGES.forEach(s => { counts[s.key] = parties.filter(p => p.funnel_stage === s.key).length; });
 
   res.json({ success: true, data: { project: { codename: project.codename, status: project.status }, stages: SELLER_STAGES, parties, counts } });
+}));
+
+// ── GET /my-overview: Verkäufer-Cockpit (Statistik + konsolidierte Inbox) ───
+// Aggregiert über alle Mandate des Verkäufers: Inserate-Status, interessierte
+// Parteien je Mandat (anonym bis Namensnennung, KEINE Kontaktdaten) und die
+// jüngsten Bewegungen als „Aktuelles"-Feed. Basis für das Verkäufer-Cockpit.
+router.get('/my-overview', authenticate, wrap(async (req, res) => {
+  if (!['seller', 'super_admin', 'advisor'].includes(req.user.role)) {
+    return res.status(403).json({ success: false, error: 'Nicht berechtigt' });
+  }
+  const mandates = await db.all(
+    `SELECT id, codename, status, mandate_type, created_at FROM projects
+      WHERE created_by = ?
+         OR id IN (SELECT dp.project_id FROM crm_deal_parties dp JOIN crm_contacts k ON k.id = dp.contact_id
+                    WHERE dp.party_role = 'seller' AND k.user_id = ?)
+      ORDER BY created_at DESC`,
+    [req.user.id, req.user.id]).catch(() => []);
+  const ids = mandates.map(m => m.id);
+
+  let rows = [];
+  if (ids.length) {
+    const ph = ids.map(() => '?').join(',');
+    rows = await db.all(
+      `SELECT dp.project_id, dp.funnel_stage, dp.party_status, dp.stage_changed_at, dp.identity_revealed,
+              k.salutation, k.title, k.first_name, k.last_name,
+              (SELECT c.name FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
+                WHERE cc.contact_id = k.id AND cc.ended_on IS NULL LIMIT 1) AS company_name
+         FROM crm_deal_parties dp
+         LEFT JOIN crm_contacts k ON k.id = dp.contact_id
+        WHERE dp.project_id IN (${ph}) AND dp.party_role = 'buyer' AND dp.party_status <> 'dropped'
+        ORDER BY dp.funnel_stage DESC, dp.stage_changed_at DESC NULLS LAST`, ids).catch(() => []);
+  }
+
+  const byStatus = {};
+  const mandateMap = {};
+  mandates.forEach(m => {
+    byStatus[m.status] = (byStatus[m.status] || 0) + 1;
+    mandateMap[m.id] = { id: m.id, codename: m.codename, status: m.status, mandate_type: m.mandate_type, parties: [] };
+  });
+
+  const cutoff = Date.now() - 14 * 864e5;
+  const recent = [];
+  rows.forEach(r => {
+    const revealed = r.identity_revealed === 1;
+    const item = {
+      name: revealed ? ([r.salutation, r.title, r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Interessent') : 'Interessent (anonym)',
+      company: revealed ? (r.company_name || null) : null,
+      revealed,
+      funnel_stage: r.funnel_stage,
+      active: r.party_status === 'active',
+      since: r.stage_changed_at,
+    };
+    if (mandateMap[r.project_id]) mandateMap[r.project_id].parties.push(item);
+    if (r.stage_changed_at && new Date(r.stage_changed_at).getTime() >= cutoff) {
+      recent.push({ codename: mandateMap[r.project_id]?.codename, name: item.name, stage: r.funnel_stage, at: r.stage_changed_at });
+    }
+  });
+  recent.sort((a, b) => new Date(b.at) - new Date(a.at));
+
+  res.json({
+    success: true,
+    data: {
+      stages: SELLER_STAGES,
+      byStatus,
+      totalInterested: rows.length,
+      activeMandates: mandates.filter(m => m.status === 'active').length,
+      mandates: Object.values(mandateMap),
+      recent: recent.slice(0, 12),
+    },
+  });
 }));
 
 // ── POST /my-project: Seller submits a new project (starts as draft) ─────

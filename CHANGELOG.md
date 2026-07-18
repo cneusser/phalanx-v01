@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.294 · 16.08.2026 · Verkäufer-Cockpit: Statistik, Inbox, Umschalter (DUB-Benchmark, Stufe D)
+- **Verkäufer-Statistik**: Kacheln über alle eigenen Mandate (aktiv, in Prüfung, Entwurf, pausiert) plus Gesamtzahl der Interessenten
+- **Konsolidierte Interessenten-Inbox**: alle Interessenten je Mandat auf einen Blick, mit Stufe und „über die Plattform antworten". Klarnamen erscheinen erst nach der Namensnennung, vorher anonym, ganz ohne Kontaktdaten
+- **Aktuelles**: die jüngsten Bewegungen der letzten 14 Tage als kompakter Feed
+- **Rollen-Umschalter**: Verkäufer und Team wechseln im Menü direkt zwischen Käufer-Bereich und Verkäufer-Bereich
+- Konsistenz: Auch der Prozessstand am einzelnen Mandat zeigt Interessenten erst nach Namensnennung mit Klarnamen
+- Damit ist das Verkäufer-Cockpit (ROADMAP Sprint 25, Stufen A bis D) abgeschlossen
+- Verifiziert: Tests grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.293 · 15.08.2026 · Käufergruppen, Namensnennung und Plattform-NDA (DUB-Benchmark, Stufe C)
 - **Zielsteuerung je Inserat**: Im Wizard-Schritt „Sichtbarkeit" wählst du die passenden Käufergruppen (strategisch, Finanzinvestor, Privat, M&A-Berater mit Suchmandat) und Schlagwörter. Ist eine Gruppe gesetzt, benachrichtigt das Matching bei Veröffentlichung nur passende Käufertypen
 - **Namensnennung als eigener Schritt**: Am Kontakt gibst du je Interessent den Klarname bewusst frei. Vorher bleibt alles anonym. Die Freigabe wird protokolliert und erscheint als Badge „Klarname" im Funnel

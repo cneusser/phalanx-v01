@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
-import { Plus, Building2, Clock, CheckCircle, X } from 'lucide-react';
+import { Plus, Building2, Clock, CheckCircle, X, Users, MessageSquare, Bell } from 'lucide-react';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
 import GroupedSelect from '../components/GroupedSelect';
 import SellerFunnel from '../components/SellerFunnel';
@@ -35,6 +35,7 @@ export default function SellerDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [myProjects, setMyProjects] = useState([]);
+  const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [wizardEditId, setWizardEditId] = useState(undefined); // undefined = zu, null = neu, id = bearbeiten
@@ -74,12 +75,14 @@ export default function SellerDashboard() {
     try {
       const data = await api.get('/projects/my-projects');
       setMyProjects(data || []);
+      api.get('/projects/my-overview').then(setOverview).catch(() => {});
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
   }
+  const stageLabelOf = (k) => ((overview?.stages || []).find(s => s.key === k) || {}).label || `Stufe ${k}`;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -166,6 +169,78 @@ export default function SellerDashboard() {
       <div style={{ background: C.lightBg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1rem 1.25rem', marginBottom: '2rem', fontSize: '0.85rem', color: C.gray, lineHeight: 1.7 }}>
         <strong style={{ color: C.navy }}>So funktioniert's:</strong> Reichen Sie Ihr Unternehmen zur Präsentation ein → Unser Team prüft und gibt es frei → Es wird für qualifizierte Investoren sichtbar → Sie erhalten Anfragen über CapitalMatch.
       </div>
+
+      {/* Verkäufer-Cockpit: Statistik + Inbox + Aktuelles (Stufe D) */}
+      {overview && (myProjects.length > 0) && (
+        <>
+          {/* KPI-Kacheln */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            {[
+              ['Aktiv', overview.byStatus?.active || 0, '#065f46', '#d1fae5'],
+              ['In Prüfung', overview.byStatus?.in_review || 0, '#92400e', '#fef3c7'],
+              ['Entwurf', overview.byStatus?.draft || 0, '#64748b', '#f1f5f9'],
+              ['Pausiert', overview.byStatus?.paused || 0, '#0369a1', '#e0f2fe'],
+              ['Interessenten', overview.totalInterested || 0, C.navy, C.lightBg],
+            ].map(([label, val, color, bg]) => (
+              <div key={label} style={{ background: bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem 1rem' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color }}>{val}</div>
+                <div style={{ fontSize: '0.74rem', color: C.gray, fontWeight: 600 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: '1rem', marginBottom: '2rem', alignItems: 'start' }}>
+            {/* Konsolidierte Interessenten-Inbox */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '1.1rem 1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.8rem' }}>
+                <Users size={16} color={C.navy} />
+                <h3 style={{ fontWeight: 800, color: C.navy, fontSize: '0.95rem' }}>Interessenten</h3>
+              </div>
+              {overview.mandates.filter(m => m.parties.length).length === 0 && (
+                <div style={{ color: C.gray, fontSize: '0.85rem' }}>Noch keine Interessenten in Ihren Mandaten.</div>
+              )}
+              {overview.mandates.filter(m => m.parties.length).map(m => (
+                <div key={m.id} style={{ marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                    <span style={{ fontWeight: 700, color: C.navy, fontSize: '0.85rem' }}>{m.codename}</span>
+                    <button onClick={() => navigate('/nachrichten')} style={{ display: 'flex', alignItems: 'center', gap: 5, ...smallBtn }}>
+                      <MessageSquare size={12} /> Über die Plattform antworten
+                    </button>
+                  </div>
+                  {m.parties.slice(0, 8).map((p, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.28rem 0', borderTop: '1px solid #F1F5F9', fontSize: '0.83rem', color: '#334155' }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: p.active ? '#10b981' : '#cbd5e1', flexShrink: 0 }} />
+                      <span style={{ fontWeight: 600 }}>{p.name}</span>
+                      {p.company && <span style={{ color: C.gray }}>· {p.company}</span>}
+                      <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: C.gray, background: C.lightBg, borderRadius: 10, padding: '0 0.5rem', fontWeight: 700 }}>{stageLabelOf(p.funnel_stage)}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              <p style={{ fontSize: '0.72rem', color: C.gray, lineHeight: 1.5, marginTop: '0.4rem' }}>
+                Aus Vertraulichkeitsgründen zeigen wir keine Kontaktdaten. Klarnamen erscheinen erst nach der Namensnennung. Die Kommunikation läuft über die Plattform.
+              </p>
+            </div>
+
+            {/* Aktuelles (Mitteilungen) */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '1.1rem 1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.8rem' }}>
+                <Bell size={16} color={C.navy} />
+                <h3 style={{ fontWeight: 800, color: C.navy, fontSize: '0.95rem' }}>Aktuelles</h3>
+              </div>
+              {(!overview.recent || overview.recent.length === 0) && (
+                <div style={{ color: C.gray, fontSize: '0.85rem' }}>Keine Bewegungen in den letzten 14 Tagen.</div>
+              )}
+              {(overview.recent || []).map((r, i) => (
+                <div key={i} style={{ padding: '0.4rem 0', borderTop: i ? '1px solid #F1F5F9' : 'none', fontSize: '0.8rem', color: '#334155' }}>
+                  <span style={{ fontWeight: 700 }}>{r.name}</span> → {stageLabelOf(r.stage)}
+                  <div style={{ fontSize: '0.7rem', color: C.gray }}>{r.codename} · {new Date(r.at).toLocaleDateString('de-DE')}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Projects list */}
       {loading ? (
