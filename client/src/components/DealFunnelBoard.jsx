@@ -536,6 +536,12 @@ export default function DealFunnelBoard({ show }) {
                           {p.access_granted === 1 && (
                             <span title="Hat Zugang zum Mandat (Unterlagen/Datenraum)" style={{ background: '#dbeafe', color: '#1e40af', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 800 }}>Zugang</span>
                           )}
+                          {p.identity_revealed === 1 && (
+                            <span title="Klarname für diesen Interessenten freigegeben" style={{ background: '#dcfce7', color: '#166534', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 800 }}>Klarname</span>
+                          )}
+                          {p.platform_nda && (
+                            <span title="Käufer hat das Plattform-NDA gezeichnet" style={{ background: '#ede9fe', color: '#5b21b6', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 800 }}>Plattform-NDA</span>
+                          )}
                           {p.consent_status === 'opt_in' && <ShieldCheck size={11} color="#059669" title="Einwilligung erteilt" />}
                           {(p.consent_status === 'opt_out' || p.contact_status === 'do_not_contact') && <ShieldOff size={11} color="#dc2626" title="Widerspruch, nicht kontaktieren" />}
                           {invited && <Mail size={11} color={C.accent} title={`Einladung: ${p.invite_status}`} />}

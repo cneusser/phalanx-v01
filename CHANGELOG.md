@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.293 · 15.08.2026 · Käufergruppen, Namensnennung und Plattform-NDA (DUB-Benchmark, Stufe C)
+- **Zielsteuerung je Inserat**: Im Wizard-Schritt „Sichtbarkeit" wählst du die passenden Käufergruppen (strategisch, Finanzinvestor, Privat, M&A-Berater mit Suchmandat) und Schlagwörter. Ist eine Gruppe gesetzt, benachrichtigt das Matching bei Veröffentlichung nur passende Käufertypen
+- **Namensnennung als eigener Schritt**: Am Kontakt gibst du je Interessent den Klarname bewusst frei. Vorher bleibt alles anonym. Die Freigabe wird protokolliert und erscheint als Badge „Klarname" im Funnel
+- **Plattform-NDA als Gütesiegel**: Käufer zeichnen im Dashboard einmalig ein plattformweites Vertraulichkeitsversprechen. Der Status ist als Badge „Plattform-NDA" am Kontakt und im Funnel sichtbar
+- Dritter Ausbau des Verkäufer-Cockpits (ROADMAP Sprint 25, Stufe C). Es folgt Stufe D (Verkäufer-Inbox, getrennter Mitteilungs-Feed, Ein-Konto-Rollenumschalter)
+- Verifiziert: Tests grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.292 · 14.08.2026 · Inserat-Wizard, Moderation und Lebenszyklus (DUB-Benchmark, Stufe B)
 - **Geführtes Erstellen**: Verkäufer legen ihr Inserat jetzt Schritt für Schritt an (Grundlagen, Einordnung, Kennzahlen, Beschreibung, Prüfen). Der Entwurf entsteht früh (nur der Name genügt), danach wird automatisch gespeichert. Vor dem Einreichen gibt es eine anonyme Vorschau
 - **Prüf-Schritt**: Ein eingereichtes Inserat steht auf „in Prüfung" und geht erst nach Freigabe live. Der Verkäufer sieht den Status und bei Zurückweisung den Grund direkt am Inserat

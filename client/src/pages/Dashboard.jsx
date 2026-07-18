@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [ndas, setNdas] = useState([]);
   const [projects, setProjects] = useState([]);
   const [xp, setXp] = useState(null);
+  const [platformNda, setPlatformNda] = useState(null); // { signed_at } | null
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,7 +31,13 @@ export default function Dashboard() {
       setProjects(projectsData.projects.slice(0, 3));
     }).catch(console.error).finally(() => setLoading(false));
     api.get('/gamification/me').then(setXp).catch(() => {});
+    api.get('/auth/platform-nda').then(setPlatformNda).catch(() => {});
   }, []);
+
+  async function signPlatformNda() {
+    try { const r = await api.post('/auth/platform-nda', {}); setPlatformNda(r); }
+    catch (e) { console.error(e); }
+  }
 
   const approved = ndas.filter(n => n.status === 'approved').length;
   const pending = ndas.filter(n => ['requested', 'sent', 'signed'].includes(n.status)).length;
@@ -44,6 +51,30 @@ export default function Dashboard() {
         <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.navy }}>Willkommen, {user?.first_name}</h1>
         <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>Ihr persönlicher M&A-Bereich</p>
       </div>
+
+      {/* Plattform-NDA: Gütesiegel (Stufe C) */}
+      {platformNda && (
+        <div style={{ background: platformNda.signed_at ? '#ede9fe' : C.lightBg, border: `1px solid ${platformNda.signed_at ? '#c4b5fd' : C.steel}`, borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Award size={22} color={platformNda.signed_at ? '#5b21b6' : C.navy} />
+            <div>
+              <div style={{ fontWeight: 800, color: platformNda.signed_at ? '#5b21b6' : C.navy, fontSize: '0.92rem' }}>
+                {platformNda.signed_at ? 'Plattform-NDA gezeichnet' : 'Plattform-NDA zeichnen'}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.5, maxWidth: 620 }}>
+                {platformNda.signed_at
+                  ? 'Ihr Gütesiegel ist aktiv. Verkäufer sehen, dass Sie Diskretion zusichern.'
+                  : 'Ein einmaliges, plattformweites Vertraulichkeitsversprechen. Es signalisiert Ernsthaftigkeit und verbessert Ihre Chancen, das richtige Unternehmen zu finden.'}
+              </div>
+            </div>
+          </div>
+          {!platformNda.signed_at && (
+            <button onClick={signPlatformNda} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.6rem 1.2rem', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
+              Jetzt zeichnen
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Sprint 17: XP / Level */}
       {xp && (

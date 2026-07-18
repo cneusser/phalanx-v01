@@ -18,7 +18,11 @@ const INPUT = {
 };
 const LBL = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.3rem' };
 
-const STEPS = ['Grundlagen', 'Einordnung', 'Kennzahlen', 'Beschreibung', 'Prüfen'];
+const STEPS = ['Grundlagen', 'Einordnung', 'Kennzahlen', 'Beschreibung', 'Sichtbarkeit', 'Prüfen'];
+const BUYER_GROUPS = [
+  ['strategic', 'Strategischer Käufer'], ['financial', 'Finanzinvestor'],
+  ['private', 'Privatperson'], ['advisor_mandate', 'M&A-Berater mit Suchmandat'],
+];
 
 export default function ListingWizard({ existingId = null, onClose, onDone }) {
   const [step, setStep] = useState(0);
@@ -27,6 +31,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
     mandate_type: 'ma', codename: '', industry: '', region: '', location_city: '',
     revenue_band: '', ebitda_band: '', deal_type: 'Nachfolge', short_description: '', highlights: [],
     stage: '', investment_needed: '', equity_stake: '', post_money_valuation: '', tam_band: '',
+    buyer_groups: [], keywords: '',
   });
   const [saveState, setSaveState] = useState('idle'); // idle | saving | saved | error
   const [err, setErr] = useState('');
@@ -50,6 +55,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
           highlights: Array.isArray(d.highlights) ? d.highlights : [],
           stage: d.stage || '', investment_needed: d.investment_needed || '', equity_stake: d.equity_stake || '',
           post_money_valuation: d.post_money_valuation || '', tam_band: d.tam_band || '',
+          buyer_groups: Array.isArray(d.buyer_groups) ? d.buyer_groups : [], keywords: d.keywords || '',
         }));
       } catch (e) { setErr('Entwurf konnte nicht geladen werden: ' + e.message); }
     })();
@@ -223,8 +229,34 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
             </>
           )}
 
-          {/* Schritt 5: Prüfen */}
+          {/* Schritt 5: Sichtbarkeit & Auffindbarkeit */}
           {step === 4 && (
+            <>
+              <label style={LBL}>Welche Käufergruppen soll das Inserat erreichen?</label>
+              <p style={{ fontSize: '0.75rem', color: C.gray, margin: '2px 0 0.6rem', lineHeight: 1.5 }}>
+                Keine Auswahl bedeutet: für alle sichtbar. Sonst matchen wir gezielt die gewählten Typen.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: '1rem' }}>
+                {BUYER_GROUPS.map(([v, l]) => {
+                  const on = (form.buyer_groups || []).includes(v);
+                  return (
+                    <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: C.text, cursor: 'pointer', padding: '0.4rem 0.6rem', border: `1px solid ${on ? C.steel : C.border}`, borderRadius: 7, background: on ? C.lightBg : '#fff' }}>
+                      <input type="checkbox" checked={on} onChange={() => setVal('buyer_groups', on ? form.buyer_groups.filter(x => x !== v) : [...(form.buyer_groups || []), v])} />
+                      {l}
+                    </label>
+                  );
+                })}
+              </div>
+              <label style={LBL}>Schlagwörter (für die Auffindbarkeit, kommagetrennt)</label>
+              <input value={form.keywords} onChange={set('keywords')} placeholder="z. B. Tabakwaren, Großhandel, Nachfolge, Nürnberg" style={INPUT} />
+              <p style={{ fontSize: '0.75rem', color: C.gray, marginTop: 6, lineHeight: 1.5 }}>
+                Schlagwörter helfen beim Matching und der Suche. Sie sind intern und verraten nichts über die Identität.
+              </p>
+            </>
+          )}
+
+          {/* Schritt 6: Prüfen */}
+          {step === 5 && (
             <>
               <p style={{ fontSize: '0.82rem', color: C.gray, marginBottom: '0.9rem', lineHeight: 1.5 }}>
                 So sieht die anonyme Kurzansicht aus. Passt alles? Dann reiche zur Prüfung ein. Nach der Freigabe ist das Inserat für qualifizierte Investoren sichtbar.

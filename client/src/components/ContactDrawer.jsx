@@ -310,6 +310,22 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                           </label>
                         </div>
                       </div>
+                      {/* Namensnennung (Demasking): Klarname bewusst freigeben */}
+                      <div style={{ marginTop: '0.6rem' }}>
+                        <div style={LBL}>Namensnennung</div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: '0.8rem', color: C.text, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={d.identity_revealed === 1}
+                            onChange={e => {
+                              if (e.target.checked && !window.confirm('Klarname für diesen Interessenten freigeben? Der Schritt wird protokolliert.')) return;
+                              setPartyField(d.party_id, { identity_revealed: e.target.checked });
+                            }} />
+                          {d.identity_revealed === 1
+                            ? <span style={{ color: '#059669', fontWeight: 700 }}>Klarname freigegeben</span>
+                            : 'anonym (Klarname gesperrt)'}
+                        </label>
+                      </div>
                       {d.next_step && <div style={{ fontSize: '0.75rem', color: C.muted, marginTop: '0.5rem' }}>→ {d.next_step}</div>}
                       <button
                         onClick={() => setTplFor({ id: d.project_id, codename: d.codename })}

@@ -354,7 +354,7 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
   // Sprint 20: Mandats-Zuordnungen dieses Kontakts (Rolle + Funnel-Stufe)
   const deals = await scoped(req, (t) => t.all(`
     SELECT dp.id AS party_id, dp.project_id, dp.party_role, dp.funnel_stage, dp.party_status, dp.next_step,
-           dp.nda_status, dp.access_granted,
+           dp.nda_status, dp.access_granted, dp.identity_revealed,
            p.codename, p.status AS project_status,
            (SELECT CASE
                      WHEN nr.signed_at IS NOT NULL OR nr.status IN ('signed', 'approved') THEN 'signed'
@@ -727,6 +727,7 @@ router.get('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
            k.first_name, k.last_name, k.email, k.consent_status, k.contact_status, k.is_decision_maker,
            k.lead_source, k.lead_ref, k.buyer_type,
            c.name AS company_name,
+           (SELECT platform_nda_signed_at FROM users u WHERE u.id = k.user_id) AS platform_nda,
            (SELECT status FROM crm_invitations i WHERE i.contact_id = dp.contact_id ORDER BY i.invited_at DESC LIMIT 1) AS invite_status,
            -- NDA-Stand des zum Kontakt gehörenden Nutzers für DIESES Mandat (online)
            (SELECT CASE
@@ -1000,11 +1001,23 @@ router.put('/parties/:id', ...isStaff, canWrite, wrap(async (req, res) => {
   if (req.body.access_granted !== undefined) {
     sets.push('access_granted = ?'); params.push(req.body.access_granted ? 1 : 0);
   }
+  // Namensnennung (Demasking): Klarname für diesen Käufer bewusst freigeben.
+  let identityChange = null;
+  if (req.body.identity_revealed !== undefined) {
+    const on = !!req.body.identity_revealed;
+    sets.push('identity_revealed = ?'); params.push(on ? 1 : 0);
+    sets.push('identity_revealed_at = ?'); params.push(on ? new Date() : null);
+    sets.push('identity_revealed_by = ?'); params.push(on ? req.user.id : null);
+    identityChange = on ? 'freigegeben' : 'zurückgenommen';
+  }
   if (!sets.length) return res.json({ success: true, data: { message: 'Nichts zu ändern' } });
 
   params.push(req.params.id);
   await scoped(req, (t) => t.run(`UPDATE crm_deal_parties SET ${sets.join(', ')} WHERE id = ?`, params));
   db.auditLog(req.user.id, 'CRM_PARTY_UPDATED', 'project', party.project_id, `Eintrag #${req.params.id}`, req.ip);
+  if (identityChange) {
+    db.auditLog(req.user.id, 'CRM_IDENTITY_REVEALED', 'project', party.project_id, `Namensnennung ${identityChange} (Eintrag #${req.params.id})`, req.ip);
+  }
   res.json({ success: true, data: { message: 'Gespeichert' } });
 }));
 

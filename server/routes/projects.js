@@ -213,6 +213,12 @@ router.get('/:id/teaser', optionalAuth, wrap(async (req, res) => {
     project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ?`, [req.params.id]);
   }
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+  // Zielsteuerung (Käufergruppen, Schlagwörter) ist intern: nur für Pfleger.
+  let targeting = {};
+  if (canManage) {
+    const t = await db.get('SELECT buyer_groups, keywords FROM projects WHERE id = ?', [req.params.id]);
+    targeting = { buyer_groups: JSON.parse(t?.buyer_groups || '[]'), keywords: t?.keywords || '' };
+  }
   res.json({
     success: true,
     data: {
@@ -220,6 +226,7 @@ router.get('/:id/teaser', optionalAuth, wrap(async (req, res) => {
       highlights: JSON.parse(project.highlights || '[]'),
       can_manage: canManage,
       project_role: role,          // 'manager' | 'viewer' | null
+      ...targeting,
     },
   });
 }));
@@ -250,7 +257,12 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
   }
   const isAdmin = ['super_admin', 'advisor'].includes(req.user.role);
   const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights,
-          stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, status } = req.body;
+          stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, status,
+          buyer_groups, keywords } = req.body;
+  const BUYER_GROUPS = ['strategic', 'financial', 'private', 'advisor_mandate'];
+  const buyerGroupsJson = Array.isArray(buyer_groups)
+    ? JSON.stringify(buyer_groups.filter(g => BUYER_GROUPS.includes(g)))
+    : null;
 
   if (codename) {
     const dupe = await db.get('SELECT id FROM projects WHERE codename = ? AND id != ?', [codename, req.params.id]);
@@ -269,6 +281,7 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
       investment_needed=COALESCE(?,investment_needed), equity_stake=COALESCE(?,equity_stake),
       post_money_valuation=COALESCE(?,post_money_valuation), tam_band=COALESCE(?,tam_band),
       sector_emoji=COALESCE(?,sector_emoji), location_city=COALESCE(?,location_city),
+      buyer_groups=COALESCE(?,buyer_groups), keywords=COALESCE(?,keywords),
       status=COALESCE(?,status),
       updated_at=now() WHERE id=?
   `, [
@@ -276,6 +289,7 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
     deal_type||null, short_description||null, highlights?JSON.stringify(highlights):null, stage||null,
     investment_needed||null, equity_stake||null, post_money_valuation||null, tam_band||null,
     sector_emoji||null, location_city||null,
+    buyerGroupsJson, keywords !== undefined ? (keywords || '') : null,
     isAdmin ? (status || null) : null, // Sichtbarkeit ändert nur der Admin
     req.params.id,
   ]);

@@ -60,10 +60,12 @@ const isAuditorOrAdmin = [authenticate, requireRole('super_admin', 'advisor', 't
 // Anti-Doppel-Mail-Kaskade (Suchprofil → Ähnlichkeit → Newsletter).
 async function notifyMatchingBuyers(projectId) {
   const notified = new Set();
-  const p = await db.get(`SELECT id, codename, industry, region, deal_type, mandate_type, short_description FROM projects WHERE id = ?`, [projectId]);
+  const p = await db.get(`SELECT id, codename, industry, region, deal_type, mandate_type, short_description, buyer_groups FROM projects WHERE id = ?`, [projectId]);
   if (!p) return notified;
+  // Zielsteuerung: leere Käufergruppen = an alle, sonst nur passende Käufertypen.
+  let groups = []; try { groups = JSON.parse(p.buyer_groups || '[]'); } catch { groups = []; }
   const profiles = await db.all(`
-    SELECT sp.id, sp.name, sp.criteria_json, u.id AS user_id, u.email, u.first_name
+    SELECT sp.id, sp.name, sp.criteria_json, u.id AS user_id, u.email, u.first_name, u.buyer_type
     FROM search_profiles sp JOIN users u ON u.id = sp.user_id
     WHERE sp.notify_frequency = 'instant' AND u.is_active = 1`);
   const matches = (c) => {
@@ -78,6 +80,8 @@ async function notifyMatchingBuyers(projectId) {
   for (const prof of profiles) {
     let c = {}; try { c = JSON.parse(prof.criteria_json || '{}'); } catch {}
     if (!matches(c)) continue;
+    // Käufergruppen-Zielsteuerung: wenn gesetzt, muss der Käufertyp passen.
+    if (groups.length && !groups.includes(prof.buyer_type)) continue;
     sendProcessUpdateEmail({
       to: prof.email, firstName: prof.first_name,
       title: `Neues passendes Mandat: ${p.codename}`,
