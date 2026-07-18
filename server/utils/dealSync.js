@@ -15,9 +15,10 @@
 const db = require('../db/database');
 
 // Interesse-Stufe (dealStateMachine) → Funnel-Stufe (crm_deal_parties.funnel_stage)
+// Stufenleiter ab v0.291: 4 NDA · 5 IM/Unterlagen · 7 LOI eingereicht (siehe crm.js).
 const FUNNEL_FROM_INTEREST = {
-  requested: 3, nda_pending: 3, nda_signed: 4,
-  im_granted: 4, dataroom_granted: 4, loi: 6,
+  requested: 4, nda_pending: 4, nda_signed: 5,
+  im_granted: 5, dataroom_granted: 5, loi: 7,
 };
 
 // Welche Funnel-Stufe und welches Signal löst ein Ereignis aus?
@@ -59,16 +60,16 @@ async function syncFromUser(userId, projectId, opts = {}) {
     if (!contactId) return;
 
     let { stage, signal } = planFor(opts.kind, opts.interestStage);
-    // NDA-Feinabstimmung: „IM / Unterlagen" (Stufe 4) setzt eine unterschriebene NDA
+    // NDA-Feinabstimmung: „IM / Unterlagen" (Stufe 5) setzt eine unterschriebene NDA
     // voraus. Ist die NDA nur freigegeben, aber noch nicht gegengezeichnet, bleibt es
-    // bei „NDA" (Stufe 3). So steht z. B. ein freigegebener, aber ungezeichneter
+    // bei „NDA" (Stufe 4). So steht z. B. ein freigegebener, aber ungezeichneter
     // Interessent korrekt in der NDA-Spalte.
-    if (opts.kind === 'interest' && stage >= 3) {
+    if (opts.kind === 'interest' && stage >= 4) {
       const nda = await db.get(
         `SELECT signed_at, status FROM nda_requests WHERE user_id = ? AND project_id = ? ORDER BY id DESC LIMIT 1`,
         [userId, projectId]).catch(() => null);
       const signed = !!(nda && (nda.signed_at || nda.status === 'signed'));
-      if (!signed && stage > 3) stage = 3;
+      if (!signed && stage > 4) stage = 4;
       signal = 'nda';
     }
     const existing = await db.get(

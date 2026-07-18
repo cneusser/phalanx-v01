@@ -250,12 +250,16 @@ router.delete('/companies/:id', ...isStaff, canDelete, wrap(async (req, res) => 
 // ── Kontakte ────────────────────────────────────────────────────────────────
 const CONTACT_FIELDS = ['salutation', 'title', 'first_name', 'last_name', 'email', 'phone', 'mobile',
   'linkedin_url', 'location', 'responsibility', 'relationship', 'notes', 'consent_status', 'contact_status'];
+// Käufertyp am Kontakt (v0.291, DUB-Benchmark). Leer = unbekannt.
+const BUYER_TYPES = ['strategic', 'financial', 'private', 'advisor_mandate'];
+const cleanBuyerType = (v) => (BUYER_TYPES.includes(v) ? v : null);
 
 router.get('/contacts', ...isStaff, wrap(async (req, res) => {
-  const { q, decision_makers, company_id } = req.query;
+  const { q, decision_makers, company_id, buyer_type } = req.query;
   const where = ['1=1']; const params = [];
   if (q) { where.push('(k.last_name ILIKE ? OR k.first_name ILIKE ? OR k.email ILIKE ?)'); const s = `%${q}%`; params.push(s, s, s); }
   if (decision_makers === '1') where.push('k.is_decision_maker = 1');
+  if (BUYER_TYPES.includes(buyer_type)) { where.push('k.buyer_type = ?'); params.push(buyer_type); }
   if (company_id) { where.push('EXISTS (SELECT 1 FROM crm_company_contacts cc WHERE cc.contact_id = k.id AND cc.company_id = ? AND cc.ended_on IS NULL)'); params.push(company_id); }
 
   const rows = await scoped(req, (t) => t.all(`
@@ -284,13 +288,13 @@ router.post('/contacts', ...isStaff, canWrite, wrap(async (req, res) => {
   const id = await scoped(req, (t) => t.insert(`
     INSERT INTO crm_contacts (tenant_id, salutation, title, first_name, last_name, email, phone, mobile,
       linkedin_url, location, responsibility, relationship, notes, tags_json, is_decision_maker,
-      consent_status, consent_at, contact_status, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      buyer_type, consent_status, consent_at, contact_status, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [req.tenantId || 1, req.body.salutation || null, req.body.title || null, req.body.first_name || null, last,
      email, req.body.phone || null, req.body.mobile || null, req.body.linkedin_url || null,
      req.body.location || null, req.body.responsibility || null, req.body.relationship || null,
      req.body.notes || null, JSON.stringify(req.body.tags || []),
-     req.body.is_decision_maker ? 1 : 0,
+     req.body.is_decision_maker ? 1 : 0, cleanBuyerType(req.body.buyer_type),
      consent, consent === 'opt_in' ? new Date() : null,
      ['active', 'do_not_contact', 'bounced'].includes(req.body.contact_status) ? req.body.contact_status : 'active',
      req.user.id]));
@@ -316,6 +320,7 @@ router.put('/contacts/:id', ...isStaff, canWrite, wrap(async (req, res) => {
     if (req.body[f] !== undefined) { sets.push(`${f} = ?`); params.push(req.body[f] || null); }
   }
   if (req.body.is_decision_maker !== undefined) { sets.push('is_decision_maker = ?'); params.push(req.body.is_decision_maker ? 1 : 0); }
+  if (req.body.buyer_type !== undefined) { sets.push('buyer_type = ?'); params.push(cleanBuyerType(req.body.buyer_type)); }
   if (req.body.tags !== undefined) { sets.push('tags_json = ?'); params.push(JSON.stringify(req.body.tags || [])); }
   // Einwilligung frisch erteilt → Zeitstempel setzen (DSGVO-Nachweis)
   if (req.body.consent_status === 'opt_in' && existing.consent_status !== 'opt_in') {
@@ -683,12 +688,16 @@ const FUNNEL_STAGES = [
   { key: 0, label: 'Longlist' },
   { key: 1, label: 'Angesprochen' },
   { key: 2, label: 'Rückmeldung' },
-  { key: 3, label: 'NDA' },
-  { key: 4, label: 'IM / Unterlagen' },
-  { key: 5, label: 'Gespräch' },
-  { key: 6, label: 'Angebot / LOI' },
-  { key: 7, label: 'Due Diligence' },
-  { key: 8, label: 'Abgeschlossen' },
+  { key: 3, label: 'Match' },
+  { key: 4, label: 'NDA' },
+  { key: 5, label: 'IM / Unterlagen' },
+  { key: 6, label: 'Gespräch' },
+  { key: 7, label: 'LOI eingereicht' },
+  { key: 8, label: 'LOI unterschrieben' },
+  { key: 9, label: 'Namensnennung' },
+  { key: 10, label: 'Due Diligence' },
+  { key: 11, label: 'Signing' },
+  { key: 12, label: 'Closing' },
 ];
 const PARTY_ROLES = ['buyer', 'advisor', 'seller', 'process', 'bank', 'lawyer', 'target', 'other'];
 const PARTY_STATUS = ['active', 'dropped', 'open', 'unclear'];
@@ -716,7 +725,7 @@ router.get('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
   const rows = await scoped(req, (t) => t.all(`
     SELECT dp.*,
            k.first_name, k.last_name, k.email, k.consent_status, k.contact_status, k.is_decision_maker,
-           k.lead_source, k.lead_ref,
+           k.lead_source, k.lead_ref, k.buyer_type,
            c.name AS company_name,
            (SELECT status FROM crm_invitations i WHERE i.contact_id = dp.contact_id ORDER BY i.invited_at DESC LIMIT 1) AS invite_status,
            -- NDA-Stand des zum Kontakt gehörenden Nutzers für DIESES Mandat (online)

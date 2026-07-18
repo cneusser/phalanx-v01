@@ -120,8 +120,10 @@ router.get('/my-projects', authenticate, wrap(async (req, res) => {
 // Admin sehen es ebenfalls; Käufer haben keinen Zugriff.
 const SELLER_STAGES = [
   { key: 0, label: 'Longlist' }, { key: 1, label: 'Angesprochen' }, { key: 2, label: 'Rückmeldung' },
-  { key: 3, label: 'NDA' }, { key: 4, label: 'IM / Unterlagen' }, { key: 5, label: 'Gespräch' },
-  { key: 6, label: 'Angebot / LOI' }, { key: 7, label: 'Due Diligence' }, { key: 8, label: 'Abgeschlossen' },
+  { key: 3, label: 'Match' }, { key: 4, label: 'NDA' }, { key: 5, label: 'IM / Unterlagen' },
+  { key: 6, label: 'Gespräch' }, { key: 7, label: 'LOI eingereicht' }, { key: 8, label: 'LOI unterschrieben' },
+  { key: 9, label: 'Namensnennung' }, { key: 10, label: 'Due Diligence' }, { key: 11, label: 'Signing' },
+  { key: 12, label: 'Closing' },
 ];
 router.get('/:id/funnel-preview', authenticate, wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename, created_by, status FROM projects WHERE id = ?', [req.params.id]);

@@ -1,7 +1,8 @@
 # CapitalMatch · Roadmap: Bewertung, Container-Safe, Exposé-Builder
 
 Stand: Juli 2026 · Analysebasis: kmurechner.de, KERN-Unternehmenswertrechner,
-HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-Multiples.
+HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-Multiples,
+DUB-/dealcircle-Verkäuferseite (Screenshots Juli 2026, siehe Sprint 25).
 
 > **Konsolidierte Fassung.** Ersetzt die früheren Dateien `ROADMAP-SPRINT-6-9.md`
 > und `ROADMAP_Sprint6-9.md`, deren Sprint-Nummerierung voneinander abwich. Es geht
@@ -47,6 +48,9 @@ HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-M
 | · | Reaktions-Definition, NDA/Zugang manuell, E-Mail+Chat am Kontakt, Turnstile, Sicherheits-Review (v0.279-v0.284) | ✅ fertig |
 | · | Kontaktliste Seiten/A-Z, Rolle Prozessbeteiligter, Verkäufer-Funnel über mehrere Mandate (v0.285-v0.286) | ✅ fertig |
 | · | Unternehmen-Seiten, Käufer-/Verkäufertrennung, Beteiligte per Drag-and-drop (v0.287-v0.289) | ✅ fertig |
+| · | Rückfrage beim Funnel-Verschieben, Prozess-/Automatik-Übersicht (v0.290) | ✅ fertig |
+| **25** | **Verkäufer-Cockpit (DUB-Benchmark): Self-Service-Inserat, Sichtbarkeit/Käufergruppen, Moderation, Interessenten-Inbox** | ▶ Stufe A ✅ (Käufertyp + Funnel bis Closing, v0.291); B–D geplant (Analyse unten) |
+| · | Käufertyp am Kontakt + transaktionsnahe Funnel-Stufen bis Closing (v0.291, Stufe A) | ✅ fertig |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →
@@ -562,6 +566,77 @@ Entspricht Spec §14. Nach Bedarf und Datenlage:
   und automatische **Longlist-Erstellung**; Serienansprachen mit Freigabe; E-Signatur-Integration;
   tiefere Datenraum-Integration; Auswertung der Ansprachequalität; **Mobile App**;
   **Portalfunktion für Verkäufer und Käufer**.
+
+---
+
+## Sprint 25 · Verkäufer-Cockpit (DUB-Benchmark) · geplant
+
+**Motiv.** Analyse der DUB-/dealcircle-Verkäuferseite (Screenshots Juli 2026) als
+Zielbild. Heute legt bei CapitalMatch die Beratung (Admin) die Mandate an und steuert
+den Funnel. DUB zeigt, wie ein **selbstbedienbares Verkäufer-Cockpit** aussieht: der
+Verkäufer erstellt sein anonymes Inserat geführt selbst, steuert Sichtbarkeit und
+Zielgruppen, sieht seine Interessenten als eigene Inbox und bewegt sie durch eine
+transaktionsnahe Pipeline. Ziel ist, dieses Reifebild über die Zeit zu erreichen,
+ohne den beraterzentrierten Kern (Phalanx als Sell-Side-Berater) aufzugeben. Die
+Beratung bleibt kuratierend, das Cockpit macht den Kunden autonomer und die
+Plattform skalierbarer.
+
+### Vergleich: DUB-Verkäuferseite gegen CapitalMatch heute
+
+| Baustein | DUB macht | CapitalMatch heute | To-do |
+|----------|-----------|--------------------|-------|
+| Inserat anlegen | Geführter Wizard in 18 Schritten (Unternehmen, Standort, Kennzahlen, Historie, Zukunft, Mitarbeiter, Transaktion, Titel, Beschreibung, Produkte, Kunden, Markt, Wettbewerb, Zusammenfassung, Sichtbarkeit, Schlagwörter, Deine Angaben, Überprüfung), Autosave, „privat bis Veröffentlichung" | Mandate legt Admin an; Exposé-Builder vorhanden (Sprint 9) | Self-Service-Wizard für Verkäufer, Autosave, Entwurf, Vorschau vor Publikation |
+| Freigabe | „Geprüft innerhalb 24 h", Status „Wird geprüft" vor Live | Direkt live durch Admin | Moderations-Status (Entwurf → in Prüfung → aktiv), Prüf-Queue im Admin |
+| Inserate-Lifecycle | Status Aktiv/Pausiert/Geschlossen/Entwurf/Wird geprüft, je Inserat: Ansehen, Bearbeiten, Interessenten, NDA-Verwaltung, Statusupdate | Mandate mit Grundstatus | Lifecycle-Zustände + Pausieren/Schließen durch Verkäufer |
+| Sichtbarkeit/Zielgruppen | Eigener Schritt „Sichtbarkeit: Datenschutz und Käufergruppen": Verkäufer wählt, welche Käufertypen das Inserat finden | Anonymisierung im Exposé; keine Käufertyp-Zielsteuerung | Käufertyp-Feld (strategisch, Finanzinvestor, Privat, M&A-Berater mit Suchmandat) + Zielgruppen-Auswahl je Inserat |
+| Auffindbarkeit | Schritt „Schlagwörter" für die Suche | Filter/Suchprofile käuferseitig (Sprint 10) | Verkäufer-seitige Keywords je Mandat für Matching |
+| Interessenten-Inbox | Liste aller Interessenten je Inserat mit Status-Badge, Datum, NDA-Spalte, Aktion „Antworten"/„Statusupdate", Verifiziert-Badge | Deal-Funnel-Board (Admin/CRM), Kontakt-360°, NDA-Status am Kontakt (v0.281 ff.) | Verkäufer-taugliche Inbox-Sicht auf denselben Funnel, „Antworten" direkt |
+| Transaktions-Pipeline | Interessensbekundung → Match → NDA unterschrieben → Persönliches Treffen → LOI eingereicht → LOI unterschrieben → Namensnennung → Signing → Closing (+ Ausgeschieden) | Origination-Funnel (Eingang, Longlist, Angesprochen, Rückmeldung, NDA, IM, Gespräch, Angebot/LOI, DD, Abgeschlossen) | Späte Stufen angleichen: Match, Persönliches Treffen, LOI eingereicht/unterschrieben, Namensnennung, Signing, Closing |
+| Namensnennung/Demasking | Eigener Prozessschritt „Namensnennung"; für Berater als Premium „DSGVO-konformes Demasking" | Exposé/Klarname hinter NDA-Gate | Expliziter Schritt anonym → Klarname, per NDA + Verkäuferfreigabe gesteuert und protokolliert |
+| Plattform-NDA | Ein plattformweites NDA, das Käufer einmalig zeichnen (Vertrauens-/Ernsthaftigkeitssignal) | NDA je Mandat | Optionales globales Plattform-NDA als Käufer-Gütesiegel, sichtbar am Profil |
+| Verkäuferprofil | Wiederverwendbares Profil, „Vom Verkäuferprofil übernehmen" füllt Firma/Adresse je Inserat vor | Nutzerprofil, Anrede (v0.270) | Verkäuferprofil-Objekt als Vorlage für Mandatsanlage |
+| Mitteilungen vs. Postfach | Getrennt: Mitteilungen (Ereignis-Feed „bleib auf dem Laufenden") und Postfach (Chat) | Chat + Navbar-Zähler (v0.281) | Ereignis-Feed „Mitteilungen" ergänzend zum Chat-Postfach |
+| Rollen-Umschalter | Käufer/Verkäufer-Toggle in einem Konto | Käufer-/Verkäufertrennung + eigene Dashboards (v0.288) | Ein-Konto-Umschalter Käufer ⇄ Verkäufer statt getrennter Wege |
+| Statistik | Verkäufer sieht Kacheln Aktiv/Pausiert/Geschlossen/Entwürfe + Interessenten je Stufe | Admin-Analytics (Sprint 16) | Schlanke Verkäufer-Statistik im Cockpit |
+
+### Umsetzungsstufen (klein und lauffähig)
+
+*Stufe A (Fundament, hoher Nutzen):* Käufertyp-Klassifikation als Feld an Kontakt/Nutzer
+(strategisch, Finanzinvestor, Privatperson, M&A-Berater mit Suchmandat) inklusive Filter
+im CRM und im Käufer-Matching. Späte Funnel-Stufen ergänzen (Match, Persönliches Treffen,
+LOI eingereicht/unterschrieben, Namensnennung, Signing, Closing), damit die Pipeline den
+ganzen Deal bis Closing abbildet.
+
+*Stufe B (Verkäufer-Autonomie):* Self-Service-Inserat-Wizard (Entwurf, Autosave, Vorschau)
+plus Moderations-Status (Entwurf → in Prüfung → aktiv) und Inserate-Lifecycle
+(Pausieren/Schließen). Baut auf dem Exposé-Builder aus Sprint 9 auf, ergänzt um den
+mehrstufigen, gespeicherten Fragebogen und die Prüf-Queue im Admin.
+
+*Stufe C (Zielsteuerung und Vertrauen):* Sichtbarkeit/Käufergruppen und Schlagwörter je
+Mandat für gezieltes Matching. Expliziter Namensnennung/Demasking-Schritt (anonym →
+Klarname) mit Freigabe und Protokoll. Optionales Plattform-NDA als Käufer-Gütesiegel.
+
+*Stufe D (Cockpit-Feinschliff):* Verkäufer-Interessenten-Inbox mit direktem „Antworten",
+Verkäufer-Statistik-Kacheln, getrennter Mitteilungs-Feed und Ein-Konto-Rollenumschalter
+Käufer ⇄ Verkäufer.
+
+### Angrenzend (bewusst separat bewertet)
+
+- **Kaufgesuche (Buy-Side-Marktplatz):** DUB betreibt zusätzlich einen umgekehrten
+  Marktplatz, in dem Käufer anonyme Suchmandate einstellen (nach Branche stöbern,
+  Umsatz-/Investitionsvolumen, „Käufer kontaktieren"). Für CapitalMatch eine mögliche
+  spätere Richtung, nicht Teil des Verkäufer-Cockpits.
+- **Monetarisierung:** DUB-Preismodelle (Verkäufer-/Käufer-/Berater-Pakete, Verifiziert-
+  Badge nach Verifizierungsgespräch, Erfolgsgebühr z. B. 2 % bei Abschluss). Relevant für
+  ein späteres Billing-Modell, hängt am bestehenden `BILLING_ENABLED`-Flag.
+
+### Abgrenzung
+
+CapitalMatch bleibt beratergetrieben: das Cockpit gibt dem Verkäufer Autonomie, ersetzt
+aber nicht die kuratierende Rolle von Phalanx (Moderation, Namensnennung, Ansprache).
+Alle neuen Tabellen mit `tenant_id` + RLS; Käufertyp und Sichtbarkeit DSGVO-konform
+(Zweckbindung, Protokoll). Reihenfolge: Stufe A zuerst (kleiner Eingriff, sofort im
+CRM nutzbar), dann B bis D nach Bedarf.
 
 ---
 

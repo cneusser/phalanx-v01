@@ -11,6 +11,13 @@ const SELECT = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C
 const ROLE_LABEL = { buyer: 'Käufer', advisor: 'Berater', seller: 'Verkäufer', process: 'Prozessbeteiligter', bank: 'Bank', lawyer: 'Anwalt', target: 'Ziel', other: 'Sonstige' };
 // v0.269: Herkunft eines Inbound-Leads (aus der Plattform) für die „Eingang"-Markierung
 const INBOUND_LABEL = { nda: 'NDA', interest: 'Interesse', watchlist: 'beobachtet', mailing: 'Mailing', marketplace: 'Marktplatz', inbound: 'Eingang' };
+// Käufertyp (v0.291): Kurzform + Farbe für die Kanban-Karte
+const BUYER_TYPE = {
+  strategic: { short: 'Strategisch', bg: '#ede9fe', color: '#5b21b6' },
+  financial: { short: 'Finanzinvestor', bg: '#dbeafe', color: '#1e40af' },
+  private: { short: 'Privat', bg: '#dcfce7', color: '#166534' },
+  advisor_mandate: { short: 'M&A-Suchmandat', bg: '#fef3c7', color: '#92400e' },
+};
 // Kurzform der Herkunftsplattform: „Deutsche Unternehmerbörse (DUB.de)" → „DUB.de"
 const sourceShort = (s) => { if (!s) return ''; const m = s.match(/\(([^)]+)\)/); return m ? m[1] : s; };
 const STATUS_STYLE = {
@@ -505,6 +512,9 @@ export default function DealFunnelBoard({ show }) {
                         <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4, alignItems: 'center' }}>
                           <span style={{ background: st.bg, color: st.color, padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.6rem', fontWeight: 700 }}>{st.label}</span>
                           <span style={{ fontSize: '0.6rem', color: C.muted }}>{ROLE_LABEL[p.party_role] || p.party_role}</span>
+                          {p.buyer_type && BUYER_TYPE[p.buyer_type] && (
+                            <span title={`Käufertyp: ${BUYER_TYPE[p.buyer_type].short}`} style={{ background: BUYER_TYPE[p.buyer_type].bg, color: BUYER_TYPE[p.buyer_type].color, padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 700 }}>{BUYER_TYPE[p.buyer_type].short}</span>
+                          )}
                           {p.lead_source ? (
                             <span title={`Kam über ${p.lead_source}${p.lead_ref ? ` (${p.lead_ref})` : ''}`}
                               style={{ background: '#DBEAFE', color: '#1e40af', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 700 }}>

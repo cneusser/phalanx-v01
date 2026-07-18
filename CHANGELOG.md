@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.291 · 13.08.2026 · Käufertyp am Kontakt, Funnel bis Closing (DUB-Benchmark, Stufe A)
+- **Käufertyp am Kontakt**: strategischer Käufer, Finanzinvestor, Privatperson oder M&A-Berater mit Suchmandat. Setzbar im Kontakt und im Anlegeformular, sichtbar als Badge in der Kontaktliste und auf der Funnel-Karte, filterbar über eine eigene Leiste im CRM. Vorbild ist die DUB-Käufergruppen-Klassifikation
+- **Funnel bis zum Abschluss**: Der Deal-Funnel bekommt die transaktionsnahen Spätstufen. Neu: Match, LOI eingereicht, LOI unterschrieben, Namensnennung, Signing, Closing. Die vorderen Stufen (Longlist, Angesprochen, Rückmeldung) und die Automatik bleiben unverändert; Bestandsdaten wurden sauber auf die neue Leiter gehoben
+- Erster Baustein des DUB-Verkäufer-Benchmarks (ROADMAP Sprint 25, Stufe A). Stufen B bis D (Self-Service-Inserat, Sichtbarkeit/Käufergruppen, Moderation, Verkäufer-Inbox) folgen
+- Verifiziert: Tests grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.290 · 12.08.2026 · Rückfrage beim Verschieben, Prozess-Übersicht
 - **Bestätigung beim Drag-and-drop**: Verschiebst du eine Karte auf eine andere Stufe, kommt jetzt eine kurze Rückfrage. Das Verschieben allein sendet weiterhin **keine** E-Mail; du kannst aber im selben Schritt „Verschieben + passende Prozess-Mail" wählen. So geht nichts ungewollt raus und nichts doppelt
 - **Prozess- und Automatik-Übersicht** (`PROZESS_UND_AUTOMATIK.md`): erklärt die Funnel-Stufen, welche Mails automatisch laufen (Erstansprache, 7/21-Reminder, NDA nach Registrierung, IM nach Unterschrift, Benachrichtigung bei neuen Unterlagen), was manuell bleibt und wie Doppelversand vermieden wird

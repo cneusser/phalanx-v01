@@ -14,7 +14,12 @@ const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', 
 const IN = { width: '100%', padding: '0.45rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
 const LBL = { fontSize: '0.68rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.03em' };
 
-const STAGE_LABEL = ['Longlist', 'Angesprochen', 'Rückmeldung', 'NDA', 'IM / Unterlagen', 'Gespräch', 'Angebot / LOI', 'Due Diligence', 'Abgeschlossen'];
+const STAGE_LABEL = ['Longlist', 'Angesprochen', 'Rückmeldung', 'Match', 'NDA', 'IM / Unterlagen', 'Gespräch', 'LOI eingereicht', 'LOI unterschrieben', 'Namensnennung', 'Due Diligence', 'Signing', 'Closing'];
+// Käufertyp (v0.291): value → Anzeigename
+const BUYER_TYPES = [
+  ['', 'ohne Angabe'], ['strategic', 'Strategischer Käufer'], ['financial', 'Finanzinvestor'],
+  ['private', 'Privatperson'], ['advisor_mandate', 'M&A-Berater mit Suchmandat'],
+];
 const EVENT_COLOR = {
   invite: '#1D4E89', mail: '#1D4E89', reminder: '#d97706', open: '#0891b2',
   consent: '#059669', register: '#059669', response: '#059669',
@@ -49,6 +54,7 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
       FIELDS.forEach(([k]) => { f[k] = d.contact[k] || ''; });
       f.notes = d.contact.notes || '';
       f.is_decision_maker = d.contact.is_decision_maker === 1;
+      f.buyer_type = d.contact.buyer_type || '';
       setForm(f);
     } catch (e) { show('Fehler: ' + e.message); }
   }, [contactId, show]);
@@ -229,6 +235,12 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                     <input type="checkbox" checked={!!form.is_decision_maker} onChange={e => setForm(f => ({ ...f, is_decision_maker: e.target.checked }))} />
                     Entscheider
                   </label>
+                  <div style={{ margin: '0.4rem 0 0.2rem' }}>
+                    <div style={LBL}>Käufertyp</div>
+                    <select value={form.buyer_type || ''} onChange={e => setForm(f => ({ ...f, buyer_type: e.target.value }))} style={{ ...IN, marginTop: 3 }}>
+                      {BUYER_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
                   <div style={LBL}>Interne Notizen</div>
                   <textarea rows={4} value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                     style={{ ...IN, marginTop: 3, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} />

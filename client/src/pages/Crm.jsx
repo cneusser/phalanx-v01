@@ -15,6 +15,13 @@ const LABEL = { display: 'block', fontSize: '0.72rem', fontWeight: 600, color: C
 const COMPANY_TYPES = ['Stratege', 'Private Equity', 'Family Office', 'MBI/MBO-Kandidat', 'Bank/Finanzierer', 'Berater', 'Zielunternehmen', 'Sonstige'];
 const CONSENT = { unknown: { label: 'Unbekannt', bg: '#f1f5f9', color: '#475569' }, opt_in: { label: 'Einwilligung', bg: '#d1fae5', color: '#065f46' }, opt_out: { label: 'Widerspruch', bg: '#fee2e2', color: '#991b1b' } };
 const STATUS = { active: { label: 'Aktiv', bg: '#e0f2fe', color: '#0369a1' }, do_not_contact: { label: 'Nicht kontaktieren', bg: '#fee2e2', color: '#991b1b' }, bounced: { label: 'Unzustellbar', bg: '#fef3c7', color: '#92400e' } };
+// Käufertyp (v0.291, DUB-Benchmark): Label, Kurzform und Farbe
+const BUYER_TYPE = {
+  strategic: { label: 'Strategischer Käufer', short: 'Strategisch', bg: '#ede9fe', color: '#5b21b6' },
+  financial: { label: 'Finanzinvestor', short: 'Finanzinvestor', bg: '#dbeafe', color: '#1e40af' },
+  private: { label: 'Privatperson', short: 'Privat', bg: '#dcfce7', color: '#166534' },
+  advisor_mandate: { label: 'M&A-Berater mit Suchmandat', short: 'M&A-Suchmandat', bg: '#fef3c7', color: '#92400e' },
+};
 
 const Badge = ({ map, value }) => {
   const s = map[value] || map.unknown || { label: value, bg: '#f1f5f9', color: '#475569' };
@@ -42,8 +49,9 @@ export default function Crm() {
   const [letter, setLetter] = useState('');
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
+  const [buyerType, setBuyerType] = useState('');   // Käufertyp-Filter (Kontakte)
   useEffect(() => { setPage(1); setLetter(''); }, [tab]);
-  useEffect(() => { setPage(1); }, [letter, q, pageSize]);
+  useEffect(() => { setPage(1); }, [letter, q, pageSize, buyerType]);
   const initialLetter = (s) => (String(s || '').trim()[0] || '#').toUpperCase();
   const byLetter = (arr, keyFn) => letter
     ? arr.filter(x => (letter === '#' ? !/[A-Z]/.test(initialLetter(keyFn(x))) : initialLetter(keyFn(x)) === letter))
@@ -51,7 +59,8 @@ export default function Crm() {
   const paginate = (arr) => pageSize === 'all' ? arr : arr.slice((page - 1) * pageSize, page * pageSize);
   const pageCount = (arr) => pageSize === 'all' ? 1 : Math.max(1, Math.ceil(arr.length / pageSize));
 
-  const contactsByLetter = byLetter(contacts, k => k.last_name || k.first_name || k.companies);
+  const contactsFiltered = buyerType ? contacts.filter(k => k.buyer_type === buyerType) : contacts;
+  const contactsByLetter = byLetter(contactsFiltered, k => k.last_name || k.first_name || k.companies);
   const pageContacts = paginate(contactsByLetter);
   const totalPages = pageCount(contactsByLetter);
 
@@ -297,6 +306,13 @@ export default function Crm() {
       {/* Kontakte */}
       {tab === 'contacts' && (
         <>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Käufertyp</span>
+          <button onClick={() => setBuyerType('')} style={azBtn(!buyerType)}>Alle</button>
+          {Object.entries(BUYER_TYPE).map(([v, m]) => (
+            <button key={v} onClick={() => setBuyerType(v)} style={azBtn(buyerType === v)}>{m.short}</button>
+          ))}
+        </div>
         {AZBar()}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
@@ -319,6 +335,9 @@ export default function Crm() {
                       {[k.title, k.first_name, k.last_name].filter(Boolean).join(' ')}
                     </div>
                     {k.responsibility && <div style={{ fontSize: '0.72rem', color: C.muted }}>{k.responsibility}</div>}
+                    {k.buyer_type && BUYER_TYPE[k.buyer_type] && (
+                      <span style={{ display: 'inline-block', marginTop: 3, background: BUYER_TYPE[k.buyer_type].bg, color: BUYER_TYPE[k.buyer_type].color, padding: '0.05rem 0.45rem', borderRadius: 20, fontSize: '0.66rem', fontWeight: 700 }}>{BUYER_TYPE[k.buyer_type].short}</span>
+                    )}
                   </td>
                   <td style={{ padding: '0.7rem 0.5rem', color: C.text }}>{k.companies || 'k. A.'}</td>
                   <td style={{ padding: '0.7rem 0.5rem', color: C.muted, fontSize: '0.76rem' }}>
@@ -748,7 +767,7 @@ function ContactForm({ contact, companies, onClose, onSaved }) {
   const [f, setF] = useState({
     salutation: '', title: '', first_name: '', last_name: '', email: '', phone: '', mobile: '',
     linkedin_url: '', location: '', responsibility: '', relationship: '', notes: '',
-    is_decision_maker: 0, consent_status: 'unknown', contact_status: 'active',
+    is_decision_maker: 0, consent_status: 'unknown', contact_status: 'active', buyer_type: '',
     company_id: '', position: '', ...contact,
   });
   const [err, setErr] = useState('');
@@ -793,6 +812,12 @@ function ContactForm({ contact, companies, onClose, onSaved }) {
         <div><label style={LABEL}>Standort</label><input value={f.location || ''} onChange={set('location')} style={INPUT} /></div>
         <div><label style={LABEL}>Verantwortungsbereich</label><input value={f.responsibility || ''} onChange={set('responsibility')} style={INPUT} /></div>
         <div><label style={LABEL}>Beziehung</label><input value={f.relationship || ''} onChange={set('relationship')} placeholder="persönlich bekannt / kalt …" style={INPUT} /></div>
+        <div><label style={LABEL}>Käufertyp</label>
+          <select value={f.buyer_type || ''} onChange={set('buyer_type')} style={INPUT}>
+            <option value="">ohne Angabe</option>
+            {Object.entries(BUYER_TYPE).map(([v, m]) => <option key={v} value={v}>{m.label}</option>)}
+          </select>
+        </div>
 
         {isNew && (
           <>
