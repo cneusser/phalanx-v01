@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.295 · 16.08.2026 · Verkäufer-Bereich fokussiert
+- **Verkäufer landen im eigenen Cockpit**: „Mein Bereich" führt Verkäufer jetzt in den Verkäufer-Bereich statt in die Käuferansicht. Wer als Verkäufer die Käuferseite öffnet, wird automatisch ins eigene Cockpit geleitet
+- **Nur eigene Mandate**: Marktplatz und Käufer-Werkzeuge (fremde Mandate, NDA-Anfragen, Käuferprofil) sind für Verkäufer ausgeblendet. Sichtbar sind nur die eigenen Inserate, die Interessenten (ohne Kontaktdaten) und der Funnel
+- **Eigene Inserate pflegen**: Aktive und pausierte Inserate lassen sich jederzeit über „Bearbeiten" öffnen und im geführten Wizard anpassen. Änderungen werden automatisch gespeichert, ohne erneute Prüfung
+- **Rollenklarheit**: Das Menü zeigt die Rolle „Verkäufer" korrekt an
+- Verifiziert: Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.294 · 16.08.2026 · Verkäufer-Cockpit: Statistik, Inbox, Umschalter (DUB-Benchmark, Stufe D)
 - **Verkäufer-Statistik**: Kacheln über alle eigenen Mandate (aktiv, in Prüfung, Entwurf, pausiert) plus Gesamtzahl der Interessenten
 - **Konsolidierte Interessenten-Inbox**: alle Interessenten je Mandat auf einen Blick, mit Stufe und „über die Plattform antworten". Klarnamen erscheinen erst nach der Namensnennung, vorher anonym, ganz ohne Kontaktdaten

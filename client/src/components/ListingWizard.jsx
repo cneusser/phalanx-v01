@@ -27,6 +27,7 @@ const BUYER_GROUPS = [
 export default function ListingWizard({ existingId = null, onClose, onDone }) {
   const [step, setStep] = useState(0);
   const [draftId, setDraftId] = useState(existingId);
+  const [status, setStatus] = useState('draft'); // Lebenszyklus des geladenen Mandats
   const [form, setForm] = useState({
     mandate_type: 'ma', codename: '', industry: '', region: '', location_city: '',
     revenue_band: '', ebitda_band: '', deal_type: 'Nachfolge', short_description: '', highlights: [],
@@ -45,6 +46,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
     (async () => {
       try {
         const d = await api.get(`/projects/${existingId}/teaser`);
+        setStatus(d.status || 'draft');
         setForm(f => ({
           ...f,
           mandate_type: d.mandate_type || 'ma', codename: d.codename || '', industry: d.industry || '',
@@ -119,6 +121,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
   }
 
   const isMa = form.mandate_type === 'ma';
+  const editMode = !!draftId && status !== 'draft'; // bestehendes, bereits freigegebenes Mandat pflegen
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
@@ -126,9 +129,9 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
         {/* Kopf */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.1rem 1.4rem', borderBottom: `1px solid ${C.border}` }}>
           <div>
-            <h2 style={{ fontWeight: 800, color: C.navy, fontSize: '1.05rem' }}>Inserat erstellen</h2>
+            <h2 style={{ fontWeight: 800, color: C.navy, fontSize: '1.05rem' }}>{editMode ? 'Inserat pflegen' : 'Inserat erstellen'}</h2>
             <div style={{ fontSize: '0.72rem', color: C.gray, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Lock size={11} /> Privat, bis du einreichst und wir freigeben
+              <Lock size={11} /> {editMode ? 'Änderungen werden automatisch gespeichert' : 'Privat, bis du einreichst und wir freigeben'}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -259,7 +262,9 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
           {step === 5 && (
             <>
               <p style={{ fontSize: '0.82rem', color: C.gray, marginBottom: '0.9rem', lineHeight: 1.5 }}>
-                So sieht die anonyme Kurzansicht aus. Passt alles? Dann reiche zur Prüfung ein. Nach der Freigabe ist das Inserat für qualifizierte Investoren sichtbar.
+                {editMode
+                  ? 'So sieht die anonyme Kurzansicht aus. Deine Änderungen sind gespeichert. Mit „Speichern & schließen" bist du fertig.'
+                  : 'So sieht die anonyme Kurzansicht aus. Passt alles? Dann reiche zur Prüfung ein. Nach der Freigabe ist das Inserat für qualifizierte Investoren sichtbar.'}
               </p>
               <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '1rem 1.2rem', background: C.xLight }}>
                 <div style={{ fontSize: '0.72rem', color: C.gray, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>{isMa ? 'M&A / Unternehmensverkauf' : 'Startup-Finanzierung'} · {form.deal_type || 'k. A.'}</div>
@@ -292,6 +297,10 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
           {step < STEPS.length - 1 ? (
             <button onClick={next} disabled={busy} style={{ padding: '0.65rem 1.3rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, cursor: busy ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem', opacity: busy ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
               Weiter <ChevronRight size={15} />
+            </button>
+          ) : editMode ? (
+            <button onClick={saveAndClose} disabled={busy} style={{ padding: '0.65rem 1.3rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, cursor: busy ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Check size={15} /> Speichern &amp; schließen
             </button>
           ) : (
             <button onClick={submit} disabled={busy || !form.industry || !form.region || !form.short_description} style={{ padding: '0.65rem 1.3rem', background: (!form.industry || !form.region || !form.short_description) ? '#94a3b8' : '#059669', color: '#fff', border: 'none', borderRadius: 8, cursor: busy ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6 }}>

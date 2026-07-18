@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User, Award } from 'lucide-react';
@@ -15,14 +15,21 @@ const statusMap = {
 };
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, isSeller } = useAuth();
+  const navigate = useNavigate();
   const [ndas, setNdas] = useState([]);
   const [projects, setProjects] = useState([]);
   const [xp, setXp] = useState(null);
   const [platformNda, setPlatformNda] = useState(null); // { signed_at } | null
   const [loading, setLoading] = useState(true);
 
+  // Verkäufer haben einen eigenen, fokussierten Bereich (nur eigene Mandate + Funnel).
   useEffect(() => {
+    if (isSeller) navigate('/verkaeuferdashboard', { replace: true });
+  }, [isSeller, navigate]);
+
+  useEffect(() => {
+    if (isSeller) return;
     Promise.all([
       api.get('/ndas'),
       api.get('/projects'),

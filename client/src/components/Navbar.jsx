@@ -19,7 +19,7 @@ export const C = {
 };
 
 export default function Navbar() {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isSeller } = useAuth();
   const { lang, setLang, t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
@@ -133,13 +133,14 @@ export default function Navbar() {
         {/* Desktop Nav */}
         {!isMobile && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-          {navLink('/projekte', t('nav.marketplace', 'Marktplatz'))}
+          {/* Verkäufer sehen den Marktplatz und die Käufer-Werkzeuge bewusst nicht */}
+          {!isSeller && navLink('/projekte', t('nav.marketplace', 'Marktplatz'))}
           {navLink('/unternehmenswert', t('nav.valuation', 'Unternehmenswert'))}
-          {user && !isAdmin && navLink('/bewertung', t('nav.detailed_valuation', 'Bewertung'))}
+          {user && !isAdmin && !isSeller && navLink('/bewertung', t('nav.detailed_valuation', 'Bewertung'))}
           {user && !isAdmin && navLink('/feedback', t('nav.feedback', 'Feedback'))}
           {navLink('/kontakt', t('nav.contact', 'Kontakt'))}
           {!user && navLink('/registrieren', t('nav.register', 'Registrieren'))}
-          {user && !isAdmin && navLink('/dashboard', t('nav.dashboard', 'Mein Bereich'))}
+          {user && !isAdmin && navLink(isSeller ? '/verkaeuferdashboard' : '/dashboard', t('nav.dashboard', 'Mein Bereich'))}
           {isAdmin && navLink('/crm', 'CRM')}
           {isAdmin && navLink('/admin', 'Admin')}
           {/* Chat prominent, für alle angemeldeten Nutzer (auch Admin) */}
@@ -220,18 +221,18 @@ export default function Navbar() {
                       fontSize: '0.7rem', fontWeight: 600,
                       padding: '0.1rem 0.5rem', borderRadius: 20,
                     }}>
-                      {user.role === 'super_admin' ? t('role.super_admin', 'Administrator') : user.role === 'advisor' ? t('role.advisor', 'Berater') : t('role.buyer', 'Investor')}
+                      {user.role === 'super_admin' ? t('role.super_admin', 'Administrator') : user.role === 'advisor' ? t('role.advisor', 'Berater') : user.role === 'seller' ? 'Verkäufer' : t('role.buyer', 'Investor')}
                     </div>
                   </div>
-                  {(user.role !== 'super_admin' && user.role !== 'advisor') && (
+                  {(!isAdmin && !isSeller) && (
                     <Link to="/dashboard" onClick={() => setDropdownOpen(false)} style={{
                       display: 'flex', alignItems: 'center', gap: '0.6rem',
                       padding: '0.65rem 1rem', color: C.dark, textDecoration: 'none', fontSize: '0.875rem',
                     }}>
-                      <LayoutDashboard size={14} color={C.navy} /> {(user.role === 'seller' || isAdmin) ? 'Käufer-Bereich' : 'Dashboard'}
+                      <LayoutDashboard size={14} color={C.navy} /> Mein Bereich
                     </Link>
                   )}
-                  {(user.role === 'seller' || isAdmin) && (
+                  {(isSeller || isAdmin) && (
                     <Link to="/verkaeuferdashboard" onClick={() => setDropdownOpen(false)} style={{
                       display: 'flex', alignItems: 'center', gap: '0.6rem',
                       padding: '0.65rem 1rem', color: C.dark, textDecoration: 'none', fontSize: '0.875rem',
@@ -274,10 +275,11 @@ export default function Navbar() {
         <div style={{ background: branding ? branding.primary_color : C.navy, borderTop: '1px solid rgba(255,255,255,0.12)', padding: '0.5rem 1.25rem 1rem' }}>
           {/* Chat oben und prominent */}
           {user && <div style={{ padding: '0.5rem 0' }}>{chatLink(true)}</div>}
-          {[['/projekte', t('nav.marketplace', 'Marktplatz')], ['/unternehmenswert', t('nav.valuation', 'Unternehmenswert')],
-            ...(user && !isAdmin ? [['/bewertung', t('nav.detailed_valuation', 'Bewertung')], ['/feedback', t('nav.feedback', 'Feedback')]] : []),
+          {[...(!isSeller ? [['/projekte', t('nav.marketplace', 'Marktplatz')]] : []), ['/unternehmenswert', t('nav.valuation', 'Unternehmenswert')],
+            ...(user && !isAdmin && !isSeller ? [['/bewertung', t('nav.detailed_valuation', 'Bewertung')]] : []),
+            ...(user && !isAdmin ? [['/feedback', t('nav.feedback', 'Feedback')]] : []),
             ['/kontakt', t('nav.contact', 'Kontakt')],
-            ...(user && !isAdmin ? [['/dashboard', t('nav.dashboard', 'Mein Bereich')]] : []),
+            ...(user && !isAdmin ? [[isSeller ? '/verkaeuferdashboard' : '/dashboard', t('nav.dashboard', 'Mein Bereich')]] : []),
             ...(isAdmin ? [['/crm', 'CRM'], ['/admin', 'Admin']] : []),
           ].map(([to, label]) => (
             <Link key={to} to={to} onClick={() => setOpen(false)} style={{ display: 'block', color: '#fff', textDecoration: 'none', padding: '0.7rem 0.25rem', fontSize: '0.95rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{label}</Link>

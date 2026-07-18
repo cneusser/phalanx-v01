@@ -287,7 +287,7 @@ export default function SellerDashboard() {
                 {p.status === 'active' && (
                   <button onClick={() => openPreview(p.id)} disabled={previewBusy} style={smallBtn}>Prozessstand</button>
                 )}
-                {['draft', 'in_review'].includes(p.status) && (
+                {p.status !== 'closed' && (
                   <button onClick={() => setWizardEditId(p.id)} style={smallBtn}>Bearbeiten</button>
                 )}
                 {p.status === 'active' && (
