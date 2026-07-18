@@ -106,6 +106,7 @@ export default function Admin() {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [projects, setProjects] = useState([]);
+  const [reviewQueue, setReviewQueue] = useState([]);
   const [ndas, setNdas] = useState([]);
   const [users, setUsers] = useState([]);
   const [activity, setActivity] = useState([]);
@@ -257,15 +258,30 @@ export default function Admin() {
 
   async function loadAll() {
     try {
-      const [s, p, n, u] = await Promise.all([
+      const [s, p, n, u, rq] = await Promise.all([
         api.get('/admin/stats'),
         api.get('/admin/projects'),
         api.get('/admin/ndas'),
         api.get('/admin/users'),
+        api.get('/admin/projects/review-queue').catch(() => []),
       ]);
-      setStats(s); setProjects(p); setNdas(n); setUsers(u);
+      setStats(s); setProjects(p); setNdas(n); setUsers(u); setReviewQueue(rq || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
+  }
+
+  // Stufe B: eingereichtes Inserat freigeben oder mit Notiz zurückweisen
+  async function moderateListing(id, action) {
+    let note = null;
+    if (action === 'reject') {
+      note = window.prompt('Grund der Zurückweisung (wird dem Verkäufer angezeigt):', '');
+      if (note === null) return;
+    }
+    try {
+      await api.post(`/admin/projects/${id}/moderate`, { action, note });
+      showMsg(action === 'approve' ? 'Inserat freigegeben ✓' : 'Inserat zurückgewiesen');
+      loadAll();
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
 
   // Sprint 16: Kennzahlen als CSV exportieren (Funnel + Mandats-Ranking)
@@ -1061,6 +1077,30 @@ export default function Admin() {
 
       {/* Projects Tab */}
       {activeTab === 'projects' && (
+        <>
+        {/* Prüf-Queue: vom Verkäufer eingereichte Inserate (Stufe B) */}
+        {reviewQueue.length > 0 && (
+          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '1rem 1.25rem', marginBottom: '1.25rem' }}>
+            <div style={{ fontWeight: 700, color: '#92400e', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+              Zur Prüfung eingereicht ({reviewQueue.length})
+            </div>
+            {reviewQueue.map(r => (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', padding: '0.6rem 0', borderTop: '1px solid #fde68a' }}>
+                <div>
+                  <div style={{ fontWeight: 700, color: C.text, fontSize: '0.85rem' }}>{r.codename} <span style={{ fontWeight: 500, color: C.muted, fontSize: '0.75rem' }}>· {r.mandate_type === 'fundraising' ? 'Startup' : 'M&A'} · {[r.industry, r.region].filter(Boolean).join(' · ')}</span></div>
+                  <div style={{ fontSize: '0.74rem', color: C.muted }}>
+                    von {[r.first_name, r.last_name].filter(Boolean).join(' ') || r.email || 'unbekannt'}{r.submitted_at ? ` · eingereicht ${new Date(r.submitted_at).toLocaleDateString('de-DE')}` : ''}
+                  </div>
+                  {r.short_description && <div style={{ fontSize: '0.78rem', color: '#555', marginTop: 3, maxWidth: 620 }}>{r.short_description}</div>}
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button onClick={() => moderateListing(r.id, 'approve')} style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '0.4rem 0.9rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700 }}>Freigeben</button>
+                  <button onClick={() => moderateListing(r.id, 'reject')} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700 }}>Zurückweisen</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
@@ -1087,9 +1127,11 @@ export default function Admin() {
                   <td style={{ padding: '0.75rem 1rem', color: '#555', fontSize: '0.82rem' }}>{p.industry}</td>
                   <td style={{ padding: '0.75rem 1rem', color: '#555', fontSize: '0.82rem' }}>{p.deal_type}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>
-                    <span style={{ background: p.status === 'active' ? '#d1fae5' : p.status === 'draft' ? '#fef3c7' : '#f0f0f0', color: p.status === 'active' ? '#065f46' : '#555', padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.7rem', fontWeight: 600 }}>
-                      {p.status === 'active' ? 'Aktiv' : p.status === 'draft' ? 'Entwurf' : 'Geschlossen'}
-                    </span>
+                    {(() => {
+                      const M = { active: ['#d1fae5', '#065f46', 'Aktiv'], in_review: ['#fef3c7', '#92400e', 'In Prüfung'], draft: ['#f1f5f9', '#64748b', 'Entwurf'], paused: ['#e0f2fe', '#0369a1', 'Pausiert'], closed: ['#f0f0f0', '#555', 'Geschlossen'] };
+                      const [bg, color, label] = M[p.status] || M.closed;
+                      return <span style={{ background: bg, color, padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.7rem', fontWeight: 600 }}>{label}</span>;
+                    })()}
                   </td>
                   <td style={{ padding: '0.75rem 1rem', color: '#555', textAlign: 'center', fontSize: '0.82rem' }}>{p.nda_count}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>
@@ -1128,6 +1170,7 @@ export default function Admin() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* NDAs Tab */}

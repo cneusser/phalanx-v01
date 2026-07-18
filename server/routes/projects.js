@@ -103,7 +103,7 @@ router.get('/my-projects', authenticate, wrap(async (req, res) => {
     return res.status(403).json({ success: false, error: 'Nicht berechtigt' });
   }
   const projects = (await db.all(
-    `SELECT ${PUBLIC_FIELDS}, created_by FROM projects
+    `SELECT ${PUBLIC_FIELDS}, created_by, review_note, submitted_at FROM projects
       WHERE created_by = ?
          OR id IN (SELECT dp.project_id FROM crm_deal_parties dp JOIN crm_contacts k ON k.id = dp.contact_id
                     WHERE dp.party_role = 'seller' AND k.user_id = ?)
@@ -175,8 +175,11 @@ router.post('/my-project', authenticate, requireCompleteProfile(), wrap(async (r
     return res.status(403).json({ success: false, error: 'Nur Verkäufer können Projekte einreichen' });
   }
   const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, mandate_type } = req.body;
-  if (!codename || !industry || !region || !short_description)
-    return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen (Unternehmensname, Branche, Region, Beschreibung)' });
+  // Für den geführten Wizard genügt der Name, um den Entwurf anzulegen. Branche,
+  // Region und Beschreibung werden Schritt für Schritt ergänzt und erst beim
+  // Einreichen (POST /:id/submit) zur Pflicht.
+  if (!codename)
+    return res.status(400).json({ success: false, error: 'Bitte einen Unternehmensnamen oder Codenamen angeben' });
 
   const existing = await db.get('SELECT id FROM projects WHERE codename = ?', [codename]);
   if (existing) return res.status(409).json({ success: false, error: 'Dieser Unternehmensname ist bereits vergeben' });
@@ -185,18 +188,18 @@ router.post('/my-project', authenticate, requireCompleteProfile(), wrap(async (r
     `INSERT INTO projects (codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights,
        status, mandate_type, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)`,
-    [codename, industry, region,
+    [codename, industry || '', region || '',
      revenue_band || 'k. A.', ebitda_band || 'k. A.',
-     deal_type || 'Nachfolge', short_description,
+     deal_type || 'Nachfolge', short_description || '',
      JSON.stringify(highlights || []),
      mandate_type || 'ma',
      req.user.id]
   );
 
-  db.auditLog(req.user.id, 'SELLER_SUBMITTED_PROJECT', 'project', projectId, codename, req.ip);
-  console.log(`\n📬 Neues Mandat eingereicht: "${codename}" von User #${req.user.id}, wartet auf Admin-Freigabe`);
+  db.auditLog(req.user.id, 'SELLER_CREATED_DRAFT', 'project', projectId, codename, req.ip);
+  console.log(`\n📝 Neuer Inserat-Entwurf angelegt: "${codename}" von User #${req.user.id}`);
 
-  res.status(201).json({ success: true, data: { id: projectId, message: 'Projekt eingereicht. Es wird nach Prüfung veröffentlicht.' } });
+  res.status(201).json({ success: true, data: { id: projectId, message: 'Entwurf angelegt. Du kannst ihn nun ausfüllen und einreichen.' } });
 }));
 
 // ── GET /:id/teaser: Public teaser (+ can_manage für eingeloggte Pfleger) ─
@@ -280,10 +283,11 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
 
   // Wesentliche Änderungen → aktive, eingewilligte Beteiligte informieren.
   // Läuft im Hintergrund, hat eine 24-h-Bremse und meldet sich nie bei Widerspruch.
+  // Nur bei veröffentlichten Mandaten: Entwürfe/Prüfung informieren niemanden.
   try {
     const campaigns = require('../utils/campaigns');
     const after = await db.get('SELECT * FROM projects WHERE id = ?', [req.params.id]);
-    const changes = campaigns.materialChanges(before, after);
+    const changes = after.status === 'active' ? campaigns.materialChanges(before, after) : [];
     if (changes.length) {
       campaigns.notifyProjectChange(req.params.id, changes, { actorId: req.user.id })
         .then(r => { if (r.sent) console.log(`📨 Mandats-Update #${req.params.id}: ${r.sent} Beteiligte informiert`); })
@@ -292,6 +296,59 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
   } catch { /* Benachrichtigung darf die Pflege nie blockieren */ }
 
   res.json({ success: true, data: { message: 'Mandat aktualisiert' } });
+}));
+
+// ── POST /:id/submit: Entwurf zur Prüfung einreichen (Verkäufer/Pfleger) ────
+// Der Entwurf wandert auf „in Prüfung". Erst nach Admin-Freigabe wird er aktiv.
+router.post('/:id/submit', authenticate, wrap(async (req, res) => {
+  if (!(await canManageProject(req.user, req.params.id))) {
+    return res.status(403).json({ success: false, error: 'Keine Berechtigung für dieses Mandat' });
+  }
+  const p = await db.get('SELECT id, codename, industry, region, short_description, status FROM projects WHERE id = ?', [req.params.id]);
+  if (!p) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  if (p.status !== 'draft') {
+    return res.status(400).json({ success: false, error: 'Nur Entwürfe können zur Prüfung eingereicht werden' });
+  }
+  if (!p.codename || !p.industry || !p.region || !p.short_description) {
+    return res.status(400).json({ success: false, error: 'Bitte Unternehmensname, Branche, Region und Beschreibung ausfüllen, bevor du einreichst' });
+  }
+  await db.run(`UPDATE projects SET status = 'in_review', submitted_at = now(), review_note = NULL, updated_at = now() WHERE id = ?`, [req.params.id]);
+  db.auditLog(req.user.id, 'PROJECT_SUBMITTED_REVIEW', 'project', req.params.id, p.codename, req.ip);
+  console.log(`\n🔎 Inserat zur Prüfung eingereicht: "${p.codename}" (#${p.id}) von User #${req.user.id}`);
+  res.json({ success: true, data: { status: 'in_review', message: 'Zur Prüfung eingereicht. Wir prüfen dein Inserat und schalten es frei.' } });
+}));
+
+// ── POST /:id/lifecycle: Verkäufer steuert den Lebenszyklus seines Inserats ──
+// Erlaubte Übergänge (nicht-Admin): aktiv↔pausiert, aktiv/pausiert→geschlossen,
+// in-Prüfung→Entwurf (Einreichung zurückziehen). Freigeben bleibt beim Admin.
+const SELLER_TRANSITIONS = {
+  active: ['paused', 'closed'],
+  paused: ['active', 'closed'],
+  in_review: ['draft'],
+  closed: ['active'],
+};
+router.post('/:id/lifecycle', authenticate, wrap(async (req, res) => {
+  if (!(await canManageProject(req.user, req.params.id))) {
+    return res.status(403).json({ success: false, error: 'Keine Berechtigung für dieses Mandat' });
+  }
+  const target = String(req.body.status || '');
+  if (!['active', 'paused', 'closed', 'draft'].includes(target)) {
+    return res.status(400).json({ success: false, error: 'Unbekannter Zielstatus' });
+  }
+  const p = await db.get('SELECT id, status, codename FROM projects WHERE id = ?', [req.params.id]);
+  if (!p) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  const isAdmin = ['super_admin', 'advisor', 'tenant_owner'].includes(req.user.role);
+  const allowed = SELLER_TRANSITIONS[p.status] || [];
+  if (!isAdmin && !allowed.includes(target)) {
+    return res.status(400).json({ success: false, error: `Übergang von „${p.status}" zu „${target}" ist nicht erlaubt` });
+  }
+  // deal_status mitziehen, damit Marktplatz und Prozess konsistent bleiben
+  let dealSet = '';
+  if (target === 'closed') dealSet = `, deal_status = 'closed'`;
+  else if (target === 'active') dealSet = `, deal_status = CASE WHEN deal_status IN ('draft', 'closed') THEN 'teaser_live' ELSE deal_status END`;
+  await db.run(`UPDATE projects SET status = ?${dealSet}, updated_at = now() WHERE id = ?`, [target, req.params.id]);
+  db.auditLog(req.user.id, 'PROJECT_LIFECYCLE', 'project', req.params.id, `${p.status} → ${target}`, req.ip);
+  res.json({ success: true, data: { status: target } });
 }));
 
 // ── POST /:id/image: Projektbild hochladen (Pfleger) ───────────────────────

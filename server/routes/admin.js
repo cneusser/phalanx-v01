@@ -95,7 +95,8 @@ router.get('/stats', ...isAdmin, wrap(async (req, res) => {
   const p = await db.get(`
     SELECT COUNT(*)::int AS total,
            COUNT(*) FILTER (WHERE status='active')::int AS active,
-           COUNT(*) FILTER (WHERE status='draft')::int  AS draft
+           COUNT(*) FILTER (WHERE status='draft')::int  AS draft,
+           COUNT(*) FILTER (WHERE status='in_review')::int AS in_review
     FROM projects
   `);
   const u = await db.get(`
@@ -439,6 +440,50 @@ router.put('/projects/:id/unpublish', ...isAdmin, wrap(async (req, res) => {
   db.auditLog(req.user.id, 'PROJECT_UNPUBLISHED', 'project', req.params.id, project.codename, req.ip);
   db.activityLog(req.user.id, 'DEAL_STATUS_DRAFT', 'deal', req.params.id, req.ip);
   res.json({ success: true, data: { message: 'Projekt zurückgezogen (Entwurf)' } });
+}));
+
+// ── Prüf-Queue: vom Verkäufer eingereichte Inserate (Status „in_review") ────
+router.get('/projects/review-queue', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(`
+    SELECT p.id, p.codename, p.industry, p.region, p.mandate_type, p.short_description,
+           p.submitted_at, p.created_by,
+           u.first_name, u.last_name, u.email
+      FROM projects p
+      LEFT JOIN users u ON u.id = p.created_by
+     WHERE p.status = 'in_review'
+     ORDER BY p.submitted_at ASC NULLS LAST, p.id`);
+  res.json({ success: true, data: rows });
+}));
+
+// ── Moderation eines eingereichten Inserats: freigeben oder zurückweisen ────
+router.post('/projects/:id/moderate', ...isAdmin, wrap(async (req, res) => {
+  const action = String(req.body.action || '');
+  const note = req.body.note ? String(req.body.note).slice(0, 1000) : null;
+  const project = await db.get('SELECT id, codename, deal_status, status FROM projects WHERE id = ?', [req.params.id]);
+  if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+
+  if (action === 'approve') {
+    await db.run(`UPDATE projects SET status = 'active', reviewed_by = ?, reviewed_at = now(), review_note = NULL,
+                   deal_status = CASE WHEN deal_status = 'draft' THEN 'teaser_live' ELSE deal_status END, updated_at = now()
+                  WHERE id = ?`, [req.user.id, req.params.id]);
+    db.auditLog(req.user.id, 'PROJECT_APPROVED', 'project', req.params.id, project.codename, req.ip);
+    db.activityLog(req.user.id, 'DEAL_STATUS_TEASER_LIVE', 'deal', req.params.id, req.ip);
+    (async () => {
+      const notified = await notifyMatchingBuyers(req.params.id).catch(() => new Set());
+      await require('../utils/notify').notifyProjectPublished(req.params.id, notified);
+    })().catch(() => {});
+    return res.json({ success: true, data: { status: 'active', message: 'Inserat freigegeben und veröffentlicht' } });
+  }
+
+  if (action === 'reject') {
+    await db.run(`UPDATE projects SET status = 'draft', reviewed_by = ?, reviewed_at = now(), review_note = ?, updated_at = now() WHERE id = ?`,
+      [req.user.id, note, req.params.id]);
+    db.auditLog(req.user.id, 'PROJECT_REJECTED', 'project', req.params.id, `${project.codename}${note ? `: ${note}` : ''}`, req.ip);
+    console.log(`\n↩️  Inserat zurückgewiesen: "${project.codename}" (#${project.id})${note ? ` – Grund: ${note}` : ''}`);
+    return res.json({ success: true, data: { status: 'draft', message: 'Inserat zurückgewiesen (zurück in den Entwurf)' } });
+  }
+
+  return res.status(400).json({ success: false, error: 'Unbekannte Aktion (approve|reject)' });
 }));
 
 // ── Killswitch: Projekt ENDGÜLTIG löschen ──────────────────────────────────

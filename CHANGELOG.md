@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.292 · 14.08.2026 · Inserat-Wizard, Moderation und Lebenszyklus (DUB-Benchmark, Stufe B)
+- **Geführtes Erstellen**: Verkäufer legen ihr Inserat jetzt Schritt für Schritt an (Grundlagen, Einordnung, Kennzahlen, Beschreibung, Prüfen). Der Entwurf entsteht früh (nur der Name genügt), danach wird automatisch gespeichert. Vor dem Einreichen gibt es eine anonyme Vorschau
+- **Prüf-Schritt**: Ein eingereichtes Inserat steht auf „in Prüfung" und geht erst nach Freigabe live. Der Verkäufer sieht den Status und bei Zurückweisung den Grund direkt am Inserat
+- **Lebenszyklus**: Aktive Inserate lassen sich pausieren, wieder aktivieren oder schließen. Alles ohne Umweg über den Admin
+- **Admin-Prüf-Queue**: Eingereichte Inserate erscheinen im Admin oben im Reiter „Projekte" und lassen sich mit einem Klick freigeben oder mit Notiz zurückweisen
+- Erster Ausbau der Verkäufer-Autonomie (ROADMAP Sprint 25, Stufe B). Sichtbarkeit/Käufergruppen und die Verkäufer-Inbox (Stufen C und D) folgen
+- Verifiziert: Tests grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.291 · 13.08.2026 · Käufertyp am Kontakt, Funnel bis Closing (DUB-Benchmark, Stufe A)
 - **Käufertyp am Kontakt**: strategischer Käufer, Finanzinvestor, Privatperson oder M&A-Berater mit Suchmandat. Setzbar im Kontakt und im Anlegeformular, sichtbar als Badge in der Kontaktliste und auf der Funnel-Karte, filterbar über eine eigene Leiste im CRM. Vorbild ist die DUB-Käufergruppen-Klassifikation
 - **Funnel bis zum Abschluss**: Der Deal-Funnel bekommt die transaktionsnahen Spätstufen. Neu: Match, LOI eingereicht, LOI unterschrieben, Namensnennung, Signing, Closing. Die vorderen Stufen (Longlist, Angesprochen, Rückmeldung) und die Automatik bleiben unverändert; Bestandsdaten wurden sauber auf die neue Leiter gehoben

@@ -49,8 +49,9 @@ DUB-/dealcircle-Verkäuferseite (Screenshots Juli 2026, siehe Sprint 25).
 | · | Kontaktliste Seiten/A-Z, Rolle Prozessbeteiligter, Verkäufer-Funnel über mehrere Mandate (v0.285-v0.286) | ✅ fertig |
 | · | Unternehmen-Seiten, Käufer-/Verkäufertrennung, Beteiligte per Drag-and-drop (v0.287-v0.289) | ✅ fertig |
 | · | Rückfrage beim Funnel-Verschieben, Prozess-/Automatik-Übersicht (v0.290) | ✅ fertig |
-| **25** | **Verkäufer-Cockpit (DUB-Benchmark): Self-Service-Inserat, Sichtbarkeit/Käufergruppen, Moderation, Interessenten-Inbox** | ▶ Stufe A ✅ (Käufertyp + Funnel bis Closing, v0.291); B–D geplant (Analyse unten) |
+| **25** | **Verkäufer-Cockpit (DUB-Benchmark): Self-Service-Inserat, Sichtbarkeit/Käufergruppen, Moderation, Interessenten-Inbox** | ▶ Stufe A ✅ (Käufertyp + Funnel, v0.291), Stufe B ✅ (Wizard + Moderation, v0.292); C–D geplant (Analyse unten) |
 | · | Käufertyp am Kontakt + transaktionsnahe Funnel-Stufen bis Closing (v0.291, Stufe A) | ✅ fertig |
+| · | Self-Service-Inserat-Wizard (Autosave, Vorschau), Moderations-Lebenszyklus + Prüf-Queue (v0.292, Stufe B) | ✅ fertig |
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →
