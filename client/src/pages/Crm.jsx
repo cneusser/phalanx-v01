@@ -50,6 +50,11 @@ export default function Crm() {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [buyerType, setBuyerType] = useState('');   // Käufertyp-Filter (Kontakte)
+  // Deeplink aus dem Admin: /crm?contact=123 öffnet den Kontakt direkt
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('contact');
+    if (id) { setTab('contacts'); setDrawerContact(Number(id)); }
+  }, []);
   useEffect(() => { setPage(1); setLetter(''); }, [tab]);
   useEffect(() => { setPage(1); }, [letter, q, pageSize, buyerType]);
   const initialLetter = (s) => (String(s || '').trim()[0] || '#').toUpperCase();

@@ -338,6 +338,38 @@ router.get('/projects', ...isAdmin, wrap(async (req, res) => {
       (SELECT COUNT(*)::int FROM nda_requests nr WHERE nr.project_id = p.id AND nr.status='approved') as approved_count
     FROM projects p LEFT JOIN users u ON u.id = p.created_by ORDER BY p.created_at DESC
   `)).map(p => ({ ...p, highlights: JSON.parse(p.highlights || '[]') }));
+
+  // Wer darf dieses Mandat pflegen? Ersteller, Mitglieder mit Bearbeitungsrecht
+  // und der zugeordnete Verkäufer (CRM-Kontakt mit Plattform-Konto).
+  const ids = projects.map(p => p.id);
+  if (ids.length) {
+    const ph = ids.map(() => '?').join(',');
+    const rows = await db.all(`
+      SELECT p.id AS project_id, u.id AS user_id, u.first_name, u.last_name, u.email, 'Ersteller' AS via,
+             (SELECT k.id FROM crm_contacts k WHERE k.user_id = u.id LIMIT 1) AS contact_id
+        FROM projects p JOIN users u ON u.id = p.created_by
+       WHERE p.id IN (${ph})
+      UNION
+      SELECT pm.project_id, u.id, u.first_name, u.last_name, u.email, 'Mitglied' AS via,
+             (SELECT k.id FROM crm_contacts k WHERE k.user_id = u.id LIMIT 1) AS contact_id
+        FROM project_members pm JOIN users u ON u.id = pm.user_id
+       WHERE pm.project_id IN (${ph}) AND COALESCE(pm.member_role, 'editor') <> 'viewer'
+      UNION
+      SELECT dp.project_id, u.id, u.first_name, u.last_name, u.email, 'Verkäufer' AS via, k.id AS contact_id
+        FROM crm_deal_parties dp
+        JOIN crm_contacts k ON k.id = dp.contact_id
+        JOIN users u ON u.id = k.user_id
+       WHERE dp.project_id IN (${ph}) AND dp.party_role = 'seller'
+    `, [...ids, ...ids, ...ids]).catch(() => []);
+    const byProject = {};
+    rows.forEach(r => {
+      (byProject[r.project_id] = byProject[r.project_id] || []).push({
+        user_id: r.user_id, contact_id: r.contact_id, via: r.via, email: r.email,
+        name: [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || r.email,
+      });
+    });
+    projects.forEach(p => { p.managers = byProject[p.id] || []; });
+  }
   res.json({ success: true, data: projects });
 }));
 

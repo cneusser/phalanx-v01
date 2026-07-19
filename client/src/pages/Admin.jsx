@@ -1105,7 +1105,7 @@ export default function Admin() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr style={{ background: C.bg }}>
-                {['Typ', 'Name / Codename', 'Branche', 'Deal-Typ', 'Status', 'NDAs', 'Aktionen'].map(h => (
+                {['Typ', 'Name / Codename', 'Branche', 'Deal-Typ', 'Pflege', 'Status', 'NDAs', 'Aktionen'].map(h => (
                   <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.75rem', letterSpacing: '0.04em' }}>{h.toUpperCase()}</th>
                 ))}
               </tr>
@@ -1126,6 +1126,25 @@ export default function Admin() {
                   </td>
                   <td style={{ padding: '0.75rem 1rem', color: '#555', fontSize: '0.82rem' }}>{p.industry}</td>
                   <td style={{ padding: '0.75rem 1rem', color: '#555', fontSize: '0.82rem' }}>{p.deal_type}</td>
+                  {/* Wer darf pflegen? Klick öffnet den Kontakt im CRM (dort Bearbeiten und Birdview) */}
+                  <td style={{ padding: '0.75rem 1rem', fontSize: '0.78rem' }}>
+                    {(p.managers || []).length === 0 && <span style={{ color: C.muted }}>k. A.</span>}
+                    {(p.managers || []).map(m => (
+                      <div key={`${m.user_id}-${m.via}`} style={{ marginBottom: 2 }}>
+                        {m.contact_id ? (
+                          <button
+                            onClick={() => navigate(`/crm?contact=${m.contact_id}`)}
+                            title="Im CRM öffnen (bearbeiten, Birdview)"
+                            style={{ background: 'none', border: 'none', padding: 0, color: '#1D4E89', fontWeight: 700, cursor: 'pointer', fontSize: '0.78rem', textDecoration: 'underline' }}>
+                            {m.name}
+                          </button>
+                        ) : (
+                          <span style={{ fontWeight: 600, color: C.text }}>{m.name}</span>
+                        )}
+                        <span style={{ color: C.muted, marginLeft: 4 }}>· {m.via}</span>
+                      </div>
+                    ))}
+                  </td>
                   <td style={{ padding: '0.75rem 1rem' }}>
                     {(() => {
                       const M = { active: ['#d1fae5', '#065f46', 'Aktiv'], in_review: ['#fef3c7', '#92400e', 'In Prüfung'], draft: ['#f1f5f9', '#64748b', 'Entwurf'], paused: ['#e0f2fe', '#0369a1', 'Pausiert'], closed: ['#f0f0f0', '#555', 'Geschlossen'] };

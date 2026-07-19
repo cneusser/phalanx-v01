@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.296 · 17.08.2026 · Freigabe durch den Verkäufer, Namen im Verkäuferblick
+- **Neuer Funnelschritt „Freigabe Verkäufer"** zwischen Longlist und Angesprochen. Recherchierte Kandidaten werden dem Mandanten vorgelegt und erst nach seiner Freigabe angesprochen. Die Automatik und alle Bestandsdaten wurden auf die neue Leiter gehoben
+- **Freigabe-Karte im Verkäufer-Cockpit**: Der Mandant sieht die Kandidaten mit Namen und Firma und entscheidet je Kandidat „Freigeben" oder „Ablehnen". Jede Entscheidung wird protokolliert; im Funnel erscheint ein Badge „Freigabe ✓"
+- **Nexora**: Alle recherchierten Kandidaten liegen jetzt beim zugeordneten Verkäufer zur Freigabe
+- **Namen statt anonym**: Der Verkäufer sieht die Namen seiner Interessenten wieder. Kontaktdaten (E-Mail, Telefon) bleiben weiterhin verborgen
+- **Admin-Projektliste mit Pflege-Spalte**: Je Mandat steht, wer es pflegen darf (Ersteller, Mitglied, Verkäufer). Ein Klick auf den Namen öffnet den Kontakt im CRM, dort sind Bearbeiten und Birdview möglich
+- Die Cockpit-Auswertung erscheint nur noch für Verkäufer, nicht mehr für Admins
+- Verifiziert: sechs Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.295 · 16.08.2026 · Verkäufer-Bereich fokussiert
 - **Verkäufer landen im eigenen Cockpit**: „Mein Bereich" führt Verkäufer jetzt in den Verkäufer-Bereich statt in die Käuferansicht. Wer als Verkäufer die Käuferseite öffnet, wird automatisch ins eigene Cockpit geleitet
 - **Nur eigene Mandate**: Marktplatz und Käufer-Werkzeuge (fremde Mandate, NDA-Anfragen, Käuferprofil) sind für Verkäufer ausgeblendet. Sichtbar sind nur die eigenen Inserate, die Interessenten (ohne Kontaktdaten) und der Funnel

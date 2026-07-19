@@ -32,7 +32,7 @@ const INPUT = {
 };
 
 export default function SellerDashboard() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [myProjects, setMyProjects] = useState([]);
   const [overview, setOverview] = useState(null);
@@ -117,6 +117,16 @@ export default function SellerDashboard() {
   }
   function closeWizard(text) { setWizardEditId(undefined); showMsg(text); loadMyProjects(); }
 
+  // Freigabe recherchierter Kandidaten (eigener Funnelschritt)
+  async function decideCandidate(p, approve) {
+    if (!approve && !window.confirm(`${p.name} ablehnen? Der Kandidat wird dann nicht angesprochen.`)) return;
+    try {
+      await api.post(`/projects/${p.project_id}/candidates/${p.party_id}/decision`, { approve });
+      showMsg(approve ? `${p.name} freigegeben ✓` : `${p.name} abgelehnt`);
+      loadMyProjects();
+    } catch (e) { showMsg('Fehler: ' + e.message); }
+  }
+
   const STATUS_META = {
     draft: { label: 'Entwurf', bg: '#f1f5f9', color: '#64748b' },
     in_review: { label: 'In Prüfung', bg: '#fef3c7', color: '#92400e' },
@@ -170,8 +180,33 @@ export default function SellerDashboard() {
         <strong style={{ color: C.navy }}>So funktioniert's:</strong> Reichen Sie Ihr Unternehmen zur Präsentation ein → Unser Team prüft und gibt es frei → Es wird für qualifizierte Investoren sichtbar → Sie erhalten Anfragen über CapitalMatch.
       </div>
 
-      {/* Verkäufer-Cockpit: Statistik + Inbox + Aktuelles (Stufe D) */}
-      {overview && (myProjects.length > 0) && (
+      {/* Freigabe recherchierter Kandidaten durch den Verkäufer */}
+      {overview && (overview.pending || []).length > 0 && (
+        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '1.1rem 1.25rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.3rem' }}>
+            <CheckCircle size={16} color="#92400e" />
+            <h3 style={{ fontWeight: 800, color: '#92400e', fontSize: '0.95rem' }}>Kandidaten zur Freigabe ({overview.pending.length})</h3>
+          </div>
+          <p style={{ fontSize: '0.78rem', color: '#7c5e10', lineHeight: 1.5, marginBottom: '0.7rem' }}>
+            Diese Interessenten haben wir für Sie recherchiert. Erst nach Ihrer Freigabe sprechen wir sie an.
+          </p>
+          {overview.pending.map(p => (
+            <div key={p.party_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.5rem 0', borderTop: '1px solid #FDE68A', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.87rem' }}>{p.name}</div>
+                <div style={{ fontSize: '0.74rem', color: C.gray }}>{[p.company, p.codename].filter(Boolean).join(' · ')}</div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button onClick={() => decideCandidate(p, true)} style={{ background: '#d1fae5', color: '#065f46', border: 'none', borderRadius: 6, padding: '0.4rem 0.9rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>Freigeben</button>
+                <button onClick={() => decideCandidate(p, false)} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: 6, padding: '0.4rem 0.9rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>Ablehnen</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Verkäufer-Cockpit: Statistik + Inbox + Aktuelles (nicht für Admin, der sieht es im Adminbereich) */}
+      {overview && !isAdmin && (myProjects.length > 0) && (
         <>
           {/* KPI-Kacheln */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>

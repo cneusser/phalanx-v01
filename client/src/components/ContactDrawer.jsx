@@ -7,14 +7,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from 'react';
 import { api, getToken } from '../api/client';
-import { X, Mail, Send, ShieldCheck, ShieldOff, Star, Save, ExternalLink, FileText, Inbox, Check, Plus } from 'lucide-react';
+import { X, Mail, Send, ShieldCheck, ShieldOff, Star, Save, ExternalLink, FileText, Inbox, Check, Plus, Eye } from 'lucide-react';
 import TemplateSendModal from './TemplateSendModal';
+import { useAuth } from '../context/AuthContext';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const IN = { width: '100%', padding: '0.45rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
 const LBL = { fontSize: '0.68rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.03em' };
 
-const STAGE_LABEL = ['Longlist', 'Angesprochen', 'Rückmeldung', 'Match', 'NDA', 'IM / Unterlagen', 'Gespräch', 'LOI eingereicht', 'LOI unterschrieben', 'Namensnennung', 'Due Diligence', 'Signing', 'Closing'];
+const STAGE_LABEL = ['Longlist', 'Freigabe Verkäufer', 'Angesprochen', 'Rückmeldung', 'Match', 'NDA', 'IM / Unterlagen', 'Gespräch', 'LOI eingereicht', 'LOI unterschrieben', 'Namensnennung', 'Due Diligence', 'Signing', 'Closing'];
 // Käufertyp (v0.291): value → Anzeigename
 const BUYER_TYPES = [
   ['', 'ohne Angabe'], ['strategic', 'Strategischer Käufer'], ['financial', 'Finanzinvestor'],
@@ -36,6 +37,7 @@ const FIELDS = [
 const fmt = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'k. A.';
 
 export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
+  const { startBirdview } = useAuth();
   const [data, setData] = useState(null);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
@@ -196,6 +198,17 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                 <a href={`mailto:${k.email}`} style={{ ...btn(false), textDecoration: 'none' }}>
                   <ExternalLink size={13} /> Direkt mailen
                 </a>
+              )}
+              {data.account && k.user_id && (
+                <button
+                  onClick={async () => {
+                    if (!window.confirm(`Plattform als ${[k.first_name, k.last_name].filter(Boolean).join(' ')} ansehen (Birdview, schreibgeschützt)?`)) return;
+                    try { await startBirdview(k.user_id); } catch (e) { show('Birdview nicht möglich: ' + e.message); }
+                  }}
+                  title="Die Plattform mit den Augen dieses Nutzers sehen (schreibgeschützt)"
+                  style={{ ...btn(false), color: '#b45309', borderColor: '#fcd34d' }}>
+                  <Eye size={13} /> Birdview
+                </button>
               )}
               <button onClick={exportContact} title="Vollständige Datenauskunft nach Art. 15 DSGVO (JSON)" style={btn(false)}>
                 Auskunft (DSGVO)

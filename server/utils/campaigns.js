@@ -311,7 +311,7 @@ async function activeParticipants(projectId) {
     FROM crm_deal_parties dp
     JOIN crm_contacts k ON k.id = dp.contact_id
     WHERE dp.project_id = ?
-      AND dp.funnel_stage >= 1
+      AND dp.funnel_stage >= 2
       AND dp.party_status IN ('open', 'active', 'unclear')
       AND k.email IS NOT NULL
       AND k.consent_status = 'opt_in'

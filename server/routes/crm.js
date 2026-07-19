@@ -686,18 +686,19 @@ router.post('/import/contacts', ...isStaff, canWrite, wrap(async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════
 const FUNNEL_STAGES = [
   { key: 0, label: 'Longlist' },
-  { key: 1, label: 'Angesprochen' },
-  { key: 2, label: 'Rückmeldung' },
-  { key: 3, label: 'Match' },
-  { key: 4, label: 'NDA' },
-  { key: 5, label: 'IM / Unterlagen' },
-  { key: 6, label: 'Gespräch' },
-  { key: 7, label: 'LOI eingereicht' },
-  { key: 8, label: 'LOI unterschrieben' },
-  { key: 9, label: 'Namensnennung' },
-  { key: 10, label: 'Due Diligence' },
-  { key: 11, label: 'Signing' },
-  { key: 12, label: 'Closing' },
+  { key: 1, label: 'Freigabe Verkäufer' },
+  { key: 2, label: 'Angesprochen' },
+  { key: 3, label: 'Rückmeldung' },
+  { key: 4, label: 'Match' },
+  { key: 5, label: 'NDA' },
+  { key: 6, label: 'IM / Unterlagen' },
+  { key: 7, label: 'Gespräch' },
+  { key: 8, label: 'LOI eingereicht' },
+  { key: 9, label: 'LOI unterschrieben' },
+  { key: 10, label: 'Namensnennung' },
+  { key: 11, label: 'Due Diligence' },
+  { key: 12, label: 'Signing' },
+  { key: 13, label: 'Closing' },
 ];
 const PARTY_ROLES = ['buyer', 'advisor', 'seller', 'process', 'bank', 'lawyer', 'target', 'other'];
 const PARTY_STATUS = ['active', 'dropped', 'open', 'unclear'];
@@ -1641,8 +1642,8 @@ router.post('/deals/:projectId/campaign', ...isStaff, canSend, wrap(async (req, 
          SET mails_sent = COALESCE(mails_sent,0) + 1,
              last_contact = CURRENT_DATE,
              first_contact = COALESCE(first_contact, CURRENT_DATE),
-             funnel_stage = GREATEST(funnel_stage, 1),
-             stage_changed_at = CASE WHEN funnel_stage < 1 THEN now() ELSE stage_changed_at END
+             funnel_stage = GREATEST(funnel_stage, 2),
+             stage_changed_at = CASE WHEN funnel_stage < 2 THEN now() ELSE stage_changed_at END
        WHERE project_id = ? AND contact_id = ?`, [projectId, cid])).catch(() => {});
 
     sent.push({ id: cid, email: k.email });

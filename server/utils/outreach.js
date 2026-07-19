@@ -91,7 +91,7 @@ async function sendFirstApproach(q, { tenant = 1, contactId, projectId, actorId 
 
   // Funnel: mindestens „angesprochen", Mailzähler hoch
   await q.run(
-    `UPDATE crm_deal_parties SET funnel_stage = GREATEST(funnel_stage, 1), mails_sent = COALESCE(mails_sent,0) + 1,
+    `UPDATE crm_deal_parties SET funnel_stage = GREATEST(funnel_stage, 2), mails_sent = COALESCE(mails_sent,0) + 1,
         last_contact = CURRENT_DATE WHERE project_id = ? AND contact_id = ?`, [projectId, contactId]).catch(() => {});
 
   return { sent: true, campaignId, needsConsent };

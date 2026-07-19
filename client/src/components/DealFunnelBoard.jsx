@@ -536,6 +536,9 @@ export default function DealFunnelBoard({ show }) {
                           {p.access_granted === 1 && (
                             <span title="Hat Zugang zum Mandat (Unterlagen/Datenraum)" style={{ background: '#dbeafe', color: '#1e40af', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 800 }}>Zugang</span>
                           )}
+                          {p.seller_approved === 1 && (
+                            <span title="Vom Verkäufer freigegeben" style={{ background: '#d1fae5', color: '#065f46', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 800 }}>Freigabe ✓</span>
+                          )}
                           {p.identity_revealed === 1 && (
                             <span title="Klarname für diesen Interessenten freigegeben" style={{ background: '#dcfce7', color: '#166534', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 800 }}>Klarname</span>
                           )}

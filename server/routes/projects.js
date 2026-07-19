@@ -119,12 +119,13 @@ router.get('/my-projects', authenticate, wrap(async (req, res) => {
 // E-Mail, kein Telefon) und ohne jeden Bezug zu anderen Mandaten. Berater und
 // Admin sehen es ebenfalls; Käufer haben keinen Zugriff.
 const SELLER_STAGES = [
-  { key: 0, label: 'Longlist' }, { key: 1, label: 'Angesprochen' }, { key: 2, label: 'Rückmeldung' },
-  { key: 3, label: 'Match' }, { key: 4, label: 'NDA' }, { key: 5, label: 'IM / Unterlagen' },
-  { key: 6, label: 'Gespräch' }, { key: 7, label: 'LOI eingereicht' }, { key: 8, label: 'LOI unterschrieben' },
-  { key: 9, label: 'Namensnennung' }, { key: 10, label: 'Due Diligence' }, { key: 11, label: 'Signing' },
-  { key: 12, label: 'Closing' },
+  { key: 0, label: 'Longlist' }, { key: 1, label: 'Freigabe Verkäufer' }, { key: 2, label: 'Angesprochen' },
+  { key: 3, label: 'Rückmeldung' }, { key: 4, label: 'Match' }, { key: 5, label: 'NDA' },
+  { key: 6, label: 'IM / Unterlagen' }, { key: 7, label: 'Gespräch' }, { key: 8, label: 'LOI eingereicht' },
+  { key: 9, label: 'LOI unterschrieben' }, { key: 10, label: 'Namensnennung' }, { key: 11, label: 'Due Diligence' },
+  { key: 12, label: 'Signing' }, { key: 13, label: 'Closing' },
 ];
+const STAGE_SELLER_RELEASE = 1;   // „Freigabe Verkäufer"
 router.get('/:id/funnel-preview', authenticate, wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename, created_by, status FROM projects WHERE id = ?', [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
@@ -152,15 +153,13 @@ router.get('/:id/funnel-preview', authenticate, wrap(async (req, res) => {
     WHERE dp.project_id = ? AND dp.party_role = 'buyer'
     ORDER BY dp.funnel_stage DESC, dp.stage_changed_at DESC NULLS LAST`, [project.id]).catch(() => []);
 
-  // Bewusst reduziert: KEINE Kontaktdaten, KEINE IDs, KEIN Bezug zu anderen Mandaten.
-  // Der Klarname erscheint erst nach der Namensnennung (Demasking, Stufe C), vorher anonym.
+  // Bewusst reduziert: Name und Firma ja, aber KEINE Kontaktdaten (keine E-Mail,
+  // kein Telefon), KEINE IDs und KEIN Bezug zu anderen Mandaten.
   const parties = rows
     .filter(r => r.party_status !== 'dropped')
     .map(r => ({
-      name: r.identity_revealed === 1
-        ? ([r.salutation, r.title, r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Interessent')
-        : 'Interessent (anonym)',
-      company: r.identity_revealed === 1 ? (r.company_name || null) : null,
+      name: [r.salutation, r.title, r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Interessent',
+      company: r.company_name || null,
       revealed: r.identity_revealed === 1,
       funnel_stage: r.funnel_stage,
       active: r.party_status === 'active',
@@ -192,7 +191,8 @@ router.get('/my-overview', authenticate, wrap(async (req, res) => {
   if (ids.length) {
     const ph = ids.map(() => '?').join(',');
     rows = await db.all(
-      `SELECT dp.project_id, dp.funnel_stage, dp.party_status, dp.stage_changed_at, dp.identity_revealed,
+      `SELECT dp.id, dp.project_id, dp.funnel_stage, dp.party_status, dp.stage_changed_at,
+              dp.identity_revealed, dp.seller_approved,
               k.salutation, k.title, k.first_name, k.last_name,
               (SELECT c.name FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
                 WHERE cc.contact_id = k.id AND cc.ended_on IS NULL LIMIT 1) AS company_name
@@ -211,17 +211,23 @@ router.get('/my-overview', authenticate, wrap(async (req, res) => {
 
   const cutoff = Date.now() - 14 * 864e5;
   const recent = [];
+  const pending = [];   // Kandidaten, die auf die Freigabe des Verkäufers warten
   rows.forEach(r => {
-    const revealed = r.identity_revealed === 1;
     const item = {
-      name: revealed ? ([r.salutation, r.title, r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Interessent') : 'Interessent (anonym)',
-      company: revealed ? (r.company_name || null) : null,
-      revealed,
+      party_id: r.id,
+      name: [r.salutation, r.title, r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Interessent',
+      company: r.company_name || null,
+      revealed: r.identity_revealed === 1,
+      seller_approved: r.seller_approved === 1,
       funnel_stage: r.funnel_stage,
       active: r.party_status === 'active',
       since: r.stage_changed_at,
     };
     if (mandateMap[r.project_id]) mandateMap[r.project_id].parties.push(item);
+    // Warten auf Freigabe durch den Verkäufer (eigener Funnelschritt)
+    if (r.funnel_stage === STAGE_SELLER_RELEASE && r.seller_approved !== 1) {
+      pending.push({ ...item, project_id: r.project_id, codename: mandateMap[r.project_id]?.codename });
+    }
     if (r.stage_changed_at && new Date(r.stage_changed_at).getTime() >= cutoff) {
       recent.push({ codename: mandateMap[r.project_id]?.codename, name: item.name, stage: r.funnel_stage, at: r.stage_changed_at });
     }
@@ -237,8 +243,38 @@ router.get('/my-overview', authenticate, wrap(async (req, res) => {
       activeMandates: mandates.filter(m => m.status === 'active').length,
       mandates: Object.values(mandateMap),
       recent: recent.slice(0, 12),
+      pending,
     },
   });
+}));
+
+// ── POST /:id/candidates/:partyId/decision: Freigabe durch den Verkäufer ────
+// Der Mandant entscheidet über recherchierte Kandidaten, bevor sie angesprochen
+// werden. Freigabe vermerkt Zeitpunkt und Person; eine Absage nimmt den
+// Kandidaten aus dem Prozess. Kontaktdaten sieht der Verkäufer dabei nie.
+router.post('/:id/candidates/:partyId/decision', authenticate, wrap(async (req, res) => {
+  if (!(await canManageProject(req.user, req.params.id))) {
+    return res.status(403).json({ success: false, error: 'Keine Berechtigung für dieses Mandat' });
+  }
+  const party = await db.get(
+    'SELECT id, project_id, funnel_stage FROM crm_deal_parties WHERE id = ? AND project_id = ?',
+    [req.params.partyId, req.params.id]);
+  if (!party) return res.status(404).json({ success: false, error: 'Kandidat nicht gefunden' });
+
+  const approve = req.body.approve !== false;
+  if (approve) {
+    await db.run(
+      `UPDATE crm_deal_parties SET seller_approved = 1, seller_approved_at = now(), seller_approved_by = ?,
+              party_status = CASE WHEN party_status = 'dropped' THEN 'open' ELSE party_status END
+        WHERE id = ?`, [req.user.id, party.id]);
+    db.auditLog(req.user.id, 'SELLER_CANDIDATE_APPROVED', 'project', party.project_id, `Kandidat #${party.id} freigegeben`, req.ip);
+  } else {
+    await db.run(
+      `UPDATE crm_deal_parties SET seller_approved = 0, seller_approved_at = now(), seller_approved_by = ?,
+              party_status = 'dropped' WHERE id = ?`, [req.user.id, party.id]);
+    db.auditLog(req.user.id, 'SELLER_CANDIDATE_REJECTED', 'project', party.project_id, `Kandidat #${party.id} abgelehnt`, req.ip);
+  }
+  res.json({ success: true, data: { approved: approve } });
 }));
 
 // ── POST /my-project: Seller submits a new project (starts as draft) ─────

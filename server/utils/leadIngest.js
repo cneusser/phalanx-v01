@@ -69,7 +69,7 @@ async function ingestLead(q, { tenant = 1, lead, projectId = null, actorId = nul
     const existing = await q.get('SELECT id, funnel_stage FROM crm_deal_parties WHERE project_id = ? AND contact_id = ?', [projectId, contactId]).catch(() => null);
     if (existing) {
       await q.run(
-        `UPDATE crm_deal_parties SET funnel_stage = GREATEST(funnel_stage, 2), party_status = 'active',
+        `UPDATE crm_deal_parties SET funnel_stage = GREATEST(funnel_stage, 3), party_status = 'active',
            source = CASE WHEN source = 'outreach' THEN source ELSE 'inbound' END,
            inbound_signal = 'marketplace', inbound_at = now() WHERE id = ?`, [existing.id]).catch(() => {});
       party = existing.id;
