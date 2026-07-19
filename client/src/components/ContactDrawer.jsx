@@ -199,11 +199,11 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                   <ExternalLink size={13} /> Direkt mailen
                 </a>
               )}
-              {data.account && k.user_id && (
+              {data.account?.id && (
                 <button
                   onClick={async () => {
                     if (!window.confirm(`Plattform als ${[k.first_name, k.last_name].filter(Boolean).join(' ')} ansehen (Birdview, schreibgeschützt)?`)) return;
-                    try { await startBirdview(k.user_id); } catch (e) { show('Birdview nicht möglich: ' + e.message); }
+                    try { await startBirdview(data.account.id); } catch (e) { show('Birdview nicht möglich: ' + e.message); }
                   }}
                   title="Die Plattform mit den Augen dieses Nutzers sehen (schreibgeschützt)"
                   style={{ ...btn(false), color: '#b45309', borderColor: '#fcd34d' }}>

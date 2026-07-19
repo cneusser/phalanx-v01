@@ -369,11 +369,23 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
   // Aktivitäten-Timeline: Einladungen, Mailings, Reminder, Pflege-Links, Selbstpflege
   const activity = await contactActivity(req, req.params.id, contact);
 
-  // Plattform-Konto (falls der Kontakt registriert ist)
-  const account = contact.user_id
-    ? await db.get(`SELECT id, email, role, is_approved, is_active, email_verified, created_at, last_login
-                      FROM users WHERE id = ?`, [contact.user_id]).catch(() => null)
+  // Plattform-Konto (falls der Kontakt registriert ist). Fehlt die Verknüpfung,
+  // suchen wir über die E-Mail und heilen die Brücke gleich mit: so taucht das
+  // Konto (und damit Birdview) auch bei älteren Kontakten auf.
+  const ACCOUNT_FIELDS = 'id, email, role, is_approved, is_active, email_verified, created_at, last_login';
+  let account = contact.user_id
+    ? await db.get(`SELECT ${ACCOUNT_FIELDS} FROM users WHERE id = ?`, [contact.user_id]).catch(() => null)
     : null;
+  if (!account && contact.email) {
+    account = await db.get(`SELECT ${ACCOUNT_FIELDS} FROM users WHERE lower(email) = lower(?) LIMIT 1`,
+      [contact.email]).catch(() => null);
+    if (account) {
+      await scoped(req, (t) => t.run(
+        'UPDATE crm_contacts SET user_id = ? WHERE id = ? AND user_id IS NULL',
+        [account.id, contact.id])).catch(() => {});
+      contact.user_id = account.id;
+    }
+  }
 
   res.json({
     success: true,

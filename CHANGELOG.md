@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.297 · 18.08.2026 · Birdview am Kontakt, Konto-Verknüpfung geheilt
+- **Birdview direkt im Kontakt**: Hat der Kontakt ein Plattform-Konto, steht der Birdview-Knopf jetzt neben „Auskunft (DSGVO)". Ein Klick öffnet die Plattform mit den Augen dieses Nutzers, schreibgeschützt
+- **Ursache behoben**: Das Konto wurde bisher nur erkannt, wenn der Kontakt bei der Registrierung über eine Einladung verknüpft wurde. Jetzt wird zusätzlich über die E-Mail aufgelöst und die Verknüpfung dabei dauerhaft nachgetragen. Eine Migration zieht den Bestand einmalig nach, sofern die Zuordnung eindeutig ist
+- Verifiziert: Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.296 · 17.08.2026 · Freigabe durch den Verkäufer, Namen im Verkäuferblick
 - **Neuer Funnelschritt „Freigabe Verkäufer"** zwischen Longlist und Angesprochen. Recherchierte Kandidaten werden dem Mandanten vorgelegt und erst nach seiner Freigabe angesprochen. Die Automatik und alle Bestandsdaten wurden auf die neue Leiter gehoben
 - **Freigabe-Karte im Verkäufer-Cockpit**: Der Mandant sieht die Kandidaten mit Namen und Firma und entscheidet je Kandidat „Freigeben" oder „Ablehnen". Jede Entscheidung wird protokolliert; im Funnel erscheint ein Badge „Freigabe ✓"
