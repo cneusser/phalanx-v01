@@ -273,6 +273,40 @@ router.get('/contacts', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: rows.map(r => ({ ...r, tags: safeJson(r.tags_json, []) })) });
 }));
 
+// ── Plattform-Konten für die manuelle Verknüpfung suchen ───────────────────
+// Nötig, wenn der Kontakt im CRM eine andere E-Mail hat als sein Konto.
+router.get('/account-candidates', ...isStaff, wrap(async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  const like = `%${q}%`;
+  const rows = await db.all(
+    `SELECT u.id, u.email, u.role, u.first_name, u.last_name, u.company,
+            (SELECT k.id FROM crm_contacts k WHERE k.user_id = u.id LIMIT 1) AS linked_contact_id
+       FROM users u
+      WHERE (? = '' OR u.first_name ILIKE ? OR u.last_name ILIKE ? OR u.email ILIKE ? OR u.company ILIKE ?)
+      ORDER BY u.last_name, u.first_name LIMIT 25`,
+    [q, like, like, like, like]).catch(() => []);
+  res.json({ success: true, data: rows.map(r => ({ ...r, name: [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || r.email })) });
+}));
+
+// ── Konto mit einem Kontakt verknüpfen oder die Verknüpfung lösen ──────────
+router.put('/contacts/:id/account', ...isStaff, canWrite, wrap(async (req, res) => {
+  const contact = await scoped(req, (t) => t.get('SELECT id, first_name, last_name FROM crm_contacts WHERE id = ?', [req.params.id]));
+  if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+
+  const userId = req.body.user_id ? Number(req.body.user_id) : null;
+  if (userId) {
+    const u = await db.get('SELECT id, email FROM users WHERE id = ?', [userId]).catch(() => null);
+    if (!u) return res.status(404).json({ success: false, error: 'Konto nicht gefunden' });
+    const other = await scoped(req, (t) => t.get(
+      'SELECT id FROM crm_contacts WHERE user_id = ? AND id <> ?', [userId, contact.id]));
+    if (other) return res.status(409).json({ success: false, error: 'Dieses Konto ist bereits einem anderen Kontakt zugeordnet' });
+  }
+  await scoped(req, (t) => t.run('UPDATE crm_contacts SET user_id = ? WHERE id = ?', [userId, contact.id]));
+  db.auditLog(req.user.id, userId ? 'CRM_ACCOUNT_LINKED' : 'CRM_ACCOUNT_UNLINKED', 'crm_contact', contact.id,
+    `${[contact.first_name, contact.last_name].filter(Boolean).join(' ')} ${userId ? `→ Konto #${userId}` : '(Verknüpfung gelöst)'}`, req.ip);
+  res.json({ success: true, data: { user_id: userId } });
+}));
+
 router.post('/contacts', ...isStaff, canWrite, wrap(async (req, res) => {
   const last = String(req.body.last_name || '').trim();
   if (!last) return res.status(400).json({ success: false, error: 'Nachname ist erforderlich' });

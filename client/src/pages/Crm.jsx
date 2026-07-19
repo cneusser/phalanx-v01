@@ -404,7 +404,7 @@ export default function Crm() {
         <ContactDrawer contactId={drawerContact} onClose={() => setDrawerContact(null)} onChanged={load} show={show} />
       )}
       {editCompany && <CompanyForm company={editCompany} companies={companies} onClose={() => setEditCompany(null)} onSaved={() => { setEditCompany(null); load(); show('Gespeichert ✓'); }} />}
-      {editContact && <ContactForm contact={editContact} companies={companies} onClose={() => setEditContact(null)} onSaved={() => { setEditContact(null); load(); show('Gespeichert ✓'); }} />}
+      {editContact && <ContactForm contact={editContact} companies={companies} projects={projects} onClose={() => setEditContact(null)} onSaved={() => { setEditContact(null); load(); show('Gespeichert ✓'); }} />}
       {importOpen && <ImportModal onClose={() => setImportOpen(false)} onDone={(r) => { setImportOpen(false); load(); show(`Import: ${r.created} angelegt, ${r.skipped} übersprungen (Dubletten)`); }} />}
       {importListOpen && <ImportListModal onClose={() => setImportListOpen(false)} onDone={() => load()} show={show} />}
       {assign && <AssignDealModal contact={assign} projects={projects} stages={stages} onClose={() => setAssign(null)} show={show} />}
@@ -767,7 +767,7 @@ function CompanyForm({ company, companies, onClose, onSaved }) {
 }
 
 // ── Kontakt-Formular ─────────────────────────────────────────────────────────
-function ContactForm({ contact, companies, onClose, onSaved }) {
+function ContactForm({ contact, companies, projects, onClose, onSaved }) {
   const isNew = !contact.id;
   const [f, setF] = useState({
     salutation: '', title: '', first_name: '', last_name: '', email: '', phone: '', mobile: '',
@@ -782,8 +782,21 @@ function ContactForm({ contact, companies, onClose, onSaved }) {
   async function save(force = false) {
     setBusy(true); setErr('');
     try {
-      if (isNew) await api.post('/crm/contacts', { ...f, force });
-      else await api.put(`/crm/contacts/${contact.id}`, f);
+      if (isNew) {
+        const created = await api.post('/crm/contacts', { ...f, force });
+        const newId = created.id;
+        // Neues Unternehmen direkt anlegen und verknüpfen
+        if (!f.company_id && (f.company_new || '').trim()) {
+          const co = await api.post('/crm/companies', { name: f.company_new.trim() });
+          await api.post(`/crm/companies/${co.id}/contacts`, { contact_id: newId, position: f.position || null });
+        }
+        // Direkt einem Mandat mit Rolle zuordnen
+        if (f.project_id) {
+          await api.post(`/crm/deals/${f.project_id}/parties`, {
+            contact_id: newId, party_role: f.party_role || 'buyer', funnel_stage: 0,
+          });
+        }
+      } else await api.put(`/crm/contacts/${contact.id}`, f);
       onSaved();
     } catch (e) { setErr(e.message); setBusy(false); }
   }
@@ -827,11 +840,34 @@ function ContactForm({ contact, companies, onClose, onSaved }) {
         {isNew && (
           <>
             <div><label style={LABEL}>Unternehmen</label>
-              <select value={f.company_id || ''} onChange={set('company_id')} style={INPUT}>
+              <select value={f.company_id || ''} onChange={e => { set('company_id')(e); if (e.target.value) setF(s => ({ ...s, company_new: '' })); }} style={INPUT}>
                 <option value="">k. A.</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+            <div><label style={LABEL}>…oder neues Unternehmen</label>
+              <input value={f.company_new || ''} onChange={e => { set('company_new')(e); if (e.target.value) setF(s => ({ ...s, company_id: '' })); }}
+                placeholder="Firmenname" style={INPUT} />
+            </div>
             <div><label style={LABEL}>Position</label><input value={f.position || ''} onChange={set('position')} style={INPUT} /></div>
+            <div><label style={LABEL}>Mandat zuordnen (optional)</label>
+              <select value={f.project_id || ''} onChange={set('project_id')} style={INPUT}>
+                <option value="">keins</option>{(projects || []).map(p => <option key={p.id} value={p.id}>{p.codename}</option>)}
+              </select>
+            </div>
+            {f.project_id && (
+              <div><label style={LABEL}>Rolle im Mandat</label>
+                <select value={f.party_role || 'buyer'} onChange={set('party_role')} style={INPUT}>
+                  <option value="buyer">Käufer</option>
+                  <option value="seller">Verkäufer (Mandant)</option>
+                  <option value="advisor">Berater</option>
+                  <option value="process">Prozessbeteiligter</option>
+                  <option value="bank">Bank</option>
+                  <option value="lawyer">Anwalt</option>
+                  <option value="target">Zielunternehmen</option>
+                  <option value="other">Sonstige</option>
+                </select>
+              </div>
+            )}
           </>
         )}
 

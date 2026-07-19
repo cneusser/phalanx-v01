@@ -39,6 +39,19 @@ const fmt = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', 
 export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   const { startBirdview } = useAuth();
   const [data, setData] = useState(null);
+  // Konto-Verknüpfung
+  const [accOpen, setAccOpen] = useState(false);
+  const [accQ, setAccQ] = useState('');
+  const [accHits, setAccHits] = useState([]);
+  // Unternehmens- und Mandatszuordnung
+  const [companies, setCompanies] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [coPick, setCoPick] = useState('');
+  const [coNew, setCoNew] = useState('');
+  const [coPos, setCoPos] = useState('');
+  const [mdPick, setMdPick] = useState('');
+  const [mdRole, setMdRole] = useState('buyer');
+  const [mdStage, setMdStage] = useState(0);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState('stamm');
@@ -61,6 +74,11 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
     } catch (e) { show('Fehler: ' + e.message); }
   }, [contactId, show]);
   useEffect(() => { load(); }, [load]);
+  // Auswahllisten für Zuordnungen einmalig laden
+  useEffect(() => {
+    api.get('/crm/companies').then(r => setCompanies(r || [])).catch(() => {});
+    api.get('/crm/deals').then(d => setProjects(d.deals || [])).catch(() => {});
+  }, []);
 
   async function save() {
     setSaving(true);
@@ -102,6 +120,48 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   async function setPartyField(partyId, patch) {
     try { await api.put(`/crm/parties/${partyId}`, patch); await load(); onChanged && onChanged(); }
     catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  // ── Plattform-Konto manuell verknüpfen (wenn die E-Mail im CRM abweicht) ──
+  async function searchAccounts(q) {
+    try { setAccHits(await api.get(`/crm/account-candidates?q=${encodeURIComponent(q || '')}`)); }
+    catch (e) { show('Fehler: ' + e.message); }
+  }
+  async function linkAccount(userId) {
+    try {
+      await api.put(`/crm/contacts/${contactId}/account`, { user_id: userId });
+      show(userId ? 'Konto verknüpft ✓' : 'Verknüpfung gelöst');
+      setAccOpen(false); setAccHits([]); setAccQ('');
+      await load(); onChanged && onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  // ── Unternehmen zuordnen: bestehendes wählen oder neu anlegen ─────────────
+  async function assignCompany() {
+    const name = coNew.trim();
+    try {
+      let companyId = coPick ? Number(coPick) : null;
+      if (!companyId && name) {
+        const created = await api.post('/crm/companies', { name });
+        companyId = created.id;
+      }
+      if (!companyId) return show('Bitte ein Unternehmen wählen oder einen Namen eingeben');
+      await api.post(`/crm/companies/${companyId}/contacts`, { contact_id: contactId, position: coPos || null });
+      show('Unternehmen zugeordnet ✓');
+      setCoPick(''); setCoNew(''); setCoPos('');
+      await load(); onChanged && onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  // ── Mandat zuordnen (Rolle + Startstufe) ─────────────────────────────────
+  async function assignMandate() {
+    if (!mdPick) return show('Bitte ein Mandat wählen');
+    try {
+      await api.post(`/crm/deals/${mdPick}/parties`, { contact_id: contactId, party_role: mdRole, funnel_stage: Number(mdStage) });
+      show('Mandat zugeordnet ✓');
+      setMdPick('');
+      await load(); onChanged && onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
   }
 
   async function logReply() {
@@ -271,11 +331,105 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                   }}>
                     <Save size={14} /> {saving ? 'Speichern…' : 'Speichern'}
                   </button>
+
+                  {/* Unternehmen zuordnen: bestehendes wählen oder neu anlegen */}
+                  <div style={{ marginTop: '1.4rem', borderTop: `1px solid ${C.border}`, paddingTop: '0.9rem' }}>
+                    <div style={{ ...LBL, marginBottom: 5 }}>Unternehmen</div>
+                    {(data.current || []).length > 0 ? (
+                      (data.current || []).map(l => (
+                        <div key={l.link_id} style={{ fontSize: '0.83rem', color: C.text, marginBottom: 3 }}>
+                          <strong>{l.company_name}</strong>{l.position ? `, ${l.position}` : ''}{l.city ? ` · ${l.city}` : ''}
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: 6 }}>Noch keinem Unternehmen zugeordnet.</div>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: 6 }}>
+                      <select value={coPick} onChange={e => { setCoPick(e.target.value); if (e.target.value) setCoNew(''); }} style={IN}>
+                        <option value="">Bestehendes Unternehmen wählen…</option>
+                        {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      <input value={coNew} onChange={e => { setCoNew(e.target.value); if (e.target.value) setCoPick(''); }}
+                        placeholder="…oder neues Unternehmen anlegen" style={IN} />
+                      <input value={coPos} onChange={e => setCoPos(e.target.value)} placeholder="Position (optional)" style={IN} />
+                      <button onClick={assignCompany} style={{ ...btn(false), justifyContent: 'center' }}>
+                        <Plus size={13} /> Zuordnen
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Plattform-Konto verknüpfen (Voraussetzung für Birdview) */}
+                  <div style={{ marginTop: '1.2rem', borderTop: `1px solid ${C.border}`, paddingTop: '0.9rem' }}>
+                    <div style={{ ...LBL, marginBottom: 5 }}>Plattform-Konto</div>
+                    {data.account ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '0.83rem', color: C.text }}>
+                        <span><strong>{data.account.email}</strong> · {data.account.role}</span>
+                        <button onClick={() => { if (window.confirm('Verknüpfung zum Plattform-Konto lösen?')) linkAccount(null); }}
+                          style={{ ...btn(false), color: '#b91c1c', borderColor: '#fecaca' }}>Verknüpfung lösen</button>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: 6 }}>
+                          Kein Konto verknüpft. Ohne Verknüpfung gibt es keinen Birdview. Nötig, wenn das Konto eine andere E-Mail nutzt als der Kontakt.
+                        </div>
+                        {!accOpen ? (
+                          <button onClick={() => { setAccOpen(true); searchAccounts(k.last_name || ''); setAccQ(k.last_name || ''); }} style={btn(false)}>
+                            <Plus size={13} /> Konto verknüpfen
+                          </button>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <input value={accQ} onChange={e => setAccQ(e.target.value)} placeholder="Name oder E-Mail suchen" style={IN} />
+                              <button onClick={() => searchAccounts(accQ)} style={btn(false)}>Suchen</button>
+                            </div>
+                            <div style={{ marginTop: 6, maxHeight: 190, overflow: 'auto' }}>
+                              {accHits.length === 0 && <div style={{ fontSize: '0.8rem', color: C.muted, padding: '0.4rem 0' }}>Keine Treffer.</div>}
+                              {accHits.map(u => (
+                                <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0.35rem 0', borderTop: `1px solid ${C.border}` }}>
+                                  <div style={{ fontSize: '0.82rem' }}>
+                                    <strong>{u.name}</strong> <span style={{ color: C.muted }}>{u.email}</span>
+                                    {u.linked_contact_id && <span style={{ color: '#b45309', marginLeft: 5 }}>bereits zugeordnet</span>}
+                                  </div>
+                                  <button onClick={() => linkAccount(u.id)} disabled={!!u.linked_contact_id} style={btn(!!u.linked_contact_id)}>Verknüpfen</button>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </>
               )}
 
               {tab === 'mandate' && (
                 <>
+                  {/* Neues Mandat zuordnen (Rolle und Startstufe wählbar) */}
+                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.8rem', marginBottom: '0.8rem', background: C.bg }}>
+                    <div style={{ ...LBL, marginBottom: 5 }}>Mandat zuordnen</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                      <select value={mdPick} onChange={e => setMdPick(e.target.value)} style={IN}>
+                        <option value="">Mandat wählen…</option>
+                        {projects.map(p => <option key={p.id} value={p.id}>{p.codename}</option>)}
+                      </select>
+                      <select value={mdRole} onChange={e => setMdRole(e.target.value)} style={IN}>
+                        <option value="buyer">Käufer</option>
+                        <option value="seller">Verkäufer (Mandant)</option>
+                        <option value="advisor">Berater</option>
+                        <option value="process">Prozessbeteiligter</option>
+                        <option value="bank">Bank</option>
+                        <option value="lawyer">Anwalt</option>
+                        <option value="target">Zielunternehmen</option>
+                        <option value="other">Sonstige</option>
+                      </select>
+                      <select value={mdStage} onChange={e => setMdStage(e.target.value)} style={IN}>
+                        {STAGE_LABEL.map((l, i) => <option key={i} value={i}>{i}: {l}</option>)}
+                      </select>
+                      <button onClick={assignMandate} style={{ ...btn(false), justifyContent: 'center' }}>
+                        <Plus size={13} /> Zuordnen
+                      </button>
+                    </div>
+                  </div>
                   {!(data.deals || []).length && <div style={{ color: C.muted, fontSize: '0.85rem' }}>Dieser Kontakt ist noch keinem Mandat zugeordnet.</div>}
                   {(data.deals || []).map(d => (
                     <div key={d.party_id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.8rem', marginBottom: '0.6rem' }}>

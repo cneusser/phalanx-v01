@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.298 · 19.08.2026 · Konto verknüpfen, Unternehmen und Mandat aus dem Kontakt
+- **Konto manuell verknüpfen**: Im Kontakt gibt es unter „Plattform-Konto" eine Suche über Name oder E-Mail. Damit lässt sich ein Konto auch dann zuordnen, wenn es eine andere Adresse nutzt als der CRM-Kontakt. Genau das war der Fall bei Harald Knaus (CRM: gmx-Adresse, Konto: Firmenadresse). Nach dem Verknüpfen erscheint der Birdview
+- **Unternehmen aus dem Kontakt**: Im Kontakt lässt sich ein bestehendes Unternehmen zuordnen oder ein neues direkt anlegen und verknüpfen, mit optionaler Position. Der Weg funktioniert damit in beide Richtungen
+- **Mandat aus dem Kontakt**: Im Reiter „Mandate" lassen sich Mandat, Rolle (Käufer, Verkäufer, Berater, Prozessbeteiligter …) und Startstufe wählen und zuordnen
+- **Beim Anlegen gleich mitgeben**: Das Kontaktformular kennt jetzt zusätzlich ein neues Unternehmen und die Mandatszuordnung samt Rolle
+- Verifiziert: Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.297 · 18.08.2026 · Birdview am Kontakt, Konto-Verknüpfung geheilt
 - **Birdview direkt im Kontakt**: Hat der Kontakt ein Plattform-Konto, steht der Birdview-Knopf jetzt neben „Auskunft (DSGVO)". Ein Klick öffnet die Plattform mit den Augen dieses Nutzers, schreibgeschützt
 - **Ursache behoben**: Das Konto wurde bisher nur erkannt, wenn der Kontakt bei der Registrierung über eine Einladung verknüpft wurde. Jetzt wird zusätzlich über die E-Mail aufgelöst und die Verknüpfung dabei dauerhaft nachgetragen. Eine Migration zieht den Bestand einmalig nach, sofern die Zuordnung eindeutig ist
