@@ -1,8 +1,10 @@
 # CapitalMatch · Roadmap: Bewertung, Container-Safe, Exposé-Builder
 
-Stand: Juli 2026 · Analysebasis: kmurechner.de, KERN-Unternehmenswertrechner,
+Stand: August 2026 · Analysebasis: kmurechner.de, KERN-Unternehmenswertrechner,
 HWK-/KERN-Exposé-Leitfaden, DUB-Exposé-Struktur (Beispiel-ID 17680), DUB KMU-Multiples,
-DUB-/dealcircle-Verkäuferseite (Screenshots Juli 2026, siehe Sprint 25).
+DUB-/dealcircle-Verkäuferseite (Screenshots Juli 2026, siehe Sprint 25),
+Zusammenschluss DUB und AMBER (Rundmail August 2026, siehe Sprint 26),
+entrepreneursclub.eu (Club- und Level-Modell, siehe Sprint 27).
 
 > **Konsolidierte Fassung.** Ersetzt die früheren Dateien `ROADMAP-SPRINT-6-9.md`
 > und `ROADMAP_Sprint6-9.md`, deren Sprint-Nummerierung voneinander abwich. Es geht
@@ -54,6 +56,40 @@ DUB-/dealcircle-Verkäuferseite (Screenshots Juli 2026, siehe Sprint 25).
 | · | Self-Service-Inserat-Wizard (Autosave, Vorschau), Moderations-Lebenszyklus + Prüf-Queue (v0.292, Stufe B) | ✅ fertig |
 | · | Käufergruppen-Targeting + Schlagwörter, Namensnennung/Demasking, Plattform-NDA (v0.293, Stufe C) | ✅ fertig |
 | · | Verkäufer-Cockpit: Statistik, konsolidierte Inbox, Aktuelles-Feed, Rollen-Umschalter (v0.294, Stufe D) | ✅ fertig |
+| · | Verkäufer-Bereich fokussiert: eigenes Cockpit als Einstieg, aktive Inserate pflegbar (v0.295) | ✅ fertig |
+| · | Funnelschritt „Freigabe Verkäufer", Namen im Verkäuferblick, Pflege-Spalte mit CRM-Sprung (v0.296) | ✅ fertig |
+| · | Birdview am Kontakt, Konto-Verknüpfung über E-Mail geheilt und manuell möglich (v0.297-v0.298) | ✅ fertig |
+| · | Unternehmen und Mandat direkt aus dem Kontakt zuordnen, auch beim Anlegen (v0.298) | ✅ fertig |
+| · | Marktplatz für Admin/Berater wieder vollständig, Zähler und Filter konsistent (v0.299) | ✅ fertig |
+| **26** | **Nachfolge-Match: Talent, Kapital und Mandat zusammenbringen** | geplant (Konzept unten) |
+| **27** | **Entrepreneur-Club: Community, Events, Reifegrade** | geplant (Konzept unten) |
+
+---
+
+## Offene Themen (Stand August 2026)
+
+**Betrieb und Hygiene (blockiert Sichtbarkeit aller Neuerungen):**
+
+- **Push und Deploy von v0.253 bis v0.299.** Alles ist committet, aber nicht gepusht. Ohne Deploy ist nichts davon live.
+- **`JWT_SECRET` in Railway setzen.** Bis dahin läuft die Anwendung auf dem Standardwert, das ist das größte offene Sicherheitsthema.
+- Optional: `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET` (Bot-Schutz), `BREVO_API_KEY` (Mailversand).
+- **`node_modules` aus der Versionierung nehmen.** Rund 7.500 Dateien sind eingecheckt, das Repository ist dadurch etwa 51 MB groß und jeder Push unnötig schwer.
+
+**Datenpflege (kein Code, aber Voraussetzung für Funktionen):**
+
+- Björn Lindner bei Nexora als Verkäufer (Mandant) zuordnen und sein Plattform-Konto verknüpfen, sonst sieht er die Freigaben nicht.
+- Harald Knaus: Konto manuell verknüpfen (CRM-Adresse und Konto-Adresse weichen voneinander ab).
+
+**Fachlich offen aus früheren Sprints:**
+
+- **CRM IV:** Dokumentenmanagement und Auswertungen (Selbstpflege-Portal ist fertig).
+- **CRM V:** offene API und Webhooks.
+- **CRM VI (Sprint 24):** Anreicherung, KI-Zusammenfassungen, Kaufwahrscheinlichkeit, E-Signatur, Mobile-App.
+- Per-Investor-Mailmerge für die Ansprache (individuelle Begründung je Empfänger).
+- Exposé-PDF in die gemeinsame Dokumentenliste einordnen (heute bewusst getrennt und NDA-gesichert).
+- Mehrsprachigkeit: Seiten schrittweise übersetzen (Fundament steht).
+- Öffentliche Teaser-Karte automatisch aus dem Exposé ableiten (Rest aus Sprint 9).
+- Kaufgesuche als Buy-Side-Marktplatz und ein Paket-/Preismodell (bewusst hinter Sprint 26 gestellt).
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,
 weil er direkt auf Sprint 6 aufbaut (Multiples-Tabelle, Engine, Lead-Erfassung →
@@ -640,6 +676,104 @@ aber nicht die kuratierende Rolle von Phalanx (Moderation, Namensnennung, Anspra
 Alle neuen Tabellen mit `tenant_id` + RLS; Käufertyp und Sichtbarkeit DSGVO-konform
 (Zweckbindung, Protokoll). Reihenfolge: Stufe A zuerst (kleiner Eingriff, sofort im
 CRM nutzbar), dann B bis D nach Bedarf.
+
+---
+
+## Sprint 26 · Nachfolge-Match: Talent, Kapital und Mandat · geplant
+
+**Auslöser.** DUB und AMBER sind im August 2026 zu einer Plattform verschmolzen und
+nennen drei Hebel, die sie leichter machen wollen: ein Inserat in Minuten, eine erste
+marktnahe Antwort auf den Unternehmenswert und einen Weg zur Kaufpreisfinanzierung.
+Die ersten beiden hat CapitalMatch bereits (Inserat-Wizard v0.292, Bewertung aus den
+Sprints 6, 7 und 12). Der dritte Hebel, das Kapital, ist die offene Flanke des Marktes
+und zugleich die Chance: Wer Kapital, Talent und Mandat zusammenbringt, löst das
+Nachfolgeproblem vollständiger als ein reiner Unternehmensmarktplatz.
+
+**Zielbild: ein dreiseitiger Match.** Aus dem Käufer-Verkäufer-Marktplatz wird ein
+Matching-Marktplatz mit drei Seiten:
+
+| Seite | Wer | Sucht |
+|-------|-----|-------|
+| **Talent** | Nachfolgerinnen und Nachfolger, MBI-Kandidaten, Fremdgeschäftsführung, Equity-Übernehmer | Mandat zum Übernehmen, oft zusätzlich Kapital |
+| **Kapital** | Business Angels, Family Offices, Beteiligungsgesellschaften, Finanzierer, Bürgschaftsbanken | Beteiligungen und Talente, in die es sich zu investieren lohnt |
+| **Mandat** | Übergeber und Mandanten (z. B. FARADAY) | Nachfolge und, wo nötig, Kaufpreisfinanzierung |
+
+Der Kern in einem Satz: **Kapital findet Talente, Talente finden Kapital und Mandate.**
+Das trägt über die Nachfolge hinaus, denn dieselbe Logik bildet einen Marktplatz für
+Kapital insgesamt.
+
+**Was schon steht und wiederverwendet wird.** Suchprofile, Matching-Engine und die
+Sofort- und Digest-Benachrichtigungen (Sprints 10 und 18), die Käufertyp-Klassifikation
+und das Käufergruppen-Targeting (v0.291 und v0.293), das NDA-Gate mit Namensnennung und
+Plattform-NDA (v0.293), der Funnel mit Rollen und dem Freigabeschritt (v0.296), das
+Selbstpflege-Portal als Vorbild für die CV-Pflege sowie Billing-Flag, XP und Newsletter.
+Die Anonymität bis zur Namensnennung passt eins zu eins auf Talent-Profile.
+
+**Datenmodell (neu, jeweils mit `tenant_id` und RLS).**
+
+- `talent_profiles`: Kurzprofil, Werdegang, Branchen, Funktionen, Führungsspanne,
+  Ergebnisverantwortung, Regionen, verfügbar ab, Rollenwunsch (Geschäftsführung,
+  Übernahme/MBI, Beteiligung, Beirat), verfügbares Eigenkapital als Band, gewünschter
+  Anteil, Referenzen, CV-Dokument, Sichtbarkeit (anonym oder offen), Status.
+- `capital_profiles`: Kapitalart (Eigenkapital, Mezzanine, Fremdkapital, Bürgschaft,
+  Verkäuferdarlehen), Ticketband, Branchen, Regionen, Beteiligungsform (Mehrheit,
+  Minderheit, still), Bereitschaft zum Co-Investment, Zeithorizont, aktiv auf Suche.
+- Erweiterung `projects`: sucht Nachfolge, sucht Kapital, Kaufpreisband, Finanzierungslücke.
+- `match_intents`: wer hat zu welchem Vorschlag was getan (angesehen, Interesse, abgelehnt),
+  als Grundlage für Qualität und Abrechnung.
+
+**Umsetzungsstufen.**
+
+*Stufe A: Talent-Profil und Onboarding (kostenfrei).* Neue Rolle „Talent". Geführtes
+Profil im Stil des Inserat-Wizards (mehrstufig, Autosave, Vorschau), anonym bis zur
+Freigabe, Selbstpflege-Link, saubere Einwilligung. Ziel dieser Stufe ist Dichte: ohne
+Kandidaten kein Match.
+
+*Stufe B: Match Talent gegen Mandat.* Scoring über Branche, Region, Größenklasse,
+Rollenwunsch, verfügbares Eigenkapital gegen Kaufpreisband und Verfügbarkeit.
+Vorschlagslisten auf beiden Seiten, „Interesse bekunden", Intro über die Beratung,
+Übergabe in den bestehenden Funnel. Der Freigabeschritt aus v0.296 greift hier ebenso:
+der Übergeber entscheidet, wer angesprochen wird.
+
+*Stufe C: Kapital-Profil und Kaufpreisfinanzierung.* Kapitalgeber-Profil, Match Kapital
+gegen Mandat und Kapital gegen Talent, Finanzierungsbedarf am Mandat, Konsortien und
+Co-Investment. Damit schließt CapitalMatch genau die Lücke, die DUB und AMBER als
+dritten Hebel benennen.
+
+*Stufe D: Monetarisierung.* Für Talente kostenfrei. Der Übergeber zahlt für den Zugang
+zu passenden Kandidaten (Freischaltung von Match und Kontakt, Paket oder Erfolgsanteil).
+Kapitalgeber optional als eigenes Paket. Alles hinter dem bestehenden `BILLING_ENABLED`.
+
+*Stufe E: Qualität und Vertrauen.* Verifizierung per Gespräch und Referenzen mit Badge,
+Reifegrade für Talente, Plattform-NDA als Voraussetzung, um Talent-Profile im Klartext
+zu sehen.
+
+**Recht und Datenschutz.** Lebenslaufdaten sind besonders sensibel: Zweckbindung,
+ausdrückliche Einwilligung, Anonymität bis zur Namensnennung, Löschkonzept, keine
+Weitergabe ohne Freigabe des Talents. Vor dem Start juristisch klären, wie sich das
+Angebot von klassischer Personalvermittlung abgrenzt.
+
+**Abgrenzung.** Kein Jobboard. Es geht um Nachfolge und Beteiligung, nicht um die
+Vermittlung von Anstellungen. Reihenfolge: Stufe A zuerst, weil ohne Kandidatendichte
+jedes Matching leer läuft.
+
+---
+
+## Sprint 27 · Entrepreneur-Club: Community, Events, Reifegrade · geplant
+
+**Motiv.** Vorbild ist der Entrepreneurs Club: neben dem Geschäft ein Ökosystem aus
+News, Services und Club-Events, dazu ein Fünf-Stufen-Modell vom Einstieg bis zum
+Entrepreneur, der Anteile am aufgebauten Geschäft hält. Für CapitalMatch ist das die
+Bindungsschicht über dem Matching: Wer heute noch kein Mandat übernimmt, bleibt über
+Inhalte und Veranstaltungen in Kontakt und ist morgen der passende Kandidat.
+
+*Bausteine:* Club-Mitgliedschaft (Beitrag oder Paket), Veranstaltungskalender mit
+Anmeldung und Nachbericht, Mitgliederverzeichnis mit abgestufter Sichtbarkeit,
+Reifegrade für Talente (inhaltlich: Erfahrung, Verantwortung, Kapitalstärke, aufbauend
+auf der vorhandenen XP-Mechanik), redaktionelle Inhalte und Leitfäden zur Nachfolge.
+
+**Reihenfolge.** Bewusst nach Sprint 26. Eine Community ohne Nutzerdichte trägt nicht;
+erst kommt der Nutzen (Match), dann die Bindung (Club).
 
 ---
 
