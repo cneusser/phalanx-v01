@@ -46,16 +46,29 @@ const imageUpload = multer({
   },
 });
 
+// Wer im Marktplatz die eigenen Mandate ausgeblendet bekommt: alle außer dem
+// Team. Admin/Berater sollen den Marktplatz vollständig sehen (Prüfung, Support),
+// sonst wäre er für sie leer, weil sie die Mandate selbst angelegt haben.
+const STAFF_ROLES = ['super_admin', 'advisor', 'tenant_owner'];
+function hidesOwnMandates(user) {
+  return !!(user && user.id && !STAFF_ROLES.includes(user.role));
+}
+
 // ── GET /stats: Public platform statistics ───────────────────────────────
-router.get('/stats', wrap(async (req, res) => {
+// Zählt genau das, was der Aufrufer im Marktplatz auch sieht, damit Zähler und
+// Liste nie auseinanderlaufen.
+router.get('/stats', optionalAuth, wrap(async (req, res) => {
+  const hideOwn = hidesOwnMandates(req.user);
+  const ownFilter = hideOwn ? ' AND (created_by IS NULL OR created_by <> ?)' : '';
+  const p = hideOwn ? [req.user.id] : [];
   const row = await db.get(`
     SELECT
       COUNT(*) FILTER (WHERE status='active' AND mandate_type='ma')::int          AS ma_active,
       COUNT(*) FILTER (WHERE mandate_type='ma')::int                              AS ma_total,
       COUNT(*) FILTER (WHERE status='active' AND mandate_type='fundraising')::int AS fund_active,
       COUNT(*) FILTER (WHERE mandate_type='fundraising')::int                     AS fund_total
-    FROM projects
-  `);
+    FROM projects WHERE 1=1${ownFilter}
+  `, p);
   const inv = await db.get(`SELECT COUNT(*)::int AS c FROM users WHERE role='buyer' AND is_approved=1 AND is_active=1`);
 
   res.json({
@@ -76,7 +89,8 @@ router.get('/', optionalAuth, wrap(async (req, res) => {
   const params = [];
   // Ein eingeloggter Nutzer sieht seine EIGENEN Mandate (als Verkäufer/Ersteller)
   // nicht im Käufer-Marktplatz, er soll dort nicht auf sich selbst bieten.
-  if (req.user && req.user.id) { query += ' AND (created_by IS NULL OR created_by <> ?)'; params.push(req.user.id); }
+  // Für das Team (Admin/Berater) gilt das nicht: sie brauchen die volle Sicht.
+  if (hidesOwnMandates(req.user)) { query += ' AND (created_by IS NULL OR created_by <> ?)'; params.push(req.user.id); }
   if (industry)     { query += ' AND industry = ?';     params.push(industry); }
   if (region)       { query += ' AND region = ?';       params.push(region); }
   if (deal_type)    { query += ' AND deal_type = ?';    params.push(deal_type); }
@@ -87,12 +101,18 @@ router.get('/', optionalAuth, wrap(async (req, res) => {
   query += ' ORDER BY created_at DESC';
 
   const projects = (await db.all(query, params)).map(p => ({ ...p, highlights: JSON.parse(p.highlights || '[]') }));
-  const industries = (await db.all(`SELECT DISTINCT industry FROM projects WHERE status='active' ORDER BY industry`)).map(r => r.industry);
-  const regions    = (await db.all(`SELECT DISTINCT region FROM projects WHERE status='active' ORDER BY region`)).map(r => r.region);
-  const deal_types = (await db.all(`SELECT DISTINCT deal_type FROM projects WHERE status='active' ORDER BY deal_type`)).map(r => r.deal_type);
-  const stages     = (await db.all(`SELECT DISTINCT stage FROM projects WHERE status='active' AND stage IS NOT NULL ORDER BY stage`)).map(r => r.stage);
-  const revenue_bands = (await db.all(`SELECT DISTINCT revenue_band FROM projects WHERE status='active' AND revenue_band IS NOT NULL AND revenue_band <> 'k. A.' ORDER BY revenue_band`)).map(r => r.revenue_band);
-  const ebitda_bands  = (await db.all(`SELECT DISTINCT ebitda_band FROM projects WHERE status='active' AND ebitda_band IS NOT NULL AND ebitda_band <> 'k. A.' ORDER BY ebitda_band`)).map(r => r.ebitda_band);
+
+  // Filteroptionen aus derselben Sicht ableiten, damit keine Optionen ohne Treffer erscheinen
+  const own = hidesOwnMandates(req.user) ? ' AND (created_by IS NULL OR created_by <> ?)' : '';
+  const ownP = hidesOwnMandates(req.user) ? [req.user.id] : [];
+  const distinct = async (col, extra = '') =>
+    (await db.all(`SELECT DISTINCT ${col} AS v FROM projects WHERE status='active'${extra}${own} ORDER BY v`, ownP)).map(r => r.v);
+  const industries = await distinct('industry');
+  const regions    = await distinct('region');
+  const deal_types = await distinct('deal_type');
+  const stages     = await distinct('stage', ' AND stage IS NOT NULL');
+  const revenue_bands = await distinct('revenue_band', ` AND revenue_band IS NOT NULL AND revenue_band <> 'k. A.'`);
+  const ebitda_bands  = await distinct('ebitda_band', ` AND ebitda_band IS NOT NULL AND ebitda_band <> 'k. A.'`);
 
   res.json({ success: true, data: { projects, filters: { industries, regions, deal_types, stages, revenue_bands, ebitda_bands } } });
 }));

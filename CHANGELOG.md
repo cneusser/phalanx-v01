@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.299 · 19.08.2026 · Marktplatz für das Team wieder vollständig
+- **Fehler behoben**: Seit der Käufer-/Verkäufertrennung (v0.288) wurden eigene Mandate im Marktplatz ausgeblendet, und zwar für jeden angemeldeten Nutzer. Da alle Mandate vom Team angelegt wurden, war der Marktplatz für Admin und Berater leer, während die Zähler oben weiter 5, 3 und 2 anzeigten
+- **Jetzt**: Das Ausblenden eigener Mandate gilt nur noch für Käufer und Verkäufer. Admin und Berater sehen den Marktplatz wieder vollständig
+- **Zähler und Filter konsistent**: Die Zahlen über der Liste und die Filteroptionen stammen jetzt aus derselben Sicht wie die Liste selbst und können nicht mehr auseinanderlaufen
+- Verifiziert: Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.298 · 19.08.2026 · Konto verknüpfen, Unternehmen und Mandat aus dem Kontakt
 - **Konto manuell verknüpfen**: Im Kontakt gibt es unter „Plattform-Konto" eine Suche über Name oder E-Mail. Damit lässt sich ein Konto auch dann zuordnen, wenn es eine andere Adresse nutzt als der CRM-Kontakt. Genau das war der Fall bei Harald Knaus (CRM: gmx-Adresse, Konto: Firmenadresse). Nach dem Verknüpfen erscheint der Birdview
 - **Unternehmen aus dem Kontakt**: Im Kontakt lässt sich ein bestehendes Unternehmen zuordnen oder ein neues direkt anlegen und verknüpfen, mit optionaler Position. Der Weg funktioniert damit in beide Richtungen
