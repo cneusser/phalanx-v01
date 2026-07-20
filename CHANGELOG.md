@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.300 · 20.08.2026 · Individuelle Begründung je Empfänger, Vorlagen-Stufen korrigiert
+- **Mailmerge**: Neuer Platzhalter `{{warum}}`. Steht er im Text, erscheint im Versand-Dialog je Empfänger ein eigenes Feld, etwa „passt zu Ihrem Fokus auf Energiedienstleistung im süddeutschen Raum". Leer lassen ist erlaubt, dann entfällt der Platzhalter für diesen Empfänger. Die Vorschau zeigt die Begründung des ersten Empfängers mit
+- **Fehler behoben**: Der Vorlagen-Versand hob Kontakte auf Stufe 1, seit v0.296 ist das „Freigabe Verkäufer" statt „Angesprochen". Jetzt wird korrekt auf „Angesprochen" gestuft
+- **Fehler behoben**: Die in den Mailvorlagen hinterlegten Zielstufen stammten noch aus der ursprünglichen Funnel-Leiter und wurden bei den beiden Umnummerierungen nicht mitgezogen. „NDA anfordern" hätte auf „Match" gestuft. Eine Migration hebt alle Vorlagen auf die aktuelle Leiter
+- **Hygiene**: `node_modules` ist nicht mehr versioniert. Das Repository schrumpft von rund 7.800 auf 290 Dateien; die Pakete bleiben lokal und werden beim Deploy ohnehin installiert
+- Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.299 · 19.08.2026 · Marktplatz für das Team wieder vollständig
 - **Fehler behoben**: Seit der Käufer-/Verkäufertrennung (v0.288) wurden eigene Mandate im Marktplatz ausgeblendet, und zwar für jeden angemeldeten Nutzer. Da alle Mandate vom Team angelegt wurden, war der Marktplatz für Admin und Berater leer, während die Zähler oben weiter 5, 3 und 2 anzeigten
 - **Jetzt**: Das Ausblenden eigener Mandate gilt nur noch für Käufer und Verkäufer. Admin und Berater sehen den Marktplatz wieder vollständig

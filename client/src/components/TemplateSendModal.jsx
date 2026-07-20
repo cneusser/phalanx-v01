@@ -21,6 +21,8 @@ export default function TemplateSendModal({ project, contactIds, onClose, onSent
   const [reminders, setReminders] = useState(false);
   const [preview, setPreview] = useState(null);
   const [sending, setSending] = useState(false);
+  const [names, setNames] = useState({});    // contact_id → Anzeigename
+  const [reasons, setReasons] = useState({}); // contact_id → individuelle Begründung ({{warum}})
 
   useEffect(() => {
     api.get('/crm/templates').then(d => {
@@ -46,11 +48,26 @@ export default function TemplateSendModal({ project, contactIds, onClose, onSent
     const t = setTimeout(() => {
       api.post(`/crm/templates/${tpl.id}/preview`, {
         contact_id: contactIds[0], project_id: project.id, subject, body, frist,
+        warum: reasons[contactIds[0]] || '',
       }).then(setPreview).catch(() => {});
     }, 350);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tplId, subject, body, frist]);
+  }, [tplId, subject, body, frist, reasons]);
+
+  // Namen der Empfänger für den Mailmerge (individuelle Begründung je Kontakt)
+  useEffect(() => {
+    api.get(`/crm/deals/${project.id}/parties`).then(d => {
+      const map = {};
+      (d.parties || []).forEach(p => {
+        map[p.contact_id] = [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || p.email || `Kontakt ${p.contact_id}`;
+      });
+      setNames(map);
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const usesWarum = /\{\{\s*warum\s*\}\}/i.test(body || '');
 
   async function send() {
     if (!tpl) return;
@@ -63,6 +80,7 @@ export default function TemplateSendModal({ project, contactIds, onClose, onSent
       const r = await api.post(`/crm/deals/${project.id}/send-template`, {
         template_id: tpl.id, contact_ids: contactIds,
         subject, body, frist, advance_stage: advance, reminders_enabled: reminders,
+        reasons,
       });
       onSent(r);
     } catch (e) { show('Fehler: ' + e.message); setSending(false); }
@@ -102,9 +120,34 @@ export default function TemplateSendModal({ project, contactIds, onClose, onSent
         <textarea value={body} onChange={e => setBody(e.target.value)} rows={9}
           style={{ ...IN, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6, marginBottom: '0.4rem' }} />
         <div style={{ fontSize: '0.7rem', color: C.muted, marginBottom: '0.9rem' }}>
-          Platzhalter: {'{{anrede}} {{mandat}} {{branche}} {{region}} {{umsatz}} {{transaktionsart}} {{unternehmen}} {{frist}} {{berater}}'}, 
+          Platzhalter: {'{{anrede}} {{mandat}} {{branche}} {{region}} {{umsatz}} {{transaktionsart}} {{unternehmen}} {{frist}} {{berater}} {{warum}}'},
           Anrede, Eckdaten-Tabelle, Unterschrift und Rechtshinweis werden automatisch ergänzt.
+          {' '}Mit <strong>{'{{warum}}'}</strong> schreiben Sie je Empfänger eine eigene Begründung.
         </div>
+
+        {/* Mailmerge: individuelle Begründung je Empfänger */}
+        {usesWarum && (
+          <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '0.8rem 1rem', marginBottom: '0.9rem' }}>
+            <div style={{ ...LBL, marginBottom: 4, color: '#92400e' }}>Individuelle Begründung je Empfänger</div>
+            <div style={{ fontSize: '0.72rem', color: '#7c5e10', marginBottom: 8, lineHeight: 1.5 }}>
+              Der Text ersetzt {'{{warum}}'} in der Mail. Leer lassen ist möglich, dann entfällt der Platzhalter bei diesem Empfänger.
+            </div>
+            <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+              {contactIds.map(cid => (
+                <div key={cid} style={{ display: 'grid', gridTemplateColumns: '170px 1fr', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: C.navy, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {names[cid] || `Kontakt ${cid}`}
+                  </div>
+                  <input
+                    value={reasons[cid] || ''}
+                    onChange={e => setReasons(r => ({ ...r, [cid]: e.target.value }))}
+                    placeholder="z. B. passt zu Ihrem Fokus auf Energiedienstleistung im süddeutschen Raum"
+                    style={{ ...IN, fontSize: '0.8rem' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {preview && (
           <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem 1rem', marginBottom: '0.9rem' }}>

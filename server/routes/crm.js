@@ -1834,6 +1834,7 @@ router.post('/templates/:id/preview', ...isStaff, wrap(async (req, res) => {
   const mail = mt.buildFromTemplate({
     template: tpl, contact: contact || {}, project: project || {}, inviter: req.user,
     inviteToken: 'VORSCHAU', profileToken: 'VORSCHAU', frist: req.body.frist,
+    warum: req.body.warum,
     overrideSubject: req.body.subject, overrideBody: req.body.body,
   });
   res.json({ success: true, data: { subject: mail.subject, body: mail.previewText, salutation: mail.salutation, cta: mail.ctaLabel, to: mail.to } });
@@ -1909,9 +1910,12 @@ router.post('/deals/:projectId/send-template', ...isStaff, canSend, wrap(async (
       }
     }
 
+    // Mailmerge: individuelle Begründung je Empfänger für {{warum}}
+    const warum = (req.body.reasons && (req.body.reasons[cid] || req.body.reasons[String(cid)])) || '';
+
     sendCampaignEmail({ ...mt.buildFromTemplate({
       template: tpl, contact: k, project, inviter: req.user,
-      inviteToken, profileToken, frist: req.body.frist,
+      inviteToken, profileToken, frist: req.body.frist, warum,
       overrideSubject: req.body.subject, overrideBody: req.body.body,
       withFacts: req.body.with_facts !== false,
     }), meta: { type: 'campaign', templateKey: tpl.key, contactId: cid, projectId, actorId: req.user.id, tenantId: tenant } }).catch(() => {});
@@ -1922,8 +1926,10 @@ router.post('/deals/:projectId/send-template', ...isStaff, canSend, wrap(async (
       ON CONFLICT (campaign_id, contact_id) DO NOTHING`,
       [tenant, campaignId, cid, k.email, inviteId, profileId])).catch(() => {});
 
-    // Funnel nachziehen: mindestens „angesprochen"; auf Wunsch auf die Stufe der Vorlage
-    const target = advance && Number.isInteger(tpl.stage) ? Math.max(1, tpl.stage) : 1;
+    // Funnel nachziehen: mindestens „Angesprochen" (Stufe 2 seit v0.296);
+    // auf Wunsch auf die in der Vorlage hinterlegte Stufe.
+    const STAGE_APPROACHED = 2;
+    const target = advance && Number.isInteger(tpl.stage) ? Math.max(STAGE_APPROACHED, tpl.stage) : STAGE_APPROACHED;
     await scoped(req, (t) => t.run(`
       UPDATE crm_deal_parties
          SET mails_sent = COALESCE(mails_sent,0) + 1,

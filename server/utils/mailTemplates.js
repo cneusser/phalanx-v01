@@ -25,6 +25,7 @@ const PLACEHOLDERS = [
   ['{{frist}}', 'Frist / Datum: vor dem Versand eingebbar'],
   ['{{datum}}', 'Heutiges Datum'],
   ['{{herkunft}}', 'Woher der Kontakt stammt, z. B. „über die Deutsche Unternehmerbörse (DUB.de), Inserat 17392" (leer, wenn unbekannt)'],
+  ['{{warum}}', 'Individuelle Begründung je Empfänger: warum passt genau dieses Mandat zu ihm? Vor dem Versand je Kontakt eingebbar'],
 ];
 
 // Fertiger Herkunftssatz für die Ansprache eines eingelesenen Marktplatz-Leads.
@@ -36,7 +37,7 @@ function herkunftSatz(contact = {}) {
 
 const CTA_TARGETS = ['project', 'consent', 'profile', 'none'];
 
-function buildContext({ contact = {}, project = {}, inviter = {}, frist = '' }) {
+function buildContext({ contact = {}, project = {}, inviter = {}, frist = '', warum = '' }) {
   const d = new Date();
   return {
     anrede: salutationFor(contact),
@@ -56,6 +57,8 @@ function buildContext({ contact = {}, project = {}, inviter = {}, frist = '' }) 
     frist: frist || 'k. A.',
     datum: d.toLocaleDateString('de-DE'),
     herkunft: herkunftSatz(contact),
+    // Individuelle Begründung je Empfänger (Mailmerge), vor dem Versand eingebbar
+    warum: warum || '',
   };
 }
 
@@ -84,8 +87,8 @@ function ctaPathFor(target, { project, inviteToken, profileToken }) {
 }
 
 // Fertige Mail aus einer Vorlage bauen (für Versand UND Vorschau identisch)
-function buildFromTemplate({ template, contact, project, inviter, inviteToken, profileToken, frist, overrideSubject, overrideBody, withFacts = true }) {
-  const ctx = buildContext({ contact, project, inviter, frist });
+function buildFromTemplate({ template, contact, project, inviter, inviteToken, profileToken, frist, warum, overrideSubject, overrideBody, withFacts = true }) {
+  const ctx = buildContext({ contact, project, inviter, frist, warum });
   const subject = render(overrideSubject || template.subject, ctx);
   const bodyText = render(overrideBody || template.body, ctx);
   const target = CTA_TARGETS.includes(template.cta_target) ? template.cta_target : 'project';
