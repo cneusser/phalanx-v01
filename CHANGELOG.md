@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.301 · 21.08.2026 · Exposé erscheint in der Unterlagen-Liste
+- **Exposé in der Dokumentenliste**: Bei den vertraulichen Unterlagen steht jetzt ein Eintrag „Exposé (Web-Ansicht und PDF)" mit zwei Schaltflächen: „Ansehen" öffnet das Web-Exposé, „PDF" lädt den Export
+- **Ohne Doppelspeicherung**: Das Exposé bleibt in seiner eigenen, gesicherten Ablage. Der Listeneintrag ist nur ein Verweis, es wird nichts kopiert
+- **Gleiche Sperre wie das IM**: Sichtbar erst nach unterzeichneter NDA und nur, wenn das Exposé veröffentlicht ist. Admin und Berater sehen es immer
+- Hinweis: Die öffentliche Teaser-Karte lässt sich bereits seit Sprint 9 im Exposé-Editor über „Öffentlichen Teaser aktualisieren" aus dem Exposé ableiten. Dieser Punkt war in der Roadmap zu Unrecht als offen geführt
+- Verifiziert: fünf Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.300 · 20.08.2026 · Individuelle Begründung je Empfänger, Vorlagen-Stufen korrigiert
 - **Mailmerge**: Neuer Platzhalter `{{warum}}`. Steht er im Text, erscheint im Versand-Dialog je Empfänger ein eigenes Feld, etwa „passt zu Ihrem Fokus auf Energiedienstleistung im süddeutschen Raum". Leer lassen ist erlaubt, dann entfällt der Platzhalter für diesen Empfänger. Die Vorschau zeigt die Begründung des ersten Empfängers mit
 - **Fehler behoben**: Der Vorlagen-Versand hob Kontakte auf Stufe 1, seit v0.296 ist das „Freigabe Verkäufer" statt „Angesprochen". Jetzt wird korrekt auf „Angesprochen" gestuft

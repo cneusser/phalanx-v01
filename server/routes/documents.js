@@ -234,8 +234,32 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
     FROM documents WHERE project_id = ? ORDER BY created_at DESC
   `, [projectId]);
 
+  // Das Exposé liegt bewusst in einer eigenen, NDA-gesicherten Ablage. Damit es
+  // in der Unterlagen-Liste nicht fehlt, blenden wir es als virtuellen Eintrag
+  // ein: gleiche Sperre wie das IM, aber ohne Doppelspeicherung. Der Client
+  // verlinkt darüber auf das Web-Exposé und den PDF-Export.
+  const exposeRow = await db.get(
+    `SELECT status, published_at, updated_at FROM exposes WHERE project_id = ?`, [projectId]).catch(() => null);
+  const exposeEntry = exposeRow ? {
+    id: 'expose',
+    virtual: 'expose',
+    filename: 'Exposé (Web-Ansicht und PDF)',
+    file_type: 'application/pdf',
+    file_size: null,
+    access_level: 'im',
+    category: 'im',
+    folder: null,
+    version: null,
+    description: 'Vollständiges Exposé des Mandats. Öffnet sich nach unterzeichneter NDA.',
+    created_at: exposeRow.published_at || exposeRow.updated_at,
+    has_file: 1,
+    expose_status: exposeRow.status,
+    view_path: `/projekte/${projectId}/expose`,
+    download_path: `/api/exposes/${projectId}/pdf`,
+  } : null;
+
   if (isAdminUser) {
-    return res.json({ success: true, data: docs });
+    return res.json({ success: true, data: exposeEntry ? [exposeEntry, ...docs] : docs });
   }
 
   // Zustandsautomat: Nutzer sieht nur Dokumente, deren Kategorie-Gate seine
@@ -249,12 +273,16 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
     if (cat === 'dataroom' && !dataroomRead) return false;
     return true;
   });
-  if (visible.length === 0 && docs.length > 0) {
+  // Exposé nur zeigen, wenn es veröffentlicht ist UND das IM-Gate offen steht
+  const exposeVisible = exposeEntry && exposeEntry.expose_status === 'published' && stageAllows(stage, 'im');
+  const out = exposeVisible ? [exposeEntry, ...visible] : visible;
+
+  if (out.length === 0 && docs.length > 0) {
     db.activityLog(req.user.id, 'ACCESS_DOCLIST_DENIED', 'documents', projectId, req.ip);
     return res.status(403).json({ success: false, error: 'NDA-Freigabe erforderlich' });
   }
   db.activityLog(req.user.id, 'ACCESS_DOCLIST', 'documents', projectId, req.ip);
-  res.json({ success: true, data: visible });
+  res.json({ success: true, data: out });
 }));
 
 // ── GET /api/documents/:projectId/:docId/download ──────────

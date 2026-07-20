@@ -85,10 +85,11 @@ entrepreneursclub.eu (Club- und Level-Modell, siehe Sprint 27).
 - **CRM IV:** Dokumentenmanagement und Auswertungen (Selbstpflege-Portal ist fertig).
 - **CRM V:** offene API und Webhooks.
 - **CRM VI (Sprint 24):** Anreicherung, KI-Zusammenfassungen, Kaufwahrscheinlichkeit, E-Signatur, Mobile-App.
-- Per-Investor-Mailmerge für die Ansprache (individuelle Begründung je Empfänger).
-- Exposé-PDF in die gemeinsame Dokumentenliste einordnen (heute bewusst getrennt und NDA-gesichert).
+- ~~Per-Investor-Mailmerge für die Ansprache~~ ✅ fertig (v0.300, Platzhalter `{{warum}}`).
+- ~~Exposé in die Dokumentenliste einordnen~~ ✅ fertig (v0.301, Verweis statt Kopie, IM-Gate).
+- ~~Öffentliche Teaser-Karte aus dem Exposé ableiten~~ ✅ war bereits seit Sprint 9 vorhanden
+  („Öffentlichen Teaser aktualisieren" im Exposé-Editor); in der Roadmap zu Unrecht als offen geführt.
 - Mehrsprachigkeit: Seiten schrittweise übersetzen (Fundament steht).
-- Öffentliche Teaser-Karte automatisch aus dem Exposé ableiten (Rest aus Sprint 9).
 - Kaufgesuche als Buy-Side-Marktplatz und ein Paket-/Preismodell (bewusst hinter Sprint 26 gestellt).
 
 **Empfehlung & Begründung:** Sprint 7 (ausführliche Bewertung) vor Container-Safe,

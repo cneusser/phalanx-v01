@@ -558,8 +558,36 @@ export default function ProjectDetail() {
         }
       };
 
+      // Das Exposé ist ein virtueller Eintrag: es liegt in einer eigenen Ablage.
+      // Statt eines Datei-Downloads führen wir zur Web-Ansicht und zum PDF.
+      const exposePdf = async () => {
+        try {
+          const res = await fetch(`/api/exposes/${id}/pdf`, { headers: { Authorization: `Bearer ${getToken()}` } });
+          if (!res.ok) throw new Error('Exposé-PDF nicht verfügbar');
+          const b = await res.blob();
+          const u = URL.createObjectURL(b);
+          const a = document.createElement('a');
+          a.href = u; a.download = `Expose_${fullData?.project?.codename || id}.pdf`; a.click();
+          URL.revokeObjectURL(u);
+        } catch (e) { alert(e.message || 'Exposé-PDF nicht verfügbar'); }
+      };
+
       // Download-Button: deaktiviert, wenn (noch) keine physische Datei hinterlegt ist
       const DownloadButton = ({ doc }) => {
+        if (doc.virtual === 'expose') {
+          return (
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <Link to={`/projekte/${id}/expose`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '0.4rem 0.8rem', background: C.navy, color: '#fff', borderRadius: 6, fontSize: '0.76rem', fontWeight: 700, textDecoration: 'none' }}>
+                Ansehen
+              </Link>
+              <button onClick={exposePdf}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '0.4rem 0.8rem', background: '#fff', color: C.navy, border: `1px solid ${C.navy}`, borderRadius: 6, fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
+                PDF
+              </button>
+            </div>
+          );
+        }
         const fileMissing = doc.has_file === 0;
         return (
           <button
