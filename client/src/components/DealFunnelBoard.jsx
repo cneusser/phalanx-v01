@@ -473,17 +473,23 @@ export default function DealFunnelBoard({ show }) {
 
       {deal && board && (
         <>
-          {/* Funnel-Kennzahlen */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: '0.4rem', marginBottom: '1rem' }}>
+          {/* Funnel-Kennzahlen: die ganze Prozesskette in EINER Zeile, auf schmalen
+              Bildschirmen waagerecht scrollbar statt umgebrochen. */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${stages.length || 1}, minmax(78px, 1fr))`,
+            gap: '0.35rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.2rem',
+          }}>
             {stages.map(s => {
               const reached = buyerReached[s.key] || 0;
               const prev = s.key > 0 ? (buyerReached[s.key - 1] || 0) : null;
               const conv = prev ? Math.round((reached / Math.max(prev, 1)) * 100) : null;
               return (
-                <div key={s.key} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.5rem', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: reached > 0 ? C.accent : C.muted }}>{reached}</div>
-                  <div style={{ fontSize: '0.62rem', color: C.muted, fontWeight: 600, lineHeight: 1.2 }}>{s.label}</div>
-                  {conv !== null && <div style={{ fontSize: '0.6rem', color: conv >= 50 ? '#059669' : conv >= 25 ? '#d97706' : '#dc2626', fontWeight: 700 }}>{conv}%</div>}
+                <div key={s.key} title={s.label}
+                  style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.45rem 0.3rem', textAlign: 'center', minWidth: 0 }}>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: reached > 0 ? C.accent : C.muted, lineHeight: 1.2 }}>{reached}</div>
+                  <div style={{ fontSize: '0.58rem', color: C.muted, fontWeight: 600, lineHeight: 1.25, hyphens: 'auto', overflowWrap: 'anywhere' }}>{s.label}</div>
+                  {conv !== null && <div style={{ fontSize: '0.58rem', color: conv >= 50 ? '#059669' : conv >= 25 ? '#d97706' : '#dc2626', fontWeight: 700 }}>{conv}%</div>}
                 </div>
               );
             })}

@@ -53,17 +53,24 @@ export default function SellerFunnel({ projects = [], show }) {
 
       {data && (
         <>
-          {/* Kennzahlen je Stufe */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: '0.4rem', marginBottom: '1rem' }}>
+          {/* Kennzahlen je Stufe: die ganze Prozesskette bleibt in EINER Zeile.
+              Auf schmalen Bildschirmen wird die Zeile waagerecht scrollbar, statt
+              umzubrechen: so bleibt die Reihenfolge der Stufen immer lesbar. */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${stages.length || 1}, minmax(78px, 1fr))`,
+            gap: '0.35rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.2rem',
+          }}>
             {stages.map(s => {
               const r = reached[s.key] || 0;
               const prev = s.key > 0 ? (reached[s.key - 1] || 0) : null;
               const conv = prev ? Math.round((r / Math.max(prev, 1)) * 100) : null;
               return (
-                <div key={s.key} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.5rem', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: r > 0 ? C.navy : C.gray }}>{r}</div>
-                  <div style={{ fontSize: '0.62rem', color: C.gray, fontWeight: 600, lineHeight: 1.2 }}>{s.label}</div>
-                  {conv !== null && <div style={{ fontSize: '0.6rem', color: conv >= 50 ? '#059669' : conv >= 25 ? '#d97706' : '#dc2626', fontWeight: 700 }}>{conv}%</div>}
+                <div key={s.key} title={s.label}
+                  style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.45rem 0.3rem', textAlign: 'center', minWidth: 0 }}>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: r > 0 ? C.navy : C.gray, lineHeight: 1.2 }}>{r}</div>
+                  <div style={{ fontSize: '0.58rem', color: C.gray, fontWeight: 600, lineHeight: 1.25, hyphens: 'auto', overflowWrap: 'anywhere' }}>{s.label}</div>
+                  {conv !== null && <div style={{ fontSize: '0.58rem', color: conv >= 50 ? '#059669' : conv >= 25 ? '#d97706' : '#dc2626', fontWeight: 700 }}>{conv}%</div>}
                 </div>
               );
             })}
