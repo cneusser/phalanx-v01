@@ -19,6 +19,8 @@ const STAGE_LABEL = ['Longlist zur Freigabe', 'Shortlist freigegeben', 'Ansprach
 // Käufertyp (v0.291): value → Anzeigename
 const BUYER_TYPES = [
   ['', 'ohne Angabe'], ['strategic', 'Strategischer Käufer'], ['financial', 'Finanzinvestor'],
+  ['business_angel', 'Business Angel'], ['venture_capital', 'Venture Capital'],
+  ['family_office', 'Family Office'], ['successor', 'Nachfolger (MBO/MBI)'],
   ['private', 'Privatperson'], ['advisor_mandate', 'M&A-Berater mit Suchmandat'],
 ];
 const EVENT_COLOR = {

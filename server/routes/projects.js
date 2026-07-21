@@ -436,7 +436,7 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
           stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, status,
           buyer_groups, keywords, visibility } = req.body;
   const cleanVisibility = ['public', 'invite_only'].includes(visibility) ? visibility : null;
-  const BUYER_GROUPS = ['strategic', 'financial', 'private', 'advisor_mandate'];
+  const BUYER_GROUPS = ['strategic', 'financial', 'business_angel', 'venture_capital', 'family_office', 'successor', 'private', 'advisor_mandate'];
   const buyerGroupsJson = Array.isArray(buyer_groups)
     ? JSON.stringify(buyer_groups.filter(g => BUYER_GROUPS.includes(g)))
     : null;

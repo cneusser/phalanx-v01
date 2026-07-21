@@ -252,7 +252,7 @@ const CONTACT_FIELDS = ['salutation', 'title', 'first_name', 'last_name', 'email
   'linkedin_url', 'location', 'responsibility', 'relationship', 'notes', 'consent_status', 'contact_status',
   'investment_focus'];
 // Käufertyp am Kontakt (v0.291, DUB-Benchmark). Leer = unbekannt.
-const BUYER_TYPES = ['strategic', 'financial', 'private', 'advisor_mandate'];
+const BUYER_TYPES = ['strategic', 'financial', 'business_angel', 'venture_capital', 'family_office', 'successor', 'private', 'advisor_mandate'];
 const cleanBuyerType = (v) => (BUYER_TYPES.includes(v) ? v : null);
 
 router.get('/contacts', ...isStaff, wrap(async (req, res) => {

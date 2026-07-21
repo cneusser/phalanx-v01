@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.313 · 21.07.2026 · Käufertypen erweitert und vereinheitlicht
+- **Neu**: Business Angel und Venture Capital als eigene Käufertypen, getrennt vom allgemeinen Finanzinvestor. Beide sind zwar Finanzinvestoren, verhalten sich in Ticketgröße, Beteiligungsform und Ansprache aber deutlich anders
+- **Fehler dabei gefunden und behoben**: Registrierung und CRM benutzten zwei verschiedene Wertelisten. Die Registrierung kannte `family_office`, `successor` und `advisor`, das CRM dagegen `private` und `advisor_mandate`. Da die Käufergruppen-Zielsteuerung beide Seiten vergleicht, konnte ein als Family Office oder Nachfolger registrierter Investor von keiner Zielgruppe erfasst werden
+- **Kanonische Liste jetzt überall gleich**: strategisch, Finanzinvestor, Business Angel, Venture Capital, Family Office, Nachfolger (MBO/MBI), Privatperson, M&A-Berater mit Suchmandat. Gültig in Registrierung, CRM, Kontakt, Funnel und Inserat-Wizard
+- Bestandsdaten mit dem Altwert „advisor" wurden auf „M&A-Berater mit Suchmandat" umgeschlüsselt
+- Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.312 · 21.07.2026 · Changelog-Daten korrigiert
 - **Fehler behoben**: Die Einträge ab v0.260 trugen Daten, die in der Zukunft lagen. Sie wurden beim Anlegen fortlaufend hochgezählt, statt das tatsächliche Datum zu setzen. Die Abweichung wuchs bis auf rund sechs Wochen: v0.311 stand auf dem 30.08.2026, obwohl der Eintrag am 21.07.2026 entstand
 - **Jetzt**: Alle betroffenen Einträge stehen auf dem 21.07.2026. Die Reihenfolge bleibt über die Versionsnummer erhalten, frühere korrekte Einträge sind unberührt

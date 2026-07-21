@@ -21,6 +21,8 @@ const LBL = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.n
 const STEPS = ['Grundlagen', 'Einordnung', 'Kennzahlen', 'Beschreibung', 'Sichtbarkeit', 'Prüfen'];
 const BUYER_GROUPS = [
   ['strategic', 'Strategischer Käufer'], ['financial', 'Finanzinvestor'],
+  ['business_angel', 'Business Angel'], ['venture_capital', 'Venture Capital'],
+  ['family_office', 'Family Office'], ['successor', 'Nachfolger (MBO/MBI)'],
   ['private', 'Privatperson'], ['advisor_mandate', 'M&A-Berater mit Suchmandat'],
 ];
 

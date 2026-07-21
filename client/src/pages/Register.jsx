@@ -207,12 +207,16 @@ export default function Register() {
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.35rem' }}>
                 Käufertyp
               </label>
+              {/* Dieselbe Werteliste wie im CRM: nur so greift die Käufergruppen-Zielsteuerung */}
               <select value={form.buyer_type} onChange={set('buyer_type')} style={{ ...inputStyle, background: C.xLight }}>
                 <option value="strategic">Strategischer Käufer</option>
-                <option value="financial">Finanzinvestor / PE</option>
+                <option value="financial">Finanzinvestor / Private Equity</option>
+                <option value="business_angel">Business Angel</option>
+                <option value="venture_capital">Venture Capital</option>
                 <option value="family_office">Family Office</option>
                 <option value="successor">Nachfolger (MBO/MBI)</option>
-                <option value="advisor">Berater / Intermediär</option>
+                <option value="private">Privatperson</option>
+                <option value="advisor_mandate">M&A-Berater mit Suchmandat</option>
               </select>
             </div>
           )}

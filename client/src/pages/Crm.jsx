@@ -19,6 +19,10 @@ const STATUS = { active: { label: 'Aktiv', bg: '#e0f2fe', color: '#0369a1' }, do
 const BUYER_TYPE = {
   strategic: { label: 'Strategischer Käufer', short: 'Strategisch', bg: '#ede9fe', color: '#5b21b6' },
   financial: { label: 'Finanzinvestor', short: 'Finanzinvestor', bg: '#dbeafe', color: '#1e40af' },
+  business_angel: { label: 'Business Angel', short: 'Business Angel', bg: '#e0f2fe', color: '#075985' },
+  venture_capital: { label: 'Venture Capital', short: 'Venture Capital', bg: '#cffafe', color: '#155e75' },
+  family_office: { label: 'Family Office', short: 'Family Office', bg: '#f1f5f9', color: '#334155' },
+  successor: { label: 'Nachfolger (MBO/MBI)', short: 'Nachfolger', bg: '#ffe4e6', color: '#9f1239' },
   private: { label: 'Privatperson', short: 'Privat', bg: '#dcfce7', color: '#166534' },
   advisor_mandate: { label: 'M&A-Berater mit Suchmandat', short: 'M&A-Suchmandat', bg: '#fef3c7', color: '#92400e' },
 };

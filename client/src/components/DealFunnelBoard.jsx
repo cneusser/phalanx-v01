@@ -15,6 +15,10 @@ const INBOUND_LABEL = { nda: 'NDA', interest: 'Interesse', watchlist: 'beobachte
 const BUYER_TYPE = {
   strategic: { short: 'Strategisch', bg: '#ede9fe', color: '#5b21b6' },
   financial: { short: 'Finanzinvestor', bg: '#dbeafe', color: '#1e40af' },
+  business_angel: { short: 'Business Angel', bg: '#e0f2fe', color: '#075985' },
+  venture_capital: { short: 'Venture Capital', bg: '#cffafe', color: '#155e75' },
+  family_office: { short: 'Family Office', bg: '#f1f5f9', color: '#334155' },
+  successor: { short: 'Nachfolger', bg: '#ffe4e6', color: '#9f1239' },
   private: { short: 'Privat', bg: '#dcfce7', color: '#166534' },
   advisor_mandate: { short: 'M&A-Suchmandat', bg: '#fef3c7', color: '#92400e' },
 };
