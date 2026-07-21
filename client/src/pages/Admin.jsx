@@ -524,6 +524,28 @@ export default function Admin() {
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
 
+  // Startup-Finanzierung: Unterlagen ohne NDA freigeben (Freigabe ersetzt Unterschrift)
+  async function grantFundraisingDocs(n) {
+    if (!window.confirm(
+      `Unterlagen zu „${n.project_codename}" für ${n.user_name} freigeben?\n\n` +
+      `Der Investor sieht danach Pitch Deck und Kurzprofil, ohne ein NDA zu unterzeichnen. ` +
+      `Der Datenraum bleibt gesperrt und wird separat freigegeben.\n\n` +
+      `Bitte nur freigeben, wenn Sie den Investor geprüft haben.`)) return;
+    try {
+      await api.post(`/admin/projects/${n.project_id}/interests/${n.user_id}/grant-documents`, {});
+      showMsg('Unterlagen freigegeben ✓');
+      loadAll();
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+  async function revokeFundraisingDocs(n) {
+    if (!window.confirm(`Freigabe für ${n.user_name} wieder entziehen?`)) return;
+    try {
+      await api.post(`/admin/projects/${n.project_id}/interests/${n.user_id}/revoke-documents`, {});
+      showMsg('Freigabe entzogen');
+      loadAll();
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
   async function approveNDA(id) {
     try {
       await api.put(`/admin/ndas/${id}/approve`, {});
@@ -1221,9 +1243,34 @@ export default function Admin() {
                       <div style={{ color: C.muted, fontSize: '0.72rem' }}>{n.user_email}</div>
                     </td>
                     <td style={{ padding: '0.75rem 1rem', color: '#555', fontSize: '0.82rem' }}>{n.user_company || '–'}</td>
-                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: C.text, fontSize: '0.82rem' }}>{n.project_codename}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: C.text, fontSize: '0.82rem' }}>
+                      {n.project_codename}
+                      {n.project_mandate_type === 'fundraising' && (
+                        <span style={{ display: 'block', fontWeight: 500, color: '#5b21b6', fontSize: '0.68rem' }}>Startup-Finanzierung</span>
+                      )}
+                    </td>
                     <td style={{ padding: '0.75rem 1rem' }}>
                       <span style={{ background: s.bg, color: s.color, padding: '0.2rem 0.55rem', borderRadius: 6, fontSize: '0.7rem', fontWeight: 600 }}>{s.label}</span>
+                      {/* Startup-Finanzierung: Freigabe ersetzt die Unterschrift */}
+                      {n.project_mandate_type === 'fundraising' && (
+                        <div style={{ marginTop: 4 }}>
+                          {n.interest_stage === 'requested' || n.interest_stage === 'nda_pending' ? (
+                            <button onClick={() => grantFundraisingDocs(n)}
+                              title="Pitch Deck und Kurzprofil ohne NDA freigeben. Datenraum bleibt gesperrt."
+                              style={{ background: '#ede9fe', color: '#5b21b6', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700 }}>
+                              Unterlagen freigeben
+                            </button>
+                          ) : ['im_granted', 'dataroom_granted', 'loi'].includes(n.interest_stage) ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.68rem', color: '#065f46', fontWeight: 700 }}>Unterlagen frei</span>
+                              <button onClick={() => revokeFundraisingDocs(n)}
+                                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.66rem', color: '#b91c1c', textDecoration: 'underline' }}>
+                                entziehen
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: '0.75rem 1rem', color: C.muted, fontSize: '0.78rem' }}>{new Date(n.requested_at).toLocaleDateString('de-DE')}</td>
                     <td style={{ padding: '0.75rem 1rem' }}>

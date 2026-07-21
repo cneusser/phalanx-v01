@@ -802,12 +802,60 @@ router.get('/ndas', ...isAdmin, wrap(async (req, res) => {
   const ndas = await db.all(`
     SELECT nr.*, u.first_name || ' ' || u.last_name as user_name, u.email as user_email, u.company as user_company,
       p.codename as project_codename, p.industry as project_industry,
+      p.mandate_type as project_mandate_type,
+      (SELECT i.stage FROM interests i WHERE i.project_id = nr.project_id AND i.buyer_id = nr.user_id) AS interest_stage,
       a.first_name || ' ' || a.last_name as approved_by_name
     FROM nda_requests nr
     JOIN users u ON u.id = nr.user_id JOIN projects p ON p.id = nr.project_id
     LEFT JOIN users a ON a.id = nr.approved_by ORDER BY nr.requested_at DESC
   `);
   res.json({ success: true, data: ndas });
+}));
+
+// ── Unterlagen-Freigabe ohne NDA (nur Startup-Finanzierungen) ──────────────
+// Institutionelle Investoren zeichnen in der Regel kein NDA. Statt der
+// Unterschrift entscheidet hier die Beratung ausdrücklich, wer die Unterlagen
+// sehen darf. So bleiben Wettbewerber trotzdem draußen.
+router.post('/projects/:projectId/interests/:userId/grant-documents', ...isAdmin, wrap(async (req, res) => {
+  const project = await db.get('SELECT id, codename, mandate_type FROM projects WHERE id = ?', [req.params.projectId]);
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  if (project.mandate_type !== 'fundraising') {
+    return res.status(400).json({
+      success: false,
+      error: 'Die Freigabe ohne NDA ist nur bei Startup-Finanzierungen vorgesehen. Bei M&A bleibt es beim unterzeichneten NDA.',
+    });
+  }
+  const buyer = await db.get('SELECT id, email, first_name, last_name, salutation, title FROM users WHERE id = ?', [req.params.userId]);
+  if (!buyer) return res.status(404).json({ success: false, error: 'Investor nicht gefunden' });
+
+  const { setStage } = require('../middleware/gates');
+  await setStage(buyer.id, project.id, 'im_granted', req.user.id, req.ip);
+  db.auditLog(req.user.id, 'FUNDRAISING_DOCUMENTS_GRANTED', 'project', project.id,
+    `Unterlagen ohne NDA freigegeben für ${buyer.email}`, req.ip);
+
+  require('../utils/email').sendProcessUpdateEmail({
+    to: buyer.email, firstName: buyer.first_name, person: buyer,
+    title: `Unterlagen freigegeben: ${project.codename}`,
+    message: `wir haben Ihnen die Unterlagen zu <strong>${project.codename}</strong> freigegeben. `
+      + `Sie können Pitch Deck und Kurzprofil ab sofort in der Plattform einsehen. `
+      + `Für den Datenraum sprechen wir Sie gesondert an.`,
+    ctaLabel: 'Unterlagen ansehen', ctaPath: `/projekte/${project.id}`,
+    meta: { type: 'process', projectId: project.id, userId: buyer.id, actorId: req.user.id },
+  }).catch(() => {});
+
+  res.json({ success: true, data: { stage: 'im_granted' } });
+}));
+
+// Freigabe wieder entziehen (Interessent zurück auf „angefragt")
+router.post('/projects/:projectId/interests/:userId/revoke-documents', ...isAdmin, wrap(async (req, res) => {
+  const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.projectId]);
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  await db.run(
+    `UPDATE interests SET stage = 'requested', updated_at = now() WHERE project_id = ? AND buyer_id = ?`,
+    [req.params.projectId, req.params.userId]);
+  db.auditLog(req.user.id, 'FUNDRAISING_DOCUMENTS_REVOKED', 'project', project.id,
+    `Unterlagen-Freigabe entzogen (Nutzer ${req.params.userId})`, req.ip);
+  res.json({ success: true, data: { stage: 'requested' } });
 }));
 
 router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {

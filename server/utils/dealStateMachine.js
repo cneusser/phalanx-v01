@@ -12,9 +12,14 @@
 const INTEREST_STAGES = ['requested', 'nda_pending', 'nda_signed', 'im_granted', 'dataroom_granted', 'loi'];
 
 // Erlaubte Interest-Übergänge (strikt vorwärts + rejected aus jedem Zustand)
+// Hinweis zu 'im_granted' direkt aus 'requested'/'nda_pending' (v0.305):
+// Bei Startup-Finanzierungen unterschreiben institutionelle Investoren in aller
+// Regel kein NDA. Dort ersetzt eine ausdrückliche Freigabe durch die Beratung die
+// Unterschrift. Der Übergang ist deshalb erlaubt, wird in der Route aber strikt
+// auf Mandate vom Typ 'fundraising' begrenzt. Für M&A bleibt es beim NDA.
 const INTEREST_TRANSITIONS = {
-  requested:        ['nda_pending', 'nda_signed', 'rejected'],   // nda_signed direkt bei Online-Signatur
-  nda_pending:      ['nda_signed', 'rejected'],
+  requested:        ['nda_pending', 'nda_signed', 'im_granted', 'rejected'],
+  nda_pending:      ['nda_signed', 'im_granted', 'rejected'],
   nda_signed:       ['im_granted', 'dataroom_granted', 'rejected'], // dataroom direkt bei Admin-Freigabe
   im_granted:       ['dataroom_granted', 'rejected'],
   dataroom_granted: ['loi', 'rejected'],

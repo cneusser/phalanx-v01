@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.305 · 25.08.2026 · Startup-Finanzierung: Unterlagen nach Freigabe statt nach NDA
+- **Ursache behoben**: Institutionelle Investoren unterzeichnen in aller Regel kein NDA (siehe Rückmeldung von Capnamic zu Nexora). Bei Mandaten vom Typ Startup-Finanzierung ersetzt jetzt eine ausdrückliche Freigabe durch die Beratung die Unterschrift
+- **Freigabe als Schutz**: Der Investor fragt die Unterlagen an, freigegeben wird je Einzelfall von Hand. Damit sehen keine Wettbewerber die Unterlagen, obwohl kein NDA vorliegt
+- **Abgestuft**: Nach der Freigabe sind Pitch Deck und Kurzprofil sichtbar. Der Datenraum bleibt gesperrt und wird weiterhin gesondert freigegeben
+- **Umkehrbar und nachvollziehbar**: Die Freigabe lässt sich jederzeit entziehen, jeder Schritt steht im Protokoll, und der Investor wird über die Freigabe per Mail informiert
+- **M&A bleibt streng**: Dort gilt unverändert das unterzeichnete NDA. Der Server weist eine Freigabe ohne NDA bei M&A-Mandaten ausdrücklich zurück
+- In der Käufersicht heißt der Knopf bei Startup-Finanzierungen jetzt „Unterlagen anfragen" statt „NDA anfordern"
+- Verifiziert: fünf Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.304 · 24.08.2026 · Nachricht aus der Plattform schreiben
 - **„Nachricht schreiben" am Kontakt**: freier Text ohne Vorlage, wahlweise mit Mandatsbezug. Anrede, Unterschrift und Rechtshinweis ergänzt die Plattform automatisch
 - **Antwort kommt bei Ihnen an**: Die Mail trägt Ihre Adresse als Antwort-Adresse. Der Empfänger antwortet ganz normal in seinem Mailprogramm, ohne je ein Konto anzulegen

@@ -302,10 +302,14 @@ export default function ProjectDetail() {
             <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '1.25rem', marginTop: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                 <Lock size={14} color={C.navy} />
-                <span style={{ fontWeight: 600, color: C.text, fontSize: '0.88rem' }}>Vollständige Informationen nach NDA-Freigabe</span>
+                <span style={{ fontWeight: 600, color: C.text, fontSize: '0.88rem' }}>
+                  {isStartup ? 'Unterlagen nach Freigabe' : 'Vollständige Informationen nach NDA-Freigabe'}
+                </span>
               </div>
               <p style={{ color: C.muted, fontSize: '0.82rem', lineHeight: 1.6, marginBottom: '1rem' }}>
-                Vollständige Unternehmensbeschreibung, Finanzdaten, Teamdetails und vertrauliche Dokumente werden nach NDA-Freigabe zugänglich.
+                {isStartup
+                  ? 'Pitch Deck und Kurzprofil geben wir nach kurzer Prüfung frei, ein NDA ist dafür nicht nötig. Für den Datenraum sprechen wir Sie gesondert an.'
+                  : 'Vollständige Unternehmensbeschreibung, Finanzdaten, Teamdetails und vertrauliche Dokumente werden nach NDA-Freigabe zugänglich.'}
               </p>
               {!user ? (
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -314,11 +318,13 @@ export default function ProjectDetail() {
                 </div>
               ) : !ndaStatus ? (
                 <button onClick={requestNDA} disabled={requesting} style={{ background: C.navy, color: '#fff', border: 'none', padding: '0.55rem 1.25rem', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', opacity: requesting ? 0.7 : 1 }}>
-                  {requesting ? 'Wird angefordert...' : 'NDA anfordern'}
+                  {requesting ? 'Wird angefragt…' : (isStartup ? 'Unterlagen anfragen' : 'NDA anfordern')}
                 </button>
               ) : (
                 <div style={{ fontSize: '0.82rem', color: '#666' }}>
-                  {statusMap[ndaStatus]?.label || 'NDA-Status: ' + ndaStatus}
+                  {isStartup && ndaStatus === 'requested'
+                    ? 'Angefragt. Wir prüfen kurz und geben die Unterlagen dann frei.'
+                    : (statusMap[ndaStatus]?.label || 'NDA-Status: ' + ndaStatus)}
                 </div>
               )}
             </div>
