@@ -273,6 +273,65 @@ router.get('/contacts', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: rows.map(r => ({ ...r, tags: safeJson(r.tags_json, []) })) });
 }));
 
+// ── Freie Nachricht an einen Kontakt (ohne Vorlage, ohne Mandat) ───────────
+// Für Gegenüber, die nie ein Konto anlegen werden: Sie schreiben aus der
+// Plattform, die Antwort geht direkt an Sie zurück (Reply-To), und der ganze
+// Verlauf steht trotzdem in der Kontakt-Historie. So wird der Thread vollständig,
+// ohne dass die Gegenseite etwas tun muss.
+router.post('/contacts/:id/send-message', ...isStaff, canSend, wrap(async (req, res) => {
+  const k = await scoped(req, (t) => t.get(`
+    SELECT k.*, (SELECT c.name FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
+                  WHERE cc.contact_id = k.id AND cc.ended_on IS NULL LIMIT 1) AS company_name
+    FROM crm_contacts k WHERE k.id = ?`, [req.params.id]));
+  if (!k) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+  if (!k.email) return res.status(400).json({ success: false, error: 'Für diesen Kontakt ist keine E-Mail hinterlegt' });
+  if (k.contact_status === 'do_not_contact' || k.consent_status === 'opt_out') {
+    return res.status(400).json({ success: false, error: 'Dieser Kontakt hat der Ansprache widersprochen' });
+  }
+
+  const subject = String(req.body.subject || '').trim();
+  const body = String(req.body.body || '').trim();
+  if (!subject || body.length < 3) {
+    return res.status(400).json({ success: false, error: 'Betreff und Text sind erforderlich' });
+  }
+
+  const projectId = req.body.project_id ? Number(req.body.project_id) : null;
+  const project = projectId
+    ? await scoped(req, (t) => t.get('SELECT * FROM projects WHERE id = ?', [projectId])).catch(() => null)
+    : null;
+
+  const { sendCampaignEmail, greetingLine } = require('../utils/email');
+  const bodyHtml = body.split(/\n\s*\n/)
+    .map(p => `<p style="font-size:13.5px;line-height:1.65;color:#333;">${
+      p.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')}</p>`)
+    .join('');
+
+  const ok = await sendCampaignEmail({
+    to: k.email,
+    subject,
+    title: subject,
+    salutation: greetingLine(k),
+    bodyHtml,
+    // Antworten sollen direkt beim Absender ankommen, nicht bei der Plattform
+    replyTo: { email: req.user.email, name: [req.user.first_name, req.user.last_name].filter(Boolean).join(' ') },
+    signatureHtml: null,
+    meta: { type: 'message', contactId: k.id, projectId, actorId: req.user.id, tenantId: req.tenantId || 1 },
+  });
+
+  // Ausgang auch in der Mandats-Historie vermerken, falls einem Mandat zugeordnet
+  if (projectId) {
+    await scoped(req, (t) => t.run(
+      `UPDATE crm_deal_parties
+          SET mails_sent = COALESCE(mails_sent,0) + 1, last_contact = CURRENT_DATE,
+              first_contact = COALESCE(first_contact, CURRENT_DATE)
+        WHERE project_id = ? AND contact_id = ?`, [projectId, k.id])).catch(() => {});
+  }
+
+  db.auditLog(req.user.id, 'CRM_MESSAGE_SENT', 'crm_contact', k.id,
+    `${subject}${project ? ` (${project.codename})` : ''}`, req.ip);
+  res.json({ success: true, data: { sent: !!ok, to: k.email } });
+}));
+
 // ── Plattform-Konten für die manuelle Verknüpfung suchen ───────────────────
 // Nötig, wenn der Kontakt im CRM eine andere E-Mail hat als sein Konto.
 router.get('/account-candidates', ...isStaff, wrap(async (req, res) => {
@@ -440,7 +499,7 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
 // Aktivitäten eines Kontakts, chronologisch: was ist wann rausgegangen, was kam zurück?
 const EMAIL_TYPE_LABEL = {
   campaign: 'Ansprache', process: 'Prozess-Mail', invite: 'Einladung',
-  profile_link: 'Pflege-Link', system: 'System-Mail',
+  profile_link: 'Pflege-Link', system: 'System-Mail', message: 'Nachricht',
 };
 
 async function contactActivity(req, contactId, contact = null) {

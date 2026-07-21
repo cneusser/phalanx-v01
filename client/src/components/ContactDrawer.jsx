@@ -39,6 +39,12 @@ const fmt = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', 
 export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   const { startBirdview } = useAuth();
   const [data, setData] = useState(null);
+  // Freie Nachricht
+  const [msgOpen, setMsgOpen] = useState(false);
+  const [msgSubject, setMsgSubject] = useState('');
+  const [msgBody, setMsgBody] = useState('');
+  const [msgProject, setMsgProject] = useState('');
+  const [msgBusy, setMsgBusy] = useState(false);
   // Konto-Verknüpfung
   const [accOpen, setAccOpen] = useState(false);
   const [accQ, setAccQ] = useState('');
@@ -120,6 +126,21 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   async function setPartyField(partyId, patch) {
     try { await api.put(`/crm/parties/${partyId}`, patch); await load(); onChanged && onChanged(); }
     catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  // ── Freie Nachricht aus der Plattform senden (Antwort geht an mich zurück) ──
+  async function sendMessage() {
+    if (!msgSubject.trim() || msgBody.trim().length < 3) return show('Betreff und Text sind erforderlich');
+    setMsgBusy(true);
+    try {
+      await api.post(`/crm/contacts/${contactId}/send-message`, {
+        subject: msgSubject.trim(), body: msgBody, project_id: msgProject || null,
+      });
+      show('Nachricht gesendet ✓');
+      setMsgOpen(false); setMsgSubject(''); setMsgBody(''); setMsgProject('');
+      await load(); onChanged && onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
+    finally { setMsgBusy(false); }
   }
 
   // ── Plattform-Konto manuell verknüpfen (wenn die E-Mail im CRM abweicht) ──
@@ -255,7 +276,14 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                 <Mail size={13} /> Einladen (DSGVO)
               </button>
               {k.email && (
-                <a href={`mailto:${k.email}`} style={{ ...btn(false), textDecoration: 'none' }}>
+                <button onClick={() => setMsgOpen(v => !v)} disabled={blocked}
+                  title="Nachricht aus der Plattform senden: die Antwort geht direkt an Sie, der Verlauf bleibt hier"
+                  style={{ ...btn(blocked), color: '#065f46', borderColor: '#6ee7b7' }}>
+                  <Send size={13} /> Nachricht schreiben
+                </button>
+              )}
+              {k.email && (
+                <a href={`mailto:${k.email}`} title="Im eigenen Mailprogramm öffnen (wird hier nicht protokolliert)" style={{ ...btn(false), textDecoration: 'none' }}>
                   <ExternalLink size={13} /> Direkt mailen
                 </a>
               )}
@@ -280,6 +308,31 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                 </button>
               )}
             </div>
+
+            {/* Freie Nachricht: Versand über die Plattform, Antwort an mich */}
+            {msgOpen && (
+              <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 10, margin: '0 1.3rem 0.8rem', padding: '0.9rem 1rem' }}>
+                <div style={{ ...LBL, color: '#065f46', marginBottom: 6 }}>Nachricht an {k.email}</div>
+                <input value={msgSubject} onChange={e => setMsgSubject(e.target.value)} placeholder="Betreff" style={{ ...IN, marginBottom: 6 }} />
+                <textarea value={msgBody} onChange={e => setMsgBody(e.target.value)} rows={7}
+                  placeholder={'Ihr Text. Absätze durch eine Leerzeile trennen.\n\nDie Anrede setzt die Plattform automatisch, Unterschrift und Rechtshinweis ebenfalls.'}
+                  style={{ ...IN, resize: 'vertical', lineHeight: 1.55, marginBottom: 6 }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center' }}>
+                  <select value={msgProject} onChange={e => setMsgProject(e.target.value)} style={IN}>
+                    <option value="">ohne Mandatsbezug</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.codename}</option>)}
+                  </select>
+                  <button onClick={() => setMsgOpen(false)} style={btn(false)}>Abbrechen</button>
+                  <button onClick={sendMessage} disabled={msgBusy}
+                    style={{ ...btn(msgBusy), background: '#059669', color: '#fff', borderColor: '#059669' }}>
+                    <Send size={13} /> {msgBusy ? 'Senden…' : 'Senden'}
+                  </button>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#047857', marginTop: 6, lineHeight: 1.5 }}>
+                  Antworten gehen direkt an Ihre Adresse. Die Nachricht erscheint sofort unter „Aktivitäten".
+                </div>
+              </div>
+            )}
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '1.2rem', padding: '0 1.3rem', borderBottom: `1px solid ${C.border}` }}>

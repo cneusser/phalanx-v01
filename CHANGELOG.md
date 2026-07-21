@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.304 · 24.08.2026 · Nachricht aus der Plattform schreiben
+- **„Nachricht schreiben" am Kontakt**: freier Text ohne Vorlage, wahlweise mit Mandatsbezug. Anrede, Unterschrift und Rechtshinweis ergänzt die Plattform automatisch
+- **Antwort kommt bei Ihnen an**: Die Mail trägt Ihre Adresse als Antwort-Adresse. Der Empfänger antwortet ganz normal in seinem Mailprogramm, ohne je ein Konto anzulegen
+- **Vollständig dokumentiert**: Jede Nachricht steht sofort in der Kontakt-Historie unter „Aktivitäten" und im Mail-Ausgang. „Direkt mailen" bleibt daneben bestehen, ist aber als nicht protokolliert gekennzeichnet
+- Damit ist die Sendelücke geschlossen: zusammen mit dem BCC-Empfang wird der Schriftverkehr auch mit Gegenübern vollständig, die die Plattform selbst nie nutzen
+- Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.303 · 23.08.2026 · Vertrauliche Mandate: nur auf Einladung
 - **Sichtbarkeit je Mandat**: Im Mandat lässt sich zwischen „Öffentlich" und „Vertraulich (nur auf Einladung)" umschalten
 - **Vertraulich heißt wirklich vertraulich**: Das Mandat erscheint nicht im Marktplatz, nicht in den Zählern, nicht in den Filteroptionen, und es läuft weder über das Matching noch über den Newsletter oder den Digest. Auch die Detailseite antwortet für Unbefugte mit „nicht gefunden", verrät also nicht einmal die Existenz

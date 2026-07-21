@@ -136,13 +136,17 @@ const fromAddress = () => process.env.MAIL_FROM || process.env.SMTP_USER;
 // Railway blockiert ausgehende SMTP-Ports (25/465/587) auf Free/Hobby-Plänen.
 // Deshalb bevorzugt die Plattform die Brevo-REST-API, wenn BREVO_API_KEY
 // gesetzt ist. SMTP bleibt als Fallback (lokal / Pro-Plan) erhalten.
-async function sendViaBrevoApi({ to, subject, html, attachments }) {
+async function sendViaBrevoApi({ to, subject, html, attachments, replyTo }) {
   const payload = {
     sender: { name: 'CapitalMatch Plattform', email: fromAddress() },
     to: [{ email: to }],
     subject,
     htmlContent: html,
   };
+  // Antworten sollen beim Absender landen, nicht bei der Plattform
+  if (replyTo && replyTo.email) {
+    payload.replyTo = { email: replyTo.email, ...(replyTo.name ? { name: replyTo.name } : {}) };
+  }
   // Anhänge (Base64): Brevo erwartet [{ content, name }]
   if (attachments && attachments.length) {
     payload.attachment = attachments.map(a => ({
@@ -186,10 +190,10 @@ async function logMail({ to, subject, html, meta = {}, status = 'sent', error = 
   } catch { /* Protokoll darf den Versand nie blockieren */ }
 }
 
-async function sendMail({ to, subject, html, attachments, meta }) {
+async function sendMail({ to, subject, html, attachments, meta, replyTo }) {
   try {
     if (process.env.BREVO_API_KEY) {
-      await sendViaBrevoApi({ to, subject, html, attachments });
+      await sendViaBrevoApi({ to, subject, html, attachments, replyTo });
       console.log(`✉️  E-Mail gesendet (Brevo-API): "${subject}" an ${to}`);
       logMail({ to, subject, html, meta });
       return true;
@@ -205,7 +209,10 @@ async function sendMail({ to, subject, html, attachments, meta }) {
       content: a.encoding === 'base64' ? Buffer.from(a.content, 'base64') : a.content,
       contentType: a.contentType,
     }));
-    await transporter.sendMail({ from: `"CapitalMatch Plattform" <${fromAddress()}>`, to, subject, html, attachments: smtpAttachments });
+    await transporter.sendMail({
+      from: `"CapitalMatch Plattform" <${fromAddress()}>`, to, subject, html, attachments: smtpAttachments,
+      ...(replyTo && replyTo.email ? { replyTo: replyTo.name ? `"${replyTo.name}" <${replyTo.email}>` : replyTo.email } : {}),
+    });
     console.log(`✉️  E-Mail gesendet (SMTP): "${subject}" an ${to}`);
     logMail({ to, subject, html, meta });
     return true;
@@ -405,12 +412,13 @@ async function sendProcessUpdateEmail({ to, firstName, person, title, message, c
 // Sekundär-Link, Beraterunterschrift und ein rechtlicher Abbinder (Herkunft der
 // Daten, Widerspruchsmöglichkeit). Bewusst ohne Werbeblock, eine Erstansprache
 // im M&A-Kontext ist eine geschäftliche Mitteilung, keine Kampagnen-Werbung.
-async function sendCampaignEmail({ to, subject, title, salutation, bodyHtml, ctaLabel, ctaPath, secondaryHtml, signatureHtml, legalHtml, meta }) {
+async function sendCampaignEmail({ to, subject, title, salutation, bodyHtml, ctaLabel, ctaPath, secondaryHtml, signatureHtml, legalHtml, meta, replyTo }) {
   const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
   const url = ctaPath ? `${base}${ctaPath}` : null;
   return sendMail({
     to,
     subject,
+    replyTo,
     meta: { type: 'campaign', ...(meta || {}) },
     html: mailShell(title, `
       <p style="margin:0 0 14px;">${salutation || 'Guten Tag,'}</p>
