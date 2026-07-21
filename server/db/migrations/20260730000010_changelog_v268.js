@@ -1,6 +1,6 @@
 /** Changelog-Eintrag v0.268 (Anrede + Mandat-Spalte im Mail-Ausgang). */
 const ENTRY = {
-  version: 'v0.268', released_on: '2026-07-30',
+  version: 'v0.268', released_on: '2026-07-21',
   title: 'Anrede per Sie, Mandat im Mail-Ausgang',
   items: [
     'Alle Mails sprechen jetzt förmlich an: Ist eine Anrede hinterlegt, „Sehr geehrter Herr Dr. Meier,", inklusive Titel; sonst „Guten Tag Vorname Nachname,". Immer per Sie, nie mehr „Hallo Alexander"',

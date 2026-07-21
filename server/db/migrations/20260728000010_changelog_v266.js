@@ -1,6 +1,6 @@
 /** Changelog-Eintrag v0.266 (Dokumente umbenennen). */
 const ENTRY = {
-  version: 'v0.266', released_on: '2026-07-28',
+  version: 'v0.266', released_on: '2026-07-21',
   title: 'Dokumente umbenennen',
   items: [
     'Bezeichnung und Kurzbeschreibung eines Dokuments lassen sich nachträglich ändern, Klick auf den Namen oder „Umbenennen"',

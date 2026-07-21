@@ -1,6 +1,6 @@
 /** Changelog v0.304 (Freie Nachricht aus der Plattform, Antworten an den Absender). */
 const ENTRY = {
-  version: 'v0.304', released_on: '2026-08-24',
+  version: 'v0.304', released_on: '2026-07-21',
   title: 'Nachricht aus der Plattform schreiben',
   items: [
     'Neuer Knopf „Nachricht schreiben" am Kontakt: freier Text, ohne Vorlage, wahlweise mit Mandatsbezug',

@@ -1,6 +1,6 @@
 /** Changelog v0.284 (Cloudflare Turnstile Bot-Test). */
 const ENTRY = {
-  version: 'v0.284', released_on: '2026-08-10',
+  version: 'v0.284', released_on: '2026-07-21',
   title: 'Roboter-Test (Cloudflare Turnstile) bei Login und Registrierung',
   items: [
     'Login und Registrierung prüfen optional einen Cloudflare-Turnstile-Test (kostenlos), gegen Bots und automatisiertes Passwort-Durchprobieren',

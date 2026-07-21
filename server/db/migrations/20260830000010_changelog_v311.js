@@ -1,6 +1,6 @@
 /** Changelog v0.311 (Kontaktauswahl im Unternehmen repariert, Firma im Kontakt sichtbar). */
 const ENTRY = {
-  version: 'v0.311', released_on: '2026-08-30',
+  version: 'v0.311', released_on: '2026-07-21',
   title: 'Kontaktauswahl im Unternehmen repariert',
   items: [
     'Fehler behoben: Die Auswahl „Kontakt zuordnen" im Unternehmen war leer, sobald oben eine Suche aktiv war',

@@ -14,7 +14,7 @@ exports.up = async function (knex) {
   await addIfMissing('lead_ref', (t) => t.text('lead_ref'));         // z. B. „Inserat 17392, Referenz 5381 Betongold"
 
   const ENTRY = {
-    version: 'v0.271', released_on: '2026-08-01',
+    version: 'v0.271', released_on: '2026-07-21',
     title: 'Kaufanfragen aus Marktplätzen einlesen',
     items: [
       'Eingehende Anfragen von Portalen (DUB.de, nexxt-change u. a.) lassen sich per Einfügen in die Plattform holen: der Kontakt wird angelegt, dem Mandat zugeordnet und im Funnel geführt',

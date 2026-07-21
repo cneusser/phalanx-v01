@@ -29,7 +29,7 @@ exports.up = async function (knex) {
   `).catch((e) => { console.warn('[fix_reaction_status]', e.message); });
 
   const ENTRY = {
-    version: 'v0.279', released_on: '2026-08-07',
+    version: 'v0.279', released_on: '2026-07-21',
     title: '„Reagiert" bedeutet jetzt wirklich reagiert',
     items: [
       '„Reagiert" zählt nur noch echte Reaktionen: Einwilligung/Registrierung, Absage, Mailantwort oder Widerspruch',

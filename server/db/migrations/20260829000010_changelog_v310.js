@@ -1,6 +1,6 @@
 /** Changelog v0.310 (Lead-Herkunft im Detail, Freigabe vor dem Veröffentlichen). */
 const ENTRY = {
-  version: 'v0.310', released_on: '2026-08-29',
+  version: 'v0.310', released_on: '2026-07-21',
   title: 'Lead-Herkunft im Detail, Freigabe vor dem Veröffentlichen',
   items: [
     'Die Herkunft der Kontakte zeigt jetzt zusätzlich, was konkret hereinkam: Kontakt, Quelle, Eingangsreferenz, Mandat, Art und Datum',

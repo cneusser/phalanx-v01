@@ -121,7 +121,7 @@ exports.up = async function (knex) {
   }
 
   const ENTRY = {
-    version: 'v0.269', released_on: '2026-07-31',
+    version: 'v0.269', released_on: '2026-07-21',
     title: 'Interessenten aus der Plattform im Deal-Funnel',
     items: [
       'Wer eine NDA anfordert, ein Mandat beobachtet oder Interesse zeigt, erscheint jetzt automatisch im Deal-Funnel, auf der zur Interaktion passenden Stufe',

@@ -1,6 +1,6 @@
 /** Changelog v0.283 (E-Mail- und Chat-Verlauf am Kontakt). */
 const ENTRY = {
-  version: 'v0.283', released_on: '2026-08-09',
+  version: 'v0.283', released_on: '2026-07-21',
   title: 'Kompletter E-Mail- und Chat-Verlauf am Kontakt',
   items: [
     'Die Kontakt-Historie zeigt jetzt jede an den Kontakt versendete Mail (Ansprache, Prozess, Einladung, NDA, System) mit Betreff, Art und Status',

@@ -1,6 +1,6 @@
 /** Changelog v0.276 (Herkunft als Admin-Kachel, dezenter im Funnel). */
 const ENTRY = {
-  version: 'v0.276', released_on: '2026-08-04',
+  version: 'v0.276', released_on: '2026-07-21',
   title: 'Herkunft der Kontakte als Admin-Kachel',
   items: [
     'Neue Kachel „Herkunft der Kontakte" in der Admin-Übersicht: je Plattform Quelle, Anzahl und letzter Eingang',

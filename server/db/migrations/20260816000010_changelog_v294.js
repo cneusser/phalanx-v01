@@ -1,6 +1,6 @@
 /** Changelog v0.294 (Stufe D DUB-Benchmark: Verkäufer-Cockpit). */
 const ENTRY = {
-  version: 'v0.294', released_on: '2026-08-16',
+  version: 'v0.294', released_on: '2026-07-21',
   title: 'Verkäufer-Cockpit: Statistik, Inbox, Umschalter',
   items: [
     'Verkäufer-Statistik über alle eigenen Mandate und Gesamtzahl der Interessenten',

@@ -1,6 +1,6 @@
 /** Changelog v0.285 (Kontaktliste Seiten/A-Z, Rolle Prozessbeteiligter). */
 const ENTRY = {
-  version: 'v0.285', released_on: '2026-08-10',
+  version: 'v0.285', released_on: '2026-07-21',
   title: 'Kontaktliste mit Seiten und A-Z, Rolle Prozessbeteiligter',
   items: [
     'Kontaktliste: A-Z-Leiste oben und Seitengröße (10/25/50/Alle) mit Blättern unten',

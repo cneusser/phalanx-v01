@@ -1,6 +1,6 @@
 /** Changelog v0.278 (Recherchelisten aus Excel ins CRM). */
 const ENTRY = {
-  version: 'v0.278', released_on: '2026-08-06',
+  version: 'v0.278', released_on: '2026-07-21',
   title: 'Recherchelisten aus Excel ins CRM',
   items: [
     'Neuer Knopf „Liste importieren (Excel)" im CRM: Spalten werden automatisch erkannt, auch Investoren-/Fondslisten ohne Personennamen',

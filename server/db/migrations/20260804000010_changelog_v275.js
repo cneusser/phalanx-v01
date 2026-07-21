@@ -1,6 +1,6 @@
 /** Changelog v0.275 (Automatik bis zur NDA, Plattform-Herkunft sichtbar). */
 const ENTRY = {
-  version: 'v0.275', released_on: '2026-08-04',
+  version: 'v0.275', released_on: '2026-07-21',
   title: 'Automatik bis zur NDA, Plattform-Herkunft sichtbar',
   items: [
     'Die Einladung erklärt CapitalMatch als eigene Abwicklungsplattform, lädt zur Registrierung ein und nennt die automatische NDA nach der Registrierung',

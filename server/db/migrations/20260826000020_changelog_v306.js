@@ -1,6 +1,6 @@
 /** Changelog v0.306 (Unterlagen-Link ohne Registrierung). */
 const ENTRY = {
-  version: 'v0.306', released_on: '2026-08-26',
+  version: 'v0.306', released_on: '2026-07-21',
   title: 'Unterlagen-Link ohne Registrierung',
   items: [
     'Persönlicher Link auf genau eine Unterlage, ohne Konto und ohne NDA',

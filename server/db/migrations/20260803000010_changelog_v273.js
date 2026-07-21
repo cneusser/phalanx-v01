@@ -1,6 +1,6 @@
 /** Changelog v0.273 (Copy-and-paste als Standardweg, Weiterleitung zurückgestellt). */
 const ENTRY = {
-  version: 'v0.273', released_on: '2026-08-03',
+  version: 'v0.273', released_on: '2026-07-21',
   title: 'Anfragen per Einfügen: der Standardweg',
   items: [
     'Das Einlesen von Marktplatz-Anfragen läuft per Copy-and-paste direkt in der Plattform, ohne Zusatztarif bei einem Maildienst',

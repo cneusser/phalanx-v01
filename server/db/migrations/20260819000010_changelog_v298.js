@@ -1,6 +1,6 @@
 /** Changelog v0.298 (Konto verknüpfen, Unternehmen und Mandat aus dem Kontakt). */
 const ENTRY = {
-  version: 'v0.298', released_on: '2026-08-19',
+  version: 'v0.298', released_on: '2026-07-21',
   title: 'Konto verknüpfen, Unternehmen und Mandat aus dem Kontakt',
   items: [
     'Plattform-Konto lässt sich am Kontakt manuell suchen und verknüpfen, auch wenn die E-Mail im CRM abweicht. Danach steht der Birdview bereit',

@@ -1,6 +1,6 @@
 /** Changelog v0.281 (NDA-Status auf der Karte, Chat prominent). */
 const ENTRY = {
-  version: 'v0.281', released_on: '2026-08-08',
+  version: 'v0.281', released_on: '2026-07-21',
   title: 'NDA-Status auf der Karte, Chat prominent',
   items: [
     'Funnel-Karten zeigen den NDA-Status: „NDA ✓" (unterzeichnet/freigegeben) oder „NDA offen" (angefragt)',

@@ -1,6 +1,6 @@
 /** Changelog v0.303 (Vertrauliche Mandate: Sichtbarkeit je Mandat). */
 const ENTRY = {
-  version: 'v0.303', released_on: '2026-08-23',
+  version: 'v0.303', released_on: '2026-07-21',
   title: 'Vertrauliche Mandate: nur auf Einladung',
   items: [
     'Neue Sichtbarkeit je Mandat: öffentlich oder vertraulich (nur auf Einladung)',

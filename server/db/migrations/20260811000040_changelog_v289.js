@@ -1,6 +1,6 @@
 /** Changelog v0.289 (Beteiligte per Drag-and-drop). */
 const ENTRY = {
-  version: 'v0.289', released_on: '2026-08-11',
+  version: 'v0.289', released_on: '2026-07-21',
   title: 'Beteiligte per Drag-and-drop führen',
   items: [
     'Käufer-Karte in die Zone „Mandant & Beteiligte" ziehen macht sie zum Prozessbeteiligten (aus dem Käufer-Funnel heraus)',

@@ -1,6 +1,6 @@
 /** Changelog v0.288 (Käufer-/Verkäuferrolle getrennt). */
 const ENTRY = {
-  version: 'v0.288', released_on: '2026-08-11',
+  version: 'v0.288', released_on: '2026-07-21',
   title: 'Käufer- und Verkäuferrolle sauber getrennt',
   items: [
     'Eigene Mandate erscheinen nicht mehr im Käufer-Marktplatz; keine NDA/kein Interesse am eigenen Mandat',

@@ -1,6 +1,6 @@
 /** Changelog v0.272 (Brevo-Weiterleitung + automatische Erstansprache). */
 const ENTRY = {
-  version: 'v0.272', released_on: '2026-08-02',
+  version: 'v0.272', released_on: '2026-07-21',
   title: 'Anfragen weiterleiten und automatisch ansprechen',
   items: [
     'Marktplatz-Anfragen können jetzt auch per E-Mail-Weiterleitung eingelesen werden: ein Brevo-Inbound-Webhook (POST /api/inbound/lead) parst die Mail und legt den Lead an',

@@ -1,6 +1,6 @@
 /** Changelog-Eintrag v0.260 (Mail-Ausgang zeigt Mails, Feedback löschbar). */
 const ENTRY = {
-  version: 'v0.260', released_on: '2026-07-22',
+  version: 'v0.260', released_on: '2026-07-21',
   title: 'Mail-Ausgang zeigt die Mails: Feedback löschbar',
   items: [
     'Fehler behoben: Der Mail-Ausgang zählte Mails, zeigte aber keine, die Abfrage scheiterte still an einem Typproblem',

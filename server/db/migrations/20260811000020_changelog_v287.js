@@ -1,6 +1,6 @@
 /** Changelog v0.287 (Unternehmen-Liste Seiten/A-Z, Standard 10, k.A. entfernt). */
 const ENTRY = {
-  version: 'v0.287', released_on: '2026-08-11',
+  version: 'v0.287', released_on: '2026-07-21',
   title: 'Unternehmen mit Seiten und A-Z, kleinere Aufräumer',
   items: [
     'Unternehmen-Liste mit A-Z-Leiste und Seiten wie die Kontakte; Standard-Seitengröße jetzt 10',

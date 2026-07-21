@@ -65,7 +65,7 @@ exports.up = async function (knex) {
   }
 
   const ENTRY = {
-    version: 'v0.274', released_on: '2026-08-03',
+    version: 'v0.274', released_on: '2026-07-21',
     title: 'Gedankenstrich raus aus den gespeicherten Mailvorlagen',
     items: [
       'Die in der Datenbank liegenden Mailvorlagen (u. a. die DSGVO-Einladung) trugen noch den Gedankenstrich, obwohl der Quellcode seit v0.267 sauber war. Seeds überschreiben bestehende Zeilen nicht, deshalb blieb der Strich stehen',

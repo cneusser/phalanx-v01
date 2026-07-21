@@ -1,6 +1,6 @@
 /** Changelog v0.290 (Rückfrage beim Verschieben, Prozess-Übersicht). */
 const ENTRY = {
-  version: 'v0.290', released_on: '2026-08-12',
+  version: 'v0.290', released_on: '2026-07-21',
   title: 'Rückfrage beim Verschieben, Prozess-Übersicht',
   items: [
     'Verschieben im Funnel fragt jetzt nach: „Nur verschieben" oder „Verschieben + passende Prozess-Mail". Verschieben allein sendet keine Mail',

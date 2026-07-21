@@ -3,14 +3,20 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
-## v0.311 · 30.08.2026 · Kontaktauswahl im Unternehmen repariert
+## v0.312 · 21.07.2026 · Changelog-Daten korrigiert
+- **Fehler behoben**: Die Einträge ab v0.260 trugen Daten, die in der Zukunft lagen. Sie wurden beim Anlegen fortlaufend hochgezählt, statt das tatsächliche Datum zu setzen. Die Abweichung wuchs bis auf rund sechs Wochen: v0.311 stand auf dem 30.08.2026, obwohl der Eintrag am 21.07.2026 entstand
+- **Jetzt**: Alle betroffenen Einträge stehen auf dem 21.07.2026. Die Reihenfolge bleibt über die Versionsnummer erhalten, frühere korrekte Einträge sind unberührt
+- Korrigiert wurden Quelldateien, diese Übersicht und die bereits gespeicherten Einträge in der Datenbank
+- Hinweis: Die Datumszahl im Dateinamen einer Migration ist nur ein Sortierschlüssel und sagt nichts über das Veröffentlichungsdatum aus
+
+## v0.311 · 21.07.2026 · Kontaktauswahl im Unternehmen repariert
 - **Fehler behoben**: Im Unternehmen war die Auswahl „Kontakt zuordnen" leer, sobald oben im CRM eine Suche aktiv war. Die Auswahl wurde aus der gefilterten Trefferliste gespeist. Wer nach „Vorwerk" suchte und das Unternehmen öffnete, fand folgerichtig keinen einzigen Kontakt
 - **Jetzt**: Zuordnungslisten arbeiten immer mit dem vollständigen Bestand, unabhängig von der Suche
 - **Bedienbar bei vielen Kontakten**: Die Auswahl hat ein eigenes Suchfeld, zeigt das Unternehmen zur Unterscheidung mit an und nennt die Trefferzahl
 - **Firma aus dem Kontakt**: Die Unternehmenszuordnung steht im Kontakt jetzt mitten im Formular statt unterhalb des Speichern-Knopfes, wo sie leicht zu übersehen war. Bestehendes Unternehmen wählen oder neues anlegen, beides an einer Stelle
 - Verifiziert: Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.310 · 29.08.2026 · Lead-Herkunft im Detail, Freigabe vor dem Veröffentlichen
+## v0.310 · 21.07.2026 · Lead-Herkunft im Detail, Freigabe vor dem Veröffentlichen
 - **Herkunft der Kontakte wird konkret**: Unter den Zahlen steht jetzt eine Liste der zuletzt eingegangenen Leads mit Kontakt, Quelle, **Eingangsreferenz** (etwa die Inserats-Nummer), **Mandat**, Art des Eingangs (Marktplatz-Anfrage, NDA, Interesse, beobachtet, Mailing) und Datum
 - Kontakt und Mandat sind aus der Liste direkt anspringbar
 - **Freigabe vor dem Veröffentlichen**: Ein Entwurf geht nicht mehr mit einem Klick live. Die Rückfrage nennt ausdrücklich die Folgen, also Sichtbarkeit im Marktplatz sowie die automatischen Match- und Newsletter-Mails, die sich nicht zurücknehmen lassen
@@ -18,7 +24,7 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - Bei **vertraulichen Mandaten** weist die Freigabe darauf hin, dass weder Matching noch Newsletter ausgelöst werden; dort entfällt die zweite Bestätigung
 - Verifiziert: fünf Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.309 · 28.08.2026 · Firma am Nutzer über die stabile Verknüpfung
+## v0.309 · 21.07.2026 · Firma am Nutzer über die stabile Verknüpfung
 - **Nicht mehr über den Namen**: Die Admin-Nutzerliste löst die Firma jetzt über die Kette Konto → CRM-Kontakt → aktuelle Unternehmenszuordnung auf und verlinkt auf die **ID** des Unternehmens. Namensänderungen wirken damit überall, ohne dass Verweise brechen
 - **Arbeitgeberwechsel bleiben korrekt**: Die Zuordnung Kontakt zu Unternehmen ist historisiert (`started_on`, `ended_on`). Angezeigt wird die aktuelle Position, frühere bleiben als Historie erhalten
 - **Abweichungen werden sichtbar**: Weicht der bei der Registrierung getippte Firmenname von der verknüpften Firma ab, steht das daneben. So fällt auf, wenn jemand inzwischen woanders arbeitet
@@ -26,7 +32,7 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - Bewusst **kein zweites Firmenfeld am Nutzerkonto**: Eine Fremdschlüsselspalte auf `users` wäre eine konkurrierende Wahrheit ohne Historie und würde mit der CRM-Zuordnung auseinanderlaufen
 - Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.308 · 27.08.2026 · Suchprofile am Kontakt, Sprung in die Firma
+## v0.308 · 21.07.2026 · Suchprofile am Kontakt, Sprung in die Firma
 - **Die beiden Pools sind verheiratet**: Im Kontakt steht jetzt unter „Suchprofil" beides nebeneinander. Oben der Investitionsschwerpunkt aus dem CRM (dort pflegbar, auch vom Kontakt selbst über den Pflege-Link), darunter das **Käuferprofil und die gespeicherten Suchen aus dem Plattform-Konto** mit Branchen, Regionen, Deal-Typen, Umsatz- und EBITDA-Band sowie der Benachrichtigungsfrequenz
 - Voraussetzung ist die Konto-Verknüpfung aus v0.298. Ist kein Konto verknüpft, sagt der Kontakt das ausdrücklich statt einen leeren Bereich zu zeigen
 - **In die Firma springen**: Der Unternehmensname ist in der Kontaktliste und im Kontakt klickbar und öffnet das Unternehmen mit allen Kontakten, Mandaten und Verknüpfungen
@@ -34,11 +40,11 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - **Neue Deeplinks**: `/crm?company=7` öffnet ein Unternehmen direkt, `/crm?q=Name` sucht danach
 - Verifiziert: sechs Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.307 · 26.08.2026 · Prozesskette bleibt in einer Zeile
+## v0.307 · 21.07.2026 · Prozesskette bleibt in einer Zeile
 - Die Kennzahlen über dem Funnel brachen bei neun Stufen um. Sie stehen jetzt in einer durchgehenden Zeile, in der Verkäufer- wie in der Adminsicht
 - Auf schmalen Bildschirmen wird die Zeile waagerecht scrollbar, statt umzubrechen: bei einer Prozesskette ist die Abfolge die eigentliche Information
 
-## v0.306 · 26.08.2026 · Unterlagen-Link ohne Registrierung
+## v0.306 · 21.07.2026 · Unterlagen-Link ohne Registrierung
 - **Der zweite Weg neben der Freigabe**: Ein persönlicher Link auf genau eine Unterlage, ganz ohne Konto und ohne NDA. Gedacht für Gegenüber, die beides nie tun werden
 - **Vertraulichkeit per Klick**: Vor dem Öffnen bestätigt der Empfänger mit seinem vollständigen Namen, dass er die Unterlage vertraulich behandelt und nicht weitergibt. Name, Zeitpunkt und IP werden protokolliert. Das ersetzt keine Unterschrift, ist aber ein belastbarer Nachweis
 - **Vier Schutzschichten**: Ablaufdatum (1 bis 90 Tage), optionale Höchstzahl an Abrufen, jederzeitiger Widerruf und ein Wasserzeichen mit dem Namen des Empfängers auf jeder Seite
@@ -46,7 +52,7 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - **Zwei Quellen**: eine einzelne Unterlage aus der Dokumentenliste des Mandats oder das hinterlegte Exposé-PDF
 - Verifiziert: fünf Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.305 · 25.08.2026 · Startup-Finanzierung: Unterlagen nach Freigabe statt nach NDA
+## v0.305 · 21.07.2026 · Startup-Finanzierung: Unterlagen nach Freigabe statt nach NDA
 - **Ursache behoben**: Institutionelle Investoren unterzeichnen in aller Regel kein NDA (siehe Rückmeldung von Capnamic zu Nexora). Bei Mandaten vom Typ Startup-Finanzierung ersetzt jetzt eine ausdrückliche Freigabe durch die Beratung die Unterschrift
 - **Freigabe als Schutz**: Der Investor fragt die Unterlagen an, freigegeben wird je Einzelfall von Hand. Damit sehen keine Wettbewerber die Unterlagen, obwohl kein NDA vorliegt
 - **Abgestuft**: Nach der Freigabe sind Pitch Deck und Kurzprofil sichtbar. Der Datenraum bleibt gesperrt und wird weiterhin gesondert freigegeben
@@ -55,14 +61,14 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - In der Käufersicht heißt der Knopf bei Startup-Finanzierungen jetzt „Unterlagen anfragen" statt „NDA anfordern"
 - Verifiziert: fünf Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.304 · 24.08.2026 · Nachricht aus der Plattform schreiben
+## v0.304 · 21.07.2026 · Nachricht aus der Plattform schreiben
 - **„Nachricht schreiben" am Kontakt**: freier Text ohne Vorlage, wahlweise mit Mandatsbezug. Anrede, Unterschrift und Rechtshinweis ergänzt die Plattform automatisch
 - **Antwort kommt bei Ihnen an**: Die Mail trägt Ihre Adresse als Antwort-Adresse. Der Empfänger antwortet ganz normal in seinem Mailprogramm, ohne je ein Konto anzulegen
 - **Vollständig dokumentiert**: Jede Nachricht steht sofort in der Kontakt-Historie unter „Aktivitäten" und im Mail-Ausgang. „Direkt mailen" bleibt daneben bestehen, ist aber als nicht protokolliert gekennzeichnet
 - Damit ist die Sendelücke geschlossen: zusammen mit dem BCC-Empfang wird der Schriftverkehr auch mit Gegenübern vollständig, die die Plattform selbst nie nutzen
 - Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.303 · 23.08.2026 · Vertrauliche Mandate: nur auf Einladung
+## v0.303 · 21.07.2026 · Vertrauliche Mandate: nur auf Einladung
 - **Sichtbarkeit je Mandat**: Im Mandat lässt sich zwischen „Öffentlich" und „Vertraulich (nur auf Einladung)" umschalten
 - **Vertraulich heißt wirklich vertraulich**: Das Mandat erscheint nicht im Marktplatz, nicht in den Zählern, nicht in den Filteroptionen, und es läuft weder über das Matching noch über den Newsletter oder den Digest. Auch die Detailseite antwortet für Unbefugte mit „nicht gefunden", verrät also nicht einmal die Existenz
 - **Sichtbar für**: Team, Ersteller, zugeordnete Nutzer und ausdrücklich eingeladene Beteiligte. Damit können Sie gezielt Personen einladen und ihnen dort Unterlagen bereitstellen
@@ -71,7 +77,7 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - Bestandsmandate bleiben öffentlich, am bisherigen Verhalten ändert sich nichts
 - Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.302 · 22.08.2026 · Funnel aufgeräumt: neun Stufen, Papierkorb, eigener Reiter
+## v0.302 · 21.07.2026 · Funnel aufgeräumt: neun Stufen, Papierkorb, eigener Reiter
 - **Neun statt vierzehn Stufen**: Longlist zur Freigabe → Shortlist freigegeben → Ansprache → NDA → Datenraum-Zugang → LOI → Verhandlung → Closing/Signing → Abschluss. Zwischenzustände wie Namensnennung, Zugang und Due Diligence bleiben als Merkmal am Beteiligten erhalten, nur als eigene Spalte entfallen sie. Bestandsdaten, Vorlagen-Stufen und die gesamte Automatik wurden mitgezogen
 - **Freigabe sauber getrennt**: Kandidaten warten in „Longlist zur Freigabe"; gibt der Mandant frei, rücken sie auf „Shortlist freigegeben"
 - **Papierkorb**: Karten lassen sich in eine Ablagezone ziehen oder über das × an der Karte entfernen, jetzt auch bei den Beteiligten. Entfernt wird nur die Zuordnung zum Mandat, der Kontakt bleibt im CRM
@@ -80,39 +86,39 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - **Deal-Funnel im Hauptmenü**: eigener Punkt, nicht mehr nur unter CRM. Das Team sieht das vollständige Board, der Verkäufer den Stand seiner Mandate mit Name und Firma, aber ohne Kontaktdaten
 - Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.301 · 21.08.2026 · Exposé erscheint in der Unterlagen-Liste
+## v0.301 · 21.07.2026 · Exposé erscheint in der Unterlagen-Liste
 - **Exposé in der Dokumentenliste**: Bei den vertraulichen Unterlagen steht jetzt ein Eintrag „Exposé (Web-Ansicht und PDF)" mit zwei Schaltflächen: „Ansehen" öffnet das Web-Exposé, „PDF" lädt den Export
 - **Ohne Doppelspeicherung**: Das Exposé bleibt in seiner eigenen, gesicherten Ablage. Der Listeneintrag ist nur ein Verweis, es wird nichts kopiert
 - **Gleiche Sperre wie das IM**: Sichtbar erst nach unterzeichneter NDA und nur, wenn das Exposé veröffentlicht ist. Admin und Berater sehen es immer
 - Hinweis: Die öffentliche Teaser-Karte lässt sich bereits seit Sprint 9 im Exposé-Editor über „Öffentlichen Teaser aktualisieren" aus dem Exposé ableiten. Dieser Punkt war in der Roadmap zu Unrecht als offen geführt
 - Verifiziert: fünf Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.300 · 20.08.2026 · Individuelle Begründung je Empfänger, Vorlagen-Stufen korrigiert
+## v0.300 · 21.07.2026 · Individuelle Begründung je Empfänger, Vorlagen-Stufen korrigiert
 - **Mailmerge**: Neuer Platzhalter `{{warum}}`. Steht er im Text, erscheint im Versand-Dialog je Empfänger ein eigenes Feld, etwa „passt zu Ihrem Fokus auf Energiedienstleistung im süddeutschen Raum". Leer lassen ist erlaubt, dann entfällt der Platzhalter für diesen Empfänger. Die Vorschau zeigt die Begründung des ersten Empfängers mit
 - **Fehler behoben**: Der Vorlagen-Versand hob Kontakte auf Stufe 1, seit v0.296 ist das „Freigabe Verkäufer" statt „Angesprochen". Jetzt wird korrekt auf „Angesprochen" gestuft
 - **Fehler behoben**: Die in den Mailvorlagen hinterlegten Zielstufen stammten noch aus der ursprünglichen Funnel-Leiter und wurden bei den beiden Umnummerierungen nicht mitgezogen. „NDA anfordern" hätte auf „Match" gestuft. Eine Migration hebt alle Vorlagen auf die aktuelle Leiter
 - **Hygiene**: `node_modules` ist nicht mehr versioniert. Das Repository schrumpft von rund 7.800 auf 290 Dateien; die Pakete bleiben lokal und werden beim Deploy ohnehin installiert
 - Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.299 · 19.08.2026 · Marktplatz für das Team wieder vollständig
+## v0.299 · 21.07.2026 · Marktplatz für das Team wieder vollständig
 - **Fehler behoben**: Seit der Käufer-/Verkäufertrennung (v0.288) wurden eigene Mandate im Marktplatz ausgeblendet, und zwar für jeden angemeldeten Nutzer. Da alle Mandate vom Team angelegt wurden, war der Marktplatz für Admin und Berater leer, während die Zähler oben weiter 5, 3 und 2 anzeigten
 - **Jetzt**: Das Ausblenden eigener Mandate gilt nur noch für Käufer und Verkäufer. Admin und Berater sehen den Marktplatz wieder vollständig
 - **Zähler und Filter konsistent**: Die Zahlen über der Liste und die Filteroptionen stammen jetzt aus derselben Sicht wie die Liste selbst und können nicht mehr auseinanderlaufen
 - Verifiziert: Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.298 · 19.08.2026 · Konto verknüpfen, Unternehmen und Mandat aus dem Kontakt
+## v0.298 · 21.07.2026 · Konto verknüpfen, Unternehmen und Mandat aus dem Kontakt
 - **Konto manuell verknüpfen**: Im Kontakt gibt es unter „Plattform-Konto" eine Suche über Name oder E-Mail. Damit lässt sich ein Konto auch dann zuordnen, wenn es eine andere Adresse nutzt als der CRM-Kontakt. Genau das war der Fall bei Harald Knaus (CRM: gmx-Adresse, Konto: Firmenadresse). Nach dem Verknüpfen erscheint der Birdview
 - **Unternehmen aus dem Kontakt**: Im Kontakt lässt sich ein bestehendes Unternehmen zuordnen oder ein neues direkt anlegen und verknüpfen, mit optionaler Position. Der Weg funktioniert damit in beide Richtungen
 - **Mandat aus dem Kontakt**: Im Reiter „Mandate" lassen sich Mandat, Rolle (Käufer, Verkäufer, Berater, Prozessbeteiligter …) und Startstufe wählen und zuordnen
 - **Beim Anlegen gleich mitgeben**: Das Kontaktformular kennt jetzt zusätzlich ein neues Unternehmen und die Mandatszuordnung samt Rolle
 - Verifiziert: Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.297 · 18.08.2026 · Birdview am Kontakt, Konto-Verknüpfung geheilt
+## v0.297 · 21.07.2026 · Birdview am Kontakt, Konto-Verknüpfung geheilt
 - **Birdview direkt im Kontakt**: Hat der Kontakt ein Plattform-Konto, steht der Birdview-Knopf jetzt neben „Auskunft (DSGVO)". Ein Klick öffnet die Plattform mit den Augen dieses Nutzers, schreibgeschützt
 - **Ursache behoben**: Das Konto wurde bisher nur erkannt, wenn der Kontakt bei der Registrierung über eine Einladung verknüpft wurde. Jetzt wird zusätzlich über die E-Mail aufgelöst und die Verknüpfung dabei dauerhaft nachgetragen. Eine Migration zieht den Bestand einmalig nach, sofern die Zuordnung eindeutig ist
 - Verifiziert: Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.296 · 17.08.2026 · Freigabe durch den Verkäufer, Namen im Verkäuferblick
+## v0.296 · 21.07.2026 · Freigabe durch den Verkäufer, Namen im Verkäuferblick
 - **Neuer Funnelschritt „Freigabe Verkäufer"** zwischen Longlist und Angesprochen. Recherchierte Kandidaten werden dem Mandanten vorgelegt und erst nach seiner Freigabe angesprochen. Die Automatik und alle Bestandsdaten wurden auf die neue Leiter gehoben
 - **Freigabe-Karte im Verkäufer-Cockpit**: Der Mandant sieht die Kandidaten mit Namen und Firma und entscheidet je Kandidat „Freigeben" oder „Ablehnen". Jede Entscheidung wird protokolliert; im Funnel erscheint ein Badge „Freigabe ✓"
 - **Nexora**: Alle recherchierten Kandidaten liegen jetzt beim zugeordneten Verkäufer zur Freigabe
@@ -121,14 +127,14 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - Die Cockpit-Auswertung erscheint nur noch für Verkäufer, nicht mehr für Admins
 - Verifiziert: sechs Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.295 · 16.08.2026 · Verkäufer-Bereich fokussiert
+## v0.295 · 21.07.2026 · Verkäufer-Bereich fokussiert
 - **Verkäufer landen im eigenen Cockpit**: „Mein Bereich" führt Verkäufer jetzt in den Verkäufer-Bereich statt in die Käuferansicht. Wer als Verkäufer die Käuferseite öffnet, wird automatisch ins eigene Cockpit geleitet
 - **Nur eigene Mandate**: Marktplatz und Käufer-Werkzeuge (fremde Mandate, NDA-Anfragen, Käuferprofil) sind für Verkäufer ausgeblendet. Sichtbar sind nur die eigenen Inserate, die Interessenten (ohne Kontaktdaten) und der Funnel
 - **Eigene Inserate pflegen**: Aktive und pausierte Inserate lassen sich jederzeit über „Bearbeiten" öffnen und im geführten Wizard anpassen. Änderungen werden automatisch gespeichert, ohne erneute Prüfung
 - **Rollenklarheit**: Das Menü zeigt die Rolle „Verkäufer" korrekt an
 - Verifiziert: Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.294 · 16.08.2026 · Verkäufer-Cockpit: Statistik, Inbox, Umschalter (DUB-Benchmark, Stufe D)
+## v0.294 · 21.07.2026 · Verkäufer-Cockpit: Statistik, Inbox, Umschalter (DUB-Benchmark, Stufe D)
 - **Verkäufer-Statistik**: Kacheln über alle eigenen Mandate (aktiv, in Prüfung, Entwurf, pausiert) plus Gesamtzahl der Interessenten
 - **Konsolidierte Interessenten-Inbox**: alle Interessenten je Mandat auf einen Blick, mit Stufe und „über die Plattform antworten". Klarnamen erscheinen erst nach der Namensnennung, vorher anonym, ganz ohne Kontaktdaten
 - **Aktuelles**: die jüngsten Bewegungen der letzten 14 Tage als kompakter Feed
@@ -137,14 +143,14 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - Damit ist das Verkäufer-Cockpit (ROADMAP Sprint 25, Stufen A bis D) abgeschlossen
 - Verifiziert: Tests grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.293 · 15.08.2026 · Käufergruppen, Namensnennung und Plattform-NDA (DUB-Benchmark, Stufe C)
+## v0.293 · 21.07.2026 · Käufergruppen, Namensnennung und Plattform-NDA (DUB-Benchmark, Stufe C)
 - **Zielsteuerung je Inserat**: Im Wizard-Schritt „Sichtbarkeit" wählst du die passenden Käufergruppen (strategisch, Finanzinvestor, Privat, M&A-Berater mit Suchmandat) und Schlagwörter. Ist eine Gruppe gesetzt, benachrichtigt das Matching bei Veröffentlichung nur passende Käufertypen
 - **Namensnennung als eigener Schritt**: Am Kontakt gibst du je Interessent den Klarname bewusst frei. Vorher bleibt alles anonym. Die Freigabe wird protokolliert und erscheint als Badge „Klarname" im Funnel
 - **Plattform-NDA als Gütesiegel**: Käufer zeichnen im Dashboard einmalig ein plattformweites Vertraulichkeitsversprechen. Der Status ist als Badge „Plattform-NDA" am Kontakt und im Funnel sichtbar
 - Dritter Ausbau des Verkäufer-Cockpits (ROADMAP Sprint 25, Stufe C). Es folgt Stufe D (Verkäufer-Inbox, getrennter Mitteilungs-Feed, Ein-Konto-Rollenumschalter)
 - Verifiziert: Tests grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.292 · 14.08.2026 · Inserat-Wizard, Moderation und Lebenszyklus (DUB-Benchmark, Stufe B)
+## v0.292 · 21.07.2026 · Inserat-Wizard, Moderation und Lebenszyklus (DUB-Benchmark, Stufe B)
 - **Geführtes Erstellen**: Verkäufer legen ihr Inserat jetzt Schritt für Schritt an (Grundlagen, Einordnung, Kennzahlen, Beschreibung, Prüfen). Der Entwurf entsteht früh (nur der Name genügt), danach wird automatisch gespeichert. Vor dem Einreichen gibt es eine anonyme Vorschau
 - **Prüf-Schritt**: Ein eingereichtes Inserat steht auf „in Prüfung" und geht erst nach Freigabe live. Der Verkäufer sieht den Status und bei Zurückweisung den Grund direkt am Inserat
 - **Lebenszyklus**: Aktive Inserate lassen sich pausieren, wieder aktivieren oder schließen. Alles ohne Umweg über den Admin
@@ -152,60 +158,60 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - Erster Ausbau der Verkäufer-Autonomie (ROADMAP Sprint 25, Stufe B). Sichtbarkeit/Käufergruppen und die Verkäufer-Inbox (Stufen C und D) folgen
 - Verifiziert: Tests grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.291 · 13.08.2026 · Käufertyp am Kontakt, Funnel bis Closing (DUB-Benchmark, Stufe A)
+## v0.291 · 21.07.2026 · Käufertyp am Kontakt, Funnel bis Closing (DUB-Benchmark, Stufe A)
 - **Käufertyp am Kontakt**: strategischer Käufer, Finanzinvestor, Privatperson oder M&A-Berater mit Suchmandat. Setzbar im Kontakt und im Anlegeformular, sichtbar als Badge in der Kontaktliste und auf der Funnel-Karte, filterbar über eine eigene Leiste im CRM. Vorbild ist die DUB-Käufergruppen-Klassifikation
 - **Funnel bis zum Abschluss**: Der Deal-Funnel bekommt die transaktionsnahen Spätstufen. Neu: Match, LOI eingereicht, LOI unterschrieben, Namensnennung, Signing, Closing. Die vorderen Stufen (Longlist, Angesprochen, Rückmeldung) und die Automatik bleiben unverändert; Bestandsdaten wurden sauber auf die neue Leiter gehoben
 - Erster Baustein des DUB-Verkäufer-Benchmarks (ROADMAP Sprint 25, Stufe A). Stufen B bis D (Self-Service-Inserat, Sichtbarkeit/Käufergruppen, Moderation, Verkäufer-Inbox) folgen
 - Verifiziert: Tests grün, Build sauber und warnungsfrei, Textwächter ohne Befund
 
-## v0.290 · 12.08.2026 · Rückfrage beim Verschieben, Prozess-Übersicht
+## v0.290 · 21.07.2026 · Rückfrage beim Verschieben, Prozess-Übersicht
 - **Bestätigung beim Drag-and-drop**: Verschiebst du eine Karte auf eine andere Stufe, kommt jetzt eine kurze Rückfrage. Das Verschieben allein sendet weiterhin **keine** E-Mail; du kannst aber im selben Schritt „Verschieben + passende Prozess-Mail" wählen. So geht nichts ungewollt raus und nichts doppelt
 - **Prozess- und Automatik-Übersicht** (`PROZESS_UND_AUTOMATIK.md`): erklärt die Funnel-Stufen, welche Mails automatisch laufen (Erstansprache, 7/21-Reminder, NDA nach Registrierung, IM nach Unterschrift, Benachrichtigung bei neuen Unterlagen), was manuell bleibt und wie Doppelversand vermieden wird
 - Erinnerung: Der Kontakt-Reiter „Aktivitäten" zeigt seit v0.283 den vollständigen E-Mail- und Chat-Verlauf (Birdview am Kontakt)
 - Verifiziert: Build sauber und warnungsfrei
 
-## v0.289 · 11.08.2026 · Beteiligte per Drag-and-drop führen
+## v0.289 · 21.07.2026 · Beteiligte per Drag-and-drop führen
 - **Ziehen zwischen Funnel und Beteiligten**: Die Leiste „Mandant & Beteiligte" ist jetzt eine Ablagezone. Ziehst du eine Käufer-Karte hinein, wird sie zum Prozessbeteiligten und verlässt den Käufer-Funnel. Ziehst du eine Beteiligten-Karte in eine Funnel-Stufe, wird sie wieder zum Käufer auf dieser Stufe
 - Die Zone erscheint während des Ziehens auch dann, wenn noch keine Beteiligten da sind, und hebt sich als Ablageziel hervor
 - Die genaue Rolle (Berater, Verkäufer, Steuerberater, WP, Consultant) stellst du danach im Kontakt bzw. über die Zuordnung ein
 - Verifiziert: Build sauber und warnungsfrei
 
-## v0.288 · 11.08.2026 · Käufer- und Verkäuferrolle sauber getrennt
+## v0.288 · 21.07.2026 · Käufer- und Verkäuferrolle sauber getrennt
 - **Kein Bieten auf das eigene Mandat**: Ein eingeloggter Nutzer sieht seine eigenen Mandate (die er als Verkäufer/Ersteller eingestellt hat) nicht mehr im Käufer-Marktplatz und kann dort kein Interesse/keine NDA anfordern. Das war der Birdview-Fehler, bei dem der Verkäufer wie ein Käufer auf sich selbst schauen konnte
 - **Rollen bleiben getrennt**: Verkäufer bekommen kein Käufer-Suchprofil (nur die Pflege-/Prozessansicht ihres Mandats), Käufer keinen Verkäufer-Bereich. Basis für die spätere, ausführlichere und kostenpflichtige Verkäufer-Stufe
 - Umgesetzt serverseitig (`GET /api/projects` blendet eigene Mandate aus; NDA-Anfrage aufs eigene Mandat wird abgelehnt)
 - Verifiziert: Server-Syntax und Build sauber
 
-## v0.287 · 11.08.2026 · Unternehmen mit Seiten und A-Z, kleinere Aufräumer
+## v0.287 · 21.07.2026 · Unternehmen mit Seiten und A-Z, kleinere Aufräumer
 - **Unternehmen-Liste** bekommt dieselbe A-Z-Leiste und Seiten-Navigation wie die Kontakte
 - **Standard-Seitengröße jetzt 10** (statt 25), für Kontakte und Unternehmen
 - **„k. A." unter dem Namen entfernt**: Der leere Verantwortungsbereich wird nicht mehr als „k. A." angezeigt, nur noch wenn wirklich etwas hinterlegt ist
 - Verifiziert: Build sauber und warnungsfrei
 
-## v0.286 · 11.08.2026 · Verkäufer-Funnel über mehrere Mandate
+## v0.286 · 21.07.2026 · Verkäufer-Funnel über mehrere Mandate
 - **Mehr-Projekt-Funnel für den Mandanten**: Im Verkäufer-Dashboard sieht der Mandant jetzt einen echten, nur-lesbaren Funnel, ähnlich der Admin-Ansicht, aber reduziert. Hat er mehrere Mandate, wählt er sie über Reiter. Je Stufe (Longlist bis Abgeschlossen) Kennzahlen und die Namen der interessierten Parteien
 - **Vertraulich**: bewusst nur Namen (und optional Firma), keine Kontaktdaten, kein Bezug zu anderen Mandaten. Die Abfrage ist serverseitig auf das eigene Mandat begrenzt und nur für den verknüpften Verkäufer bzw. Berater/Admin zugänglich
 - Baut auf dem Prozessstand (v0.277) und der Verkäufer-Einladung (v0.280) auf; nutzt `GET /api/projects/:id/funnel-preview`
 - Verifiziert: Build sauber und warnungsfrei
 
-## v0.285 · 10.08.2026 · Kontaktliste mit Seiten und A-Z, neue Rolle Prozessbeteiligter
+## v0.285 · 21.07.2026 · Kontaktliste mit Seiten und A-Z, neue Rolle Prozessbeteiligter
 - **Seiten und A-Z in der Kontaktliste**: Oben eine anklickbare A-Z-Leiste (springt zu den Nachnamen mit dem Buchstaben), unten eine Seitengröße (10 / 25 / 50 / Alle) mit Seiten-Navigation. Kein endloses Scrollen mehr, auch bei vielen Kontakten. Die Suche oben bleibt
 - **Neue Beteiligten-Rolle „Prozessbeteiligter"** (Steuerberater, Wirtschaftsprüfer, Consultant): auswählbar bei der Mandats-Zuordnung, erscheint getrennt in der Leiste „Mandant & Beteiligte", nicht im Käufer-Funnel. Eigene Rechte lassen sich später über die Rollen-Matrix vergeben
 - Verifiziert: Build sauber, Textwächter grün
 
-## v0.284 · 10.08.2026 · Roboter-Test (Cloudflare Turnstile) bei Login und Registrierung
+## v0.284 · 21.07.2026 · Roboter-Test (Cloudflare Turnstile) bei Login und Registrierung
 - **Bot-Schutz**: Login und Registrierung prüfen jetzt optional einen Cloudflare-Turnstile-Test (kostenlos). Das erschwert automatisiertes Durchprobieren von Passwörtern und Massen-Registrierungen durch Bots
 - **Ohne Konfiguration inaktiv**: Erst wenn `TURNSTILE_SITE_KEY` (Browser) und `TURNSTILE_SECRET` (Server) gesetzt sind, erscheint der Test und wird serverseitig verifiziert. Ohne Schlüssel läuft alles unverändert weiter
 - Serverseitige Verifikation gegen die Cloudflare-API; das Widget wird nur angezeigt, wenn ein Site-Key hinterlegt ist (`GET /api/auth/config`)
 - Verifiziert: Build sauber, Textwächter grün
 
-## v0.283 · 09.08.2026 · Kompletter E-Mail- und Chat-Verlauf am Kontakt
+## v0.283 · 21.07.2026 · Kompletter E-Mail- und Chat-Verlauf am Kontakt
 - **Jede Mail am Kontakt sichtbar**: Die Aktivitäten-Historie eines Kontakts zeigt jetzt das vollständige Mail-Ausgangsbuch, also wirklich jede Mail, die an ihn ging (Ansprache, Prozess-Mail, Einladung, NDA-Einladung, System-Mail), mit Betreff, Art und Status. So siehst du auf einen Blick, wer was bekommen hat, und vermeidest Doppelversand
 - **Chat am Kontakt**: Alle Plattform-Chat-Nachrichten des Kontakts (in beide Richtungen) tauchen jetzt ebenfalls in der Kontakt-Historie auf. Damit läuft die Zuordnung an einer Stelle zusammen
 - Kein Doppeleintrag mehr: Der Erstversand einer Kampagne kommt aus dem Ausgangsbuch, die Kampagnen-Sicht liefert nur noch Erinnerungen und Reaktionen
 - Verifiziert: Build sauber, Textwächter grün
 
-## v0.282 · 09.08.2026 · NDA manuell vergeben, Projekt-Zugang sichtbar
+## v0.282 · 21.07.2026 · NDA manuell vergeben, Projekt-Zugang sichtbar
 - **NDA manuell setzen**: In der Kontakt-Ansicht steht pro Mandat jetzt ein NDA-Feld: „kein NDA / angefragt / liegt vor". Das funktioniert auch für Kontakte ohne Plattform-Konto (offline unterzeichnete NDAs). Ist eine Online-Signatur vorhanden, wird sie zusätzlich als „online: unterzeichnet/angefragt" angezeigt
 - **Zugang zum Mandat**: Pro Mandat ein Schalter „Zugang zum Mandat" (Unterlagen/Datenraum). So siehst und steuerst du, ob der Kontakt Zugang hat
 - **Funnel-Karte**: Das NDA-Badge berücksichtigt jetzt beides, Online-Signatur und manuelle Angabe; zusätzlich zeigt ein „Zugang"-Badge, wenn der Zugang gesetzt ist
@@ -213,25 +219,25 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - Endpunkt: `PUT /api/crm/parties/:id` akzeptiert `nda_status` und `access_granted`
 - Verifiziert: Build sauber, Textwächter grün
 
-## v0.281 · 08.08.2026 · NDA-Status auf der Karte, Chat prominent
+## v0.281 · 21.07.2026 · NDA-Status auf der Karte, Chat prominent
 - **NDA sichtbar am Kontakt**: Jede Funnel-Karte zeigt jetzt, ob eine NDA vorliegt, „NDA ✓" (grün, unterzeichnet oder freigegeben) oder „NDA offen" (gelb, angefragt, noch nicht gezeichnet). Auch in der Kontakt-Ansicht je Mandat sichtbar. Der Status kommt aus `nda_requests` über den mit dem Kontakt verknüpften Nutzer
 - **Chat prominent erreichbar**: „Nachrichten" steht jetzt für alle angemeldeten Nutzer (auch Admins) sichtbar in der oberen Leiste, mit Sprechblasen-Symbol und einem roten Zähler für ungelesene Nachrichten. Vorher war der Chat für Admins ausgeblendet und schwer zu finden
 - Verifiziert: Build sauber, Textwächter grün
 
-## v0.280 · 08.08.2026 · Verkäufer raus aus dem Käufer-Funnel, Verkäufer einladen
+## v0.280 · 21.07.2026 · Verkäufer raus aus dem Käufer-Funnel, Verkäufer einladen
 - **Rollen getrennt**: Der Deal-Funnel zeigt in den Stufen-Spalten nur noch **Käufer**. Verkäufer/Mandant und weitere Beteiligte (Berater, Bank, Anwalt) stehen jetzt in einer eigenen Leiste „Mandant & Beteiligte" darüber. Herr Traxler taucht damit nicht mehr fälschlich in der Longlist auf; auch die Funnel-Kennzahlen zählen nur Käufer
 - **Verkäufer einladen**: In der Beteiligten-Leiste gibt es beim Verkäufer den Knopf „Einladen". Er bekommt eine Einladung zur Plattform (Einwilligung + Registrierung). Nach der Registrierung wird er als Rolle „seller" angelegt (keine Käufer-Automatik, keine NDA) und sieht in seinem Dashboard den **Prozessstand** seines Mandats (die reduzierte Funnel-Ansicht aus v0.277)
 - **Zugang sauber verknüpft**: Der registrierte Verkäufer ist über den CRM-Kontakt mit dem Mandat verbunden; die Prozessstand-Ansicht und „Meine Mandate" berücksichtigen das
 - Endpunkt `POST /api/crm/deals/:projectId/invite-seller`
 - Verifiziert: Build sauber, bestehende Tests grün
 
-## v0.279 · 07.08.2026 · „Reagiert" bedeutet jetzt wirklich reagiert
+## v0.279 · 21.07.2026 · „Reagiert" bedeutet jetzt wirklich reagiert
 - **Der Bug**: Ein Mailing zeigte „21 reagiert", obwohl niemand geantwortet hatte. Grund: Die Reminder-Automatik wertete jeden im Funnel aktiv geführten Kontakt als „reagiert", nicht erst eine echte Antwort
 - **Fix**: „Reagiert" zählt jetzt nur noch echte Reaktionen auf das Mailing: Einwilligung/Registrierung, Absage, Mailantwort oder Widerspruch. Aktiv im Funnel geführte Kontakte erscheinen als eigener Status „wird im Funnel geführt (kein Reminder)" und werden nicht mehr als Reaktion gezählt
 - Das Empfänger-Pop-up ist entsprechend beschriftet; bereits falsch gezählte Empfänger wurden per Migration korrigiert
 - Verifiziert: 8 Tests für die Reaktions-Definition; Build sauber
 
-## v0.278 · 06.08.2026 · Recherchelisten aus Excel ins CRM
+## v0.278 · 21.07.2026 · Recherchelisten aus Excel ins CRM
 - **Liste importieren (Excel/CSV)**: Neuer Knopf im CRM. Eine recherchierte Liste (z. B. 50 Kapitalgeber für Nexora) wird hochgeladen, die Spalten (Name, Firma, E-Mail, Ort, Notiz, Quelle) werden automatisch erkannt. Investoren-/Fondslisten ohne Personennamen werden korrekt behandelt (Fondsname dient als Kontakt- und Firmenname)
 - **Dubletten-Abgleich vor dem Speichern**: Der Report zeigt je Zeile „neu" oder „schon im CRM" und eine Zusammenfassung (gesamt, neu, vorhanden, ohne E-Mail). So sieht man vor dem Import, was dazukommt und was bereits da ist. Das CRM bleibt die eine Datenbank für die Ansprache
 - **In einem Rutsch**: neue Kontakte werden angelegt, optional einem Mandat zugeordnet (Longlist) und, auf Wunsch, alle direkt eingeladen. Die Einladung stellt das Projekt vor, nennt den Hintergrund und holt die Einwilligung ein; die 7/21-Tage-Reminder greifen automatisch. Widersprüche werden übersprungen
@@ -239,33 +245,33 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - Verifiziert: 14 Parser-Tests (Kopfzeilen-Erkennung, Spaltenzuordnung, Fonds- und Personenlisten) an der echten Nexora-Datei geprüft (51 Kontakte, 41 mit E-Mail); Build sauber
 - Hinweis: Die Einladung nutzt die Standard-Projektvorstellung. Eine voll personalisierte Fundraising-Mail mit einer „Warum ihr"-Zeile je Investor lässt sich später ergänzen, indem eine Excel-Spalte auf einen Platzhalter gemappt wird
 
-## v0.277 · 05.08.2026 · Prozessstand für den Mandanten, Reaktionen sichtbar
+## v0.277 · 21.07.2026 · Prozessstand für den Mandanten, Reaktionen sichtbar
 - **Verkäufer sieht seinen Funnel** (reduziert): Im Verkäufer-Dashboard gibt es bei aktiven Mandaten den Knopf „Prozessstand ansehen". Der Mandant sieht die interessierten Parteien (Name, optional Firma) und ihre Prozessstufe, **aber keine Kontaktdaten** (keine E-Mail, kein Telefon) und **keinen Bezug zu anderen Mandaten**. Endpunkt `GET /api/projects/:id/funnel-preview`, zugänglich nur für den Mandanten (`created_by`) sowie Berater/Admin
 - **Wer hat reagiert?**: In „Versendete Mailings" ist die Reaktions-Zahl jetzt anklickbar (auch „Empfänger"). Ein Pop-up listet die Empfänger mit Namen, gruppiert nach Status (reagiert, erinnert, ohne Rückmeldung, gesperrt). Klick auf einen Namen öffnet den Kontakt. Endpunkt `GET /api/crm/campaigns/:id/recipients`
 - Verifiziert: Build sauber, bestehende Tests grün, Textwächter grün
 
-## v0.276 · 04.08.2026 · Herkunft als Admin-Kachel, dezenter im Funnel
+## v0.276 · 21.07.2026 · Herkunft als Admin-Kachel, dezenter im Funnel
 - **Herkunft der Kontakte im Admin**: In der Übersicht gibt es jetzt eine Kachel „Herkunft der Kontakte" mit einer Zeile je Plattform (Quelle, Anzahl, zuletzt). So siehst du an einer Stelle, woher deine Leads kamen, ohne dass es an eine bestimmte Börse gebunden ist
 - **Funnel wieder ruhiger**: Die auffällige „Plattform-Leads"-Leiste über dem Deal-Funnel ist raus. Die dezente Markierung direkt an der Karte („⬢ DUB.de") bleibt, die fandest du gut
 - Hinweis: Die versendeten Mails stehen im Admin unter „Mail-Ausgang", ein Klick auf eine Zeile zeigt die Original-Mail
 
-## v0.275 · 04.08.2026 · Automatik bis zur NDA, Plattform-Herkunft sichtbar
+## v0.275 · 21.07.2026 · Automatik bis zur NDA, Plattform-Herkunft sichtbar
 - **Ansprache erklärt CapitalMatch**: Die Einladung sagt jetzt, dass CapitalMatch unsere eigene Plattform zur Abwicklung ist, lädt zur Registrierung ein (macht den Prozess für beide Seiten einfacher) und weist darauf hin, dass die NDA direkt nach der Registrierung automatisch kommt. Die Herkunft (Marktplatz, Inserat) steht weiterhin oben
 - **Automatik bis zur NDA**: Registriert sich ein per Mandats-Einladung angesprochener Kontakt, läuft ohne weiteres Zutun: Interesse wird gesetzt (Funnel rückt auf „NDA"), eine NDA-Anfrage wird angelegt und der Kontakt bekommt automatisch die E-Mail mit dem Link zum digitalen Zeichnen (`server/utils/outreach.js`, ausgelöst in `/invite/:token/register`). Nach der Unterschrift folgt das Information Memorandum automatisch. **Die Freigabe des Datenraums bleibt manuell**, das entscheidest weiterhin du
 - **Plattform-Herkunft sichtbar**: Im Deal-Funnel zeigt jede Karte, über welche Plattform der Kontakt kam (z. B. „⬢ DUB.de"). Oben steht eine Übersicht „Plattform-Leads" mit Anzahl je Quelle (`GET /api/crm/leads/sources`)
 - Verifiziert: 8 Tests für die automatische NDA-Einladung (Guards, Stage, Anfrage, Mail, keine Dublette) plus erweiterte Mailtext-Tests; Build sauber
 
-## v0.274 · 03.08.2026 · Gedankenstrich raus aus den gespeicherten Mailvorlagen
+## v0.274 · 21.07.2026 · Gedankenstrich raus aus den gespeicherten Mailvorlagen
 - **Der Strich in der DSGVO-Einladung**: Die im Vorlagen-Editor sichtbaren Vorlagen (`crm_invite`, `profile_link`) trugen noch den Gedankenstrich, obwohl der Quellcode seit v0.267 sauber ist. Grund: Seed-Migrationen überschreiben bestehende Datenbankzeilen nicht, und v0.267 hatte genau diese beiden Vorlagen nicht mitgezogen
 - **Fix**: Migration `scrub_template_dashes` zieht die beiden Systemvorlagen aus der sauberen Quelle nach (nur wo nicht im Admin von Hand bearbeitet) und entfernt danach als Sicherheitsnetz jeden verbliebenen Strich aus allen Vorlagen (Betreff, Text, Name, Button). Damit ist der Gedankenstrich in keiner transaktionsbezogenen Mail mehr enthalten
 - Hinweis: Wirksam nach dem nächsten Deploy, weil die Bereinigung in der Datenbank läuft
 
-## v0.273 · 03.08.2026 · Anfragen per Einfügen: der Standardweg
+## v0.273 · 21.07.2026 · Anfragen per Einfügen: der Standardweg
 - **Copy-and-paste ist der Standardweg**: Marktplatz-Anfragen werden direkt in der Plattform eingefügt, ohne Zusatztarif bei einem Maildienst. Der Dialog weist jetzt darauf hin
 - **Weiterleitung zurückgestellt**: Die Brevo-Inbound-Weiterleitung setzt bei Brevo den Professional-Tarif voraus und ist vorerst nicht aktiv. Der Webhook (`/api/inbound/lead`) bleibt im Code und ist einsatzbereit, sobald der Tarif vorliegt, es entstehen keine Kosten, solange er ungenutzt ist
 - **Klarstellung**: Das Versenden der Ansprache-Mails läuft über die Transactional-Funktion und funktioniert unabhängig vom Inbound-Tarif
 
-## v0.272 · 02.08.2026 · Anfragen weiterleiten und automatisch ansprechen
+## v0.272 · 21.07.2026 · Anfragen weiterleiten und automatisch ansprechen
 - **Weiterleiten per E-Mail (Brevo Inbound)**: Neben Copy-and-paste lassen sich Anfragen jetzt an eine Brevo-Eingangsadresse weiterleiten. Der Webhook `POST /api/inbound/lead` (abgesichert über `INBOUND_SECRET`) parst die Mail (`items[]`, `RawTextBody`) und legt den Lead an. Die Ingest-Logik liegt gemeinsam in `server/utils/leadIngest.js`, Copy-and-paste und Weiterleitung nutzen denselben Weg
 - **Direkt ansprechen**: Im Übernahme-Dialog gibt es die Option „Direkt ansprechen". Ist sie gesetzt und ein Mandat zugeordnet, geht die Erstansprache sofort raus, mit Einwilligung (Double-Opt-in), Pflege-Link und Herkunftshinweis. Die 7/21-Tage-Reminder greifen automatisch, weil eine wiederverwendbare Kampagne je Mandat geführt wird (`server/utils/outreach.js`)
 - **Automatik beim Weiterleiten**: `INBOUND_AUTO_OUTREACH=1` lässt die Erstansprache beim Webhook-Weg automatisch erfolgen
@@ -273,7 +279,7 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - **Body-Limit** auf 8 MB erhöht, damit weitergeleitete Mails nicht abgewiesen werden
 - Verifiziert: gemeinsame Ingest-Logik mit 6 Tests (Mandat-Treffer, Anlegen, Update, Stufe „Rückmeldung"); Parser-Tests grün; Build sauber
 
-## v0.271 · 01.08.2026 · Kaufanfragen aus Marktplätzen einlesen
+## v0.271 · 21.07.2026 · Kaufanfragen aus Marktplätzen einlesen
 - **Anfrage einfügen**: Neuer Knopf im Deal-Funnel. Die komplette Anfrage-E-Mail eines Portals (DUB.de, nexxt-change u. a.) wird eingefügt, der Parser (`server/utils/leadParser.js`) erkennt Quelle, Name, Titel, E-Mail, Telefon, Firma, Adresse, Investortyp, Inseratsnummer und den Mandats-Hinweis
 - **Vorschau vor dem Anlegen**: Alle erkannten Felder sind editierbar; das Mandat wird über den Codename in der Referenz automatisch zugeordnet (z. B. „5381 Betongold" → Betongold), lässt sich aber überschreiben
 - **Übernahme**: Kontakt wird per E-Mail wiederverwendet oder neu angelegt, die Firma verknüpft, und als aktiver Inbound-Lead in die Funnel-Stufe „Rückmeldung" gestellt (`source=inbound`, Signal `marketplace`)
@@ -281,13 +287,13 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - **Zwei Wege**: heute per Copy-and-paste im Admin. Ein Weiterleiten an eine feste Eingangsadresse (BCC/Postfach) ist als nächster Schritt vorbereitet, benötigt aber ein Eingangs-Postfach
 - Verifiziert: 15 Parser-Tests an der echten DUB-Mail (Quelle, Kontakt, Referenz, Mandats-Hinweis, Fallbacks); Provenance in Invite- und Vorlagenmails geprüft; Build sauber
 
-## v0.270 · 01.08.2026 · Anrede registrierter Nutzer, NDA-Stufe präzisiert
+## v0.270 · 21.07.2026 · Anrede registrierter Nutzer, NDA-Stufe präzisiert
 - **Anrede auch für registrierte Nutzer**: Die bei der Registrierung erfasste Anrede (Herr/Frau/Divers) und der optionale Titel werden jetzt in Mails genutzt, „Sehr geehrter Herr Dr. Malessa," statt „Guten Tag Alexander Malessa,". Umgesetzt zentral in `resolvePerson` (`server/utils/email.js`): fehlt die Anrede am Aufruf, wird sie über die E-Mail-Adresse aus `users` nachgeschlagen. Keine der rund zwei Dutzend Aufrufstellen muss `salutation`/`title` mitliefern
 - **Korrektur zur Anrede-Aussage aus v0.268**: Registrierte Nutzer haben sehr wohl eine Anrede (Pflichtfeld bei der Registrierung); sie wurde bisher nur in den Mails nicht ausgelesen. Das ist jetzt behoben
 - **NDA-Stufe im Deal-Funnel präzisiert**: Eine freigegebene, aber noch nicht unterschriebene NDA hält den Interessenten in der Spalte „NDA" (Stufe 3). Erst die tatsächliche Unterschrift (`nda_requests.signed_at`) hebt ihn auf „IM / Unterlagen" (Stufe 4). Damit steht z. B. Herr Malessa (NDA freigegeben, nicht gezeichnet) korrekt in der NDA-Spalte. Gilt für die laufende Spiegelung und den Backfill
 - Verifiziert: `resolvePerson` liefert für registrierte Nutzer die förmliche Anrede und lässt CRM-Kontakte unverändert; dealSync-Tests um die NDA-Signatur erweitert (freigegeben → 3, unterschrieben → 4)
 
-## v0.269 · 31.07.2026 · Interessenten aus der Plattform im Deal-Funnel
+## v0.269 · 21.07.2026 · Interessenten aus der Plattform im Deal-Funnel
 - **Der Fehler bei Betongold**: Herr Malessa hatte die NDA-Freigabe, tauchte aber in keiner Funnel-Spalte auf. Grund: Der Funnel kannte nur CRM-Kontakte, NDA und Interesse leben in der Nutzer-Welt. Beide Welten sind jetzt verbunden
 - **Automatische Spiegelung** (`server/utils/dealSync.js`): Fordert ein Nutzer eine NDA an, zeigt Interesse oder beobachtet ein Mandat, wird zur E-Mail ein CRM-Kontakt gefunden oder angelegt und eine Partei im Funnel geführt, auf der passenden Stufe (NDA → NDA, Datenraum → IM/Unterlagen, Beobachten → Eingang). Zentrale Einbindung in `setStage`, dazu die Beobachten-Aktion
 - **Neue Spalte „Eingang"** ganz vorne im Deal-Funnel: sammelt frische Inbound-Leads (Beobachter, Favoriten), bevor sie aktiv bearbeitet werden. Karten aus der Plattform tragen die Markierung „Eingang" mit dem Signal (NDA, Interesse, beobachtet)
@@ -295,13 +301,13 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - **Backfill**: Bestehende Interessenten und Beobachter wurden nachgetragen, damit niemand fehlt
 - Verifiziert: 11 Tests (`server/tests/dealSync.test.js`) für Stufen-Mapping, Kontakt-Anlage, Wiederverwendung und Update-statt-Doppelanlage; Build sauber
 
-## v0.268 · 30.07.2026 · Anrede per Sie, Mandat im Mail-Ausgang
+## v0.268 · 21.07.2026 · Anrede per Sie, Mandat im Mail-Ausgang
 - **Förmliche Anrede in allen Mails** (`greetingLine` in `server/utils/email.js`): Ist eine Anrede hinterlegt, wird sie mit Titel und Nachnamen verwendet (`Sehr geehrter Herr Dr. Meier,`), sonst `Guten Tag Vorname Nachname,`. Immer per Sie. Das bisherige `Hallo Alexander` in Prozess- und Systemmails ist damit weg. Die CRM-Kampagnenmails nutzten die Regel schon; jetzt gilt sie auch für Registrierung, Freischaltung, Passwort, NDA-, Q&A-, Datenraum- und Newsletter-Mails
 - **Hinweis zur Datenlage**: Registrierte Nutzer haben in der Datenbank keine Anrede/keinen Titel, deshalb greift bei ihnen `Guten Tag Vorname Nachname,`. CRM-Kontakte haben Anrede und Titel und werden voll förmlich angesprochen
 - **Mandat-Spalte im Mail-Ausgang**: Kampagnen- und Vorlagenmails schreiben jetzt die `project_id` ins Ausgangsbuch, dadurch zeigt die Spalte den Codename (Betongold, FARADAY) statt `k. A.`. Gilt für neue Sendungen; die bereits protokollierten Altmails bleiben ohne Zuordnung
 - Verifiziert: `greetingLine` mit sechs Fällen grün, Mail-Tests grün, Textwächter grün, Build sauber
 
-## v0.267 · 29.07.2026 · Sprache aufgeräumt
+## v0.267 · 21.07.2026 · Sprache aufgeräumt
 - **Alle Mailvorlagen neu geschrieben** (`server/db/mailTemplateSeed.js`, jetzt die einzige Quelle für die 11 Systemvorlagen): kürzere Sätze, klare Ansage, kein Textbaustein-Ton. Die Migration `texts_v267` zieht sie in der laufenden Datenbank nach, **außer** die Vorlage wurde im Admin von Hand bearbeitet (`updated_by` gesetzt). Handarbeit bleibt Handarbeit
 - **Einladung, Erinnerung, Prozess-Update** und die Systemmails (Registrierung, Freischaltung, Passwort, E-Mail-Bestätigung) sprechen wie ein Mensch statt wie ein Formular
 - **Der Gedankenstrich ist raus**, aus Oberfläche, Mails, Rechtstexten, Kommentaren und Doku. 1.028 Zeilen in 170 Dateien
@@ -309,19 +315,19 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - **Textwächter** (`npm run check:texts`): findet Gedankenstriche und KI-Floskeln im ganzen Repo und endet mit Fehlercode. Taugt als Pre-Commit-Hook
 - Verifiziert: 32 neue Tests (`server/tests/mailText.test.js`) für Vorlagen, Platzhalter, HTML-Escaping und die drei fest verdrahteten Mails; Textwächter grün über 199 Dateien; Client-Build sauber
 
-## v0.266 · 28.07.2026 · Dokumente umbenennen
+## v0.266 · 21.07.2026 · Dokumente umbenennen
 - **Bezeichnung nachträglich änderbar**: Klick auf den Dokumentnamen (oder auf „Umbenennen") öffnet ein Feld für Bezeichnung und Kurzbeschreibung, Enter speichert, Escape bricht ab. Bisher ließ sich nur die Datei ersetzen oder das Zugangslevel ändern, nicht aber der Name, den Interessenten sehen
 - **Endung bleibt erhalten**: Der Server hängt die Dateiendung automatisch an, wenn sie fehlt (`Teaser Betongold` → `Teaser Betongold.pdf`), sonst öffnet die Datei beim Empfänger nicht korrekt. Pfadangaben und Steuerzeichen werden entfernt, die Länge ist begrenzt
 - Jede Umbenennung steht im **Audit-Trail** mit altem und neuem Namen
 - Verifiziert: 11 Tests (Endungslogik, Umlaute, Pfad-Entschärfung, Leereingabe, Längenbegrenzung)
 
-## v0.265 · 27.07.2026 · Marktplatz-Absturz behoben
+## v0.265 · 21.07.2026 · Marktplatz-Absturz behoben
 - **Ursache gefunden**: Die Ladeanzeige des Marktplatzes (`LoadingSpinner`) rief die Übersetzungsfunktion `t()` auf, hatte den Hook `useT()` aber nicht, die Komponente liegt außerhalb von `<Projects>`. Beim Rendern warf sie `t is not defined`, React verwarf den kompletten Baum, und übrig blieb eine leere graue Fläche. Weil damit auch der Footer verschwand, waren Impressum, Datenschutz und AGB von dort nicht erreichbar. Eingeschleppt wurde der Fehler mit der Englisch-Erweiterung (v0.257)
 - **Behoben**: `LoadingSpinner` holt sich den Hook jetzt selbst
 - **Vorbeugung**: Ein Prüfschritt geht alle Client-Dateien durch und meldet jede Komponente, die `t()` benutzt, ohne `useT()` zu halten, dieser Fehlertyp kann nicht mehr unbemerkt durchrutschen
 - Die in v0.264 eingebaute Fehlergrenze hätte den Absturz ohnehin abgefangen und die Meldung angezeigt, statt die Seite grau zu lassen
 
-## v0.264 · 26.07.2026 · Rollen pflegbar, Rechtstexte, Fehlergrenze
+## v0.264 · 21.07.2026 · Rollen pflegbar, Rechtstexte, Fehlergrenze
 - **Rollen & Rechte editierbar** (`roles`-Tabelle mit RLS, Seed aus der bisherigen Code-Matrix): Rechte per **Häkchen** vergeben und entziehen, je Rolle speichern. **Eigene Rollen** anlegen (z. B. „Werkstudent") und löschen, solange ihnen niemand zugewiesen ist. Der Prozess hält einen Rollen-Cache; fehlt die Tabelle, greift weiterhin die Code-Matrix, die Plattform bleibt immer funktionsfähig
 - **Sicherheitsanker**: Der Administrator behält immer alle Rechte, Systemrollen sind nicht löschbar, vergebbar sind nur Rechte aus dem bekannten Katalog (kein Freitext), jede Änderung erzeugt `ROLE_PERMISSIONS_CHANGED` im Audit-Trail
 - Neues Recht **„Alle Mandate sehen"** (`projects.all`), ohne dieses Recht sieht eine Rolle nur Mandate, die sie angelegt hat oder in denen sie Mitglied ist. Der Admin-Zugang hängt jetzt an der Rollen-Kennzeichnung „intern", nicht mehr an einer festen Liste
@@ -332,13 +338,13 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - **Auslieferungsfix**: Der Client wurde nur bei `NODE_ENV=production` ausgeliefert. Fehlte die Variable, lief die API, aber jeder Deep-Link (`/projekte`, `/crm`, F5, geteilte Links) lief ins Leere. Jetzt wird der Build ausgeliefert, sobald `client/dist/index.html` existiert; `/api/*` bleibt davon unberührt
 - Verifiziert: 16 Tests (Code-Fallback, DB-Rollen, entzogene Rechte, eigene Rollen, Admin-Anker, interne vs. externe Rollen)
 
-## v0.263 · 25.07.2026 · Aktivitäten im Klartext, Absprünge, Pipeline-Schritt „Ansprache"
+## v0.263 · 21.07.2026 · Aktivitäten im Klartext, Absprünge, Pipeline-Schritt „Ansprache"
 - **Aktivitäten lesbar**: Statt `ACCESS_DOCLIST · Peter Baumgartner · documents #7` steht dort jetzt „**Peter Baumgartner** hat die Dokumentenliste geöffnet · **FARADAY** · Baumgartner Beteiligungen". Die Ressourcen-ID der Zugriffs-Aktionen ist die Mandats-ID, sie wird sauber zum Codenamen aufgelöst
 - **Absprünge**: Klick auf den Namen öffnet die Kontakt-360°-Ansicht (der Kontakt wird bei Bedarf aus dem Nutzerkonto angelegt), Klick auf das Mandat führt auf die Mandatsseite. Das Unternehmen des Kontakts steht daneben
 - Gilt für beides: die Kachel „Letzte Aktivitäten" in der Übersicht **und** den Tab „Aktivitätslog" (dort mit eigenen Spalten Wer / Was / Mandat / Unternehmen)
 - **Neuer Deal-Status „Ansprache"** (`outreach`) zwischen „Teaser live" und „In Diligence": Der Marktplatz-Teaser steht, die aktive Käuferansprache läuft über den CRM-Funnel, erst wenn ein Interessent in die Prüfung geht, wechselt das Mandat nach „In Diligence". Übergänge in beide Richtungen erlaubt, ein Sprung von „Ansprache" direkt auf LOI nicht
 
-## v0.262 · 24.07.2026 · Sprint 13: CRM V · Rollen & Rechte, 2FA, DSGVO-Härtung
+## v0.262 · 21.07.2026 · Sprint 13: CRM V · Rollen & Rechte, 2FA, DSGVO-Härtung
 - **Zwei-Faktor-Authentifizierung (TOTP, RFC 6238)**, eigene Implementierung ohne externe Abhängigkeit: HMAC-SHA1, 30-Sekunden-Fenster, ±1 Fenster Drift-Toleranz, zeitkonstanter Vergleich. Kompatibel mit Google/Microsoft Authenticator, 1Password, Authy. Einrichtung im Profil: Link antippen oder Geheimnis abtippen → mit Code bestätigen → **8 Backup-Codes** (nur als Hash gespeichert, einmal einlösbar)
 - Login ist zweistufig: nach dem Passwort eine **kurzlebige Challenge (5 Min.)**, erst der Code schaltet frei. Deaktivieren nur mit gültigem Code. `REQUIRE_2FA_STAFF=1` macht 2FA für interne Rollen verpflichtend
 - **Granulare Rollen** (`middleware/permissions.js`, die Matrix liegt bewusst im Code, ist Teil des Audits und nicht still per SQL änderbar): **Administrator** (alles), **Mandanten-Eigentümer**, **Berater** (eigene Mandate, CRM, Mailversand), **Assistenz** (pflegen ja, versenden und löschen nein), **Analyst** (nur lesen)
@@ -348,7 +354,7 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - **DSGVO**: **Datenauskunft nach Art. 15** je Kontakt als JSON (Stammdaten, Mandate, Einladungen, Mailings, Nachrichten, Pflege-Links, Änderungen, Aufgaben) und **Recht auf Vergessenwerden nach Art. 17**, personenbezogene Daten werden gelöscht, Mailinhalte entfernt, offene Zugänge entwertet; die **Prozesshistorie bleibt als Nachweis** (Rechenschaftspflicht, Art. 5 Abs. 2)
 - Verifiziert: 35 Tests (alle RFC-6238-Vektoren, Drift-Toleranz, Backup-Code-Verbrauch, Rechte-Matrix je Rolle, Mandats-Sichtbarkeit)
 
-## v0.261 · 23.07.2026 · Sprint 12: Ausführliche Bewertung 2.0 (DCF, Sensitivität, Benchmarking)
+## v0.261 · 21.07.2026 · Sprint 12: Ausführliche Bewertung 2.0 (DCF, Sensitivität, Benchmarking)
 - **Discounted Cash Flow** (`server/valuation/dcf.js`): Fünfjahresplanung (Umsatzwachstum, EBIT-Marge, AfA-, Capex- und Working-Capital-Quoten), **FCFF**, Diskontierung mit **Mid-Year-Convention**, Fortführungswert nach **Gordon Growth**, Equity Bridge über die Netto-Finanzschulden
 - **Kapitalkosten (WACC)** nach CAPM mit KMU-Realität: Basiszins + Beta × Marktrisikoprämie + **Small-Size-Prämie** + **Fungibilitätszuschlag**; eine schwache Scorecard erhöht den Zins automatisch. Fremdkapital mit Tax Shield, Standard ist cash-/debt-free
 - **Sensitivitätsmatrix** 5 × 5: Enterprise Value über WACC × ewiges Wachstum, Basisfall hervorgehoben. Der **Anteil des Fortführungswerts** wird ausgewiesen, je höher, desto stärker hängt der Wert an Langfristannahmen
@@ -358,7 +364,7 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - **PDF-Report** um DCF-Seite (Planungstabelle, Barwerte, WACC-Herleitung), Sensitivitätsmatrix und Benchmarking erweitert
 - Verifiziert: 44 Tests (WACC, FCF-Projektion, Mid-Year-Diskontierung, Gordon Growth, `WACC ≤ g` abgefangen, Sensitivitätsmonotonie, Equity Bridge, Benchmark-Einordnung, Ende-zu-Ende inkl. PDF)
 
-## v0.260 · 22.07.2026 · Mail-Ausgang zeigt die Mails, Feedback löschbar
+## v0.260 · 21.07.2026 · Mail-Ausgang zeigt die Mails, Feedback löschbar
 - **Fehler behoben (Mail-Ausgang)**: Der Typfilter zählte Mails („Pflege-Link (3)"), die Liste blieb aber leer. Ursache: `(? IS NULL OR e.mail_type = ?)`, Postgres kann den Typ eines nackten Platzhalters in `? IS NULL` nicht ableiten, die Abfrage scheiterte, und ein `.catch(() => [])` verschluckte den Fehler. Die WHERE-Klausel wird jetzt dynamisch gebaut, der Fehler nicht mehr unterdrückt
 - **Feedback löschen**: `DELETE /api/community/feedback/:id` (Audit-Eintrag `FEEDBACK_DELETED`) + Löschen-Aktion im Admin. Hinweis: Feedback (Seite `/feedback`) und Q&A (Fragen zu Mandaten) sind zwei getrennte Bereiche, eine gelöschte Q&A-Frage taucht nicht im Feedback auf und umgekehrt
 

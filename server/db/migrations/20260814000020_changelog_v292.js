@@ -1,6 +1,6 @@
 /** Changelog v0.292 (Stufe B DUB-Benchmark: Inserat-Wizard + Moderation). */
 const ENTRY = {
-  version: 'v0.292', released_on: '2026-08-14',
+  version: 'v0.292', released_on: '2026-07-21',
   title: 'Inserat-Wizard, Moderation und Lebenszyklus',
   items: [
     'Verkäufer erstellen ihr Inserat jetzt geführt in mehreren Schritten, mit Autosave als Entwurf und Vorschau vor dem Einreichen',

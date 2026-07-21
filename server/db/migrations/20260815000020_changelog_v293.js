@@ -1,6 +1,6 @@
 /** Changelog v0.293 (Stufe C DUB-Benchmark: Zielsteuerung, Namensnennung, Plattform-NDA). */
 const ENTRY = {
-  version: 'v0.293', released_on: '2026-08-15',
+  version: 'v0.293', released_on: '2026-07-21',
   title: 'Käufergruppen, Namensnennung und Plattform-NDA',
   items: [
     'Zielsteuerung je Inserat: Käufergruppen (strategisch, Finanzinvestor, Privat, M&A-Berater) und Schlagwörter, damit das richtige Publikum matcht',

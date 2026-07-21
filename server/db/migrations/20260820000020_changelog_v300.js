@@ -1,6 +1,6 @@
 /** Changelog v0.300 (Mailmerge je Empfänger, Vorlagen-Stufen korrigiert). */
 const ENTRY = {
-  version: 'v0.300', released_on: '2026-08-20',
+  version: 'v0.300', released_on: '2026-07-21',
   title: 'Individuelle Begründung je Empfänger, Vorlagen-Stufen korrigiert',
   items: [
     'Neuer Platzhalter „warum": im Versand-Dialog schreiben Sie je Empfänger eine eigene Begründung, die in die Mail einfließt',

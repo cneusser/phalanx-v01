@@ -1,6 +1,6 @@
 /** Changelog v0.301 (Exposé in der Dokumentenliste). */
 const ENTRY = {
-  version: 'v0.301', released_on: '2026-08-21',
+  version: 'v0.301', released_on: '2026-07-21',
   title: 'Exposé erscheint in der Unterlagen-Liste',
   items: [
     'Das Exposé steht jetzt bei den vertraulichen Unterlagen, mit „Ansehen" für die Web-Ansicht und „PDF" für den Export',

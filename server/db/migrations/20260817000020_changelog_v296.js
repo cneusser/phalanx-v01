@@ -1,6 +1,6 @@
 /** Changelog v0.296 (Freigabe Verkäufer, Namen im Verkäuferblick, Pflege-Spalte). */
 const ENTRY = {
-  version: 'v0.296', released_on: '2026-08-17',
+  version: 'v0.296', released_on: '2026-07-21',
   title: 'Freigabe durch den Verkäufer, Namen im Verkäuferblick',
   items: [
     'Neuer Funnelschritt „Freigabe Verkäufer" zwischen Longlist und Angesprochen: recherchierte Kandidaten werden dem Mandanten vorgelegt',

@@ -1,6 +1,6 @@
 /** Changelog v0.302 (Funnel verdichtet, Papierkorb, Mailings-Archiv, eigener Reiter). */
 const ENTRY = {
-  version: 'v0.302', released_on: '2026-08-22',
+  version: 'v0.302', released_on: '2026-07-21',
   title: 'Funnel aufgeräumt: neun Stufen, Papierkorb, eigener Reiter',
   items: [
     'Neun statt vierzehn Stufen: Longlist zur Freigabe, Shortlist freigegeben, Ansprache, NDA, Datenraum-Zugang, LOI, Verhandlung, Closing/Signing, Abschluss',

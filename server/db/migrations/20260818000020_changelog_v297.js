@@ -1,6 +1,6 @@
 /** Changelog v0.297 (Birdview am Kontakt, Konto-Verknüpfung geheilt). */
 const ENTRY = {
-  version: 'v0.297', released_on: '2026-08-18',
+  version: 'v0.297', released_on: '2026-07-21',
   title: 'Birdview am Kontakt, Konto-Verknüpfung geheilt',
   items: [
     'Der Kontakt zeigt jetzt zuverlässig sein Plattform-Konto und bietet dort direkt den Birdview an',

@@ -1,6 +1,6 @@
 /** Changelog-Eintrag v0.261 (Sprint 12: Ausführliche Bewertung 2.0). */
 const ENTRY = {
-  version: 'v0.261', released_on: '2026-07-23',
+  version: 'v0.261', released_on: '2026-07-21',
   title: 'Bewertung 2.0: Cashflow, Sensitivität, Branchenvergleich',
   items: [
     'Discounted Cash Flow: Fünfjahresplanung, Kapitalkosten nach CAPM mit KMU-Zuschlägen, Fortführungswert, jede Annahme offengelegt',

@@ -11,7 +11,7 @@
 const { TEMPLATES } = require('../mailTemplateSeed');
 
 const ENTRY = {
-  version: 'v0.267', released_on: '2026-07-29',
+  version: 'v0.267', released_on: '2026-07-21',
   title: 'Sprache aufgeräumt: menschliche Texte, kein Gedankenstrich',
   items: [
     'Alle Mailvorlagen neu geschrieben: kürzere Sätze, klare Ansage, keine Textbaustein-Floskeln',

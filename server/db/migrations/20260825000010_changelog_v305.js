@@ -1,6 +1,6 @@
 /** Changelog v0.305 (Fundraising-Gate: Unterlagen nach Freigabe statt nach NDA). */
 const ENTRY = {
-  version: 'v0.305', released_on: '2026-08-25',
+  version: 'v0.305', released_on: '2026-07-21',
   title: 'Startup-Finanzierung: Unterlagen nach Freigabe statt nach NDA',
   items: [
     'Bei Mandaten vom Typ Startup-Finanzierung ersetzt eine ausdrückliche Freigabe durch die Beratung das unterzeichnete NDA',

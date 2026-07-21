@@ -1,6 +1,6 @@
 /** Changelog-Eintrag v0.264 (Rollen pflegbar, Rechtstexte, Fehlergrenze). */
 const ENTRY = {
-  version: 'v0.264', released_on: '2026-07-26',
+  version: 'v0.264', released_on: '2026-07-21',
   title: 'Rollen selbst zuschneiden, Rechtstexte, keine grauen Seiten mehr',
   items: [
     'Rechte werden per Häkchen vergeben und entzogen, je Rolle, mit Audit-Eintrag',

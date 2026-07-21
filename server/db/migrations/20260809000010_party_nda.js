@@ -19,7 +19,7 @@ exports.up = async function (knex) {
   await add('access_granted', (t) => t.integer('access_granted').notNullable().defaultTo(0));
 
   const ENTRY = {
-    version: 'v0.282', released_on: '2026-08-09',
+    version: 'v0.282', released_on: '2026-07-21',
     title: 'NDA und Projekt-Zugang pro Kontakt manuell führen',
     items: [
       'NDA-Status je Mandat manuell setzbar (kein / angefragt / liegt vor), auch für Kontakte ohne Plattform-Konto',

@@ -1,6 +1,6 @@
 /** Changelog v0.309 (Firma am Nutzer über die stabile CRM-Verknüpfung). */
 const ENTRY = {
-  version: 'v0.309', released_on: '2026-08-28',
+  version: 'v0.309', released_on: '2026-07-21',
   title: 'Firma am Nutzer über die stabile Verknüpfung',
   items: [
     'Die Admin-Nutzerliste zeigt die Firma jetzt aus der CRM-Verknüpfung, nicht mehr aus dem bei der Registrierung getippten Text',

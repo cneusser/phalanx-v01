@@ -1,6 +1,6 @@
 /** Changelog v0.286 (Verkäufer-Funnel über mehrere Mandate). */
 const ENTRY = {
-  version: 'v0.286', released_on: '2026-08-11',
+  version: 'v0.286', released_on: '2026-07-21',
   title: 'Verkäufer-Funnel über mehrere Mandate',
   items: [
     'Mandanten sehen im Dashboard einen nur-lesbaren Funnel ihrer Mandate (Reiter bei mehreren Projekten), mit Kennzahlen je Stufe und den Namen der interessierten Parteien',

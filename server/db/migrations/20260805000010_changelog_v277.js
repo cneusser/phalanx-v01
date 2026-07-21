@@ -1,6 +1,6 @@
 /** Changelog v0.277 (Prozessstand für den Mandanten, Reaktionen sichtbar). */
 const ENTRY = {
-  version: 'v0.277', released_on: '2026-08-05',
+  version: 'v0.277', released_on: '2026-07-21',
   title: 'Prozessstand für den Mandanten, Reaktionen sichtbar',
   items: [
     'Verkäufer sehen im Dashboard einen reduzierten Funnel ihres Mandats: interessierte Parteien mit Namen und Stufe, ohne Kontaktdaten und ohne Bezug zu anderen Mandaten',

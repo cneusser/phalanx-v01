@@ -1,6 +1,6 @@
 /** Changelog-Eintrag v0.270 (Anrede registrierter Nutzer, NDA-Stufe im Funnel). */
 const ENTRY = {
-  version: 'v0.270', released_on: '2026-08-01',
+  version: 'v0.270', released_on: '2026-07-21',
   title: 'Anrede auch für registrierte Nutzer, NDA-Stufe präzisiert',
   items: [
     'Mails an registrierte Nutzer sprechen jetzt mit der bei der Registrierung erfassten Anrede an („Sehr geehrter Herr Dr. Malessa,"); die Anrede wird zentral über die E-Mail-Adresse nachgeschlagen, keine Aufrufstelle muss sie mehr mitgeben',

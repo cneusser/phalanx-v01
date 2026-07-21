@@ -1,6 +1,6 @@
 /** Changelog v0.308 (Suchprofile am Kontakt, Sprung in die Firma). */
 const ENTRY = {
-  version: 'v0.308', released_on: '2026-08-27',
+  version: 'v0.308', released_on: '2026-07-21',
   title: 'Suchprofile am Kontakt, Sprung in die Firma',
   items: [
     'Der Kontakt zeigt jetzt das Käuferprofil und die gespeicherten Suchen des verknüpften Plattform-Kontos',

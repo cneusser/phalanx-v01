@@ -1,6 +1,6 @@
 /** Changelog-Eintrag v0.262 (Sprint 13: CRM V: Rollen, 2FA, DSGVO). */
 const ENTRY = {
-  version: 'v0.262', released_on: '2026-07-24',
+  version: 'v0.262', released_on: '2026-07-21',
   title: 'Rollen, Zwei-Faktor-Schutz und DSGVO-Rechte',
   items: [
     'Zwei-Faktor-Authentifizierung (TOTP) mit Authenticator-App und einmaligen Backup-Codes',

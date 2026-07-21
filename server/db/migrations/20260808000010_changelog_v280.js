@@ -1,6 +1,6 @@
 /** Changelog v0.280 (Verkäufer aus dem Käufer-Funnel trennen, Verkäufer einladen). */
 const ENTRY = {
-  version: 'v0.280', released_on: '2026-08-08',
+  version: 'v0.280', released_on: '2026-07-21',
   title: 'Verkäufer getrennt vom Käufer-Funnel, Verkäufer einladbar',
   items: [
     'Die Funnel-Spalten zeigen nur noch Käufer; Verkäufer/Mandant und weitere Beteiligte stehen in einer eigenen Leiste',

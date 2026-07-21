@@ -1,6 +1,6 @@
 /** Changelog v0.295 (Verkäufer-Bereich fokussiert). */
 const ENTRY = {
-  version: 'v0.295', released_on: '2026-08-16',
+  version: 'v0.295', released_on: '2026-07-21',
   title: 'Verkäufer-Bereich fokussiert',
   items: [
     'Verkäufer landen in „Mein Bereich" jetzt im eigenen Cockpit, nicht in der Käuferansicht',

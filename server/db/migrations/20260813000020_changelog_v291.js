@@ -1,6 +1,6 @@
 /** Changelog v0.291 (Stufe A DUB-Benchmark: Käufertyp + Funnel bis Closing). */
 const ENTRY = {
-  version: 'v0.291', released_on: '2026-08-13',
+  version: 'v0.291', released_on: '2026-07-21',
   title: 'Käufertyp am Kontakt, Funnel bis Closing',
   items: [
     'Neuer Käufertyp am Kontakt: strategisch, Finanzinvestor, Privatperson, M&A-Berater mit Suchmandat, als Filter und Badge im CRM',

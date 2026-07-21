@@ -1,6 +1,6 @@
 /** Changelog v0.299 (Marktplatz für das Team wieder vollständig). */
 const ENTRY = {
-  version: 'v0.299', released_on: '2026-08-19',
+  version: 'v0.299', released_on: '2026-07-21',
   title: 'Marktplatz für das Team wieder vollständig',
   items: [
     'Admin und Berater sehen im Marktplatz wieder alle Mandate. Das Ausblenden eigener Mandate gilt nur noch für Käufer und Verkäufer',
