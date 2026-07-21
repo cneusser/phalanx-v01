@@ -39,6 +39,17 @@ const fmt = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', 
 export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   const { startBirdview } = useAuth();
   const [data, setData] = useState(null);
+  // Unterlagen-Link
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareProject, setShareProject] = useState('');
+  const [shareScope, setShareScope] = useState('document');
+  const [shareDocs, setShareDocs] = useState([]);
+  const [shareDoc, setShareDoc] = useState('');
+  const [shareDays, setShareDays] = useState(14);
+  const [shareMaxViews, setShareMaxViews] = useState('');
+  const [shareUrl, setShareUrl] = useState('');
+  const [shareLinks, setShareLinks] = useState([]);
+  const [shareBusy, setShareBusy] = useState(false);
   // Freie Nachricht
   const [msgOpen, setMsgOpen] = useState(false);
   const [msgSubject, setMsgSubject] = useState('');
@@ -125,6 +136,40 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   }
   async function setPartyField(partyId, patch) {
     try { await api.put(`/crm/parties/${partyId}`, patch); await load(); onChanged && onChanged(); }
+    catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  // ── Unterlagen-Link ohne Registrierung erzeugen ───────────────────────────
+  async function loadShareDocs(projectId) {
+    setShareProject(projectId); setShareDoc('');
+    if (!projectId) return setShareDocs([]);
+    try { setShareDocs(await api.get(`/crm/deals/${projectId}/documents`)); }
+    catch { setShareDocs([]); }
+  }
+  async function createShareLink() {
+    if (!shareProject) return show('Bitte ein Mandat wählen');
+    if (shareScope === 'document' && !shareDoc) return show('Bitte eine Unterlage wählen');
+    setShareBusy(true);
+    try {
+      const r = await api.post(`/crm/contacts/${contactId}/share-links`, {
+        project_id: shareProject, scope: shareScope,
+        document_id: shareScope === 'document' ? shareDoc : null,
+        days: Number(shareDays) || 14,
+        max_views: shareMaxViews ? Number(shareMaxViews) : null,
+      });
+      setShareUrl(r.url);
+      show('Link erstellt ✓');
+      await loadShareLinks();
+    } catch (e) { show('Fehler: ' + e.message); }
+    finally { setShareBusy(false); }
+  }
+  async function loadShareLinks() {
+    try { setShareLinks(await api.get(`/crm/contacts/${contactId}/share-links`)); }
+    catch { setShareLinks([]); }
+  }
+  async function revokeShareLink(id) {
+    if (!window.confirm('Diesen Link zurückziehen? Er funktioniert danach nicht mehr.')) return;
+    try { await api.post(`/crm/share-links/${id}/revoke`, {}); show('Link zurückgezogen'); await loadShareLinks(); }
     catch (e) { show('Fehler: ' + e.message); }
   }
 
@@ -282,6 +327,11 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                   <Send size={13} /> Nachricht schreiben
                 </button>
               )}
+              <button onClick={() => { setShareOpen(v => !v); if (!shareOpen) loadShareLinks(); }}
+                title="Ablaufenden Link auf eine Unterlage erzeugen: ohne Konto, ohne NDA, mit Vertraulichkeits-Bestätigung"
+                style={{ ...btn(false), color: '#5b21b6', borderColor: '#c4b5fd' }}>
+                <FileText size={13} /> Unterlagen-Link
+              </button>
               {k.email && (
                 <a href={`mailto:${k.email}`} title="Im eigenen Mailprogramm öffnen (wird hier nicht protokolliert)" style={{ ...btn(false), textDecoration: 'none' }}>
                   <ExternalLink size={13} /> Direkt mailen
@@ -308,6 +358,72 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                 </button>
               )}
             </div>
+
+            {/* Unterlagen-Link: ablaufend, ohne Konto, mit Vertraulichkeits-Bestätigung */}
+            {shareOpen && (
+              <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, margin: '0 1.3rem 0.8rem', padding: '0.9rem 1rem' }}>
+                <div style={{ ...LBL, color: '#5b21b6', marginBottom: 6 }}>Unterlagen-Link erstellen</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <select value={shareProject} onChange={e => loadShareDocs(e.target.value)} style={IN}>
+                    <option value="">Mandat wählen…</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.codename}</option>)}
+                  </select>
+                  <select value={shareScope} onChange={e => setShareScope(e.target.value)} style={IN}>
+                    <option value="document">Einzelne Unterlage</option>
+                    <option value="expose">Hinterlegtes Exposé-PDF</option>
+                  </select>
+                  {shareScope === 'document' && (
+                    <select value={shareDoc} onChange={e => setShareDoc(e.target.value)} style={{ ...IN, gridColumn: '1 / -1' }}>
+                      <option value="">Unterlage wählen…</option>
+                      {shareDocs.map(d => <option key={d.id} value={d.id}>{d.description || d.filename}</option>)}
+                    </select>
+                  )}
+                  <input type="number" min="1" max="90" value={shareDays} onChange={e => setShareDays(e.target.value)}
+                    placeholder="Gültig (Tage)" title="Gültigkeit in Tagen" style={IN} />
+                  <input type="number" min="1" max="50" value={shareMaxViews} onChange={e => setShareMaxViews(e.target.value)}
+                    placeholder="max. Abrufe (optional)" title="Höchstzahl an Abrufen, leer = unbegrenzt bis zum Ablauf" style={IN} />
+                </div>
+                <button onClick={createShareLink} disabled={shareBusy}
+                  style={{ ...btn(shareBusy), background: '#5b21b6', color: '#fff', borderColor: '#5b21b6' }}>
+                  <Plus size={13} /> {shareBusy ? 'Wird erstellt…' : 'Link erzeugen'}
+                </button>
+                {shareUrl && (
+                  <div style={{ marginTop: 8, background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem 0.7rem' }}>
+                    <div style={{ fontSize: '0.72rem', color: C.muted, marginBottom: 4 }}>Link kopieren und dem Empfänger senden:</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input readOnly value={shareUrl} onFocus={e => e.target.select()} style={{ ...IN, fontSize: '0.75rem' }} />
+                      <button onClick={() => { navigator.clipboard?.writeText(shareUrl); show('Link kopiert ✓'); }} style={btn(false)}>Kopieren</button>
+                    </div>
+                  </div>
+                )}
+                {shareLinks.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ ...LBL, marginBottom: 4 }}>Vergebene Links</div>
+                    {shareLinks.map(s => {
+                      const expired = new Date(s.expires_at) < new Date();
+                      const dead = s.revoked_at || expired;
+                      return (
+                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0.3rem 0', borderTop: `1px solid ${C.border}`, fontSize: '0.76rem' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <strong>{s.codename}</strong> <span style={{ color: C.muted }}>{s.filename || (s.scope === 'expose' ? 'Exposé' : '')}</span>
+                            <div style={{ fontSize: '0.7rem', color: dead ? '#b91c1c' : C.muted }}>
+                              {s.revoked_at ? 'zurückgezogen' : expired ? 'abgelaufen' : `gültig bis ${new Date(s.expires_at).toLocaleDateString('de-DE')}`}
+                              {' · '}{s.views} Abruf(e)
+                              {s.acked_name ? ` · bestätigt von ${s.acked_name}` : ' · noch nicht geöffnet'}
+                            </div>
+                          </div>
+                          {!dead && (
+                            <button onClick={() => revokeShareLink(s.id)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#b91c1c', fontSize: '0.72rem', textDecoration: 'underline' }}>
+                              zurückziehen
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Freie Nachricht: Versand über die Plattform, Antwort an mich */}
             {msgOpen && (

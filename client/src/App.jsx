@@ -33,6 +33,7 @@ import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import SellerDashboard from './pages/SellerDashboard';
 import Funnel from './pages/Funnel';
+import SharedDocument from './pages/SharedDocument';
 import Datenschutz from './pages/Datenschutz';
 import Impressum from './pages/Impressum';
 import Cookies from './pages/Cookies';
@@ -103,6 +104,7 @@ function AppRoutes() {
           <Route path="/einladung" element={<InvitationAccept />} />
           <Route path="/einwilligung" element={<ConsentInvite />} />
           <Route path="/profil-pflege" element={<ContactSelfService />} />
+          <Route path="/unterlagen" element={<SharedDocument />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />

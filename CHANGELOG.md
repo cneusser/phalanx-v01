@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.306 · 26.08.2026 · Unterlagen-Link ohne Registrierung
+- **Der zweite Weg neben der Freigabe**: Ein persönlicher Link auf genau eine Unterlage, ganz ohne Konto und ohne NDA. Gedacht für Gegenüber, die beides nie tun werden
+- **Vertraulichkeit per Klick**: Vor dem Öffnen bestätigt der Empfänger mit seinem vollständigen Namen, dass er die Unterlage vertraulich behandelt und nicht weitergibt. Name, Zeitpunkt und IP werden protokolliert. Das ersetzt keine Unterschrift, ist aber ein belastbarer Nachweis
+- **Vier Schutzschichten**: Ablaufdatum (1 bis 90 Tage), optionale Höchstzahl an Abrufen, jederzeitiger Widerruf und ein Wasserzeichen mit dem Namen des Empfängers auf jeder Seite
+- **Nachvollziehbar**: Im Kontakt sehen Sie alle vergebenen Links, wie oft sie geöffnet wurden, von wem sie bestätigt wurden und bis wann sie gelten
+- **Zwei Quellen**: eine einzelne Unterlage aus der Dokumentenliste des Mandats oder das hinterlegte Exposé-PDF
+- Verifiziert: fünf Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.305 · 25.08.2026 · Startup-Finanzierung: Unterlagen nach Freigabe statt nach NDA
 - **Ursache behoben**: Institutionelle Investoren unterzeichnen in aller Regel kein NDA (siehe Rückmeldung von Capnamic zu Nexora). Bei Mandaten vom Typ Startup-Finanzierung ersetzt jetzt eine ausdrückliche Freigabe durch die Beratung die Unterschrift
 - **Freigabe als Schutz**: Der Investor fragt die Unterlagen an, freigegeben wird je Einzelfall von Hand. Damit sehen keine Wettbewerber die Unterlagen, obwohl kein NDA vorliegt

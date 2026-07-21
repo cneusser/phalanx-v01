@@ -332,6 +332,75 @@ router.post('/contacts/:id/send-message', ...isStaff, canSend, wrap(async (req, 
   res.json({ success: true, data: { sent: !!ok, to: k.email } });
 }));
 
+// ── Unterlagen-Link ohne Registrierung (v0.306) ────────────────────────────
+// Für Gegenüber, die weder ein Konto anlegen noch ein NDA zeichnen. Der Link
+// läuft ab, lässt sich widerrufen und trägt beim Öffnen den Namen des Empfängers
+// als Wasserzeichen. Vor dem Öffnen bestätigt der Empfänger die Vertraulichkeit.
+const SHARE_DEFAULT_DAYS = 14;
+
+router.get('/contacts/:id/share-links', ...isStaff, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT s.*, p.codename, d.filename
+      FROM share_links s
+      JOIN projects p ON p.id = s.project_id
+      LEFT JOIN documents d ON d.id = s.document_id
+     WHERE s.contact_id = ? ORDER BY s.created_at DESC LIMIT 20`, [req.params.id])).catch(() => []);
+  res.json({ success: true, data: rows });
+}));
+
+router.post('/contacts/:id/share-links', ...isStaff, canSend, wrap(async (req, res) => {
+  const k = await scoped(req, (t) => t.get('SELECT id, email, first_name, last_name FROM crm_contacts WHERE id = ?', [req.params.id]));
+  if (!k) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+
+  const projectId = Number(req.body.project_id);
+  if (!projectId) return res.status(400).json({ success: false, error: 'Bitte ein Mandat wählen' });
+  const project = await scoped(req, (t) => t.get('SELECT id, codename FROM projects WHERE id = ?', [projectId]));
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+
+  const scope = req.body.scope === 'expose' ? 'expose' : 'document';
+  const documentId = scope === 'document' ? Number(req.body.document_id) || null : null;
+  if (scope === 'document' && !documentId) {
+    return res.status(400).json({ success: false, error: 'Bitte eine Unterlage wählen' });
+  }
+  if (documentId) {
+    const doc = await scoped(req, (t) => t.get('SELECT id FROM documents WHERE id = ? AND project_id = ?', [documentId, projectId]));
+    if (!doc) return res.status(404).json({ success: false, error: 'Unterlage gehört nicht zu diesem Mandat' });
+  }
+
+  const days = Math.min(Math.max(Number(req.body.days) || SHARE_DEFAULT_DAYS, 1), 90);
+  const maxViews = req.body.max_views ? Math.min(Math.max(Number(req.body.max_views), 1), 50) : null;
+  const token = require('crypto').randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + days * 24 * 3600 * 1000);
+
+  const id = await scoped(req, (t) => t.insert(`
+    INSERT INTO share_links (tenant_id, project_id, contact_id, scope, document_id, token, label,
+                             recipient_email, expires_at, max_views, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [req.tenantId || 1, projectId, k.id, scope, documentId, token,
+     req.body.label || null, k.email || null, expires, maxViews, req.user.id]));
+
+  db.auditLog(req.user.id, 'SHARE_LINK_CREATED', 'project', projectId,
+    `Unterlagen-Link für ${k.email || k.last_name}, gültig ${days} Tage`, req.ip);
+
+  const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
+  res.status(201).json({ success: true, data: { id, url: `${base}/unterlagen?token=${token}`, expires_at: expires } });
+}));
+
+router.post('/share-links/:id/revoke', ...isStaff, canWrite, wrap(async (req, res) => {
+  await scoped(req, (t) => t.run('UPDATE share_links SET revoked_at = now() WHERE id = ?', [req.params.id]));
+  db.auditLog(req.user.id, 'SHARE_LINK_REVOKED', 'share_link', req.params.id, null, req.ip);
+  res.json({ success: true, data: { revoked: true } });
+}));
+
+// Unterlagen eines Mandats zur Auswahl im Link-Dialog
+router.get('/deals/:projectId/documents', ...isStaff, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(
+    `SELECT id, filename, category, description FROM documents
+      WHERE project_id = ? AND file_path IS NOT NULL ORDER BY created_at DESC LIMIT 100`,
+    [req.params.projectId])).catch(() => []);
+  res.json({ success: true, data: rows });
+}));
+
 // ── Plattform-Konten für die manuelle Verknüpfung suchen ───────────────────
 // Nötig, wenn der Kontakt im CRM eine andere E-Mail hat als sein Konto.
 router.get('/account-candidates', ...isStaff, wrap(async (req, res) => {
