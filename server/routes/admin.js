@@ -674,12 +674,28 @@ router.get('/projects/:id/interests', ...isAdmin, wrap(async (req, res) => {
 
 // ── Users ─────────────────────────────────────────────────────────────────
 router.get('/users', ...isAdmin, wrap(async (req, res) => {
+  // Die Firma am Nutzerkonto ist nur der bei der Registrierung getippte Text.
+  // Die belastbare Zuordnung läuft über den CRM-Kontakt und dessen aktuelle,
+  // historisierte Unternehmenszuordnung. Nur so bleibt sie bei Namensänderungen
+  // und Arbeitgeberwechseln richtig.
   const users = await db.all(`
     SELECT u.id, u.email, u.first_name, u.last_name, u.company, u.role, u.buyer_type,
       u.is_active, u.is_approved, u.created_at,
+      k.id AS crm_contact_id,
+      c.id AS crm_company_id,
+      c.name AS crm_company_name,
       (SELECT COUNT(*)::int FROM nda_requests nr WHERE nr.user_id = u.id) as nda_count,
       (SELECT COUNT(*)::int FROM nda_requests nr WHERE nr.user_id = u.id AND nr.status='approved') as approved_count
     FROM users u
+    LEFT JOIN crm_contacts k ON k.user_id = u.id
+    LEFT JOIN LATERAL (
+      SELECT co.id, co.name
+        FROM crm_company_contacts cc
+        JOIN crm_companies co ON co.id = cc.company_id
+       WHERE cc.contact_id = k.id AND cc.ended_on IS NULL
+       ORDER BY cc.is_primary DESC, cc.started_on DESC NULLS LAST
+       LIMIT 1
+    ) c ON TRUE
     WHERE u.role NOT IN ('super_admin', 'advisor')
     ORDER BY u.is_approved ASC, u.created_at DESC
   `);

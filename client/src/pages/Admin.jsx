@@ -1578,14 +1578,30 @@ export default function Admin() {
                       {u.first_name} {u.last_name}
                     </div>
                     <div style={{ color: C.muted, fontSize: '0.72rem' }}>{u.email}</div>
-                    {u.company && (
+                    {/* Firma: bevorzugt über die CRM-Verknüpfung (stabile ID),
+                        sonst als Suche über den bei der Registrierung getippten Text */}
+                    {(u.crm_company_id || u.company) && (
                       <div style={{ color: C.muted, fontSize: '0.7rem' }}>
-                        {/* Sprung ins CRM: sucht das Unternehmen anhand des Namens */}
-                        <button onClick={() => navigate(`/crm?q=${encodeURIComponent(u.company)}`)}
-                          title="Unternehmen im CRM suchen und öffnen"
-                          style={{ background: 'none', border: 'none', padding: 0, color: '#1D4E89', cursor: 'pointer', fontSize: '0.7rem', textDecoration: 'underline' }}>
-                          {u.company}
-                        </button>
+                        {u.crm_company_id ? (
+                          <>
+                            <button onClick={() => navigate(`/crm?company=${u.crm_company_id}`)}
+                              title="Verknüpftes Unternehmen im CRM öffnen"
+                              style={{ background: 'none', border: 'none', padding: 0, color: '#1D4E89', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700, textDecoration: 'underline' }}>
+                              {u.crm_company_name}
+                            </button>
+                            {u.company && u.company.trim() && u.company.trim() !== (u.crm_company_name || '').trim() && (
+                              <span title={`Bei der Registrierung angegeben: ${u.company}`} style={{ color: '#b45309', marginLeft: 4 }}>
+                                (angegeben: {u.company})
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <button onClick={() => navigate(`/crm?q=${encodeURIComponent(u.company)}`)}
+                            title="Noch nicht mit einem CRM-Unternehmen verknüpft. Klick sucht nach dem Namen."
+                            style={{ background: 'none', border: 'none', padding: 0, color: C.muted, cursor: 'pointer', fontSize: '0.7rem', textDecoration: 'underline dotted' }}>
+                            {u.company}
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>

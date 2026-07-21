@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.309 · 28.08.2026 · Firma am Nutzer über die stabile Verknüpfung
+- **Nicht mehr über den Namen**: Die Admin-Nutzerliste löst die Firma jetzt über die Kette Konto → CRM-Kontakt → aktuelle Unternehmenszuordnung auf und verlinkt auf die **ID** des Unternehmens. Namensänderungen wirken damit überall, ohne dass Verweise brechen
+- **Arbeitgeberwechsel bleiben korrekt**: Die Zuordnung Kontakt zu Unternehmen ist historisiert (`started_on`, `ended_on`). Angezeigt wird die aktuelle Position, frühere bleiben als Historie erhalten
+- **Abweichungen werden sichtbar**: Weicht der bei der Registrierung getippte Firmenname von der verknüpften Firma ab, steht das daneben. So fällt auf, wenn jemand inzwischen woanders arbeitet
+- **Ohne Verknüpfung** bleibt der bisherige Weg über die Namenssuche, erkennbar an der gepunkteten Unterstreichung. Das ist zugleich der Hinweis, dass hier noch eine Verknüpfung fehlt
+- Bewusst **kein zweites Firmenfeld am Nutzerkonto**: Eine Fremdschlüsselspalte auf `users` wäre eine konkurrierende Wahrheit ohne Historie und würde mit der CRM-Zuordnung auseinanderlaufen
+- Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.308 · 27.08.2026 · Suchprofile am Kontakt, Sprung in die Firma
 - **Die beiden Pools sind verheiratet**: Im Kontakt steht jetzt unter „Suchprofil" beides nebeneinander. Oben der Investitionsschwerpunkt aus dem CRM (dort pflegbar, auch vom Kontakt selbst über den Pflege-Link), darunter das **Käuferprofil und die gespeicherten Suchen aus dem Plattform-Konto** mit Branchen, Regionen, Deal-Typen, Umsatz- und EBITDA-Band sowie der Benachrichtigungsfrequenz
 - Voraussetzung ist die Konto-Verknüpfung aus v0.298. Ist kein Konto verknüpft, sagt der Kontakt das ausdrücklich statt einen leeren Bereich zu zeigen
