@@ -61,8 +61,10 @@ entrepreneursclub.eu (Club- und Level-Modell, siehe Sprint 27).
 | · | Birdview am Kontakt, Konto-Verknüpfung über E-Mail geheilt und manuell möglich (v0.297-v0.298) | ✅ fertig |
 | · | Unternehmen und Mandat direkt aus dem Kontakt zuordnen, auch beim Anlegen (v0.298) | ✅ fertig |
 | · | Marktplatz für Admin/Berater wieder vollständig, Zähler und Filter konsistent (v0.299) | ✅ fertig |
+| · | Funnel auf neun Stufen verdichtet, Papierkorb, Mailings-Archiv, eigener Funnel-Reiter (v0.302) | ✅ fertig |
 | **26** | **Nachfolge-Match: Talent, Kapital und Mandat zusammenbringen** | geplant (Konzept unten) |
 | **27** | **Entrepreneur-Club: Community, Events, Reifegrade** | geplant (Konzept unten) |
+| **28** | **Prozesswerkzeuge: LOI-Ablage und Live-Angebotstool (Bieterverfahren)** | geplant (Konzept unten) |
 
 ---
 
@@ -677,6 +679,73 @@ aber nicht die kuratierende Rolle von Phalanx (Moderation, Namensnennung, Anspra
 Alle neuen Tabellen mit `tenant_id` + RLS; Käufertyp und Sichtbarkeit DSGVO-konform
 (Zweckbindung, Protokoll). Reihenfolge: Stufe A zuerst (kleiner Eingriff, sofort im
 CRM nutzbar), dann B bis D nach Bedarf.
+
+---
+
+## Sprint 28 · Prozesswerkzeuge in LOI und Verhandlung · geplant
+
+Der Funnel endet heute inhaltlich bei „Stufe erreicht". In den beiden heißesten
+Phasen fehlen die Werkzeuge, die den Unterschied machen: das Angebot selbst und
+der Wettbewerb um den Preis.
+
+### 28.1 LOI-Ablage (Stufe 5, LOI)
+
+Der Interessent oder die Beratung lädt das indikative Angebot hoch, der Mandant
+sieht es. Klein, aber im Alltag sofort spürbar.
+
+- Upload je Beteiligtem und Mandat (`loi_documents`: party_id, project_id, Datei,
+  Betrag, Datum, Status Entwurf/eingereicht/angenommen/abgelehnt).
+- Sichtbarkeit: Mandant und Team sehen alle LOIs ihres Mandats, ein Interessent
+  immer nur das eigene. Zugriff wie bei Dokumenten protokolliert.
+- Automatik: Eingang eines LOI hebt den Beteiligten auf Stufe 5 und benachrichtigt
+  den Mandanten. Der Mandant kann annehmen oder ablehnen, beides mit Vermerk.
+- Kennzahlen: Anzahl LOIs, Spanne der Gebote, Zeit bis zur Entscheidung.
+
+### 28.2 Live-Angebotstool (Stufe 6, Verhandlung) · nur auf Freischaltung
+
+Ein moderiertes Bieterverfahren für die Endrunde. Bewusst kein Dauerzustand: Das
+Team schaltet es je Mandat frei, sonst existiert es nicht.
+
+**Kern:** Alle für die Runde eingeladenen Käufer haben Zugang. Geht ein Gebot ein,
+werden die übrigen Bieter informiert und können nachbessern. Ein Timer läuft mit,
+die Laufzeit ist frei einstellbar.
+
+*Bausteine:*
+
+- `bid_rounds` (Mandat, Status offen/pausiert/beendet, Startzeit, Endzeit,
+  Mindestschritt, Sichtbarkeitsmodus, angelegt von) und `bids` (Runde, Beteiligter,
+  Betrag, Bedingungen als Freitext, Zeitpunkt, zurückgezogen).
+- **Zugang** nur für Beteiligte, die für die Runde freigegeben sind (baut auf der
+  bestehenden Freigabe- und NDA-Logik auf).
+- **Benachrichtigung** bei jedem neuen Höchstgebot an alle Mitbieter, per Mail und
+  im Chat, mit direktem Link zum Nachbessern.
+- **Timer** mit einstellbarer Laufzeit und optionaler **Verlängerung bei Last-Minute-
+  Geboten** (fällt in den letzten Minuten ein Gebot, verlängert sich die Runde
+  automatisch um X Minuten). Verhindert das Zuschnappen in der letzten Sekunde.
+- **Sichtbarkeitsmodus** je Runde: nur Rang („Sie sind auf Platz 2"), Höchstgebot
+  sichtbar, oder blind (niemand sieht fremde Gebote). Für viele Mittelstandsprozesse
+  ist der Rang-Modus der richtige Mittelweg zwischen Druck und Diskretion.
+- **Nicht nur Preis:** je Gebot auch Bedingungen erfassen (Finanzierungsnachweis,
+  Zeitplan, Garantien, Bedingung der Weiterbeschäftigung). Der Mandant vergleicht
+  dann Angebote, nicht nur Zahlen.
+- **Protokoll:** jede Aktion revisionsfähig im Log, am Ende ein PDF-Protokoll der
+  Runde für die Akte.
+- **Mandanten-Sicht:** Live-Übersicht der eingehenden Gebote, ohne dass er selbst
+  eingreifen kann. Zuschlag erteilt die Beratung.
+
+*Weitere Ideen, die sich anschließen:*
+
+- **Finanzierungsnachweis als Voraussetzung** zur Teilnahme (Upload, vom Team bestätigt).
+- **Fairness-Regeln:** Mindestschritt, Höchstzahl an Geboten, Sperrfrist zwischen
+  zwei Geboten desselben Bieters.
+- **Absageautomatik** nach Zuschlag: unterlegene Bieter erhalten eine höfliche,
+  vorbereitete Absage (Vorlage besteht bereits).
+- **Anbindung an das Kapital-Matching** aus Sprint 26: Wer knapp unterliegt, weil
+  Eigenkapital fehlt, bekommt passende Kapitalgeber vorgeschlagen.
+
+**Recht und Ton.** Ein Bieterverfahren erzeugt Erwartungen. Vor dem Start klären:
+kein rechtsverbindliches Auktionsversprechen, jederzeitiger Abbruch möglich, klare
+Teilnahmebedingungen, und der Zuschlag bleibt eine Entscheidung des Mandanten.
 
 ---
 

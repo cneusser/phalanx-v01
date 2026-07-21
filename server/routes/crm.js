@@ -730,21 +730,18 @@ router.post('/import/contacts', ...isStaff, canWrite, wrap(async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════
 // Sprint 20: CRM II: Beteiligtenrollen & Sell-Side-Funnel je Mandat
 // ═══════════════════════════════════════════════════════════════════════════
+// Neun Stufen (v0.302). Zwischenzustände wie Namensnennung, Zugang oder
+// Due Diligence stehen als Merkmal an der Partei, nicht als eigene Spalte.
 const FUNNEL_STAGES = [
-  { key: 0, label: 'Longlist' },
-  { key: 1, label: 'Freigabe Verkäufer' },
-  { key: 2, label: 'Angesprochen' },
-  { key: 3, label: 'Rückmeldung' },
-  { key: 4, label: 'Match' },
-  { key: 5, label: 'NDA' },
-  { key: 6, label: 'IM / Unterlagen' },
-  { key: 7, label: 'Gespräch' },
-  { key: 8, label: 'LOI eingereicht' },
-  { key: 9, label: 'LOI unterschrieben' },
-  { key: 10, label: 'Namensnennung' },
-  { key: 11, label: 'Due Diligence' },
-  { key: 12, label: 'Signing' },
-  { key: 13, label: 'Closing' },
+  { key: 0, label: 'Longlist zur Freigabe' },
+  { key: 1, label: 'Shortlist freigegeben' },
+  { key: 2, label: 'Ansprache' },
+  { key: 3, label: 'NDA' },
+  { key: 4, label: 'Datenraum-Zugang' },
+  { key: 5, label: 'LOI' },
+  { key: 6, label: 'Verhandlung' },
+  { key: 7, label: 'Closing / Signing' },
+  { key: 8, label: 'Abschluss' },
 ];
 const PARTY_ROLES = ['buyer', 'advisor', 'seller', 'process', 'bank', 'lawyer', 'target', 'other'];
 const PARTY_STATUS = ['active', 'dropped', 'open', 'unclear'];
@@ -1712,8 +1709,13 @@ router.get('/deals/:projectId/campaigns', ...isStaff, wrap(async (req, res) => {
            (SELECT COUNT(*)::int FROM crm_campaign_recipients r WHERE r.campaign_id = c.id AND r.reminder_count > 0) AS reminded,
            (SELECT COUNT(*)::int FROM crm_campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'no_response') AS no_response,
            (SELECT COUNT(*)::int FROM crm_campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'skipped') AS skipped
-    FROM crm_campaigns c WHERE c.project_id = ? ORDER BY c.created_at DESC LIMIT 50`, [req.params.projectId]));
-  res.json({ success: true, data: { campaigns: rows, reminder_days: campaigns.REMINDER_DAYS } });
+    FROM crm_campaigns c
+     WHERE c.project_id = ? ${req.query.archived === '1' ? 'AND c.archived_at IS NOT NULL' : 'AND c.archived_at IS NULL'}
+     ORDER BY c.created_at DESC LIMIT 50`, [req.params.projectId]));
+  const archived = await scoped(req, (t) => t.get(
+    `SELECT COUNT(*)::int AS c FROM crm_campaigns WHERE project_id = ? AND archived_at IS NOT NULL`,
+    [req.params.projectId])).catch(() => ({ c: 0 }));
+  res.json({ success: true, data: { campaigns: rows, archived_count: archived?.c || 0, reminder_days: campaigns.REMINDER_DAYS } });
 }));
 
 // Wer hat auf ein Mailing reagiert? Empfängerliste mit Namen und Status.
@@ -1732,6 +1734,15 @@ router.get('/campaigns/:id/recipients', ...isStaff, wrap(async (req, res) => {
 
 // Reminder-Automatik einer Kampagne an-/abschalten
 router.put('/campaigns/:id', ...isStaff, wrap(async (req, res) => {
+  // Abgeschlossene Mailings wandern ins Archiv und verlassen die aktive Liste
+  if (req.body.archived !== undefined) {
+    await scoped(req, (t) => t.run(
+      `UPDATE crm_campaigns SET archived_at = ${req.body.archived ? 'now()' : 'NULL'} WHERE id = ?`,
+      [req.params.id]));
+    db.auditLog(req.user.id, 'CRM_CAMPAIGN_ARCHIVED', 'crm_campaign', req.params.id,
+      req.body.archived ? 'archiviert' : 'aus dem Archiv geholt', req.ip);
+    return res.json({ success: true, data: { archived: !!req.body.archived } });
+  }
   await scoped(req, (t) => t.run(`UPDATE crm_campaigns SET reminders_enabled = ? WHERE id = ?`,
     [req.body.reminders_enabled ? 1 : 0, req.params.id]));
   db.auditLog(req.user.id, 'CRM_CAMPAIGN_UPDATED', 'crm_campaign', req.params.id,

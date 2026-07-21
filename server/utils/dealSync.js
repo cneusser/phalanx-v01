@@ -15,15 +15,15 @@
 const db = require('../db/database');
 
 // Interesse-Stufe (dealStateMachine) → Funnel-Stufe (crm_deal_parties.funnel_stage)
-// Stufenleiter ab v0.296: 5 NDA · 6 IM/Unterlagen · 8 LOI eingereicht (siehe crm.js).
+// Stufenleiter ab v0.302: 3 NDA · 4 Datenraum-Zugang · 5 LOI (siehe crm.js).
 const FUNNEL_FROM_INTEREST = {
-  requested: 5, nda_pending: 5, nda_signed: 6,
-  im_granted: 6, dataroom_granted: 6, loi: 8,
+  requested: 3, nda_pending: 3, nda_signed: 4,
+  im_granted: 4, dataroom_granted: 4, loi: 5,
 };
 
 // Welche Funnel-Stufe und welches Signal löst ein Ereignis aus?
 function planFor(kind, interestStage) {
-  if (kind === 'interest') return { stage: FUNNEL_FROM_INTEREST[interestStage] ?? 3, signal: 'interest' };
+  if (kind === 'interest') return { stage: FUNNEL_FROM_INTEREST[interestStage] ?? 2, signal: 'interest' };
   if (kind === 'watchlist') return { stage: 0, signal: 'watchlist' };
   if (kind === 'mailing') return { stage: 2, signal: 'mailing' };
   return { stage: 0, signal: kind || 'inbound' };
@@ -60,16 +60,16 @@ async function syncFromUser(userId, projectId, opts = {}) {
     if (!contactId) return;
 
     let { stage, signal } = planFor(opts.kind, opts.interestStage);
-    // NDA-Feinabstimmung: „IM / Unterlagen" (Stufe 6) setzt eine unterschriebene NDA
+    // NDA-Feinabstimmung: „Datenraum-Zugang" (Stufe 4) setzt eine unterschriebene NDA
     // voraus. Ist die NDA nur freigegeben, aber noch nicht gegengezeichnet, bleibt es
-    // bei „NDA" (Stufe 5). So steht z. B. ein freigegebener, aber ungezeichneter
+    // bei „NDA" (Stufe 3). So steht z. B. ein freigegebener, aber ungezeichneter
     // Interessent korrekt in der NDA-Spalte.
-    if (opts.kind === 'interest' && stage >= 5) {
+    if (opts.kind === 'interest' && stage >= 3) {
       const nda = await db.get(
         `SELECT signed_at, status FROM nda_requests WHERE user_id = ? AND project_id = ? ORDER BY id DESC LIMIT 1`,
         [userId, projectId]).catch(() => null);
       const signed = !!(nda && (nda.signed_at || nda.status === 'signed'));
-      if (!signed && stage > 5) stage = 5;
+      if (!signed && stage > 3) stage = 3;
       signal = 'nda';
     }
     const existing = await db.get(

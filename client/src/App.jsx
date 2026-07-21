@@ -32,6 +32,7 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import SellerDashboard from './pages/SellerDashboard';
+import Funnel from './pages/Funnel';
 import Datenschutz from './pages/Datenschutz';
 import Impressum from './pages/Impressum';
 import Cookies from './pages/Cookies';
@@ -106,6 +107,7 @@ function AppRoutes() {
           <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
           <Route path="/crm" element={<ProtectedRoute adminOnly><Crm /></ProtectedRoute>} />
+          <Route path="/funnel" element={<ProtectedRoute><Funnel /></ProtectedRoute>} />
           <Route path="/verkaeuferdashboard" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
           <Route path="/datenschutz" element={<Datenschutz />} />
           <Route path="/impressum" element={<Impressum />} />

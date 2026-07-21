@@ -15,7 +15,7 @@ const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', 
 const IN = { width: '100%', padding: '0.45rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
 const LBL = { fontSize: '0.68rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.03em' };
 
-const STAGE_LABEL = ['Longlist', 'Freigabe Verkäufer', 'Angesprochen', 'Rückmeldung', 'Match', 'NDA', 'IM / Unterlagen', 'Gespräch', 'LOI eingereicht', 'LOI unterschrieben', 'Namensnennung', 'Due Diligence', 'Signing', 'Closing'];
+const STAGE_LABEL = ['Longlist zur Freigabe', 'Shortlist freigegeben', 'Ansprache', 'NDA', 'Datenraum-Zugang', 'LOI', 'Verhandlung', 'Closing / Signing', 'Abschluss'];
 // Käufertyp (v0.291): value → Anzeigename
 const BUYER_TYPES = [
   ['', 'ohne Angabe'], ['strategic', 'Strategischer Käufer'], ['financial', 'Finanzinvestor'],

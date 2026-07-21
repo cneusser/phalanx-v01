@@ -139,13 +139,13 @@ router.get('/my-projects', authenticate, wrap(async (req, res) => {
 // E-Mail, kein Telefon) und ohne jeden Bezug zu anderen Mandaten. Berater und
 // Admin sehen es ebenfalls; Käufer haben keinen Zugriff.
 const SELLER_STAGES = [
-  { key: 0, label: 'Longlist' }, { key: 1, label: 'Freigabe Verkäufer' }, { key: 2, label: 'Angesprochen' },
-  { key: 3, label: 'Rückmeldung' }, { key: 4, label: 'Match' }, { key: 5, label: 'NDA' },
-  { key: 6, label: 'IM / Unterlagen' }, { key: 7, label: 'Gespräch' }, { key: 8, label: 'LOI eingereicht' },
-  { key: 9, label: 'LOI unterschrieben' }, { key: 10, label: 'Namensnennung' }, { key: 11, label: 'Due Diligence' },
-  { key: 12, label: 'Signing' }, { key: 13, label: 'Closing' },
+  { key: 0, label: 'Longlist zur Freigabe' }, { key: 1, label: 'Shortlist freigegeben' },
+  { key: 2, label: 'Ansprache' }, { key: 3, label: 'NDA' }, { key: 4, label: 'Datenraum-Zugang' },
+  { key: 5, label: 'LOI' }, { key: 6, label: 'Verhandlung' }, { key: 7, label: 'Closing / Signing' },
+  { key: 8, label: 'Abschluss' },
 ];
-const STAGE_SELLER_RELEASE = 1;   // „Freigabe Verkäufer"
+const STAGE_SELLER_RELEASE = 0;   // „Longlist zur Freigabe": wartet auf den Mandanten
+const STAGE_SHORTLIST = 1;        // „Shortlist freigegeben": vom Mandanten freigegeben
 router.get('/:id/funnel-preview', authenticate, wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename, created_by, status FROM projects WHERE id = ?', [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
@@ -283,10 +283,13 @@ router.post('/:id/candidates/:partyId/decision', authenticate, wrap(async (req, 
 
   const approve = req.body.approve !== false;
   if (approve) {
+    // Freigabe hebt den Kandidaten aus der Longlist auf die Shortlist
     await db.run(
       `UPDATE crm_deal_parties SET seller_approved = 1, seller_approved_at = now(), seller_approved_by = ?,
+              funnel_stage = GREATEST(funnel_stage, ?),
+              stage_changed_at = CASE WHEN funnel_stage < ? THEN now() ELSE stage_changed_at END,
               party_status = CASE WHEN party_status = 'dropped' THEN 'open' ELSE party_status END
-        WHERE id = ?`, [req.user.id, party.id]);
+        WHERE id = ?`, [req.user.id, STAGE_SHORTLIST, STAGE_SHORTLIST, party.id]);
     db.auditLog(req.user.id, 'SELLER_CANDIDATE_APPROVED', 'project', party.project_id, `Kandidat #${party.id} freigegeben`, req.ip);
   } else {
     await db.run(

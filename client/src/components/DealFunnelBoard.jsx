@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
-import { Star, AlertTriangle, Mail, ShieldCheck, ShieldOff, Send, CheckSquare, Square, BellRing, Megaphone, FileText, Inbox } from 'lucide-react';
+import { Star, AlertTriangle, Mail, ShieldCheck, ShieldOff, Send, CheckSquare, Square, BellRing, Megaphone, FileText, Inbox, Trash2 } from 'lucide-react';
 import ContactDrawer from './ContactDrawer';
 import TemplateSendModal from './TemplateSendModal';
 import LeadIngestModal from './LeadIngestModal';
@@ -30,6 +30,8 @@ const STATUS_STYLE = {
 export default function DealFunnelBoard({ show }) {
   const [deals, setDeals] = useState([]);
   const [stages, setStages] = useState([]);
+  const [showArchive, setShowArchive] = useState(false);   // Mailings: Archiv statt aktueller Liste
+  const [archivedCount, setArchivedCount] = useState(0);
   const [active, setActive] = useState(null);
   const [board, setBoard] = useState(null);
   const [drag, setDrag] = useState(null);
@@ -87,14 +89,32 @@ export default function DealFunnelBoard({ show }) {
     if (!active) return;
     try {
       setBoard(await api.get(`/crm/deals/${active}/parties`));
-      const c = await api.get(`/crm/deals/${active}/campaigns`).catch(() => ({ campaigns: [] }));
+      const c = await api.get(`/crm/deals/${active}/campaigns${showArchive ? '?archived=1' : ''}`).catch(() => ({ campaigns: [] }));
       setCamps(c.campaigns || []);
+      setArchivedCount(c.archived_count || 0);
     } catch (e) { show('Fehler: ' + e.message); }
-  }, [active, show]);
+  }, [active, show, showArchive]);
   useEffect(() => { loadBoard(); setSelected([]); }, [loadBoard]);
 
   async function toggleReminders(campId, on) {
     try { await api.put(`/crm/campaigns/${campId}`, { reminders_enabled: on }); await loadBoard(); }
+    catch (e) { show('Fehler: ' + e.message); }
+  }
+  // Abgeschlossene Mailings ins Archiv legen oder zurückholen
+  async function archiveCampaign(campId, archived) {
+    try { await api.put(`/crm/campaigns/${campId}`, { archived }); await loadBoard(); }
+    catch (e) { show('Fehler: ' + e.message); }
+  }
+  // Papierkorb: Beteiligung am Mandat entfernen (der Kontakt selbst bleibt im CRM)
+  async function removeParty(p) {
+    const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Diesen Eintrag';
+    if (!window.confirm(`${name} aus diesem Mandat entfernen?\n\nDer Kontakt bleibt im CRM erhalten, nur die Zuordnung zum Mandat wird gelöscht.`)) return;
+    try { await api.delete(`/crm/parties/${p.id}`); show('Aus dem Mandat entfernt'); await loadBoard(); }
+    catch (e) { show('Fehler: ' + e.message); }
+  }
+  // Rolle eines Beteiligten direkt an der Karte ändern
+  async function setPartyRole(partyId, role) {
+    try { await api.put(`/crm/parties/${partyId}`, { party_role: role }); await loadBoard(); }
     catch (e) { show('Fehler: ' + e.message); }
   }
 
@@ -337,9 +357,23 @@ export default function DealFunnelBoard({ show }) {
       </div>
 
       {/* Kampagnen des Mandats: Reaktionen und Reminder-Automatik */}
-      {!!camps.length && (
+      {(!!camps.length || archivedCount > 0) && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.7rem 0.9rem', marginBottom: '0.9rem' }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 800, color: C.navy, marginBottom: '0.5rem' }}>Versendete Mailings</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: C.navy }}>
+              {showArchive ? 'Archivierte Mailings' : 'Versendete Mailings'}
+              <span style={{ fontWeight: 400, color: C.muted }}> · die fünf aktuellsten</span>
+            </div>
+            <button onClick={() => setShowArchive(v => !v)}
+              style={{ fontSize: '0.7rem', fontWeight: 700, color: C.accent, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+              {showArchive ? 'Zurück zu aktuellen Mailings' : `Archiv ansehen (${archivedCount})`}
+            </button>
+          </div>
+          {!camps.length && (
+            <div style={{ fontSize: '0.75rem', color: C.muted, padding: '0.3rem 0' }}>
+              {showArchive ? 'Das Archiv ist leer.' : 'Keine aktuellen Mailings.'}
+            </div>
+          )}
           {camps.slice(0, 5).map(c => (
             <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', padding: '0.35rem 0', borderTop: '1px solid #F1F5F9' }}>
               <div style={{ minWidth: 0 }}>
@@ -358,12 +392,19 @@ export default function DealFunnelBoard({ show }) {
                   {' · '}<button onClick={() => openCampaign(c)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: C.accent, fontWeight: 600 }}>Empfänger</button>
                 </div>
               </div>
-              {c.purpose !== 'update' && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.7rem', color: C.muted, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  <input type="checkbox" checked={!!c.reminders_enabled} onChange={e => toggleReminders(c.id, e.target.checked)} />
-                  Reminder Tag 7 / 21
-                </label>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                {c.purpose !== 'update' && !showArchive && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.7rem', color: C.muted, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" checked={!!c.reminders_enabled} onChange={e => toggleReminders(c.id, e.target.checked)} />
+                    Reminder Tag 7 / 21
+                  </label>
+                )}
+                <button onClick={() => archiveCampaign(c.id, !showArchive)}
+                  title={showArchive ? 'Zurück in die aktive Liste holen' : 'Mailing abschließen und ins Archiv legen'}
+                  style={{ fontSize: '0.68rem', fontWeight: 700, color: showArchive ? '#065f46' : C.muted, background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.2rem 0.5rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {showArchive ? 'Zurückholen' : 'Abschließen'}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -384,7 +425,11 @@ export default function DealFunnelBoard({ show }) {
               return (
                 <div key={p.id} draggable onDragStart={() => setDrag(p.id)} onDragEnd={() => { setDrag(null); setOverStage(null); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #DDD6FE', borderRadius: 8, padding: '0.4rem 0.6rem', cursor: 'grab' }}>
-                  <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#5b21b6', background: '#EDE9FE', borderRadius: 8, padding: '0.05rem 0.4rem' }}>{ROLE_LABEL[p.party_role] || p.party_role}</span>
+                  <select value={p.party_role} onChange={e => setPartyRole(p.id, e.target.value)} onClick={e => e.stopPropagation()}
+                    title="Rolle im Mandat ändern"
+                    style={{ fontSize: '0.6rem', fontWeight: 800, color: '#5b21b6', background: '#EDE9FE', border: 'none', borderRadius: 8, padding: '0.1rem 0.3rem', cursor: 'pointer' }}>
+                    {Object.entries(ROLE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
                   <button onClick={() => setOpenContact(p.contact_id)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', color: C.accent }}>
                     {[p.first_name, p.last_name].filter(Boolean).join(' ')}
                   </button>
@@ -397,10 +442,32 @@ export default function DealFunnelBoard({ show }) {
                           {invited ? 'Erneut einladen' : 'Einladen'}
                         </button>
                   )}
+                  <button onClick={() => removeParty(p)} title="Aus dem Mandat entfernen"
+                    style={{ background: 'none', border: 'none', padding: 0, marginLeft: 2, cursor: 'pointer', color: '#b91c1c', fontWeight: 800, fontSize: '0.8rem', lineHeight: 1 }}>×</button>
                 </div>
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Papierkorb: Karten hierher ziehen, um sie aus dem Mandat zu nehmen */}
+      {deal && board && drag && (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setOverStage('trash'); }}
+          onDragLeave={() => setOverStage(null)}
+          onDrop={() => { const p = partyById(drag); setDrag(null); setOverStage(null); if (p) removeParty(p); }}
+          style={{
+            background: overStage === 'trash' ? '#FEE2E2' : '#FEF2F2',
+            border: `1px ${overStage === 'trash' ? 'dashed' : 'solid'} ${overStage === 'trash' ? '#b91c1c' : '#FECACA'}`,
+            borderRadius: 10, padding: '0.6rem 0.9rem', marginBottom: '0.9rem',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+          <Trash2 size={15} color="#b91c1c" />
+          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#b91c1c' }}>Papierkorb</span>
+          <span style={{ fontSize: '0.72rem', color: '#991b1b' }}>
+            Karte hierher ziehen, um sie aus diesem Mandat zu nehmen. Der Kontakt bleibt im CRM erhalten.
+          </span>
         </div>
       )}
 
@@ -507,6 +574,10 @@ export default function DealFunnelBoard({ show }) {
                               {p.company_name || p.email}
                             </div>
                           </div>
+                          <button onClick={(e) => { e.stopPropagation(); removeParty(p); }} title="Aus dem Mandat entfernen"
+                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#cbd5e1', fontWeight: 800, fontSize: '0.85rem', lineHeight: 1, flexShrink: 0 }}
+                            onMouseEnter={e => { e.currentTarget.style.color = '#b91c1c'; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = '#cbd5e1'; }}>×</button>
                         </div>
 
                         <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4, alignItems: 'center' }}>

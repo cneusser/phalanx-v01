@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.302 · 22.08.2026 · Funnel aufgeräumt: neun Stufen, Papierkorb, eigener Reiter
+- **Neun statt vierzehn Stufen**: Longlist zur Freigabe → Shortlist freigegeben → Ansprache → NDA → Datenraum-Zugang → LOI → Verhandlung → Closing/Signing → Abschluss. Zwischenzustände wie Namensnennung, Zugang und Due Diligence bleiben als Merkmal am Beteiligten erhalten, nur als eigene Spalte entfallen sie. Bestandsdaten, Vorlagen-Stufen und die gesamte Automatik wurden mitgezogen
+- **Freigabe sauber getrennt**: Kandidaten warten in „Longlist zur Freigabe"; gibt der Mandant frei, rücken sie auf „Shortlist freigegeben"
+- **Papierkorb**: Karten lassen sich in eine Ablagezone ziehen oder über das × an der Karte entfernen, jetzt auch bei den Beteiligten. Entfernt wird nur die Zuordnung zum Mandat, der Kontakt bleibt im CRM
+- **Rollenauswahl an der Beteiligten-Karte**: Berater, Steuerberater, Bank, Anwalt und so weiter direkt umstellbar
+- **Mailings**: nur noch die fünf aktuellsten, abgeschlossene wandern per Klick ins Archiv und lassen sich dort wieder hervorholen
+- **Deal-Funnel im Hauptmenü**: eigener Punkt, nicht mehr nur unter CRM. Das Team sieht das vollständige Board, der Verkäufer den Stand seiner Mandate mit Name und Firma, aber ohne Kontaktdaten
+- Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.301 · 21.08.2026 · Exposé erscheint in der Unterlagen-Liste
 - **Exposé in der Dokumentenliste**: Bei den vertraulichen Unterlagen steht jetzt ein Eintrag „Exposé (Web-Ansicht und PDF)" mit zwei Schaltflächen: „Ansehen" öffnet das Web-Exposé, „PDF" lädt den Export
 - **Ohne Doppelspeicherung**: Das Exposé bleibt in seiner eigenen, gesicherten Ablage. Der Listeneintrag ist nur ein Verweis, es wird nichts kopiert

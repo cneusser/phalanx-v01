@@ -141,6 +141,7 @@ export default function Navbar() {
           {navLink('/kontakt', t('nav.contact', 'Kontakt'))}
           {!user && navLink('/registrieren', t('nav.register', 'Registrieren'))}
           {user && !isAdmin && navLink(isSeller ? '/verkaeuferdashboard' : '/dashboard', t('nav.dashboard', 'Mein Bereich'))}
+          {(isAdmin || isSeller) && navLink('/funnel', 'Deal-Funnel')}
           {isAdmin && navLink('/crm', 'CRM')}
           {isAdmin && navLink('/admin', 'Admin')}
           {/* Chat prominent, für alle angemeldeten Nutzer (auch Admin) */}
@@ -280,6 +281,7 @@ export default function Navbar() {
             ...(user && !isAdmin ? [['/feedback', t('nav.feedback', 'Feedback')]] : []),
             ['/kontakt', t('nav.contact', 'Kontakt')],
             ...(user && !isAdmin ? [[isSeller ? '/verkaeuferdashboard' : '/dashboard', t('nav.dashboard', 'Mein Bereich')]] : []),
+            ...(isAdmin || isSeller ? [['/funnel', 'Deal-Funnel']] : []),
             ...(isAdmin ? [['/crm', 'CRM'], ['/admin', 'Admin']] : []),
           ].map(([to, label]) => (
             <Link key={to} to={to} onClick={() => setOpen(false)} style={{ display: 'block', color: '#fff', textDecoration: 'none', padding: '0.7rem 0.25rem', fontSize: '0.95rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{label}</Link>

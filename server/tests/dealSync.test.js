@@ -33,13 +33,13 @@ let fail = 0;
 const ok = (n, c) => { console.log((c ? '✓' : '✗ FEHLER') + ' ' + n); if (!c) fail++; };
 
 // 1) Stufen-Mapping
-ok('NDA-Interesse landet auf Funnel-Stufe 5', planFor('interest', 'requested').stage === 5);
-ok('Datenraum-Freigabe landet auf Stufe 6', planFor('interest', 'dataroom_granted').stage === 6);
+ok('NDA-Interesse landet auf Funnel-Stufe 3', planFor('interest', 'requested').stage === 3);
+ok('Datenraum-Freigabe landet auf Stufe 4', planFor('interest', 'dataroom_granted').stage === 4);
 ok('Beobachten landet im Eingang (Stufe 0)', planFor('watchlist').stage === 0 && planFor('watchlist').signal === 'watchlist');
 ok('Mailing landet auf Angesprochen (Stufe 2)', planFor('mailing').stage === 2);
 
 (async () => {
-  // 2) NDA freigegeben, aber NICHT unterschrieben → bleibt auf „NDA" (Stufe 5)
+  // 2) NDA freigegeben, aber NICHT unterschrieben → bleibt auf „NDA" (Stufe 3)
   contactRow = null; partyRow = null; ndaRow = { signed_at: null, status: 'approved' };
   calls.inserts = []; calls.updates = [];
   await syncFromUser(7, 3, { kind: 'interest', interestStage: 'dataroom_granted' });
@@ -47,15 +47,15 @@ ok('Mailing landet auf Angesprochen (Stufe 2)', planFor('mailing').stage === 2);
   const partyIns = calls.inserts.find(c => /INSERT INTO crm_deal_parties/.test(c.sql));
   ok('neuer CRM-Kontakt wird angelegt', !!contactIns);
   ok('Kontakt bekommt opt_in (registrierter Nutzer)', /'opt_in'/.test(contactIns.sql));
-  ok('freigegebene, ungezeichnete NDA bleibt Stufe 5 (NDA)', !!partyIns && partyIns.params.includes(5) && !partyIns.params.includes(6));
+  ok('freigegebene, ungezeichnete NDA bleibt Stufe 3 (NDA)', !!partyIns && partyIns.params.includes(3) && !partyIns.params.includes(4));
   ok('Partei ist inbound mit Signal „nda"', /'inbound'/.test(partyIns.sql) && partyIns.params.includes('nda'));
 
-  // 2b) NDA unterschrieben → Stufe 6 (IM / Unterlagen)
+  // 2b) NDA unterschrieben → Stufe 4 (Datenraum-Zugang)
   contactRow = null; partyRow = null; ndaRow = { signed_at: '2026-07-15T10:00:00Z', status: 'signed' };
   calls.inserts = [];
   await syncFromUser(7, 3, { kind: 'interest', interestStage: 'dataroom_granted' });
   const signedIns = calls.inserts.find(c => /INSERT INTO crm_deal_parties/.test(c.sql));
-  ok('unterschriebene NDA hebt auf Stufe 6', !!signedIns && signedIns.params.includes(6));
+  ok('unterschriebene NDA hebt auf Stufe 4', !!signedIns && signedIns.params.includes(4));
   ndaRow = null;
 
   // 3) Kontakt existiert bereits (Match per E-Mail) → kein zweiter Kontakt

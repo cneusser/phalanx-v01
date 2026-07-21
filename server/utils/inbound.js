@@ -81,8 +81,8 @@ async function ingestReply({ from, to, subject, body, messageId, sentAt, source 
       UPDATE crm_deal_parties
          SET replied = 1,
              last_contact = CURRENT_DATE,
-             funnel_stage = GREATEST(funnel_stage, 3),
-             stage_changed_at = CASE WHEN funnel_stage < 3 THEN now() ELSE stage_changed_at END
+             funnel_stage = GREATEST(funnel_stage, 2),
+             stage_changed_at = CASE WHEN funnel_stage < 2 THEN now() ELSE stage_changed_at END
        WHERE project_id = ? AND contact_id = ?`, [project.id, contact.id]).catch(() => {});
   } else {
     await db.run(`UPDATE crm_deal_parties SET replied = 1, last_contact = CURRENT_DATE WHERE contact_id = ?`,
