@@ -1578,7 +1578,16 @@ export default function Admin() {
                       {u.first_name} {u.last_name}
                     </div>
                     <div style={{ color: C.muted, fontSize: '0.72rem' }}>{u.email}</div>
-                    {u.company && <div style={{ color: C.muted, fontSize: '0.7rem' }}>{u.company}</div>}
+                    {u.company && (
+                      <div style={{ color: C.muted, fontSize: '0.7rem' }}>
+                        {/* Sprung ins CRM: sucht das Unternehmen anhand des Namens */}
+                        <button onClick={() => navigate(`/crm?q=${encodeURIComponent(u.company)}`)}
+                          title="Unternehmen im CRM suchen und öffnen"
+                          style={{ background: 'none', border: 'none', padding: 0, color: '#1D4E89', cursor: 'pointer', fontSize: '0.7rem', textDecoration: 'underline' }}>
+                          {u.company}
+                        </button>
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: '0.75rem 1rem' }}>
                     <select

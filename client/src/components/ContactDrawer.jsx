@@ -87,6 +87,7 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
       f.notes = d.contact.notes || '';
       f.is_decision_maker = d.contact.is_decision_maker === 1;
       f.buyer_type = d.contact.buyer_type || '';
+      f.investment_focus = d.contact.investment_focus || '';
       setForm(f);
     } catch (e) { show('Fehler: ' + e.message); }
   }, [contactId, show]);
@@ -507,7 +508,9 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                     {(data.current || []).length > 0 ? (
                       (data.current || []).map(l => (
                         <div key={l.link_id} style={{ fontSize: '0.83rem', color: C.text, marginBottom: 3 }}>
-                          <strong>{l.company_name}</strong>{l.position ? `, ${l.position}` : ''}{l.city ? ` · ${l.city}` : ''}
+                          <a href={`/crm?company=${l.company_id}`} title="Unternehmen im CRM öffnen"
+                            style={{ color: C.accent, fontWeight: 700, textDecoration: 'underline' }}>{l.company_name}</a>
+                          {l.position ? `, ${l.position}` : ''}{l.city ? ` · ${l.city}` : ''}
                         </div>
                       ))
                     ) : (
@@ -525,6 +528,54 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                         <Plus size={13} /> Zuordnen
                       </button>
                     </div>
+                  </div>
+
+                  {/* Suchprofil: CRM-Angabe und, falls verknüpft, das Konto-Profil.
+                      So stehen beide Pools an einer Stelle nebeneinander. */}
+                  <div style={{ marginTop: '1.2rem', borderTop: `1px solid ${C.border}`, paddingTop: '0.9rem' }}>
+                    <div style={{ ...LBL, marginBottom: 5 }}>Suchprofil</div>
+
+                    <div style={{ fontSize: '0.72rem', color: C.muted, marginBottom: 3 }}>Aus dem CRM (auch vom Kontakt selbst pflegbar)</div>
+                    <textarea rows={2} value={form.investment_focus || ''} onChange={e => setForm(f => ({ ...f, investment_focus: e.target.value }))}
+                      placeholder="Investitionsschwerpunkt, Branchen, Ticketgröße …"
+                      style={{ ...IN, resize: 'vertical', lineHeight: 1.5, marginBottom: '0.7rem' }} />
+
+                    {data.buyer_profile || (data.search_profiles || []).length > 0 ? (
+                      <>
+                        <div style={{ fontSize: '0.72rem', color: C.muted, marginBottom: 4 }}>
+                          Aus dem Plattform-Konto {data.account?.email ? `(${data.account.email})` : ''}
+                        </div>
+                        {data.buyer_profile && (
+                          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem 0.7rem', fontSize: '0.79rem', color: C.text, marginBottom: 6, lineHeight: 1.6 }}>
+                            {(data.buyer_profile.industries || []).length > 0 && <div><strong>Branchen:</strong> {data.buyer_profile.industries.join(', ')}</div>}
+                            {(data.buyer_profile.regions || []).length > 0 && <div><strong>Regionen:</strong> {data.buyer_profile.regions.join(', ')}</div>}
+                            {(data.buyer_profile.deal_types || []).length > 0 && <div><strong>Deal-Typen:</strong> {data.buyer_profile.deal_types.join(', ')}</div>}
+                            <div><strong>Umsatz:</strong> {data.buyer_profile.revenue_min} bis {data.buyer_profile.revenue_max} Mio. €{' · '}
+                              <strong>EBITDA:</strong> {data.buyer_profile.ebitda_min} bis {data.buyer_profile.ebitda_max} Mio. €</div>
+                            {data.buyer_profile.notes && <div style={{ color: C.muted, marginTop: 3 }}>{data.buyer_profile.notes}</div>}
+                          </div>
+                        )}
+                        {(data.search_profiles || []).map(s => (
+                          <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0.3rem 0', borderTop: `1px solid ${C.border}`, fontSize: '0.78rem' }}>
+                            <div style={{ minWidth: 0 }}>
+                              <strong>{s.name}</strong>
+                              <div style={{ fontSize: '0.7rem', color: C.muted }}>
+                                {[s.criteria?.industry, s.criteria?.region, s.criteria?.deal_type, s.criteria?.search].filter(Boolean).join(' · ') || 'ohne Einschränkung'}
+                              </div>
+                            </div>
+                            <span style={{ fontSize: '0.68rem', color: C.muted, whiteSpace: 'nowrap' }}>
+                              {s.notify_frequency === 'instant' ? 'sofort' : s.notify_frequency === 'daily' ? 'täglich' : s.notify_frequency === 'weekly' ? 'wöchentlich' : 'aus'}
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <div style={{ fontSize: '0.78rem', color: C.muted, lineHeight: 1.5 }}>
+                        {data.account
+                          ? 'Im verknüpften Konto ist noch kein Käuferprofil und keine gespeicherte Suche hinterlegt.'
+                          : 'Kein Plattform-Konto verknüpft. Sobald Sie unten ein Konto verknüpfen, erscheinen hier Käuferprofil und gespeicherte Suchen.'}
+                      </div>
+                    )}
                   </div>
 
                   {/* Plattform-Konto verknüpfen (Voraussetzung für Birdview) */}

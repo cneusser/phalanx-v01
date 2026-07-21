@@ -50,10 +50,19 @@ export default function Crm() {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [buyerType, setBuyerType] = useState('');   // Käufertyp-Filter (Kontakte)
-  // Deeplink aus dem Admin: /crm?contact=123 öffnet den Kontakt direkt
+  // Deeplinks: /crm?contact=123 öffnet den Kontakt, /crm?company=7 das Unternehmen,
+  // /crm?q=Name springt in die Unternehmensliste mit gesetzter Suche.
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('contact');
-    if (id) { setTab('contacts'); setDrawerContact(Number(id)); }
+    const p = new URLSearchParams(window.location.search);
+    const contactId = p.get('contact');
+    const companyId = p.get('company');
+    const query = p.get('q');
+    if (contactId) { setTab('contacts'); setDrawerContact(Number(contactId)); }
+    if (companyId) {
+      setTab('companies');
+      api.get(`/crm/companies/${companyId}/detail`).then(setDetail).catch(() => {});
+    }
+    if (query && !contactId && !companyId) { setTab('companies'); setQ(query); }
   }, []);
   useEffect(() => { setPage(1); setLetter(''); }, [tab]);
   useEffect(() => { setPage(1); }, [letter, q, pageSize, buyerType]);
@@ -123,6 +132,14 @@ export default function Crm() {
     api.get('/crm/profile-changes').then(setChanges).catch(() => {});
   }, []);
   useEffect(() => { loadChanges(); }, [loadChanges]);
+
+  // Unternehmen aus einer Kontaktzeile heraus öffnen
+  async function openCompanyById(companyId) {
+    if (!companyId) return;
+    setTab('companies');
+    try { setDetail(await api.get(`/crm/companies/${companyId}/detail`)); }
+    catch (e) { setMsg('Unternehmen nicht gefunden: ' + e.message); }
+  }
 
   // Selbstpflege-Link an einen Kontakt senden
   async function sendProfileLink(k) {
@@ -344,7 +361,17 @@ export default function Crm() {
                       <span style={{ display: 'inline-block', marginTop: 3, background: BUYER_TYPE[k.buyer_type].bg, color: BUYER_TYPE[k.buyer_type].color, padding: '0.05rem 0.45rem', borderRadius: 20, fontSize: '0.66rem', fontWeight: 700 }}>{BUYER_TYPE[k.buyer_type].short}</span>
                     )}
                   </td>
-                  <td style={{ padding: '0.7rem 0.5rem', color: C.text }}>{k.companies || 'k. A.'}</td>
+                  {/* Klick auf die Firma springt direkt in das Unternehmen */}
+                  <td style={{ padding: '0.7rem 0.5rem', color: C.text }} onClick={e => e.stopPropagation()}>
+                    {k.company_ids && k.companies ? (
+                      <button
+                        onClick={() => openCompanyById(String(k.company_ids).split(',')[0])}
+                        title="Unternehmen öffnen"
+                        style={{ background: 'none', border: 'none', padding: 0, color: C.accent, fontWeight: 600, cursor: 'pointer', textAlign: 'left', textDecoration: 'underline' }}>
+                        {k.companies}
+                      </button>
+                    ) : (k.companies || 'k. A.')}
+                  </td>
                   <td style={{ padding: '0.7rem 0.5rem', color: C.muted, fontSize: '0.76rem' }}>
                     {k.email && <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Mail size={11} /> {k.email}</div>}
                     {(k.mobile || k.phone) && <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Phone size={11} /> {k.mobile || k.phone}</div>}

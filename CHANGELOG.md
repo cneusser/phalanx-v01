@@ -3,6 +3,18 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.308 · 27.08.2026 · Suchprofile am Kontakt, Sprung in die Firma
+- **Die beiden Pools sind verheiratet**: Im Kontakt steht jetzt unter „Suchprofil" beides nebeneinander. Oben der Investitionsschwerpunkt aus dem CRM (dort pflegbar, auch vom Kontakt selbst über den Pflege-Link), darunter das **Käuferprofil und die gespeicherten Suchen aus dem Plattform-Konto** mit Branchen, Regionen, Deal-Typen, Umsatz- und EBITDA-Band sowie der Benachrichtigungsfrequenz
+- Voraussetzung ist die Konto-Verknüpfung aus v0.298. Ist kein Konto verknüpft, sagt der Kontakt das ausdrücklich statt einen leeren Bereich zu zeigen
+- **In die Firma springen**: Der Unternehmensname ist in der Kontaktliste und im Kontakt klickbar und öffnet das Unternehmen mit allen Kontakten, Mandaten und Verknüpfungen
+- **Auch aus dem Admin**: In der Nutzerliste führt die Firma ins CRM
+- **Neue Deeplinks**: `/crm?company=7` öffnet ein Unternehmen direkt, `/crm?q=Name` sucht danach
+- Verifiziert: sechs Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
+## v0.307 · 26.08.2026 · Prozesskette bleibt in einer Zeile
+- Die Kennzahlen über dem Funnel brachen bei neun Stufen um. Sie stehen jetzt in einer durchgehenden Zeile, in der Verkäufer- wie in der Adminsicht
+- Auf schmalen Bildschirmen wird die Zeile waagerecht scrollbar, statt umzubrechen: bei einer Prozesskette ist die Abfolge die eigentliche Information
+
 ## v0.306 · 26.08.2026 · Unterlagen-Link ohne Registrierung
 - **Der zweite Weg neben der Freigabe**: Ein persönlicher Link auf genau eine Unterlage, ganz ohne Konto und ohne NDA. Gedacht für Gegenüber, die beides nie tun werden
 - **Vertraulichkeit per Klick**: Vor dem Öffnen bestätigt der Empfänger mit seinem vollständigen Namen, dass er die Unterlage vertraulich behandelt und nicht weitergibt. Name, Zeitpunkt und IP werden protokolliert. Das ersetzt keine Unterschrift, ist aber ein belastbarer Nachweis

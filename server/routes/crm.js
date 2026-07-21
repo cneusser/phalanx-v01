@@ -249,7 +249,8 @@ router.delete('/companies/:id', ...isStaff, canDelete, wrap(async (req, res) => 
 
 // ── Kontakte ────────────────────────────────────────────────────────────────
 const CONTACT_FIELDS = ['salutation', 'title', 'first_name', 'last_name', 'email', 'phone', 'mobile',
-  'linkedin_url', 'location', 'responsibility', 'relationship', 'notes', 'consent_status', 'contact_status'];
+  'linkedin_url', 'location', 'responsibility', 'relationship', 'notes', 'consent_status', 'contact_status',
+  'investment_focus'];
 // Käufertyp am Kontakt (v0.291, DUB-Benchmark). Leer = unbekannt.
 const BUYER_TYPES = ['strategic', 'financial', 'private', 'advisor_mandate'];
 const cleanBuyerType = (v) => (BUYER_TYPES.includes(v) ? v : null);
@@ -266,7 +267,10 @@ router.get('/contacts', ...isStaff, wrap(async (req, res) => {
     SELECT k.*,
       (SELECT string_agg(c.name, ', ') FROM crm_company_contacts cc
         JOIN crm_companies c ON c.id = cc.company_id
-        WHERE cc.contact_id = k.id AND cc.ended_on IS NULL) AS companies
+        WHERE cc.contact_id = k.id AND cc.ended_on IS NULL) AS companies,
+      (SELECT string_agg(c.id::text, ',') FROM crm_company_contacts cc
+        JOIN crm_companies c ON c.id = cc.company_id
+        WHERE cc.contact_id = k.id AND cc.ended_on IS NULL) AS company_ids
     FROM crm_contacts k
     WHERE ${where.join(' AND ')}
     ORDER BY k.last_name, k.first_name LIMIT 500`, params));
@@ -549,10 +553,32 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
     }
   }
 
+  // Die zweite Hälfte der Wahrheit: Was hat der Kontakt als Plattform-Nutzer
+  // hinterlegt? Käuferprofil (Suchkriterien) und gespeicherte Suchen liegen am
+  // Konto, nicht am CRM-Kontakt. Über die Verknüpfung holen wir sie hier dazu.
+  let buyerProfile = null; let searchProfiles = [];
+  if (account && account.id) {
+    buyerProfile = await db.get('SELECT * FROM buyer_profiles WHERE user_id = ?', [account.id]).catch(() => null);
+    if (buyerProfile) {
+      buyerProfile = {
+        ...buyerProfile,
+        industries: safeJson(buyerProfile.industries, []),
+        regions: safeJson(buyerProfile.regions, []),
+        deal_types: safeJson(buyerProfile.deal_types, []),
+      };
+    }
+    searchProfiles = (await db.all(
+      'SELECT id, name, criteria_json, notify_frequency, last_notified_at, created_at FROM search_profiles WHERE user_id = ? ORDER BY created_at DESC',
+      [account.id]).catch(() => []))
+      .map(s => ({ ...s, criteria: safeJson(s.criteria_json, {}) }));
+  }
+
   res.json({
     success: true,
     data: {
       contact: { ...contact, tags: safeJson(contact.tags_json, []) },
+      buyer_profile: buyerProfile,
+      search_profiles: searchProfiles,
       current: links.filter(l => !l.ended_on),
       history: links.filter(l => l.ended_on),   // frühere Positionen / Unternehmenswechsel
       deals,
