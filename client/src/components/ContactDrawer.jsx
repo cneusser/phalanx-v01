@@ -484,6 +484,35 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                       {BUYER_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </div>
+                  {/* Unternehmen: bestehendes zuordnen oder neues anlegen.
+                      Bewusst hier im Formularfluss, nicht unten hinter dem Speichern. */}
+                  <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.7rem 0.8rem', margin: '0.2rem 0 0.9rem' }}>
+                    <div style={{ ...LBL, marginBottom: 5 }}>Unternehmen</div>
+                    {(data.current || []).length > 0 ? (
+                      (data.current || []).map(l => (
+                        <div key={l.link_id} style={{ fontSize: '0.83rem', color: C.text, marginBottom: 3 }}>
+                          <a href={`/crm?company=${l.company_id}`} title="Unternehmen im CRM öffnen"
+                            style={{ color: C.accent, fontWeight: 700, textDecoration: 'underline' }}>{l.company_name}</a>
+                          {l.position ? `, ${l.position}` : ''}{l.city ? ` · ${l.city}` : ''}
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: 6 }}>Noch keinem Unternehmen zugeordnet.</div>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginTop: 6 }}>
+                      <select value={coPick} onChange={e => { setCoPick(e.target.value); if (e.target.value) setCoNew(''); }} style={IN}>
+                        <option value="">Bestehendes Unternehmen wählen…</option>
+                        {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      <input value={coNew} onChange={e => { setCoNew(e.target.value); if (e.target.value) setCoPick(''); }}
+                        placeholder="…oder neues Unternehmen anlegen" style={IN} />
+                      <input value={coPos} onChange={e => setCoPos(e.target.value)} placeholder="Position (optional)" style={IN} />
+                      <button onClick={assignCompany} style={{ ...btn(false), justifyContent: 'center' }}>
+                        <Plus size={13} /> Zuordnen
+                      </button>
+                    </div>
+                  </div>
+
                   <div style={LBL}>Interne Notizen</div>
                   <textarea rows={4} value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                     style={{ ...IN, marginTop: 3, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} />
@@ -501,34 +530,6 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                   }}>
                     <Save size={14} /> {saving ? 'Speichern…' : 'Speichern'}
                   </button>
-
-                  {/* Unternehmen zuordnen: bestehendes wählen oder neu anlegen */}
-                  <div style={{ marginTop: '1.4rem', borderTop: `1px solid ${C.border}`, paddingTop: '0.9rem' }}>
-                    <div style={{ ...LBL, marginBottom: 5 }}>Unternehmen</div>
-                    {(data.current || []).length > 0 ? (
-                      (data.current || []).map(l => (
-                        <div key={l.link_id} style={{ fontSize: '0.83rem', color: C.text, marginBottom: 3 }}>
-                          <a href={`/crm?company=${l.company_id}`} title="Unternehmen im CRM öffnen"
-                            style={{ color: C.accent, fontWeight: 700, textDecoration: 'underline' }}>{l.company_name}</a>
-                          {l.position ? `, ${l.position}` : ''}{l.city ? ` · ${l.city}` : ''}
-                        </div>
-                      ))
-                    ) : (
-                      <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: 6 }}>Noch keinem Unternehmen zugeordnet.</div>
-                    )}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: 6 }}>
-                      <select value={coPick} onChange={e => { setCoPick(e.target.value); if (e.target.value) setCoNew(''); }} style={IN}>
-                        <option value="">Bestehendes Unternehmen wählen…</option>
-                        {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                      <input value={coNew} onChange={e => { setCoNew(e.target.value); if (e.target.value) setCoPick(''); }}
-                        placeholder="…oder neues Unternehmen anlegen" style={IN} />
-                      <input value={coPos} onChange={e => setCoPos(e.target.value)} placeholder="Position (optional)" style={IN} />
-                      <button onClick={assignCompany} style={{ ...btn(false), justifyContent: 'center' }}>
-                        <Plus size={13} /> Zuordnen
-                      </button>
-                    </div>
-                  </div>
 
                   {/* Suchprofil: CRM-Angabe und, falls verknüpft, das Konto-Profil.
                       So stehen beide Pools an einer Stelle nebeneinander. */}

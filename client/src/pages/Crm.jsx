@@ -122,6 +122,17 @@ export default function Crm() {
   }, [q]);
   useEffect(() => { load(); }, [load]);
 
+  // Für Zuordnungen brauchen wir ALLE Kontakte und Unternehmen, nicht die
+  // gefilterte Trefferliste. Sonst steht im Zuordnen-Feld nichts zur Auswahl,
+  // sobald oben eine Suche aktiv ist.
+  const [allContacts, setAllContacts] = useState([]);
+  const [allCompanies, setAllCompanies] = useState([]);
+  const loadPickers = useCallback(() => {
+    api.get('/crm/contacts').then(d => setAllContacts(d || [])).catch(() => {});
+    api.get('/crm/companies').then(d => setAllCompanies(d || [])).catch(() => {});
+  }, []);
+  useEffect(() => { loadPickers(); }, [loadPickers]);
+
   // Mandate + Funnel-Stufen einmalig laden (für die Zuordnung)
   useEffect(() => {
     api.get('/crm/deals').then(d => { setProjects(d.deals || []); setStages(d.stages || []); }).catch(() => {});
@@ -423,7 +434,7 @@ export default function Crm() {
           onMerged={() => { setDetail(null); load(); }}
           onEdit={() => setEditCompany(detail.company)}
           onEditContact={(k) => setEditContact(k)}
-          contactsAll={contacts}
+          contactsAll={allContacts.length ? allContacts : contacts}
           show={show}
         />
       )}
@@ -553,8 +564,17 @@ function AssignDealModal({ contact, projects, stages, onClose, show }) {
 function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, onEditContact, contactsAll, show }) {
   const { company, contacts, history, subsidiaries } = data;
   const [addId, setAddId] = useState('');
+  const [addQ, setAddQ] = useState('');
   const [pos, setPos] = useState('');
   const [mergeId, setMergeId] = useState('');
+
+  // Auswahlliste für „Kontakt zuordnen": alle Kontakte, per Suchfeld eingegrenzt
+  const addOptions = React.useMemo(() => {
+    const s = addQ.trim().toLowerCase();
+    if (!s) return contactsAll;
+    return contactsAll.filter(k =>
+      [k.first_name, k.last_name, k.email, k.companies].filter(Boolean).join(' ').toLowerCase().includes(s));
+  }, [contactsAll, addQ]);
   const [merging, setMerging] = useState(false);
 
   async function link() {
@@ -666,14 +686,26 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
         ))}
         {!contacts.length && <div style={{ fontSize: '0.82rem', color: C.muted }}>Noch keine Ansprechpartner zugeordnet.</div>}
 
-        {/* Kontakt zuordnen */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr auto', gap: '0.4rem', marginTop: '0.6rem' }}>
-          <select value={addId} onChange={e => setAddId(e.target.value)} style={INPUT}>
-            <option value="">Kontakt zuordnen…</option>
-            {contactsAll.map(k => <option key={k.id} value={k.id}>{[k.first_name, k.last_name].filter(Boolean).join(' ')}</option>)}
-          </select>
-          <input value={pos} onChange={e => setPos(e.target.value)} placeholder="Position" style={INPUT} />
-          <button onClick={link} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0 0.9rem', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}>+</button>
+        {/* Kontakt zuordnen: Suchfeld davor, damit die Liste bei vielen Kontakten bedienbar bleibt */}
+        <div style={{ marginTop: '0.6rem' }}>
+          <input value={addQ} onChange={e => setAddQ(e.target.value)} placeholder="Kontakt suchen (Name oder E-Mail)…"
+            style={{ ...INPUT, marginBottom: '0.4rem' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr auto', gap: '0.4rem' }}>
+            <select value={addId} onChange={e => setAddId(e.target.value)} style={INPUT}>
+              <option value="">{addOptions.length ? 'Kontakt zuordnen…' : 'Kein Kontakt gefunden'}</option>
+              {addOptions.slice(0, 200).map(k => (
+                <option key={k.id} value={k.id}>
+                  {[k.first_name, k.last_name].filter(Boolean).join(' ')}{k.companies ? ` · ${k.companies}` : ''}
+                </option>
+              ))}
+            </select>
+            <input value={pos} onChange={e => setPos(e.target.value)} placeholder="Position" style={INPUT} />
+            <button onClick={link} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0 0.9rem', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}>+</button>
+          </div>
+          <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: 3 }}>
+            {addOptions.length} von {contactsAll.length} Kontakten{addQ ? ' passend zur Suche' : ''}
+            {addOptions.length > 200 ? ' · die ersten 200 zur Auswahl, bitte weiter eingrenzen' : ''}
+          </div>
         </div>
 
         {/* Dublette zusammenführen */}

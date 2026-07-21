@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.311 · 30.08.2026 · Kontaktauswahl im Unternehmen repariert
+- **Fehler behoben**: Im Unternehmen war die Auswahl „Kontakt zuordnen" leer, sobald oben im CRM eine Suche aktiv war. Die Auswahl wurde aus der gefilterten Trefferliste gespeist. Wer nach „Vorwerk" suchte und das Unternehmen öffnete, fand folgerichtig keinen einzigen Kontakt
+- **Jetzt**: Zuordnungslisten arbeiten immer mit dem vollständigen Bestand, unabhängig von der Suche
+- **Bedienbar bei vielen Kontakten**: Die Auswahl hat ein eigenes Suchfeld, zeigt das Unternehmen zur Unterscheidung mit an und nennt die Trefferzahl
+- **Firma aus dem Kontakt**: Die Unternehmenszuordnung steht im Kontakt jetzt mitten im Formular statt unterhalb des Speichern-Knopfes, wo sie leicht zu übersehen war. Bestehendes Unternehmen wählen oder neues anlegen, beides an einer Stelle
+- Verifiziert: Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.310 · 29.08.2026 · Lead-Herkunft im Detail, Freigabe vor dem Veröffentlichen
 - **Herkunft der Kontakte wird konkret**: Unter den Zahlen steht jetzt eine Liste der zuletzt eingegangenen Leads mit Kontakt, Quelle, **Eingangsreferenz** (etwa die Inserats-Nummer), **Mandat**, Art des Eingangs (Marktplatz-Anfrage, NDA, Interesse, beobachtet, Mailing) und Datum
 - Kontakt und Mandat sind aus der Liste direkt anspringbar
