@@ -214,6 +214,9 @@ async function notifyNewsletter(projectId, exclude = new Set()) {
 // alreadyNotified = Nutzer, die bereits über ihr Suchprofil informiert wurden.
 async function notifyProjectPublished(projectId, alreadyNotified = new Set()) {
   try {
+    // Vertrauliche Mandate werden nie breit gestreut, weder Ähnlichkeit noch Newsletter
+    const p = await db.get('SELECT visibility FROM projects WHERE id = ?', [projectId]).catch(() => null);
+    if (p && p.visibility === 'invite_only') return;
     const seen = new Set(alreadyNotified);
     const sim = await notifySimilarInterested(projectId, seen);
     sim.forEach(id => seen.add(id));

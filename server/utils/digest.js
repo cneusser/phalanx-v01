@@ -42,7 +42,7 @@ async function runDigests() {
     let c = {}; try { c = JSON.parse(prof.criteria_json || '{}'); } catch {}
     const candidates = await db.all(
       `SELECT id, codename, industry, region, revenue_band, ebitda_band, deal_type, mandate_type, short_description, created_at
-       FROM projects WHERE status = 'active' AND created_at > ? ORDER BY created_at DESC LIMIT 100`,
+       FROM projects WHERE status = 'active' AND visibility <> 'invite_only' AND created_at > ? ORDER BY created_at DESC LIMIT 100`,
       [new Date(sinceMs).toISOString()]);
     const hits = candidates.filter(p => matches(c, p));
 

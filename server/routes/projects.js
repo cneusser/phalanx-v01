@@ -11,7 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const router = express.Router();
 
-const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type, (image_path IS NOT NULL)::int AS has_image';
+const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, visibility, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type, (image_path IS NOT NULL)::int AS has_image';
 
 // ── Pflege-Berechtigung (Sprint 19: rollenbewusst) ──────────────────────────
 // Admin/Berater/Tenant-Owner, Ersteller oder Mitglied mit member_role='editor'.
@@ -54,20 +54,55 @@ function hidesOwnMandates(user) {
   return !!(user && user.id && !STAFF_ROLES.includes(user.role));
 }
 
+// ── Vertrauliche Mandate (visibility='invite_only') ────────────────────────
+// Sie erscheinen nirgends öffentlich. Sichtbar sind sie für das Team, den
+// Ersteller, Mandats-Mitglieder und ausdrücklich eingeladene Beteiligte.
+// Liefert eine SQL-Bedingung samt Parametern für Abfragen auf `projects`.
+function visibilityClause(user, table = 'projects') {
+  if (user && STAFF_ROLES.includes(user.role)) return { sql: '', params: [] };
+  if (!user || !user.id) return { sql: ` AND ${table}.visibility <> 'invite_only'`, params: [] };
+  return {
+    sql: ` AND (${table}.visibility <> 'invite_only'
+                OR ${table}.created_by = ?
+                OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = ${table}.id AND pm.user_id = ?)
+                OR EXISTS (SELECT 1 FROM crm_deal_parties dp JOIN crm_contacts k ON k.id = dp.contact_id
+                            WHERE dp.project_id = ${table}.id AND k.user_id = ?))`,
+    params: [user.id, user.id, user.id],
+  };
+}
+
+// Darf dieser Nutzer das (womöglich vertrauliche) Mandat überhaupt sehen?
+async function maySeeProject(user, projectId) {
+  const p = await db.get('SELECT id, visibility, created_by FROM projects WHERE id = ?', [projectId]).catch(() => null);
+  if (!p) return false;
+  if (p.visibility !== 'invite_only') return true;
+  if (user && STAFF_ROLES.includes(user.role)) return true;
+  if (!user || !user.id) return false;
+  if (p.created_by === user.id) return true;
+  const member = await db.get('SELECT 1 AS ok FROM project_members WHERE project_id = ? AND user_id = ?',
+    [projectId, user.id]).catch(() => null);
+  if (member) return true;
+  const party = await db.get(
+    `SELECT 1 AS ok FROM crm_deal_parties dp JOIN crm_contacts k ON k.id = dp.contact_id
+      WHERE dp.project_id = ? AND k.user_id = ? LIMIT 1`, [projectId, user.id]).catch(() => null);
+  return !!party;
+}
+
 // ── GET /stats: Public platform statistics ───────────────────────────────
 // Zählt genau das, was der Aufrufer im Marktplatz auch sieht, damit Zähler und
 // Liste nie auseinanderlaufen.
 router.get('/stats', optionalAuth, wrap(async (req, res) => {
   const hideOwn = hidesOwnMandates(req.user);
   const ownFilter = hideOwn ? ' AND (created_by IS NULL OR created_by <> ?)' : '';
-  const p = hideOwn ? [req.user.id] : [];
+  const vis = visibilityClause(req.user);
+  const p = [...(hideOwn ? [req.user.id] : []), ...vis.params];
   const row = await db.get(`
     SELECT
       COUNT(*) FILTER (WHERE status='active' AND mandate_type='ma')::int          AS ma_active,
       COUNT(*) FILTER (WHERE mandate_type='ma')::int                              AS ma_total,
       COUNT(*) FILTER (WHERE status='active' AND mandate_type='fundraising')::int AS fund_active,
       COUNT(*) FILTER (WHERE mandate_type='fundraising')::int                     AS fund_total
-    FROM projects WHERE 1=1${ownFilter}
+    FROM projects WHERE 1=1${ownFilter}${vis.sql}
   `, p);
   const inv = await db.get(`SELECT COUNT(*)::int AS c FROM users WHERE role='buyer' AND is_approved=1 AND is_active=1`);
 
@@ -91,6 +126,9 @@ router.get('/', optionalAuth, wrap(async (req, res) => {
   // nicht im Käufer-Marktplatz, er soll dort nicht auf sich selbst bieten.
   // Für das Team (Admin/Berater) gilt das nicht: sie brauchen die volle Sicht.
   if (hidesOwnMandates(req.user)) { query += ' AND (created_by IS NULL OR created_by <> ?)'; params.push(req.user.id); }
+  // Vertrauliche Mandate nur für Berechtigte
+  const visList = visibilityClause(req.user);
+  query += visList.sql; params.push(...visList.params);
   if (industry)     { query += ' AND industry = ?';     params.push(industry); }
   if (region)       { query += ' AND region = ?';       params.push(region); }
   if (deal_type)    { query += ' AND deal_type = ?';    params.push(deal_type); }
@@ -105,8 +143,10 @@ router.get('/', optionalAuth, wrap(async (req, res) => {
   // Filteroptionen aus derselben Sicht ableiten, damit keine Optionen ohne Treffer erscheinen
   const own = hidesOwnMandates(req.user) ? ' AND (created_by IS NULL OR created_by <> ?)' : '';
   const ownP = hidesOwnMandates(req.user) ? [req.user.id] : [];
+  const visOpt = visibilityClause(req.user);
+  const optP = [...ownP, ...visOpt.params];
   const distinct = async (col, extra = '') =>
-    (await db.all(`SELECT DISTINCT ${col} AS v FROM projects WHERE status='active'${extra}${own} ORDER BY v`, ownP)).map(r => r.v);
+    (await db.all(`SELECT DISTINCT ${col} AS v FROM projects WHERE status='active'${extra}${own}${visOpt.sql} ORDER BY v`, optP)).map(r => r.v);
   const industries = await distinct('industry');
   const regions    = await distinct('region');
   const deal_types = await distinct('deal_type');
@@ -345,6 +385,10 @@ router.get('/:id/teaser', optionalAuth, wrap(async (req, res) => {
     project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ?`, [req.params.id]);
   }
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+  // Vertrauliches Mandat: nur Team, Ersteller, Mitglieder und Eingeladene
+  if (!(await maySeeProject(req.user, req.params.id))) {
+    return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+  }
   // Zielsteuerung (Käufergruppen, Schlagwörter) ist intern: nur für Pfleger.
   let targeting = {};
   if (canManage) {
@@ -390,7 +434,8 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
   const isAdmin = ['super_admin', 'advisor'].includes(req.user.role);
   const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights,
           stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, status,
-          buyer_groups, keywords } = req.body;
+          buyer_groups, keywords, visibility } = req.body;
+  const cleanVisibility = ['public', 'invite_only'].includes(visibility) ? visibility : null;
   const BUYER_GROUPS = ['strategic', 'financial', 'private', 'advisor_mandate'];
   const buyerGroupsJson = Array.isArray(buyer_groups)
     ? JSON.stringify(buyer_groups.filter(g => BUYER_GROUPS.includes(g)))
@@ -414,6 +459,7 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
       post_money_valuation=COALESCE(?,post_money_valuation), tam_band=COALESCE(?,tam_band),
       sector_emoji=COALESCE(?,sector_emoji), location_city=COALESCE(?,location_city),
       buyer_groups=COALESCE(?,buyer_groups), keywords=COALESCE(?,keywords),
+      visibility=COALESCE(?,visibility),
       status=COALESCE(?,status),
       updated_at=now() WHERE id=?
   `, [
@@ -422,7 +468,8 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
     investment_needed||null, equity_stake||null, post_money_valuation||null, tam_band||null,
     sector_emoji||null, location_city||null,
     buyerGroupsJson, keywords !== undefined ? (keywords || '') : null,
-    isAdmin ? (status || null) : null, // Sichtbarkeit ändert nur der Admin
+    cleanVisibility,
+    isAdmin ? (status || null) : null, // Veröffentlichungsstatus ändert nur der Admin
     req.params.id,
   ]);
   db.auditLog(req.user.id, 'UPDATE_PROJECT', 'project', req.params.id, isAdmin ? 'via Marktplatz (Admin)' : 'via Marktplatz (Mitglied/Verkäufer)', req.ip);
@@ -580,6 +627,10 @@ router.get('/:id/questions', authenticate, wrap(async (req, res) => {
 router.get('/:id', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
   const project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+  // Vertrauliches Mandat: nur Team, Ersteller, Mitglieder und Eingeladene
+  if (!(await maySeeProject(req.user, req.params.id))) {
+    return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
+  }
 
   const isAdmin = ['super_admin', 'advisor'].includes(req.user.role);
   let ndaStatus = null;

@@ -60,8 +60,11 @@ const isAuditorOrAdmin = [authenticate, requireRole('super_admin', 'advisor', 't
 // Anti-Doppel-Mail-Kaskade (Suchprofil → Ähnlichkeit → Newsletter).
 async function notifyMatchingBuyers(projectId) {
   const notified = new Set();
-  const p = await db.get(`SELECT id, codename, industry, region, deal_type, mandate_type, short_description, buyer_groups FROM projects WHERE id = ?`, [projectId]);
+  const p = await db.get(`SELECT id, codename, industry, region, deal_type, mandate_type, short_description, buyer_groups, visibility FROM projects WHERE id = ?`, [projectId]);
   if (!p) return notified;
+  // Vertrauliche Mandate laufen nicht über das Matching. Sie werden ausschließlich
+  // gezielt eingeladen, sonst wäre die Vertraulichkeit dahin.
+  if (p.visibility === 'invite_only') return notified;
   // Zielsteuerung: leere Käufergruppen = an alle, sonst nur passende Käufertypen.
   let groups = []; try { groups = JSON.parse(p.buyer_groups || '[]'); } catch { groups = []; }
   const profiles = await db.all(`

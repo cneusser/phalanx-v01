@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.303 · 23.08.2026 · Vertrauliche Mandate: nur auf Einladung
+- **Sichtbarkeit je Mandat**: Im Mandat lässt sich zwischen „Öffentlich" und „Vertraulich (nur auf Einladung)" umschalten
+- **Vertraulich heißt wirklich vertraulich**: Das Mandat erscheint nicht im Marktplatz, nicht in den Zählern, nicht in den Filteroptionen, und es läuft weder über das Matching noch über den Newsletter oder den Digest. Auch die Detailseite antwortet für Unbefugte mit „nicht gefunden", verrät also nicht einmal die Existenz
+- **Sichtbar für**: Team, Ersteller, zugeordnete Nutzer und ausdrücklich eingeladene Beteiligte. Damit können Sie gezielt Personen einladen und ihnen dort Unterlagen bereitstellen
+- **Schutz vor Versehen**: Schalten Sie ein vertrauliches Mandat auf „Öffentlich", erscheint vorher eine ausdrückliche Warnung mit dem Hinweis, was dann sichtbar wird
+- **Erkennbar**: Badge „Vertraulich" in der Admin-Projektliste und im Verkäufer-Cockpit
+- Bestandsmandate bleiben öffentlich, am bisherigen Verhalten ändert sich nichts
+- Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.302 · 22.08.2026 · Funnel aufgeräumt: neun Stufen, Papierkorb, eigener Reiter
 - **Neun statt vierzehn Stufen**: Longlist zur Freigabe → Shortlist freigegeben → Ansprache → NDA → Datenraum-Zugang → LOI → Verhandlung → Closing/Signing → Abschluss. Zwischenzustände wie Namensnennung, Zugang und Due Diligence bleiben als Merkmal am Beteiligten erhalten, nur als eigene Spalte entfallen sie. Bestandsdaten, Vorlagen-Stufen und die gesamte Automatik wurden mitgezogen
 - **Freigabe sauber getrennt**: Kandidaten warten in „Longlist zur Freigabe"; gibt der Mandant frei, rücken sie auf „Shortlist freigegeben"

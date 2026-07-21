@@ -300,6 +300,12 @@ export default function SellerDashboard() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
                   <span style={{ fontWeight: 700, color: C.navy, fontSize: '1rem' }}>{p.codename}</span>
                   <span style={statusStyle(p.status)}>{statusLabel(p.status)}</span>
+                  {p.visibility === 'invite_only' && (
+                    <span title="Vertraulich: nur für eingeladene Personen sichtbar"
+                      style={{ background: '#fef3c7', color: '#92400e', padding: '0.2rem 0.6rem', borderRadius: 6, fontSize: '0.72rem', fontWeight: 700 }}>
+                      Vertraulich
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: C.gray }}>{p.industry} · {p.region}</div>
                 {p.short_description && (

@@ -1119,7 +1119,15 @@ export default function Admin() {
                     </span>
                   </td>
                   <td style={{ padding: '0.75rem 1rem' }}>
-                    <div style={{ fontWeight: 600, color: C.text, fontSize: '0.85rem' }}>{p.codename}</div>
+                    <div style={{ fontWeight: 600, color: C.text, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      {p.codename}
+                      {p.visibility === 'invite_only' && (
+                        <span title="Vertraulich: nur für eingeladene Personen sichtbar, kein Marktplatz, kein Matching"
+                          style={{ background: '#fef3c7', color: '#92400e', padding: '0.05rem 0.4rem', borderRadius: 10, fontSize: '0.62rem', fontWeight: 800 }}>
+                          Vertraulich
+                        </span>
+                      )}
+                    </div>
                     {p.mandate_type === 'fundraising' && p.stage && (
                       <div style={{ fontSize: '0.7rem', color: C.muted }}>{p.stage} · {p.investment_needed || 'k. A.'}</div>
                     )}

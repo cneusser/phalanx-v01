@@ -26,6 +26,7 @@ export default function ProjectEditModal({ project, onClose, onSaved }) {
     post_money_valuation: project.post_money_valuation || '', tam_band: project.tam_band || '',
     location_city: project.location_city || '', short_description: project.short_description || '',
     status: project.status || 'active',
+    visibility: project.visibility || 'public',
   });
   const [imageFile, setImageFile] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -64,7 +65,7 @@ export default function ProjectEditModal({ project, onClose, onSaved }) {
     setSaving(true); setMsg('');
     try {
       const payload = { ...form };
-      if (!isAdmin) delete payload.status;
+      if (!isAdmin) { delete payload.status; delete payload.visibility; }
       await api.put(`/projects/${project.id}`, payload);
       if (imageFile) {
         const fd = new FormData();
@@ -153,11 +154,45 @@ export default function ProjectEditModal({ project, onClose, onSaved }) {
           {/* Status (nur Admin) */}
           {isAdmin && (
             <div style={{ marginBottom: '0.9rem' }}>
-              <label style={LABEL}>Status (Sichtbarkeit)</label>
+              <label style={LABEL}>Status</label>
               <select value={form.status} onChange={set('status')} style={{ ...INPUT, background: '#fff' }}>
-                <option value="active">Aktiv (im Marktplatz sichtbar)</option>
+                <option value="active">Aktiv (veröffentlicht)</option>
                 <option value="draft">Entwurf (verborgen)</option>
               </select>
+            </div>
+          )}
+
+          {/* Sichtbarkeit: offener Marktplatz oder vertraulich nur auf Einladung */}
+          {isAdmin && (
+            <div style={{
+              marginBottom: '0.9rem', padding: '0.8rem 1rem', borderRadius: 8,
+              background: form.visibility === 'invite_only' ? '#FFFBEB' : C.bg,
+              border: `1px solid ${form.visibility === 'invite_only' ? '#FDE68A' : C.border}`,
+            }}>
+              <label style={LABEL}>Sichtbarkeit</label>
+              <select
+                value={form.visibility}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  // Warnen, wenn ein vertrauliches Mandat öffentlich gemacht wird
+                  if (form.visibility === 'invite_only' && next === 'public') {
+                    const ok = window.confirm(
+                      'Achtung: Dieses Mandat ist derzeit vertraulich und nur für eingeladene Personen sichtbar.\n\n' +
+                      'Wenn Sie auf „Öffentlich" stellen, erscheint es im Marktplatz, in den Zählern, im Matching und im Newsletter.\n\n' +
+                      'Wirklich öffentlich schalten?');
+                    if (!ok) return;
+                  }
+                  setForm(f => ({ ...f, visibility: next }));
+                }}
+                style={{ ...INPUT, background: '#fff' }}>
+                <option value="public">Öffentlich (im Marktplatz und im Matching)</option>
+                <option value="invite_only">Vertraulich (nur auf Einladung)</option>
+              </select>
+              <div style={{ fontSize: '0.74rem', color: form.visibility === 'invite_only' ? '#92400e' : C.muted, marginTop: 6, lineHeight: 1.5 }}>
+                {form.visibility === 'invite_only'
+                  ? 'Vertraulich: Das Mandat erscheint nirgends öffentlich. Sichtbar nur für das Team, den Ersteller, zugeordnete Nutzer und ausdrücklich eingeladene Beteiligte. Kein Matching, kein Newsletter.'
+                  : 'Öffentlich: Das Mandat erscheint im Marktplatz und wird beim Matching und im Newsletter berücksichtigt.'}
+              </div>
             </div>
           )}
 
