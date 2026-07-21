@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.310 · 29.08.2026 · Lead-Herkunft im Detail, Freigabe vor dem Veröffentlichen
+- **Herkunft der Kontakte wird konkret**: Unter den Zahlen steht jetzt eine Liste der zuletzt eingegangenen Leads mit Kontakt, Quelle, **Eingangsreferenz** (etwa die Inserats-Nummer), **Mandat**, Art des Eingangs (Marktplatz-Anfrage, NDA, Interesse, beobachtet, Mailing) und Datum
+- Kontakt und Mandat sind aus der Liste direkt anspringbar
+- **Freigabe vor dem Veröffentlichen**: Ein Entwurf geht nicht mehr mit einem Klick live. Die Rückfrage nennt ausdrücklich die Folgen, also Sichtbarkeit im Marktplatz sowie die automatischen Match- und Newsletter-Mails, die sich nicht zurücknehmen lassen
+- **Vor der Freigabe wird geprüft**: Fehlende Pflichtangaben (Branche, Region, Kurzbeschreibung) werden benannt, und es erinnert an die Anonymitätsprüfung des Teasers
+- Bei **vertraulichen Mandaten** weist die Freigabe darauf hin, dass weder Matching noch Newsletter ausgelöst werden; dort entfällt die zweite Bestätigung
+- Verifiziert: fünf Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.309 · 28.08.2026 · Firma am Nutzer über die stabile Verknüpfung
 - **Nicht mehr über den Namen**: Die Admin-Nutzerliste löst die Firma jetzt über die Kette Konto → CRM-Kontakt → aktuelle Unternehmenszuordnung auf und verlinkt auf die **ID** des Unternehmens. Namensänderungen wirken damit überall, ohne dass Verweise brechen
 - **Arbeitgeberwechsel bleiben korrekt**: Die Zuordnung Kontakt zu Unternehmen ist historisiert (`started_on`, `ended_on`). Angezeigt wird die aktuelle Position, frühere bleiben als Historie erhalten

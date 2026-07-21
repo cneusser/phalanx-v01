@@ -984,10 +984,21 @@ router.get('/leads/sources', ...isStaff, wrap(async (req, res) => {
     `SELECT lead_source AS source, COUNT(*)::int AS count, MAX(created_at) AS last_at
        FROM crm_contacts WHERE lead_source IS NOT NULL AND lead_source <> ''
       GROUP BY lead_source ORDER BY count DESC`).catch(() => []);
+  // Je Lead auch zeigen, WAS hereinkam (lead_ref, z. B. die Inserats-Nummer) und
+  // AUF WELCHES Mandat er gelaufen ist. Sonst bleibt die Herkunft eine nackte Zahl.
   const recent = await q.all(
-    `SELECT id, first_name, last_name, email, lead_source, lead_ref, created_at
-       FROM crm_contacts WHERE lead_source IS NOT NULL AND lead_source <> ''
-      ORDER BY id DESC LIMIT 15`).catch(() => []);
+    `SELECT k.id, k.first_name, k.last_name, k.email, k.lead_source, k.lead_ref, k.created_at,
+            d.project_id, d.codename, d.inbound_signal, d.inbound_at, d.funnel_stage
+       FROM crm_contacts k
+       LEFT JOIN LATERAL (
+         SELECT dp.project_id, dp.inbound_signal, dp.inbound_at, dp.funnel_stage, p.codename
+           FROM crm_deal_parties dp JOIN projects p ON p.id = dp.project_id
+          WHERE dp.contact_id = k.id
+          ORDER BY dp.inbound_at DESC NULLS LAST, dp.id DESC
+          LIMIT 1
+       ) d ON TRUE
+      WHERE k.lead_source IS NOT NULL AND k.lead_source <> ''
+      ORDER BY k.id DESC LIMIT 25`).catch(() => []);
   res.json({ success: true, data: { sources, recent } });
 }));
 

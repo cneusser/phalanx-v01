@@ -249,7 +249,12 @@ export default function Admin() {
   useEffect(() => { loadAll(); }, []);
   // Herkunft der Kontakte (Plattform-Leads) für die Übersicht
   const [leadSources, setLeadSources] = useState([]);
-  useEffect(() => { api.get('/crm/leads/sources').then(d => setLeadSources(d.sources || [])).catch(() => {}); }, []);
+  const [leadRecent, setLeadRecent] = useState([]);
+  useEffect(() => {
+    api.get('/crm/leads/sources')
+      .then(d => { setLeadSources(d.sources || []); setLeadRecent(d.recent || []); })
+      .catch(() => {});
+  }, []);
   // Sprint 16: Analytics beim Wechsel des Zeitraums nachladen
   const loadAnalytics = React.useCallback(async (r) => {
     try { setAnalytics(await api.get(`/admin/analytics?range=${r || range}`)); } catch (e) { console.error(e); }
@@ -507,7 +512,37 @@ export default function Admin() {
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
 
+  // Veröffentlichen ist der Schritt mit der größten Außenwirkung: das Mandat wird
+  // öffentlich sichtbar UND es gehen automatisch Match- und Newsletter-Mails raus.
+  // Deshalb eine ausdrückliche Freigabe mit Nennung der Folgen, statt eines Klicks.
   async function publishProject(id) {
+    const p = projects.find(x => String(x.id) === String(id)) || {};
+    const confidential = p.visibility === 'invite_only';
+    const missing = [
+      !p.industry && 'Branche',
+      !p.region && 'Region',
+      !p.short_description && 'Kurzbeschreibung',
+    ].filter(Boolean);
+
+    const lines = [
+      `Mandat „${p.codename || id}" veröffentlichen?`,
+      '',
+      confidential
+        ? 'Dieses Mandat ist als VERTRAULICH markiert. Es bleibt auch nach der Veröffentlichung nur für eingeladene Personen sichtbar, und es geht kein Matching und kein Newsletter raus.'
+        : 'Nach der Freigabe ist das Mandat im Marktplatz sichtbar. Zusätzlich gehen automatisch Benachrichtigungen an Käufer mit passendem Suchprofil sowie an Newsletter-Empfänger raus. Das lässt sich nicht zurücknehmen.',
+      '',
+      missing.length
+        ? `Achtung, es fehlen noch: ${missing.join(', ')}.`
+        : 'Pflichtangaben sind vollständig.',
+      '',
+      'Haben Sie den Teaser auf Anonymität geprüft?',
+    ];
+    if (!window.confirm(lines.join('\n'))) return;
+
+    // Zweite, bewusste Bestätigung nur dort, wo Mails nach außen gehen
+    if (!confidential && !window.confirm(
+      'Letzte Kontrolle: Mit „OK" geht das Mandat live und die Benachrichtigungen werden versendet.')) return;
+
     try {
       await api.put(`/admin/projects/${id}/publish`, {});
       showMsg('Projekt veröffentlicht ✓');
@@ -896,6 +931,57 @@ export default function Admin() {
                 </div>
               ))}
             </div>
+
+            {/* Was kam konkret herein und auf welches Mandat lief es? */}
+            {leadRecent.length > 0 && (
+              <div style={{ marginTop: '1rem' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: C.text, marginBottom: '0.4rem' }}>
+                  Zuletzt eingegangen <span style={{ fontWeight: 400, color: C.muted }}>· was kam herein und wohin lief es</span>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                    <thead>
+                      <tr style={{ color: C.muted, textAlign: 'left' }}>
+                        {['Kontakt', 'Quelle', 'Eingang (Input)', 'Mandat', 'Art', 'Datum'].map(h => (
+                          <th key={h} style={{ padding: '0.35rem 0.5rem', fontWeight: 600 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leadRecent.map(r => (
+                        <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                          <td style={{ padding: '0.4rem 0.5rem' }}>
+                            <button onClick={() => navigate(`/crm?contact=${r.id}`)}
+                              title="Kontakt im CRM öffnen"
+                              style={{ background: 'none', border: 'none', padding: 0, color: '#1D4E89', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', fontSize: '0.78rem' }}>
+                              {[r.first_name, r.last_name].filter(Boolean).join(' ') || r.email}
+                            </button>
+                          </td>
+                          <td style={{ padding: '0.4rem 0.5rem', color: '#555' }}>{r.lead_source}</td>
+                          <td style={{ padding: '0.4rem 0.5rem', color: C.text }}>
+                            {r.lead_ref || <span style={{ color: C.muted }}>ohne Referenz</span>}
+                          </td>
+                          <td style={{ padding: '0.4rem 0.5rem' }}>
+                            {r.project_id ? (
+                              <button onClick={() => setActiveTab('projects')}
+                                style={{ background: 'none', border: 'none', padding: 0, color: '#1D4E89', fontWeight: 700, cursor: 'pointer', fontSize: '0.78rem' }}>
+                                {r.codename}
+                              </button>
+                            ) : <span style={{ color: C.muted }}>keinem Mandat zugeordnet</span>}
+                          </td>
+                          <td style={{ padding: '0.4rem 0.5rem', color: C.muted }}>
+                            {{ marketplace: 'Marktplatz-Anfrage', nda: 'NDA', interest: 'Interesse', watchlist: 'beobachtet', mailing: 'Mailing' }[r.inbound_signal] || r.inbound_signal || '–'}
+                          </td>
+                          <td style={{ padding: '0.4rem 0.5rem', color: C.muted, whiteSpace: 'nowrap' }}>
+                            {new Date(r.inbound_at || r.created_at).toLocaleDateString('de-DE')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
