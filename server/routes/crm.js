@@ -250,7 +250,7 @@ router.delete('/companies/:id', ...isStaff, canDelete, wrap(async (req, res) => 
 // ── Kontakte ────────────────────────────────────────────────────────────────
 const CONTACT_FIELDS = ['salutation', 'title', 'first_name', 'last_name', 'email', 'phone', 'mobile',
   'linkedin_url', 'location', 'responsibility', 'relationship', 'notes', 'consent_status', 'contact_status',
-  'investment_focus'];
+  'investment_focus', 'lead_source', 'lead_ref'];
 // Käufertyp am Kontakt (v0.291, DUB-Benchmark). Leer = unbekannt.
 const BUYER_TYPES = ['strategic', 'financial', 'business_angel', 'venture_capital', 'family_office', 'successor', 'private', 'advisor_mandate'];
 const cleanBuyerType = (v) => (BUYER_TYPES.includes(v) ? v : null);
@@ -454,13 +454,14 @@ router.post('/contacts', ...isStaff, canWrite, wrap(async (req, res) => {
   const id = await scoped(req, (t) => t.insert(`
     INSERT INTO crm_contacts (tenant_id, salutation, title, first_name, last_name, email, phone, mobile,
       linkedin_url, location, responsibility, relationship, notes, tags_json, is_decision_maker,
-      buyer_type, consent_status, consent_at, contact_status, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      buyer_type, lead_source, lead_ref, consent_status, consent_at, contact_status, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [req.tenantId || 1, req.body.salutation || null, req.body.title || null, req.body.first_name || null, last,
      email, req.body.phone || null, req.body.mobile || null, req.body.linkedin_url || null,
      req.body.location || null, req.body.responsibility || null, req.body.relationship || null,
      req.body.notes || null, JSON.stringify(req.body.tags || []),
      req.body.is_decision_maker ? 1 : 0, cleanBuyerType(req.body.buyer_type),
+     req.body.lead_source || null, req.body.lead_ref || null,
      consent, consent === 'opt_in' ? new Date() : null,
      ['active', 'do_not_contact', 'bounced'].includes(req.body.contact_status) ? req.body.contact_status : 'active',
      req.user.id]));

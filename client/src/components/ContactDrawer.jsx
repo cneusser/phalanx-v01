@@ -90,6 +90,8 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
       f.is_decision_maker = d.contact.is_decision_maker === 1;
       f.buyer_type = d.contact.buyer_type || '';
       f.investment_focus = d.contact.investment_focus || '';
+      f.lead_source = d.contact.lead_source || '';
+      f.lead_ref = d.contact.lead_ref || '';
       setForm(f);
     } catch (e) { show('Fehler: ' + e.message); }
   }, [contactId, show]);
@@ -320,8 +322,10 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                 style={btn(blocked || !k.email)}>
                 <Send size={13} /> Pflege-Link
               </button>
-              <button onClick={invite} disabled={blocked || !k.email || k.consent_status === 'opt_in'} style={btn(blocked || !k.email || k.consent_status === 'opt_in')}>
-                <Mail size={13} /> Einladen (DSGVO)
+              <button onClick={invite} disabled={blocked || !k.email || k.consent_status === 'opt_in'}
+                title="Einladung zur Plattform mit Double-Opt-in. Unabhängig von einem Mandat, der Kontakt registriert sich selbst."
+                style={btn(blocked || !k.email || k.consent_status === 'opt_in')}>
+                <Mail size={13} /> Zur Plattform einladen
               </button>
               {k.email && (
                 <button onClick={() => setMsgOpen(v => !v)} disabled={blocked}
@@ -485,6 +489,26 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                     <select value={form.buyer_type || ''} onChange={e => setForm(f => ({ ...f, buyer_type: e.target.value }))} style={{ ...IN, marginTop: 3 }}>
                       {BUYER_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
+                  </div>
+
+                  {/* Herkunft: manuell pflegbar, z. B. wenn ein Lead nicht automatisch eingelesen wurde */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', margin: '0.6rem 0 0.2rem' }}>
+                    <div>
+                      <div style={LBL}>Herkunft / Quelle</div>
+                      <input list="lead-sources" value={form.lead_source || ''} onChange={e => setForm(f => ({ ...f, lead_source: e.target.value }))}
+                        placeholder="z. B. Deutsche Unternehmerbörse (DUB.de)" style={{ ...IN, marginTop: 3 }} />
+                      <datalist id="lead-sources">
+                        <option value="Deutsche Unternehmerbörse (DUB.de)" />
+                        <option value="Recherche" />
+                        <option value="Empfehlung" />
+                        <option value="Netzwerk" />
+                      </datalist>
+                    </div>
+                    <div>
+                      <div style={LBL}>Referenz (z. B. Inserat)</div>
+                      <input value={form.lead_ref || ''} onChange={e => setForm(f => ({ ...f, lead_ref: e.target.value }))}
+                        placeholder="z. B. Inserat 17392, Projekt Alpha" style={{ ...IN, marginTop: 3 }} />
+                    </div>
                   </div>
                   {/* Unternehmen: bestehendes zuordnen oder neues anlegen.
                       Bewusst hier im Formularfluss, nicht unten hinter dem Speichern. */}

@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.315 · 21.07.2026 · Herkunft manuell pflegen, Einladung ohne Mandat
+- **Herkunft von Hand pflegbar**: Im Kontakt und beim Anlegen gibt es jetzt „Herkunft / Quelle" und „Referenz". Damit lässt sich ein Lead, der nicht automatisch eingelesen wurde (etwa eine DUB.de-Anfrage zu einem alten Projekt), sauber als solcher kennzeichnen und taucht in der Lead-Herkunfts-Auswertung im Admin auf
+- Die Quelle hat Vorschläge (DUB.de, Recherche, Empfehlung, Netzwerk), die Referenz nimmt die Inserats-Nummer oder den Projektnamen auf
+- **Einladung ohne Mandat klargestellt**: Die Einladung zur Plattform hängt nur am Kontakt, nicht an einem Projekt. Der Knopf heißt jetzt „Zur Plattform einladen" statt „Einladen (DSGVO)" und erklärt im Tooltip den Double-Opt-in
+- Verifiziert: fünf Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.314 · 21.07.2026 · Käuferbereich neu: Meine Deals als Prozesskarten
 - **Der Käuferbereich war zu flach**: Er zeigte drei gleiche Kacheln und unter „Aktuelle Mandate" fremde Marktplatz-Angebote statt der eigenen Vorgänge. Der Käufer fand seine Deals, Unterlagen und den Datenraum nicht
 - **Jetzt „Meine Deals"**: eine Karte je Unternehmen, in dem der Käufer wirklich engagiert ist. Jede Karte hat eine Prozess-Timeline (Interesse → NDA → Unterlagen → Datenraum) und zeigt, wo er gerade steht

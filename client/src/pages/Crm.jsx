@@ -836,7 +836,7 @@ function ContactForm({ contact, companies, projects, onClose, onSaved }) {
     salutation: '', title: '', first_name: '', last_name: '', email: '', phone: '', mobile: '',
     linkedin_url: '', location: '', responsibility: '', relationship: '', notes: '',
     is_decision_maker: 0, consent_status: 'unknown', contact_status: 'active', buyer_type: '',
-    company_id: '', position: '', ...contact,
+    lead_source: '', lead_ref: '', company_id: '', position: '', ...contact,
   });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -898,6 +898,16 @@ function ContactForm({ contact, companies, projects, onClose, onSaved }) {
             <option value="">ohne Angabe</option>
             {Object.entries(BUYER_TYPE).map(([v, m]) => <option key={v} value={v}>{m.label}</option>)}
           </select>
+        </div>
+        <div><label style={LABEL}>Herkunft / Quelle</label>
+          <input list="lead-sources-new" value={f.lead_source || ''} onChange={set('lead_source')} placeholder="z. B. Deutsche Unternehmerbörse (DUB.de)" style={INPUT} />
+          <datalist id="lead-sources-new">
+            <option value="Deutsche Unternehmerbörse (DUB.de)" />
+            <option value="Recherche" /><option value="Empfehlung" /><option value="Netzwerk" />
+          </datalist>
+        </div>
+        <div><label style={LABEL}>Referenz (z. B. Inserat)</label>
+          <input value={f.lead_ref || ''} onChange={set('lead_ref')} placeholder="z. B. Inserat 17392" style={INPUT} />
         </div>
 
         {isNew && (
