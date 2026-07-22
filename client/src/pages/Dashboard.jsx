@@ -2,9 +2,103 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User, Award } from 'lucide-react';
+import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User, Award, Lock, FileCheck, Database, MessageSquare, ArrowRight } from 'lucide-react';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB', lightBg: '#EDF4FA', gray: '#878787' };
+
+// Die vier Prozessstufen aus Käufersicht, in Reihenfolge
+const DEAL_STEPS = [
+  { key: 'interest', label: 'Interesse' },
+  { key: 'nda', label: 'NDA' },
+  { key: 'documents', label: 'Unterlagen' },
+  { key: 'dataroom', label: 'Datenraum' },
+];
+// Interest-Stage → wie weit ist die Kette erfüllt (0..4)
+function stepReached(stage) {
+  if (stage === 'dataroom_granted' || stage === 'loi') return 4;
+  if (stage === 'im_granted' || stage === 'nda_signed') return 3;
+  if (stage === 'nda_pending' || stage === 'requested') return 1;
+  return 1;
+}
+
+// Eine Prozesskarte je Deal des Käufers
+function DealCard({ d }) {
+  const reached = stepReached(d.stage);
+  const isFund = d.mandate_type === 'fundraising';
+  const resources = [
+    { key: 'teaser', label: 'Kurzprofil', icon: FileText, on: d.unlocked.teaser },
+    { key: 'expose', label: 'Exposé', icon: FileCheck, on: d.unlocked.expose },
+    { key: 'documents', label: 'Unterlagen', icon: FileText, on: d.unlocked.documents },
+    { key: 'dataroom', label: 'Datenraum', icon: Database, on: d.unlocked.dataroom },
+    { key: 'qa', label: 'Q&A', icon: MessageSquare, on: d.unlocked.qa },
+  ];
+  return (
+    <div style={{ background: '#fff', border: '1px solid #dce8f2', borderRadius: 12, padding: '1.1rem 1.2rem', display: 'flex', flexDirection: 'column' }}>
+      {/* Kopf */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <Link to={`/projekte/${d.id}`} style={{ fontWeight: 800, color: C.navy, fontSize: '1rem', textDecoration: 'none' }}>{d.codename}</Link>
+          <div style={{ fontSize: '0.74rem', color: '#888', display: 'flex', gap: '0.6rem', marginTop: 2, flexWrap: 'wrap' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Building2 size={11} />{d.industry}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><MapPin size={11} />{d.region}</span>
+          </div>
+        </div>
+        <span style={{ background: isFund ? '#ede9fe' : '#EDF4FA', color: isFund ? '#5b21b6' : C.navy, padding: '0.15rem 0.55rem', borderRadius: 10, fontSize: '0.66rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+          {isFund ? 'Startup' : 'M&A'}
+        </span>
+      </div>
+
+      {/* Stufen-Timeline */}
+      <div style={{ display: 'flex', alignItems: 'center', margin: '0.9rem 0 0.2rem' }}>
+        {DEAL_STEPS.map((s, i) => {
+          const done = reached > i;
+          const current = reached === i + 1;
+          return (
+            <React.Fragment key={s.key}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '0 0 auto' }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: done ? '#10b981' : current ? C.navy : '#e2e8f0', color: done || current ? '#fff' : '#94a3b8',
+                  fontSize: '0.62rem', fontWeight: 800,
+                }}>{done ? <CheckCircle size={13} /> : i + 1}</div>
+                <div style={{ fontSize: '0.58rem', color: current ? C.navy : '#94a3b8', fontWeight: current ? 800 : 600, marginTop: 3 }}>{s.label}</div>
+              </div>
+              {i < DEAL_STEPS.length - 1 && (
+                <div style={{ flex: 1, height: 2, background: reached > i + 1 ? '#10b981' : '#e2e8f0', margin: '0 4px', marginBottom: 14 }} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {/* Für Sie freigegeben */}
+      <div style={{ background: C.bg, borderRadius: 8, padding: '0.6rem 0.7rem', margin: '0.7rem 0' }}>
+        <div style={{ fontSize: '0.66rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }}>Für Sie freigegeben</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+          {resources.map(r => (
+            <span key={r.key} title={r.on ? 'freigegeben' : 'noch gesperrt'}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', fontWeight: 600,
+                background: r.on ? '#d1fae5' : '#f1f5f9', color: r.on ? '#065f46' : '#94a3b8',
+                padding: '0.15rem 0.5rem', borderRadius: 20 }}>
+              {r.on ? <r.icon size={11} /> : <Lock size={10} />} {r.label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Nächster Schritt */}
+      <div style={{ fontSize: '0.78rem', color: '#475569', lineHeight: 1.5, marginBottom: '0.7rem' }}>
+        <span style={{ fontWeight: 700, color: C.navy }}>{d.phase}: </span>{d.next}
+      </div>
+      <div style={{ marginTop: 'auto', display: 'flex', gap: 6 }}>
+        <Link to={d.next_action ? d.next_action.path : `/projekte/${d.id}`}
+          style={{ flex: 1, textAlign: 'center', background: C.navy, color: '#fff', padding: '0.55rem 0.9rem', borderRadius: 8, textDecoration: 'none', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          {d.next_action ? d.next_action.label : 'Zum Deal'} <ArrowRight size={14} />
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 const statusMap = {
   requested: { label: 'Angefordert', color: '#f59e0b', bg: '#fef3c7' },
@@ -21,6 +115,7 @@ export default function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [xp, setXp] = useState(null);
   const [platformNda, setPlatformNda] = useState(null); // { signed_at } | null
+  const [myDeals, setMyDeals] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Verkäufer haben einen eigenen, fokussierten Bereich (nur eigene Mandate + Funnel).
@@ -39,6 +134,7 @@ export default function Dashboard() {
     }).catch(console.error).finally(() => setLoading(false));
     api.get('/gamification/me').then(setXp).catch(() => {});
     api.get('/auth/platform-nda').then(setPlatformNda).catch(() => {});
+    api.get('/projects/my-deals').then(d => setMyDeals(d || [])).catch(() => {});
   }, []);
 
   async function signPlatformNda() {
@@ -109,12 +205,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* KPIs */}
+      {/* KPIs: prozessorientiert, aus den eigenen Deals abgeleitet */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
         {[
-          { label: 'NDA-Anfragen', value: ndas.length, icon: FileText, color: C.navy },
-          { label: 'Freigeschaltet', value: approved, icon: CheckCircle, color: '#10b981' },
-          { label: 'In Bearbeitung', value: pending, icon: Clock, color: '#f59e0b' },
+          { label: 'Aktive Deals', value: myDeals.length, icon: FileText, color: C.navy },
+          { label: 'Unterlagen freigegeben', value: myDeals.filter(d => d.unlocked.expose || d.unlocked.documents).length, icon: CheckCircle, color: '#10b981' },
+          { label: 'Datenraum offen', value: myDeals.filter(d => d.unlocked.dataroom).length, icon: Lock, color: '#7c3aed' },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} style={{ background: '#fff', borderRadius: 12, padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #dce8f2', display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ width: 44, height: 44, background: `${color}15`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -128,62 +224,29 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-        {/* NDA Status */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #dce8f2' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-            <h2 style={{ fontWeight: 600, color: C.navy, fontSize: '1rem' }}>Meine NDA-Anfragen</h2>
-            <Link to="/projekte" style={{ fontSize: '0.8rem', color: C.navy, textDecoration: 'none' }}>+ Neue Anfrage</Link>
-          </div>
-          {ndas.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: '#999', fontSize: '0.875rem' }}>
-              Noch keine NDA-Anfragen.<br />
-              <Link to="/projekte" style={{ color: C.navy, fontWeight: 600 }}>Projekte ansehen →</Link>
-            </div>
-          ) : (
-            ndas.map(nda => {
-              const s = statusMap[nda.status] || statusMap.requested;
-              return (
-                <div key={nda.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: C.bg, borderRadius: 8, marginBottom: '0.6rem' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.875rem', color: C.navy }}>{nda.codename}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#888', display: 'flex', gap: '0.5rem', marginTop: '0.15rem' }}>
-                      <span>{nda.industry}</span>·<span>{nda.region}</span>
-                    </div>
-                  </div>
-                  <span style={{ background: s.bg, color: s.color, padding: '0.2rem 0.6rem', borderRadius: 20, fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    {s.label}
-                  </span>
-                </div>
-              );
-            })
-          )}
+      {/* Meine Deals: je Deal eine Prozesskarte mit Stufe, Freigaben und nächstem Schritt */}
+      <div style={{ marginBottom: '1.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem' }}>
+          <h2 style={{ fontWeight: 700, color: C.navy, fontSize: '1.05rem' }}>Meine Deals</h2>
+          <Link to="/projekte" style={{ fontSize: '0.82rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>Weitere Unternehmen entdecken →</Link>
         </div>
 
-        {/* Matching Projects */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #dce8f2' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-            <h2 style={{ fontWeight: 600, color: C.navy, fontSize: '1rem' }}>Aktuelle Mandate</h2>
-            <Link to="/projekte" style={{ fontSize: '0.8rem', color: C.navy, textDecoration: 'none' }}>Alle ansehen →</Link>
+        {myDeals.length === 0 ? (
+          <div style={{ background: '#fff', border: '1px solid #dce8f2', borderRadius: 12, padding: '2.5rem', textAlign: 'center' }}>
+            <FileText size={34} color="#c7d7e6" style={{ marginBottom: '0.8rem' }} />
+            <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.3rem' }}>Noch kein Deal begonnen</div>
+            <p style={{ color: '#777', fontSize: '0.86rem', marginBottom: '1.1rem', lineHeight: 1.6 }}>
+              Sobald Sie bei einem Unternehmen Interesse bekunden, erscheint es hier mit Ihrem Prozessstand und den für Sie freigegebenen Unterlagen.
+            </p>
+            <Link to="/projekte" style={{ background: C.navy, color: '#fff', padding: '0.6rem 1.4rem', borderRadius: 8, textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem' }}>
+              Marktplatz ansehen
+            </Link>
           </div>
-          {projects.map(p => (
-            <div key={p.id} style={{ padding: '0.75rem', background: C.bg, borderRadius: 8, marginBottom: '0.6rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ fontWeight: 600, fontSize: '0.875rem', color: C.navy }}>{p.codename}</div>
-                <span style={{ background: '#fef3e2', color: '#92400e', padding: '0.15rem 0.5rem', borderRadius: 10, fontSize: '0.7rem' }}>{p.deal_type}</span>
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#888', display: 'flex', gap: '0.75rem', marginTop: '0.3rem' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><Building2 size={10} />{p.industry}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><MapPin size={10} />{p.region}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-                <Link to={`/projekte/${p.id}`} style={{ fontSize: '0.78rem', color: C.navy, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                  Details <ChevronRight size={12} />
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
+            {myDeals.map(d => <DealCard key={d.id} d={d} />)}
+          </div>
+        )}
       </div>
 
       {/* Profile hint */}

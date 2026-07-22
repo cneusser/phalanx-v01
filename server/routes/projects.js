@@ -374,6 +374,68 @@ router.post('/my-project', authenticate, requireCompleteProfile(), wrap(async (r
   res.status(201).json({ success: true, data: { id: projectId, message: 'Entwurf angelegt. Du kannst ihn nun ausfüllen und einreichen.' } });
 }));
 
+// ── GET /my-deals: Die Deals, in denen der Käufer wirklich steckt ──────────
+// Prozessorientierte Käufersicht: je Deal die aktuelle Stufe, was JETZT für ihn
+// freigegeben ist (Teaser, Exposé/IM, Datenraum, Q&A) und der nächste Schritt.
+// Grundlage sind seine Interessen (interests) und NDA-Anfragen (nda_requests).
+router.get('/my-deals', authenticate, wrap(async (req, res) => {
+  const rows = await db.all(`
+    SELECT p.id, p.codename, p.industry, p.region, p.deal_type, p.mandate_type,
+           (p.image_path IS NOT NULL)::int AS has_image,
+           i.stage AS interest_stage, i.updated_at AS interest_updated,
+           (SELECT nr.status FROM nda_requests nr WHERE nr.user_id = i.buyer_id AND nr.project_id = p.id ORDER BY nr.id DESC LIMIT 1) AS nda_status,
+           (SELECT nr.signed_at FROM nda_requests nr WHERE nr.user_id = i.buyer_id AND nr.project_id = p.id ORDER BY nr.id DESC LIMIT 1) AS nda_signed_at,
+           (SELECT COUNT(*)::int FROM documents d WHERE d.project_id = p.id AND d.file_path IS NOT NULL) AS doc_count,
+           (SELECT e.status FROM exposes e WHERE e.project_id = p.id) AS expose_status
+      FROM interests i
+      JOIN projects p ON p.id = i.project_id
+     WHERE i.buyer_id = ? AND i.stage <> 'rejected'
+     ORDER BY i.updated_at DESC`, [req.user.id]).catch(() => []);
+
+  const isFund = (r) => r.mandate_type === 'fundraising';
+  const deals = rows.map(r => {
+    const stage = r.interest_stage;
+    const unlocked = {
+      teaser: true,
+      expose: stageAllows(stage, 'im') && r.expose_status === 'published',
+      documents: stageAllows(stage, 'im') && r.doc_count > 0,
+      dataroom: stageAllows(stage, 'dataroom'),
+      qa: stageAllows(stage, 'qa'),
+    };
+    // Menschlich lesbare Phase + nächster Schritt
+    let phase, next, nextAction;
+    if (!stageAllows(stage, 'im')) {
+      const ndaOpen = ['requested', 'sent', 'nda_pending'].includes(r.nda_status);
+      phase = isFund(r) ? 'Unterlagen angefragt' : (ndaOpen ? 'NDA in Bearbeitung' : 'Interesse');
+      if (isFund(r)) { next = 'Wir prüfen Ihre Anfrage und geben die Unterlagen frei.'; nextAction = null; }
+      else if (r.nda_status === 'sent') { next = 'NDA liegt zur Unterschrift bereit.'; nextAction = { label: 'NDA unterschreiben', path: `/projekte/${r.id}` }; }
+      else if (ndaOpen) { next = 'Ihre NDA-Anfrage wird bearbeitet.'; nextAction = null; }
+      else { next = 'Fordern Sie die vertraulichen Unterlagen an.'; nextAction = { label: 'NDA anfordern', path: `/projekte/${r.id}` }; }
+    } else if (!stageAllows(stage, 'dataroom')) {
+      phase = 'Unterlagen freigegeben';
+      next = 'Exposé und Unterlagen sind für Sie freigegeben. Der Datenraum folgt nach Freigabe.';
+      nextAction = { label: 'Unterlagen ansehen', path: `/projekte/${r.id}` };
+    } else if (stage === 'loi') {
+      phase = 'Angebot abgegeben';
+      next = 'Ihr indikatives Angebot liegt vor. Wir melden uns mit den nächsten Schritten.';
+      nextAction = { label: 'Datenraum öffnen', path: `/projekte/${r.id}` };
+    } else {
+      phase = 'Datenraum offen';
+      next = 'Der Datenraum ist offen. Prüfen Sie die Unterlagen und bereiten Sie Ihr Angebot vor.';
+      nextAction = { label: 'Datenraum öffnen', path: `/projekte/${r.id}` };
+    }
+
+    return {
+      id: r.id, codename: r.codename, industry: r.industry, region: r.region,
+      deal_type: r.deal_type, mandate_type: r.mandate_type, has_image: r.has_image,
+      stage, phase, next, next_action: nextAction, unlocked,
+      updated_at: r.interest_updated,
+    };
+  });
+
+  res.json({ success: true, data: deals });
+}));
+
 // ── GET /:id/teaser: Public teaser (+ can_manage für eingeloggte Pfleger) ─
 router.get('/:id/teaser', optionalAuth, wrap(async (req, res) => {
   // Pfleger (Admin/Ersteller/Mitglied) sehen den Teaser auch im Entwurfsstatus

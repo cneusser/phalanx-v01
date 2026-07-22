@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.314 · 21.07.2026 · Käuferbereich neu: Meine Deals als Prozesskarten
+- **Der Käuferbereich war zu flach**: Er zeigte drei gleiche Kacheln und unter „Aktuelle Mandate" fremde Marktplatz-Angebote statt der eigenen Vorgänge. Der Käufer fand seine Deals, Unterlagen und den Datenraum nicht
+- **Jetzt „Meine Deals"**: eine Karte je Unternehmen, in dem der Käufer wirklich engagiert ist. Jede Karte hat eine Prozess-Timeline (Interesse → NDA → Unterlagen → Datenraum) und zeigt, wo er gerade steht
+- **„Für Sie freigegeben"**: Kurzprofil, Exposé, Unterlagen, Datenraum und Q&A stehen als Kette da, jeweils grün (freigegeben) oder mit Schloss (gesperrt). So ist auf einen Blick klar, was zugänglich ist und was noch nicht
+- **Klarer nächster Schritt**: Je Deal ein passender Knopf, etwa „NDA anfordern", „NDA unterschreiben", „Unterlagen ansehen" oder „Datenraum öffnen". Bei Startup-Finanzierungen entsprechend „Unterlagen angefragt"
+- **Kennzahlen prozessual**: aktive Deals, freigegebene Unterlagen und offene Datenräume statt reiner NDA-Zahlen
+- Erster Schritt des Käufer-Redesigns (Schwerpunkt: Zugang zu Dokumenten und Datenraum). Tiefere Deal-Detailseite und getrennte Discovery folgen
+- Verifiziert: vier Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.313 · 21.07.2026 · Käufertypen erweitert und vereinheitlicht
 - **Neu**: Business Angel und Venture Capital als eigene Käufertypen, getrennt vom allgemeinen Finanzinvestor. Beide sind zwar Finanzinvestoren, verhalten sich in Ticketgröße, Beteiligungsform und Ansprache aber deutlich anders
 - **Fehler dabei gefunden und behoben**: Registrierung und CRM benutzten zwei verschiedene Wertelisten. Die Registrierung kannte `family_office`, `successor` und `advisor`, das CRM dagegen `private` und `advisor_mandate`. Da die Käufergruppen-Zielsteuerung beide Seiten vergleicht, konnte ein als Family Office oder Nachfolger registrierter Investor von keiner Zielgruppe erfasst werden
