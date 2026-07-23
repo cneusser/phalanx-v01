@@ -12,6 +12,10 @@
 
 const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
+// Ersatz-Token des Clients, wenn das Widget nicht geladen/abgeschlossen werden
+// konnte (blockiertes Netzwerk, Cloudflare-Störung, Browser-Erweiterung).
+const UNAVAILABLE = '__unavailable__';
+
 function isEnabled() {
   return !!process.env.TURNSTILE_SECRET;
 }
@@ -19,6 +23,15 @@ function isEnabled() {
 // Gibt true zurück, wenn der Token gültig ist ODER die Prüfung deaktiviert ist.
 async function verifyTurnstile(token, ip) {
   if (!isEnabled()) return true;                 // nicht konfiguriert → nicht blockieren
+  // Das Widget konnte beim Nutzer nicht abschließen. Einen legitimen Nutzer
+  // deshalb auszusperren wäre schlimmer als der Bot-Test wert ist: Login braucht
+  // gültige Zugangsdaten, Registrierung braucht E-Mail-Bestätigung und Freigabe,
+  // und beide Endpunkte sind zusätzlich raten-limitiert. Wir lassen durch und
+  // protokollieren den Fall, damit Missbrauch auffällt.
+  if (token === UNAVAILABLE) {
+    console.warn(`[turnstile] Widget nicht verfügbar, Anfrage ohne Bot-Test durchgelassen (IP ${ip || 'unbekannt'})`);
+    return true;
+  }
   if (!token) return false;
   try {
     const body = new URLSearchParams();

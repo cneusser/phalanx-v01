@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.316 · 21.07.2026 · Anmeldung: Bot-Test sperrt niemanden mehr aus
+- **Kunde ausgesperrt**: Der Cloudflare-Roboter-Test (Turnstile) lud bei einem Kunden nicht, der Server wies die leere Antwort ab und die Anmeldung schlug mit „Bot-Test fehlgeschlagen" fehl
+- **Jetzt fehlertolerant**: Kann das Widget nicht laden oder abschließen (blockiertes Netzwerk, Cloudflare-Störung, Browser-Erweiterung), erscheint der Hinweis „Die Sicherheitsprüfung ist gerade nicht erreichbar. Sie können sich trotzdem anmelden" und die Anmeldung geht durch. Nach acht Sekunden ohne Antwort greift zusätzlich ein Sicherheitsnetz
+- **Server lässt durch und protokolliert**: Solche Fälle werden mitgeloggt (IP), statt den Nutzer zu blockieren. Der echte Roboter-Test bleibt für alle aktiv, deren Widget normal funktioniert
+- **Bot-Schutz bleibt**: Anmeldung braucht gültige Zugangsdaten, Registrierung braucht E-Mail-Bestätigung und Freigabe, beide Endpunkte sind zusätzlich raten-limitiert
+- Verifiziert: acht Testsuites grün, Build sauber und warnungsfrei, Textwächter ohne Befund
+
 ## v0.315 · 21.07.2026 · Herkunft manuell pflegen, Einladung ohne Mandat
 - **Herkunft von Hand pflegbar**: Im Kontakt und beim Anlegen gibt es jetzt „Herkunft / Quelle" und „Referenz". Damit lässt sich ein Lead, der nicht automatisch eingelesen wurde (etwa eine DUB.de-Anfrage zu einem alten Projekt), sauber als solcher kennzeichnen und taucht in der Lead-Herkunfts-Auswertung im Admin auf
 - Die Quelle hat Vorschläge (DUB.de, Recherche, Empfehlung, Netzwerk), die Referenz nimmt die Inserats-Nummer oder den Projektnamen auf
