@@ -1228,6 +1228,40 @@ router.put('/parties/:id', ...isStaff, canWrite, wrap(async (req, res) => {
   if (identityChange) {
     db.auditLog(req.user.id, 'CRM_IDENTITY_REVEALED', 'project', party.project_id, `Namensnennung ${identityChange} (Eintrag #${req.params.id})`, req.ip);
   }
+
+  // ── Brücke CRM-NDA → Plattform-Gate ────────────────────────────────────────
+  // Ein „NDA liegt vor" im Funnel bezog sich bisher nur auf das CRM-Feld und
+  // ließ die Plattform-Stufe des verknüpften Kontos unberührt. Ergebnis: Das IM
+  // blieb gesperrt, obwohl der NDA vorlag, und der Interessent tauchte mangels
+  // interests-Datensatz nicht in den Plattform-Ansichten auf. Hier spiegeln wir
+  // die manuelle NDA-Angabe auf das Gate, ohne je eine weiter fortgeschrittene
+  // Stufe (Datenraum, LOI) zurückzustufen.
+  if (req.body.nda_status !== undefined) {
+    let linkedUserId = party.user_id || null;
+    if (!linkedUserId && party.contact_id) {
+      const c = await db.get('SELECT user_id FROM crm_contacts WHERE id = ?', [party.contact_id]).catch(() => null);
+      linkedUserId = c ? c.user_id : null;
+    }
+    if (linkedUserId) {
+      const { setStage } = require('../middleware/gates');
+      const { stageRank } = require('../utils/dealStateMachine');
+      const cur = await db.get('SELECT stage FROM interests WHERE project_id = ? AND buyer_id = ?', [party.project_id, linkedUserId]).catch(() => null);
+      const curStage = cur ? cur.stage : null;
+      const v = req.body.nda_status;
+      if (v === 'signed') {
+        // NDA liegt vor → IM freischalten, sofern noch nicht weiter (und nicht abgelehnt).
+        if (curStage !== 'rejected' && stageRank(curStage) < stageRank('im_granted')) {
+          await setStage(linkedUserId, party.project_id, 'nda_signed', req.user.id, req.ip);
+          await setStage(linkedUserId, party.project_id, 'im_granted', req.user.id, req.ip);
+        }
+      } else if (curStage === 'nda_signed' || curStage === 'im_granted') {
+        // NDA zurückgenommen: nur zurückstufen, wenn der Zugang allein aus dieser
+        // Brücke stammte. Datenraum-/LOI-Zugang bleibt bewusst unangetastet.
+        await setStage(linkedUserId, party.project_id, 'requested', req.user.id, req.ip);
+      }
+    }
+  }
+
   res.json({ success: true, data: { message: 'Gespeichert' } });
 }));
 

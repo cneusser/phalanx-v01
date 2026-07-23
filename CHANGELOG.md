@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.317 · 21.07.2026 · NDA im Funnel schaltet das IM frei
+- **IM blieb trotz NDA gesperrt**: Wurde im Deal-Funnel „NDA liegt vor" gesetzt, betraf das nur das CRM-Feld. Die Plattform-Stufe des verknüpften Kontos blieb unberührt, das IM-Gate verlangte weiter den NDA und der Interessent tauchte mangels Datensatz nicht in den Plattform-Ansichten auf
+- **Jetzt gebrückt**: „NDA liegt vor" bei einer Deal-Partei mit verknüpftem Plattform-Konto hebt die Stufe auf „IM freigegeben" und schaltet damit Exposé/IM frei. Der Interessent erscheint ab sofort auch in den Interessenten-Ansichten
+- **Sicher zurücknehmbar**: Wird der NDA zurückgenommen, greift die Sperre wieder, aber nur, wenn der Zugang allein aus dieser Brücke stammte. Ein bereits erteilter Datenraum- oder LOI-Zugang bleibt unangetastet, und eine weiter fortgeschrittene Stufe wird nie zurückgestuft
+- Verifiziert: acht Testsuites grün, Textwächter ohne Befund
+
 ## v0.316 · 21.07.2026 · Anmeldung: Bot-Test sperrt niemanden mehr aus
 - **Kunde ausgesperrt**: Der Cloudflare-Roboter-Test (Turnstile) lud bei einem Kunden nicht, der Server wies die leere Antwort ab und die Anmeldung schlug mit „Bot-Test fehlgeschlagen" fehl
 - **Jetzt fehlertolerant**: Kann das Widget nicht laden oder abschließen (blockiertes Netzwerk, Cloudflare-Störung, Browser-Erweiterung), erscheint der Hinweis „Die Sicherheitsprüfung ist gerade nicht erreichbar. Sie können sich trotzdem anmelden" und die Anmeldung geht durch. Nach acht Sekunden ohne Antwort greift zusätzlich ein Sicherheitsnetz
