@@ -65,7 +65,20 @@ router.get('/', authenticate, wrap(async (req, res) => {
 // ─── NDA Status ──────────────────────────────────────────────────────────────
 router.get('/:projectId/status', authenticate, wrap(async (req, res) => {
   const nda = await db.get('SELECT * FROM nda_requests WHERE user_id = ? AND project_id = ?', [req.user.id, req.params.projectId]);
-  res.json({ success: true, data: nda || { status: null } });
+  // Der IM-/Datenraum-Zugang steht in interests.stage und muss hier gespiegelt
+  // werden. Sonst bleibt das IM optisch gesperrt, obwohl der Server es bereits
+  // ausliefert, etwa wenn im Funnel „NDA liegt vor" gesetzt oder (bei Startup-
+  // Finanzierungen) die Freigabe ohne NDA erteilt wurde. Ohne diesen Datenabgleich
+  // hing die Detailseite allein am nda_requests-Eintrag.
+  const interest = await db.get('SELECT stage FROM interests WHERE buyer_id = ? AND project_id = ?', [req.user.id, req.params.projectId]).catch(() => null);
+  const stage = interest ? interest.stage : null;
+  let fromStage = null;
+  if (stage === 'nda_signed' || stage === 'im_granted') fromStage = 'signed';        // IM frei, Datenraum noch nicht
+  else if (stage === 'dataroom_granted' || stage === 'loi') fromStage = 'approved';  // Vollzugriff
+  const order = { requested: 1, signed: 2, approved: 3 };
+  let status = nda ? nda.status : null;
+  if (fromStage && (order[fromStage] || 0) > (order[status] || 0)) status = fromStage;
+  res.json({ success: true, data: { ...(nda || {}), id: nda ? nda.id : null, status } });
 }));
 
 // ─── NDA Dokument als PDF abrufen (Preview zum Lesen) ────────────────────────

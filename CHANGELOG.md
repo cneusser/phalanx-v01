@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.318 · 21.07.2026 · IM-Freigabe auf der Mandatsseite sichtbar
+- **IM auf der Mandatsseite gesperrt, obwohl freigegeben**: Die Deal-Karte zeigte „Unterlagen freigegeben", die Mandatsseite aber weiter „NDA erforderlich" und ließ das IM nicht laden
+- **Ursache**: Die Mandatsseite entschied allein anhand des NDA-Antrags. Wurde der Zugang über den Funnel („NDA liegt vor") oder bei Startup-Finanzierungen ohne NDA erteilt, gab es keinen NDA-Antrag, obwohl die Freigabe-Stufe längst stand
+- **Jetzt gespiegelt**: Die Statusabfrage berücksichtigt die tatsächliche Freigabe-Stufe. „IM freigeschaltet" ab NDA/Freigabe, „Vollzugriff" ab Datenraum-Freigabe. Das Informationsmemorandum ist damit abrufbar, sobald es freigegeben ist
+- Verifiziert: acht Testsuites grün, Textwächter ohne Befund
+
 ## v0.317 · 21.07.2026 · NDA im Funnel schaltet das IM frei
 - **IM blieb trotz NDA gesperrt**: Wurde im Deal-Funnel „NDA liegt vor" gesetzt, betraf das nur das CRM-Feld. Die Plattform-Stufe des verknüpften Kontos blieb unberührt, das IM-Gate verlangte weiter den NDA und der Interessent tauchte mangels Datensatz nicht in den Plattform-Ansichten auf
 - **Jetzt gebrückt**: „NDA liegt vor" bei einer Deal-Partei mit verknüpftem Plattform-Konto hebt die Stufe auf „IM freigegeben" und schaltet damit Exposé/IM frei. Der Interessent erscheint ab sofort auch in den Interessenten-Ansichten
