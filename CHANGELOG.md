@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.319 · 21.07.2026 · Prüfschleifen und Sicherheits-Härtung
+- **Gebündelte Prüfschleife**: `npm run check` prüft Texte und alle Testsuites in einem Lauf, `npm run check:full` zusätzlich den Client-Build. Ein fehlgeschlagener Test bricht den Lauf jetzt sauber ab, statt still weiterzulaufen
+- **Sicherheit**: Die versehentlich mitgeführte `server/.env` wird nicht mehr im Repository verfolgt. Eine `server/.env.example` dokumentiert alle Variablen ohne Geheimnisse
+- **Härterer Start-Check**: erkennt jetzt auch den alten Beispiel-Wert und zu kurze JWT-Schlüssel (< 32 Zeichen) und weist auf die nötige Rotation hin. Der JWT-Schlüssel signiert Sessions und Datei-Links, deshalb sollte er in Railway gesetzt und rotiert sein
+- **Kennzahl-Klarstellung**: „21+ Qualifizierte Investoren" zählt bewusst nur freigegebene, aktive Investoren, nicht alle Konten auf der Plattform
+- Verifiziert: acht Testsuites grün, Textwächter ohne Befund
+
 ## v0.318 · 21.07.2026 · IM-Freigabe auf der Mandatsseite sichtbar
 - **IM auf der Mandatsseite gesperrt, obwohl freigegeben**: Die Deal-Karte zeigte „Unterlagen freigegeben", die Mandatsseite aber weiter „NDA erforderlich" und ließ das IM nicht laden
 - **Ursache**: Die Mandatsseite entschied allein anhand des NDA-Antrags. Wurde der Zugang über den Funnel („NDA liegt vor") oder bei Startup-Finanzierungen ohne NDA erteilt, gab es keinen NDA-Antrag, obwohl die Freigabe-Stufe längst stand

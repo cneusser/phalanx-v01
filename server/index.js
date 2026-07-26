@@ -13,10 +13,19 @@ const PORT = process.env.PORT || 3001;
 // Ohne eigenen Wert würden Tokens mit einem öffentlich bekannten Default signiert,
 // dann könnte jeder gültige Sitzungen fälschen. Wir warnen laut (ohne den Start zu
 // blockieren, um ein laufendes Deployment nicht abzuwürgen).
-if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'phalanx-secret')) {
-  console.error('\n🔴 SICHERHEITSWARNUNG: JWT_SECRET ist nicht gesetzt (oder auf dem Default).');
-  console.error('   Bitte in Railway eine lange Zufallszeichenkette als JWT_SECRET hinterlegen.');
-  console.error('   Sonst lassen sich Anmelde-Tokens fälschen.\n');
+// Als schwach gelten: leer, die Kurz-Defaults und der (versehentlich einst
+// eingecheckte) Beispielwert. Zusätzlich alles unter 32 Zeichen.
+const WEAK_JWT_SECRETS = new Set([
+  'phalanx-secret',
+  'phalanx-secret-key-change-in-production-2024',
+]);
+const jwtSecret = process.env.JWT_SECRET || '';
+const jwtIsWeak = !jwtSecret || WEAK_JWT_SECRETS.has(jwtSecret) || jwtSecret.length < 32;
+if (process.env.NODE_ENV === 'production' && jwtIsWeak) {
+  console.error('\n🔴 SICHERHEITSWARNUNG: JWT_SECRET fehlt, ist ein bekannter Beispielwert oder zu kurz (< 32 Zeichen).');
+  console.error('   Bitte in Railway eine lange Zufallszeichenkette als JWT_SECRET hinterlegen und den alten Wert rotieren.');
+  console.error('   Erzeugen: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"');
+  console.error('   Sonst lassen sich Anmelde-Tokens und Datei-Links fälschen.\n');
 }
 
 // Railway/Reverse-Proxy: echte Client-IP aus X-Forwarded-For lesen.
