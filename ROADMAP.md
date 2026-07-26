@@ -62,9 +62,17 @@ entrepreneursclub.eu (Club- und Level-Modell, siehe Sprint 27).
 | · | Unternehmen und Mandat direkt aus dem Kontakt zuordnen, auch beim Anlegen (v0.298) | ✅ fertig |
 | · | Marktplatz für Admin/Berater wieder vollständig, Zähler und Filter konsistent (v0.299) | ✅ fertig |
 | · | Funnel auf neun Stufen verdichtet, Papierkorb, Mailings-Archiv, eigener Funnel-Reiter (v0.302) | ✅ fertig |
-| **26** | **Nachfolge-Match: Talent, Kapital und Mandat zusammenbringen** | geplant (Konzept unten) |
-| **27** | **Entrepreneur-Club: Community, Events, Reifegrade** | geplant (Konzept unten) |
-| **28** | **Prozesswerkzeuge: LOI-Ablage und Live-Angebotstool (Bieterverfahren)** | geplant (Konzept unten) |
+| · | Kleine Fixes: Bot-Test sperrt niemanden aus, NDA-Freigabe schaltet IM frei (v0.316-v0.318) | ✅ fertig |
+| · | Prüfschleifen (npm run check), Sicherheits-Härtung, server/.env entfernt (v0.319) | ✅ fertig |
+| **29** | **Sicherheit, Datenschutz und Testabdeckung härten** | geplant (siehe KONSOLIDIERUNG-2026-07.md) |
+| **30** | **Due-Diligence-Professionalisierung (Checklisten, Q&A 2.0, Index)** | geplant (Konsolidierung) |
+| **31** | **Verkäufer-Transparenz und Prozess-Reporting** | geplant (Konsolidierung) |
+| **32** | **Bieterverfahren und LOI (greift Sprint 28 auf)** | geplant (Konsolidierung) |
+| **33** | **Käufer-Qualifizierung und Matching** | geplant (Konsolidierung) |
+| **34** | **Signing und Closing** | geplant (Konsolidierung) |
+| **26 → 35** | **Nachfolge-Match: Talent, Kapital und Mandat zusammenbringen** | geplant (Konzept unten) |
+| **27 → 36** | **Entrepreneur-Club: Community, Events, Reifegrade** | geplant (Konzept unten) |
+| **28 → 32** | **Prozesswerkzeuge: LOI-Ablage und Live-Angebotstool (Bieterverfahren)** | in Sprint 32 überführt |
 
 ---
 
