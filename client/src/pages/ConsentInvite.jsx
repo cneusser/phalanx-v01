@@ -15,18 +15,23 @@ export default function ConsentInvite() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [accepted, setAccepted] = useState(false);
-  const [form, setForm] = useState({ salutation: '', title: '', first_name: '', last_name: '', company: '', position: '', mobile: '', password: '' });
+  const [form, setForm] = useState({
+    salutation: '', title: '', first_name: '', last_name: '', company: '', position: '', mobile: '', password: '',
+    linkedin_url: '', interest: '', buyer_type: '',
+    industries: '', regions: '', deal_types: '', investment_focus: '',
+  });
 
   const load = useCallback(async () => {
     if (!token) { setErr('Kein Token gefunden.'); setLoading(false); return; }
     try {
       const d = await api.get(`/crm/invite/${token}`);
       setInv(d);
-      // Namen aus dem CRM vorbelegen
-      if (d.name) {
-        const parts = d.name.split(' ');
-        setForm(f => ({ ...f, first_name: parts.slice(0, -1).join(' '), last_name: parts[parts.length - 1] }));
-      }
+      // Namen aus dem CRM vorbelegen, Interesse vorbelegen falls bekannt
+      setForm(f => ({
+        ...f,
+        ...(d.name ? { first_name: d.name.split(' ').slice(0, -1).join(' '), last_name: d.name.split(' ').slice(-1)[0] } : {}),
+        ...(d.suggested_role ? { interest: d.suggested_role } : {}),
+      }));
     } catch (e) { setErr(e.message); }
     finally { setLoading(false); }
   }, [token]);
@@ -47,9 +52,17 @@ export default function ConsentInvite() {
   }
   async function register(e) {
     e.preventDefault();
+    if (!form.interest) { setErr('Bitte wählen Sie, ob Sie kaufen/investieren oder verkaufen möchten.'); return; }
     setBusy(true); setErr('');
+    const toArr = (s) => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
+    const payload = {
+      ...form,
+      industries: toArr(form.industries),
+      regions: toArr(form.regions),
+      deal_types: toArr(form.deal_types),
+    };
     try {
-      const d = await api.post(`/crm/invite/${token}/register`, form);
+      const d = await api.post(`/crm/invite/${token}/register`, payload);
       localStorage.setItem('phalanx_token', d.token);
       window.location.href = '/projekte';
     } catch (e) { setErr(e.message); setBusy(false); }
@@ -156,6 +169,21 @@ export default function ConsentInvite() {
               </div>
             ) : (
               <>
+                {/* Interesse: die zentrale Weiche */}
+                <label style={LABEL}>Ich interessiere mich als *</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginBottom: '1rem' }}>
+                  {[['buyer', 'Käufer / Investor', 'Ich suche Unternehmen oder Beteiligungen'],
+                    ['seller', 'Verkäufer / Kapitalsuchend', 'Ich möchte verkaufen oder Kapital aufnehmen']].map(([val, t, sub]) => (
+                    <button type="button" key={val} onClick={() => setForm(f => ({ ...f, interest: val }))}
+                      style={{ textAlign: 'left', padding: '0.7rem 0.85rem', borderRadius: 8, cursor: 'pointer',
+                        border: `1.5px solid ${form.interest === val ? C.accent : C.border}`,
+                        background: form.interest === val ? '#EDF4FA' : '#fff' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: C.navy }}>{t}</div>
+                      <div style={{ fontSize: '0.74rem', color: C.muted, marginTop: 2 }}>{sub}</div>
+                    </button>
+                  ))}
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
                   <div><label style={LABEL}>Anrede *</label>
                     <select value={form.salutation} onChange={set('salutation')} required style={INPUT}>
@@ -169,7 +197,47 @@ export default function ConsentInvite() {
                   <div><label style={LABEL}>Position</label><input value={form.position} onChange={set('position')} style={INPUT} /></div>
                   <div><label style={LABEL}>Mobilnummer *</label><input value={form.mobile} onChange={set('mobile')} required placeholder="+49 …" style={INPUT} /></div>
                   <div><label style={LABEL}>Passwort * (min. 8)</label><input type="password" value={form.password} onChange={set('password')} required minLength={8} style={INPUT} /></div>
+                  <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>LinkedIn (optional)</label><input value={form.linkedin_url} onChange={set('linkedin_url')} placeholder="https://linkedin.com/in/…" style={INPUT} /></div>
                 </div>
+
+                {/* Käuferprofil (optional, schnell) */}
+                {form.interest === 'buyer' && (
+                  <div style={{ marginTop: '1rem', padding: '0.9rem 1rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.navy, marginBottom: '0.6rem' }}>Ihr Investitionsfokus (optional)</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
+                      <div><label style={LABEL}>Käufertyp</label>
+                        <select value={form.buyer_type} onChange={set('buyer_type')} style={INPUT}>
+                          <option value="">Bitte wählen</option>
+                          <option value="strategic">Stratege</option>
+                          <option value="financial">Finanzinvestor / PE</option>
+                          <option value="business_angel">Business Angel</option>
+                          <option value="venture_capital">Venture Capital</option>
+                          <option value="family_office">Family Office</option>
+                          <option value="successor">Nachfolger / MBI</option>
+                          <option value="private">Privat</option>
+                          <option value="advisor_mandate">Berater mit Mandat</option>
+                        </select>
+                      </div>
+                      <div><label style={LABEL}>Ticket / Umsatzband</label><input value={form.deal_types} onChange={set('deal_types')} placeholder="z. B. 1-5 Mio." style={INPUT} /></div>
+                      <div><label style={LABEL}>Wunschbranchen</label><input value={form.industries} onChange={set('industries')} placeholder="Komma-getrennt" style={INPUT} /></div>
+                      <div><label style={LABEL}>Regionen</label><input value={form.regions} onChange={set('regions')} placeholder="z. B. DACH, Bayern" style={INPUT} /></div>
+                      <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Stichworte / Fokus</label><textarea value={form.investment_focus} onChange={set('investment_focus')} rows={2} placeholder="Worauf achten Sie besonders?" style={{ ...INPUT, resize: 'vertical' }} /></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Verkäufer-/Vorhaben-Angaben (optional) */}
+                {form.interest === 'seller' && (
+                  <div style={{ marginTop: '1rem', padding: '0.9rem 1rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.navy, marginBottom: '0.6rem' }}>Ihr Vorhaben (optional)</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
+                      <div><label style={LABEL}>Branche</label><input value={form.industries} onChange={set('industries')} placeholder="z. B. Maschinenbau" style={INPUT} /></div>
+                      <div><label style={LABEL}>Umsatzband</label><input value={form.deal_types} onChange={set('deal_types')} placeholder="z. B. 5-10 Mio." style={INPUT} /></div>
+                      <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Anlass und Vorhaben</label><textarea value={form.investment_focus} onChange={set('investment_focus')} rows={2} placeholder="Nachfolge, Wachstum, Kapitalbedarf …" style={{ ...INPUT, resize: 'vertical' }} /></div>
+                    </div>
+                  </div>
+                )}
+
                 <button type="submit" disabled={busy} style={{ marginTop: '1rem', width: '100%', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.8rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
                   {busy ? 'Konto wird angelegt…' : 'Konto anlegen'}
                 </button>

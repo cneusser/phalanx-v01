@@ -7,6 +7,7 @@ import {
 import DealFunnelBoard from '../components/DealFunnelBoard';
 import ContactDrawer from '../components/ContactDrawer';
 import ImportListModal from '../components/ImportListModal';
+import InviteContactsModal from '../components/InviteContactsModal';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.55rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
@@ -44,6 +45,7 @@ export default function Crm() {
   const [editContact, setEditContact] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importListOpen, setImportListOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [drawerContact, setDrawerContact] = useState(null); // Kontakt-360°-Ansicht
   const [assign, setAssign] = useState(null);        // Kontakt, der einem Mandat zugeordnet wird
   const [projects, setProjects] = useState([]);      // Mandate für die Zuordnung
@@ -209,6 +211,9 @@ export default function Crm() {
           <p style={{ color: C.muted, fontSize: '0.875rem', margin: 0 }}>Unternehmen, Kontakte & Beziehungen</p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setInviteOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#166534', color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+            <Mail size={14} /> Kontakte einladen
+          </button>
           <button onClick={() => setImportListOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
             <Upload size={14} /> Liste importieren (Excel)
           </button>
@@ -449,6 +454,7 @@ export default function Crm() {
       {editContact && <ContactForm contact={editContact} companies={companies} projects={projects} onClose={() => setEditContact(null)} onSaved={() => { setEditContact(null); load(); show('Gespeichert ✓'); }} />}
       {importOpen && <ImportModal onClose={() => setImportOpen(false)} onDone={(r) => { setImportOpen(false); load(); show(`Import: ${r.created} angelegt, ${r.skipped} übersprungen (Dubletten)`); }} />}
       {importListOpen && <ImportListModal onClose={() => setImportListOpen(false)} onDone={() => load()} show={show} />}
+      {inviteOpen && <InviteContactsModal onClose={() => setInviteOpen(false)} onDone={() => load()} />}
       {assign && <AssignDealModal contact={assign} projects={projects} stages={stages} onClose={() => setAssign(null)} show={show} />}
     </div>
   );

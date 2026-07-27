@@ -1384,6 +1384,98 @@ router.post('/invite/bulk', ...isStaff, canSend, wrap(async (req, res) => {
   res.json({ success: true, data: { sent: sent.length, blocked: blocked.length, already: already.length, details: { sent, blocked, already } } });
 }));
 
+// ── Schnelle Einladungs-Strecke: Kontakt anlegen (falls neu) und einladen ────
+// Für den Admin: einfach E-Mails einfügen oder eine Excel/CSV hochladen. Es wird
+// je Adresse ein CRM-Kontakt angelegt (falls noch keiner existiert) und eine
+// DSGVO-konforme Double-Opt-in-Einladung verschickt. Die Person füllt beim
+// Onboarding selbst Stammdaten und Interesse (Käufer/Verkäufer) aus.
+const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
+
+async function inviteByEmail(req, { email, first_name, last_name }) {
+  const mail = String(email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(mail)) return { email, status: 'skipped', reason: 'ungültige E-Mail' };
+
+  let contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE lower(email) = ?', [mail]));
+  if (contact) {
+    if (contact.contact_status === 'do_not_contact' || contact.consent_status === 'opt_out') {
+      return { email: mail, status: 'skipped', reason: 'Widerspruch hinterlegt' };
+    }
+    const open = await scoped(req, (t) => t.get(
+      `SELECT id FROM crm_invitations WHERE contact_id = ? AND status IN ('invited','opened','consented','registered')`, [contact.id]));
+    if (open) return { email: mail, status: 'skipped', reason: 'Einladung läuft bereits' };
+  } else {
+    // last_name ist Pflicht: Name nehmen, sonst den Teil vor dem @ als Platzhalter.
+    const last = (last_name && String(last_name).trim()) || mail.split('@')[0];
+    const id = await scoped(req, (t) => t.insert(`
+      INSERT INTO crm_contacts (tenant_id, first_name, last_name, email, lead_source, consent_status, contact_status, created_by)
+      VALUES (?, ?, ?, ?, 'einladung', 'unknown', 'active', ?)`,
+      [req.tenantId || 1, (first_name && String(first_name).trim()) || null, last, mail, req.user.id]));
+    contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [id]));
+    db.auditLog(req.user.id, 'CRM_CONTACT_CREATED', 'crm_contact', id, `${first_name || ''} ${last}`.trim() + ' (Einladung)', req.ip);
+  }
+  await createInvite(req, contact);
+  return { email: mail, status: 'invited' };
+}
+
+async function runInvites(req, entries) {
+  // Dubletten in der Eingabe selbst zusammenführen
+  const seen = new Set();
+  const list = [];
+  for (const e of entries) {
+    const mail = String(e.email || '').trim().toLowerCase();
+    if (!mail || seen.has(mail)) continue;
+    seen.add(mail);
+    list.push(e);
+  }
+  const capped = list.slice(0, 200); // Sicherheitsgrenze gegen versehentlichen Massenversand
+  const invited = [], skipped = [];
+  for (const e of capped) {
+    const r = await inviteByEmail(req, e);
+    (r.status === 'invited' ? invited : skipped).push(r);
+  }
+  return { invited: invited.length, skipped: skipped.length, total: capped.length, details: { invited, skipped } };
+}
+
+// E-Mails als Text (eingefügt) oder als Array [{email, first_name, last_name}]
+router.post('/invite/emails', ...isStaff, canSend, wrap(async (req, res) => {
+  let entries = [];
+  if (Array.isArray(req.body.contacts)) {
+    entries = req.body.contacts;
+  } else if (typeof req.body.text === 'string') {
+    // Zerlegt an Komma, Semikolon, Zeilenumbruch, Leerzeichen und Winkelklammern
+    const matches = req.body.text.match(new RegExp(EMAIL_RE, 'gi')) || [];
+    entries = matches.map(email => ({ email }));
+  }
+  if (!entries.length) return res.status(400).json({ success: false, error: 'Keine gültige E-Mail-Adresse gefunden.' });
+  const result = await runInvites(req, entries);
+  res.json({ success: true, data: result });
+}));
+
+// Excel/CSV hochladen: Spalten E-Mail, Vorname, Nachname (Header werden erkannt)
+router.post('/invite/import-file', ...isStaff, canSend, importUpload.single('file'), wrap(async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen.' });
+  const XLSX = require('xlsx');
+  let rows;
+  try {
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+  } catch { return res.status(400).json({ success: false, error: 'Datei konnte nicht gelesen werden.' }); }
+  if (!rows || !rows.length) return res.status(400).json({ success: false, error: 'Die Datei enthält keine Zeilen.' });
+
+  const keyOf = (row, needles) => {
+    const k = Object.keys(row).find(h => needles.some(n => h.toLowerCase().replace(/[^a-z]/g, '').includes(n)));
+    return k ? row[k] : '';
+  };
+  const entries = rows.map(row => ({
+    email: keyOf(row, ['email', 'mail']),
+    first_name: keyOf(row, ['vorname', 'firstname']),
+    last_name: keyOf(row, ['nachname', 'lastname', 'name']),
+  })).filter(e => e.email);
+  if (!entries.length) return res.status(400).json({ success: false, error: 'Keine E-Mail-Spalte gefunden (Spalte „E-Mail").' });
+  const result = await runInvites(req, entries);
+  res.json({ success: true, data: result });
+}));
+
 // Einladungs-Übersicht (Funnel)
 router.get('/invitations', ...isStaff, wrap(async (req, res) => {
   const rows = await scoped(req, (t) => t.all(`
@@ -1413,6 +1505,13 @@ router.get('/invite/:token', wrap(async (req, res) => {
   const contact = inv.contact_id ? await db.get('SELECT first_name, last_name FROM crm_contacts WHERE id = ?', [inv.contact_id]) : null;
   const inviter = await db.get('SELECT first_name, last_name, company FROM users WHERE id = ?', [inv.invited_by]);
   const account = await db.get('SELECT id FROM users WHERE lower(email) = ?', [String(inv.email).toLowerCase()]);
+  // Steht die Rolle schon fest (Verkäufer eines konkreten Mandats)? Dann kann das
+  // Onboarding das Interesse vorbelegen.
+  let suggestedRole = null;
+  if (inv.project_id && inv.contact_id) {
+    const party = await db.get(`SELECT party_role FROM crm_deal_parties WHERE project_id = ? AND contact_id = ?`, [inv.project_id, inv.contact_id]).catch(() => null);
+    if (party && party.party_role === 'seller') suggestedRole = 'seller';
+  }
   res.json({
     success: true,
     data: {
@@ -1423,6 +1522,7 @@ router.get('/invite/:token', wrap(async (req, res) => {
       inviter: inviter ? `${inviter.first_name} ${inviter.last_name}${inviter.company ? ' · ' + inviter.company : ''}` : 'Phalanx GmbH',
       consent_version: CONSENT_TEXT_VERSION,
       has_account: !!account,
+      suggested_role: suggestedRole,
       expires_at: inv.expires_at,
     },
   });
@@ -1475,38 +1575,58 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
   const existing = await db.get('SELECT id FROM users WHERE lower(email) = ?', [String(inv.email).toLowerCase()]);
   if (existing) return res.status(409).json({ success: false, error: 'Für diese E-Mail besteht bereits ein Konto. Bitte melden Sie sich an.' });
 
-  const { password, first_name, last_name, salutation, title, company, position, mobile } = req.body;
+  const { password, first_name, last_name, salutation, title, company, position, mobile, linkedin_url } = req.body;
   if (!password || String(password).length < 8) return res.status(400).json({ success: false, error: 'Passwort muss mindestens 8 Zeichen haben' });
   if (!first_name || !last_name) return res.status(400).json({ success: false, error: 'Bitte Vor- und Nachnamen angeben' });
   if (!['Herr', 'Frau', 'Divers'].includes(salutation)) return res.status(400).json({ success: false, error: 'Bitte wählen Sie eine Anrede' });
   if (!mobile || String(mobile).trim().length < 6) return res.status(400).json({ success: false, error: 'Bitte geben Sie eine Mobilnummer an' });
 
-  // Rolle aus der Deal-Partei ableiten: Ist der Kontakt Verkäufer/Mandant dieses
-  // Mandats, wird er als „seller" angelegt (bekommt Zugang zum Prozessstand, keine
-  // Käufer-Automatik). Sonst „buyer".
-  let role = 'buyer';
+  // Interesse (Käufer/Verkäufer) steuert die Rolle. Eine Verkäufer-Rolle aus der
+  // Deal-Partei hat Vorrang (der Mandant seines eigenen Mandats bleibt Verkäufer).
+  let role = ['buyer', 'seller'].includes(req.body.interest) ? req.body.interest : 'buyer';
   if (inv.project_id && inv.contact_id) {
     const party = await db.get(`SELECT party_role FROM crm_deal_parties WHERE project_id = ? AND contact_id = ?`, [inv.project_id, inv.contact_id]).catch(() => null);
     if (party && party.party_role === 'seller') role = 'seller';
   }
+
+  const asArr = (v) => Array.isArray(v) ? v.filter(x => x != null && String(x).trim() !== '').map(String) : [];
+  const industries = asArr(req.body.industries);
+  const regions = asArr(req.body.regions);
+  const deal_types = asArr(req.body.deal_types);
+  const buyerType = cleanBuyerType(req.body.buyer_type);
+  const focus = req.body.investment_focus ? String(req.body.investment_focus).trim().slice(0, 2000) : null;
 
   const bcrypt = require('bcryptjs');
   const jwt = require('jsonwebtoken');
   const password_hash = bcrypt.hashSync(String(password), 10);
   // Einwilligung + Token belegen die E-Mail-Adresse → direkt freigeschaltet & verifiziert
   const userId = await db.insert(`
-    INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, mobile,
+    INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, buyer_type, mobile,
                        is_approved, is_active, email_verified, privacy_consent_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, now())`,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, now())`,
     [inv.tenant_id || 1, String(inv.email).toLowerCase(), password_hash, role, salutation, title || null,
-     first_name, last_name, company || null, position || null, mobile]);
+     first_name, last_name, company || null, position || null, role === 'buyer' ? buyerType : null, mobile]);
   if (role === 'buyer') {
-    await db.run(`INSERT INTO buyer_profiles (tenant_id, user_id, industries, regions, deal_types) VALUES (?, ?, '[]', '[]', '[]')`,
-      [inv.tenant_id || 1, userId]).catch(() => {});
+    await db.run(`INSERT INTO buyer_profiles (tenant_id, user_id, industries, regions, deal_types) VALUES (?, ?, ?, ?, ?)
+                  ON CONFLICT (user_id) DO UPDATE SET industries = EXCLUDED.industries, regions = EXCLUDED.regions, deal_types = EXCLUDED.deal_types`,
+      [inv.tenant_id || 1, userId, JSON.stringify(industries), JSON.stringify(regions), JSON.stringify(deal_types)]).catch(() => {});
   }
 
   await db.run(`UPDATE crm_invitations SET status = 'registered', registered_at = now(), user_id = ? WHERE id = ?`, [userId, inv.id]);
-  if (inv.contact_id) await db.run(`UPDATE crm_contacts SET user_id = ? WHERE id = ?`, [userId, inv.contact_id]).catch(() => {});
+  // Die vom Onboarding erfassten Angaben ins CRM zurückschreiben, damit die Daten
+  // dort vollständig vorliegen (Stammdaten, Käufertyp, Fokus, Interesse).
+  if (inv.contact_id) {
+    const noteAdd = role === 'seller'
+      ? ([focus, industries.length ? 'Branche: ' + industries.join(', ') : null, deal_types.length ? 'Umsatzband: ' + deal_types.join(', ') : null].filter(Boolean).join(' | ') || null)
+      : null;
+    await db.run(`UPDATE crm_contacts SET user_id = ?, salutation = ?, title = COALESCE(?, title), first_name = ?, last_name = ?,
+                    mobile = COALESCE(?, mobile), linkedin_url = COALESCE(?, linkedin_url),
+                    buyer_type = COALESCE(?, buyer_type), investment_focus = COALESCE(?, investment_focus),
+                    notes = CASE WHEN ? IS NOT NULL THEN COALESCE(notes || E'\n', '') || ? ELSE notes END,
+                    updated_at = now() WHERE id = ?`,
+      [userId, salutation, title || null, first_name, last_name, mobile, linkedin_url || null,
+       buyerType, role === 'buyer' ? focus : null, noteAdd, noteAdd, inv.contact_id]).catch(() => {});
+  }
   db.auditLog(userId, 'REGISTER_VIA_CRM_INVITE', 'user', userId, `${inv.email} · Einwilligung ${inv.consent_text_version}`, req.ip);
 
   // Automatik nur für Käufer: War die Einladung zu einem Mandat, geht direkt die

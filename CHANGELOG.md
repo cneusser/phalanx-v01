@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.321 · 21.07.2026 · Kontakte einladen und reiches Onboarding
+- **Neue Einladungs-Strecke im CRM**: Knopf „Kontakte einladen" mit zwei Wegen: E-Mail-Adressen einfügen (Massen-Paste) oder eine Excel/CSV hochladen. Für jede Adresse entsteht ein Kontakt (falls neu) und eine DSGVO-konforme Double-Opt-in-Einladung. Doppelte, bereits eingeladene und widersprochene Adressen werden automatisch übersprungen
+- **Eigene Onboarding-Strecke**: Nach der Einwilligung wählt die Person ihr Interesse (Käufer oder Verkäufer) und füllt schlanke Pflichtfelder plus optional ein reiches Profil aus. Käufer: Käufertyp, Wunschbranchen, Regionen, Ticket, Fokus. Verkäufer: Branche, Umsatzband, Anlass und Vorhaben
+- **Daten fließen ins CRM**: Stammdaten, Käufertyp und Fokus landen am Kontakt, das Käuferprofil speist das Matching. Ist die Person Verkäufer eines Mandats, wird sie automatisch als Pfleger eingetragen
+- **Nette Einladungsmail**: Der Text kommt aus der Vorlage „crm_invite" und ist im Admin unter Mailvorlagen frei editierbar
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.320 · 21.07.2026 · Pflegerechte einfacher vergeben
 - **Zuordnung im Admin**: Der Bearbeiten-Dialog im Admin-Reiter Projekte hat jetzt den Block „ZUGEORDNETE NUTZER (dürfen dieses Mandat pflegen)". Vorher war die Zuordnung nur über den Marktplatz-Weg erreichbar, im Admin fehlte sie, deshalb ließ sich ein Verkäufer dort nicht freischalten
 - **Automatik für Verkäufer**: Ein Verkäufer wird automatisch als Pfleger seines Mandats eingetragen, sobald er sich über eine Mandats-Einladung registriert oder sein Kontakt im Funnel als Verkäufer markiert wird. Kein manuelles Zuordnen mehr nötig
