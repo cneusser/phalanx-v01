@@ -297,6 +297,16 @@ export default function ProjectDetail() {
             </Link>
           )}
 
+          {/* Hinweis für zugeordnete Betrachter ohne Pflegerecht */}
+          {user && !teaser.can_manage && teaser.project_role === 'viewer' && (
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '0.9rem 1.1rem', marginTop: '1rem', display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
+              <Lock size={15} color="#92400e" style={{ marginTop: 2, flexShrink: 0 }} />
+              <div style={{ fontSize: '0.82rem', color: '#92400e', lineHeight: 1.55 }}>
+                Sie sind für dieses Mandat als Betrachter freigeschaltet, aber noch nicht als Pfleger. Zum Bearbeiten der Daten bitten wir Sie, sich an Ihren Ansprechpartner bei Phalanx zu wenden.
+              </div>
+            </div>
+          )}
+
           {/* NDA-Aufforderung wenn nicht freigegeben */}
           {!approved && (
             <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '1.25rem', marginTop: '1rem' }}>

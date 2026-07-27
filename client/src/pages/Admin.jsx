@@ -147,6 +147,10 @@ export default function Admin() {
   // Edit project modal
   const [editProject, setEditProject] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+  // Pflegerechte (project_members) im Bearbeiten-Dialog
+  const [editMembers, setEditMembers] = useState([]);
+  const [newMemberId, setNewMemberId] = useState('');
+  const [memberMsg, setMemberMsg] = useState('');
 
   // Nutzerverwaltung: Suche + Detail-Modal (Pitchbook-Ansicht)
   const [userSearch, setUserSearch] = useState('');
@@ -630,6 +634,30 @@ export default function Admin() {
       loadAll();
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
     finally { setEditSaving(false); }
+  }
+
+  // Pflegerechte laden, sobald der Bearbeiten-Dialog ein Projekt öffnet
+  useEffect(() => {
+    if (!editProject?.id) { setEditMembers([]); setNewMemberId(''); setMemberMsg(''); return; }
+    api.get(`/admin/projects/${editProject.id}/members`).then(setEditMembers).catch(() => setEditMembers([]));
+  }, [editProject?.id]);
+
+  async function addMember() {
+    if (!newMemberId) return;
+    setMemberMsg('');
+    try {
+      await api.post(`/admin/projects/${editProject.id}/members`, { user_id: parseInt(newMemberId) });
+      setEditMembers(await api.get(`/admin/projects/${editProject.id}/members`));
+      setNewMemberId('');
+      setMemberMsg('Zugeordnet, der Nutzer darf dieses Mandat jetzt pflegen.');
+    } catch (e) { setMemberMsg('Fehler: ' + e.message); }
+  }
+  async function removeMember(userId) {
+    setMemberMsg('');
+    try {
+      await api.delete(`/admin/projects/${editProject.id}/members/${userId}`);
+      setEditMembers(m => m.filter(x => x.user_id !== userId));
+    } catch (e) { setMemberMsg('Fehler: ' + e.message); }
   }
 
   const setNew = k => e => setNewProject(p => ({ ...p, [k]: e.target.value }));
@@ -2258,6 +2286,29 @@ export default function Admin() {
                   <option value="closed">Geschlossen</option>
                 </select>
               </div>
+
+              {/* Pflegerechte: wer darf dieses Mandat pflegen (Daten, Bild, Beschreibung) */}
+              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.9rem 1rem', marginBottom: '1.5rem' }}>
+                <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.76rem', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>ZUGEORDNETE NUTZER (dürfen dieses Mandat pflegen)</div>
+                {memberMsg && <div style={{ fontSize: '0.76rem', color: memberMsg.startsWith('Fehler') ? '#991b1b' : '#065f46', marginBottom: '0.5rem' }}>{memberMsg}</div>}
+                {editMembers.length === 0 && <div style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '0.5rem' }}>Noch keine Nutzer zugeordnet. Der Ersteller und das Team dürfen ohnehin pflegen.</div>}
+                {editMembers.map(m => (
+                  <div key={m.user_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.35rem 0', fontSize: '0.82rem', borderBottom: `1px solid ${C.border}` }}>
+                    <span>{m.name} <span style={{ color: C.muted }}>({m.email})</span></span>
+                    <button type="button" onClick={() => removeMember(m.user_id)} style={{ background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Entfernen</button>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
+                  <select value={newMemberId} onChange={e => setNewMemberId(e.target.value)} style={{ ...INPUT_STYLE, flex: 1, background: '#fff' }}>
+                    <option value="">Nutzer auswählen...</option>
+                    {users.filter(u => !editMembers.some(m => m.user_id === u.id)).map(u => (
+                      <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.email}): {u.role === 'seller' ? 'Verkäufer' : u.role === 'buyer' ? 'Investor' : u.role}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={addMember} disabled={!newMemberId} style={{ padding: '0.5rem 1rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, opacity: newMemberId ? 1 : 0.5 }}>Zuordnen</button>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button type="button" onClick={() => setEditProject(null)} style={{ flex: 1, padding: '0.7rem', border: `1px solid ${C.border}`, borderRadius: 6, background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Abbrechen</button>
                 <button type="submit" disabled={editSaving} style={{ flex: 2, padding: '0.7rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, opacity: editSaving ? 0.7 : 1 }}>

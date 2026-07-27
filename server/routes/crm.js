@@ -1163,6 +1163,19 @@ router.post('/deals/:projectId/invite-seller', ...isStaff, canSend, wrap(async (
   res.json({ success: true, data: r });
 }));
 
+// Verkäufer-Partei mit verknüpftem Konto automatisch als Pfleger des Mandats
+// eintragen. So darf der Mandant sein eigenes Mandat bearbeiten, ohne dass ein
+// Admin die Pflegerechte von Hand vergibt. Nur bei party_role='seller'.
+async function autoGrantSellerEditor(req, projectId, contactId) {
+  if (!projectId || !contactId) return;
+  const c = await db.get('SELECT user_id FROM crm_contacts WHERE id = ?', [contactId]).catch(() => null);
+  if (!c || !c.user_id) return;
+  await db.run(`INSERT INTO project_members (tenant_id, project_id, user_id, member_role)
+                VALUES (?, ?, ?, 'editor') ON CONFLICT (project_id, user_id) DO NOTHING`,
+    [req.tenantId || 1, projectId, c.user_id]).catch(() => {});
+  db.auditLog(req.user.id, 'PROJECT_MEMBER_AUTO', 'project', projectId, `Verkäufer-Kontakt #${contactId} automatisch als Pfleger`, req.ip);
+}
+
 router.post('/deals/:projectId/parties', ...isStaff, canWrite, wrap(async (req, res) => {
   const contactId = Number(req.body.contact_id);
   if (!contactId) return res.status(400).json({ success: false, error: 'contact_id fehlt' });
@@ -1177,6 +1190,7 @@ router.post('/deals/:projectId/parties', ...isStaff, canWrite, wrap(async (req, 
     VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`,
     [req.tenantId || 1, req.params.projectId, req.body.company_id || null, contactId, role, stage, req.user.id]));
   db.auditLog(req.user.id, 'CRM_PARTY_ADDED', 'project', req.params.projectId, `Kontakt #${contactId} (${role})`, req.ip);
+  if (role === 'seller') await autoGrantSellerEditor(req, Number(req.params.projectId), contactId);
   res.status(201).json({ success: true, data: { id } });
 }));
 
@@ -1196,7 +1210,11 @@ router.put('/parties/:id', ...isStaff, canWrite, wrap(async (req, res) => {
     if (!PARTY_STATUS.includes(req.body.party_status)) return res.status(400).json({ success: false, error: 'Ungültiger Status' });
     sets.push('party_status = ?'); params.push(req.body.party_status);
   }
-  if (req.body.party_role !== undefined && PARTY_ROLES.includes(req.body.party_role)) { sets.push('party_role = ?'); params.push(req.body.party_role); }
+  let becameSeller = false;
+  if (req.body.party_role !== undefined && PARTY_ROLES.includes(req.body.party_role)) {
+    sets.push('party_role = ?'); params.push(req.body.party_role);
+    if (req.body.party_role === 'seller' && party.party_role !== 'seller') becameSeller = true;
+  }
   for (const f of ['next_step', 'notes']) {
     if (req.body[f] !== undefined) { sets.push(`${f} = ?`); params.push(req.body[f] || null); }
   }
@@ -1261,6 +1279,10 @@ router.put('/parties/:id', ...isStaff, canWrite, wrap(async (req, res) => {
       }
     }
   }
+
+  // Wird die Partei zum Verkäufer und hat ein verknüpftes Konto, automatisch als
+  // Pfleger des Mandats eintragen.
+  if (becameSeller) await autoGrantSellerEditor(req, party.project_id, party.contact_id);
 
   res.json({ success: true, data: { message: 'Gespeichert' } });
 }));
@@ -1491,6 +1513,14 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
   // NDA-Einladung raus. Verkäufer bekommen keine NDA, sondern Zugang zum Prozessstand.
   if (inv.project_id && role === 'buyer') {
     require('../utils/outreach').sendNdaInviteAfterRegister(db, { userId, projectId: inv.project_id }).catch(() => {});
+  }
+  // Verkäufer eines Mandats werden automatisch als Pfleger eingetragen, damit sie
+  // ihr eigenes Mandat sofort bearbeiten können (kein manuelles Zuordnen nötig).
+  if (inv.project_id && role === 'seller') {
+    await db.run(`INSERT INTO project_members (tenant_id, project_id, user_id, member_role)
+                  VALUES (?, ?, ?, 'editor') ON CONFLICT (project_id, user_id) DO NOTHING`,
+      [inv.tenant_id || 1, inv.project_id, userId]).catch(() => {});
+    db.auditLog(userId, 'PROJECT_MEMBER_AUTO', 'project', inv.project_id, `Verkäufer ${inv.email} automatisch als Pfleger`, req.ip);
   }
 
   const token = jwt.sign({ userId }, process.env.JWT_SECRET || 'phalanx-secret', { expiresIn: '7d' });

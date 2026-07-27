@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.320 · 21.07.2026 · Pflegerechte einfacher vergeben
+- **Zuordnung im Admin**: Der Bearbeiten-Dialog im Admin-Reiter Projekte hat jetzt den Block „ZUGEORDNETE NUTZER (dürfen dieses Mandat pflegen)". Vorher war die Zuordnung nur über den Marktplatz-Weg erreichbar, im Admin fehlte sie, deshalb ließ sich ein Verkäufer dort nicht freischalten
+- **Automatik für Verkäufer**: Ein Verkäufer wird automatisch als Pfleger seines Mandats eingetragen, sobald er sich über eine Mandats-Einladung registriert oder sein Kontakt im Funnel als Verkäufer markiert wird. Kein manuelles Zuordnen mehr nötig
+- **Klarer Hinweis**: Ein als Betrachter zugeordneter Nutzer ohne Pflegerecht sieht auf der Mandatsseite jetzt den Hinweis, dass er noch nicht als Pfleger freigeschaltet ist, statt vor einem fehlenden Bearbeiten-Knopf zu rätseln
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.319 · 21.07.2026 · Prüfschleifen und Sicherheits-Härtung
 - **Gebündelte Prüfschleife**: `npm run check` prüft Texte und alle Testsuites in einem Lauf, `npm run check:full` zusätzlich den Client-Build. Ein fehlgeschlagener Test bricht den Lauf jetzt sauber ab, statt still weiterzulaufen
 - **Sicherheit**: Die versehentlich mitgeführte `server/.env` wird nicht mehr im Repository verfolgt. Eine `server/.env.example` dokumentiert alle Variablen ohne Geheimnisse
