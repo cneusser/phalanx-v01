@@ -138,6 +138,7 @@ export default function Navbar() {
           {!isSeller && navLink('/nachfolge', t('nav.succession', 'Nachfolge'))}
           {navLink('/unternehmenswert', t('nav.valuation', 'Unternehmenswert'))}
           {user && !isAdmin && !isSeller && navLink('/bewertung', t('nav.detailed_valuation', 'Bewertung'))}
+          {user && !isAdmin && !isSeller && user.buyer_type === 'successor' && navLink('/nachfolge-profil', t('nav.succession_profile', 'Nachfolge-Profil'))}
           {user && !isAdmin && navLink('/feedback', t('nav.feedback', 'Feedback'))}
           {navLink('/kontakt', t('nav.contact', 'Kontakt'))}
           {!user && navLink('/registrieren', t('nav.register', 'Registrieren'))}

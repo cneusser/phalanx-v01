@@ -73,6 +73,7 @@ app.use('/api/messages', require('./routes/messages'));
 app.use('/api/gamification', require('./routes/gamification'));
 app.use('/api/invitations', require('./routes/invitations'));
 app.use('/api/crm', require('./routes/crm'));
+app.use('/api/succession', require('./routes/succession'));
 app.use('/api/inbound', require('./routes/inbound'));
 app.use('/api/share', require('./routes/share'));
 app.use('/api/auth', require('./routes/auth'));

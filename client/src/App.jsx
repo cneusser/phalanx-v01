@@ -6,6 +6,7 @@ import Navbar from './components/Navbar';
 import CapitalMatchLogo from './components/CapitalMatchLogo';
 import Landing from './pages/Landing';
 import Nachfolge from './pages/Nachfolge';
+import SuccessionProfile from './pages/SuccessionProfile';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import ValuationCalculator from './pages/ValuationCalculator';
@@ -95,6 +96,7 @@ function AppRoutes() {
           <Route path="/mandat/:id/expose" element={<ProtectedRoute><ExposeEditor /></ProtectedRoute>} />
           <Route path="/projekte/:id/expose" element={<ProtectedRoute><ExposeView /></ProtectedRoute>} />
           <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
+          <Route path="/nachfolge-profil" element={<ProtectedRoute><SuccessionProfile /></ProtectedRoute>} />
           <Route path="/suchprofile" element={<ProtectedRoute><SearchProfiles /></ProtectedRoute>} />
           <Route path="/merkliste" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
           <Route path="/nachrichten" element={<ProtectedRoute><Messages /></ProtectedRoute>} />

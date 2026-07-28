@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.324 · 21.07.2026 · Nachfolge-Profil zum Selbstpflegen
+- **Eigenes Nachfolge-Profil**: Nachfolge-Interessierte pflegen jetzt ein Profil angelehnt an den Fragebogen CH-NF-03: berufliche und funktionale Erfahrung, Führungserfahrung, Erfahrung in Sondersituationen (Start-up, Spin-off, Turnaround, Buy-out und mehr), gesuchte Länder und Regionen, Branchenfokus, Umsatzgröße, MBI-Szenario, Eigenkapital und Verfügbarkeit
+- **Menüpunkt „Nachfolge-Profil"**: erscheint nur für Nachfolge-Interessierte, jederzeit änderbar, vertraulich behandelt
+- **Grundlage fürs Matching**: Auf diesen Angaben setzt das kommende Matching gegen Nachfolge-Mandate auf
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.323 · 21.07.2026 · Nachfolge-Einladung: saubere Anrede
 - **Anrede korrigiert**: Die Nachfolge-Einladung begrüßte doppelt und nannte den Namen zweimal. Jetzt steht die Anrede genau einmal. Der Mailrahmen setzt Begrüßung und Unterschrift, die Vorlage enthält nur noch den Text
 - **Name aus der E-Mail**: Wird nur eine E-Mail-Adresse eingefügt, bilden wir daraus nach Möglichkeit einen echten Namen (michael.philipp wird zu Michael Philipp). Ist das nicht möglich, grüßen wir neutral mit „Guten Tag,"
