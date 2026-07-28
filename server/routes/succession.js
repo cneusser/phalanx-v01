@@ -21,50 +21,7 @@ function parseRow(row) {
   return out;
 }
 
-// Mandate, die eine Nachfolge sind (Käuferseite: MBI/MBO/Nachfolge).
-const SUCCESSION_DEAL_TYPES = ['Nachfolge', 'MBO', 'MBI'];
-const UMSATZ_RANGE = { '<1': [0, 1], '1-3': [1, 3], '3-10': [3, 10], '10-30': [10, 30], '>30': [30, Infinity] };
-
-// Größte in „Mio." genannte Zahl aus einem Umsatz-Freitext ziehen (z. B. „€ 1,5-2 Mio." → 2).
-function revenueMio(str) {
-  const nums = String(str || '').replace(/\./g, '').replace(/,/g, '.').match(/\d+(\.\d+)?/g);
-  if (!nums) return null;
-  return Math.max(...nums.map(Number));
-}
-
-// Transparentes Scoring: Branche, Region, Umsatz. Nur gefüllte Profilfelder zählen.
-function scoreMatch(profile, p) {
-  const reasons = [];
-  let score = 12; // Grundgewicht: es ist ein Nachfolge-Mandat
-  const branchen = profile.branchenfokus || [];
-  const ind = String(p.industry || '').toLowerCase();
-  if (branchen.length && ind && branchen.some(b => {
-    const x = String(b).toLowerCase();
-    return ind.includes(x) || x.includes(ind.split(/[ /]/)[0]);
-  })) { score += 45; reasons.push('Branche passt'); }
-
-  const regionen = [...(profile.ziel_regionen || []), ...(profile.ziel_laender || [])];
-  const reg = String(p.region || '').toLowerCase();
-  const laender = (profile.ziel_laender || []).map(x => String(x).toLowerCase());
-  // Land des Mandats grob ableiten (deutsche Bundesländer und bundesweit gelten als DE).
-  const DE_REGIONS = ['baden-württemberg', 'bayern', 'berlin', 'brandenburg', 'bremen', 'hamburg', 'hessen',
-    'mecklenburg-vorpommern', 'niedersachsen', 'nordrhein-westfalen', 'rheinland-pfalz', 'saarland',
-    'sachsen', 'sachsen-anhalt', 'schleswig-holstein', 'thüringen', 'deutschland', 'bundesweit'];
-  const regCountry = /österreich/.test(reg) ? 'österreich' : /schweiz/.test(reg) ? 'schweiz'
-    : (DE_REGIONS.some(d => reg.includes(d)) || /dach/.test(reg)) ? 'deutschland' : null;
-  const regionMatch = (regionen.length && reg && regionen.some(r => {
-    const x = String(r).toLowerCase();
-    return reg.includes(x) || x.includes(reg);
-  })) || (regCountry && laender.includes(regCountry)) || (/dach/.test(reg) && laender.length > 0);
-  if (regionMatch) { score += 28; reasons.push('Region passt'); }
-
-  if (profile.umsatz_band && UMSATZ_RANGE[profile.umsatz_band]) {
-    const rv = revenueMio(p.revenue_band);
-    const [lo, hi] = UMSATZ_RANGE[profile.umsatz_band];
-    if (rv != null && rv >= lo && rv <= hi) { score += 15; reasons.push('Umsatz passt'); }
-  }
-  return { score: Math.min(score, 100), reasons };
-}
+const { SUCCESSION_DEAL_TYPES, scoreMatch } = require('../utils/successionMatch');
 
 // Passende Nachfolge-Mandate für den eingeloggten Nachfolge-Interessenten
 router.get('/matches', authenticate, wrap(async (req, res) => {

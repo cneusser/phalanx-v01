@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.328 · 21.07.2026 · Nachfolge: Benachrichtigung bei passenden Mandaten
+- **Automatischer Hinweis**: Wird ein neues Nachfolge-Mandat veröffentlicht, bekommen passende Nachfolge-Interessierte eine Mail mit der Begründung (Branche, Region, Umsatz) und direktem Link
+- **Nur bei starkem Treffer**: benachrichtigt wird, wenn mindestens Branche oder Region passt, und nur, wer solche Hinweise nicht abbestellt hat. Die Match-Mail hat Vorrang vor der Newsletter-Mail, keine Doppelbenachrichtigung
+- **Zentrale Bewertung**: Profilansicht und Benachrichtigung nutzen jetzt dieselbe Matching-Logik, mit klaren Gewichten
+- Verifiziert: acht Testsuites grün, Textwächter ohne Befund
+
 ## v0.327 · 21.07.2026 · Gemeinsame Branchenliste, schärferes Matching
 - **Eine Branchenliste für alle**: Das Nachfolge-Profil nutzt jetzt dieselbe NACE-Branchenliste wie die Mandate. Mehrere Branchen sind auswählbar, gruppiert und übersichtlich in einer scrollbaren Auswahl
 - **Regionen vereinheitlicht**: Die Zielregionen laufen über die gemeinsame Bundesländer-Liste, ebenfalls mehrfach wählbar, statt Freitext

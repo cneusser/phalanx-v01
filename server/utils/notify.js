@@ -210,6 +210,56 @@ async function notifyNewsletter(projectId, exclude = new Set()) {
   return notified;
 }
 
+// ── Nachfolge-Match: neues Nachfolge-Mandat an passende Interessierte ────────
+// Nur für Nachfolge-Mandate (deal_type Nachfolge/MBO/MBI). Vergleicht das
+// Nachfolge-Profil (Branche, Region, Umsatz) und schreibt bei starkem Treffer.
+async function notifyMatchingSuccessors(projectId, exclude = new Set()) {
+  const notified = new Set();
+  try {
+    const { isSuccessionDeal, scoreMatch, isStrongMatch } = require('./successionMatch');
+    const p = await db.get(
+      `SELECT id, codename, industry, region, revenue_band, deal_type, visibility, short_description
+       FROM projects WHERE id = ?`, [projectId]).catch(() => null);
+    if (!p || !isSuccessionDeal(p.deal_type) || p.visibility === 'invite_only') return notified;
+
+    const cand = await db.all(`
+      SELECT u.id, u.email, u.first_name, u.last_name,
+             sp.branchenfokus, sp.ziel_laender, sp.ziel_regionen, sp.umsatz_band
+      FROM users u
+      LEFT JOIN succession_profiles sp ON sp.user_id = u.id
+      WHERE ${MAILABLE} AND u.role = 'buyer' AND u.buyer_type = 'successor'`);
+
+    const { sendProcessUpdateEmail } = require('./email');
+    for (const u of cand) {
+      if (exclude.has(u.id)) continue;
+      const prefs = await prefsFor(u.id);
+      if (!prefs.similar_suggestions) continue;
+      const profile = {
+        branchenfokus: JSON.parse(u.branchenfokus || '[]'),
+        ziel_laender: JSON.parse(u.ziel_laender || '[]'),
+        ziel_regionen: JSON.parse(u.ziel_regionen || '[]'),
+        umsatz_band: u.umsatz_band,
+      };
+      const m = scoreMatch(profile, p);
+      if (!isStrongMatch(m)) continue;
+
+      sendProcessUpdateEmail({
+        to: u.email, firstName: u.first_name, person: u,
+        title: `Neue Nachfolge, die zu Ihnen passt: ${p.codename}`,
+        message: `es gibt eine neue Nachfolge-Gelegenheit, die zu Ihrem Profil passt (${m.reasons.join(', ')}):<br/><br/>` +
+          `<strong>${p.codename}</strong>: ${[p.industry, p.region].filter(Boolean).join(', ')}` +
+          `${p.revenue_band && p.revenue_band !== 'k. A.' ? ' · Umsatz ' + p.revenue_band : ''}<br/>` +
+          `<span style="color:#555;">${(p.short_description || '').slice(0, 220)}…</span><br/><br/>` +
+          `<span style="font-size:12px;color:#888;">Sie erhalten diese Nachricht als Mitglied des Nachfolge-Netzwerks. ` +
+          `Sie können solche Hinweise jederzeit in Ihrem Profil unter „Benachrichtigungen" abstellen.</span>`,
+        ctaLabel: 'Nachfolge ansehen', ctaPath: `/projekte/${p.id}`,
+      }).catch(() => {});
+      notified.add(u.id);
+    }
+  } catch (e) { console.warn('[notify.notifyMatchingSuccessors]', e.message); }
+  return notified;
+}
+
 // ── Orchestrierung beim Veröffentlichen (Anti-Doppel-Mail-Kaskade) ──────────
 // alreadyNotified = Nutzer, die bereits über ihr Suchprofil informiert wurden.
 async function notifyProjectPublished(projectId, alreadyNotified = new Set()) {
@@ -218,15 +268,19 @@ async function notifyProjectPublished(projectId, alreadyNotified = new Set()) {
     const p = await db.get('SELECT visibility FROM projects WHERE id = ?', [projectId]).catch(() => null);
     if (p && p.visibility === 'invite_only') return;
     const seen = new Set(alreadyNotified);
+    // Nachfolge-Treffer zuerst: die spezifische Match-Mail hat Vorrang vor Newsletter.
+    const succ = await notifyMatchingSuccessors(projectId, seen);
+    succ.forEach(id => seen.add(id));
     const sim = await notifySimilarInterested(projectId, seen);
     sim.forEach(id => seen.add(id));
     const news = await notifyNewsletter(projectId, seen);
     news.forEach(id => seen.add(id));
-    console.log(`📣 Publish-Benachrichtigung Mandat ${projectId}: ${alreadyNotified.size} Suchprofil, ${sim.size} Ähnlichkeit, ${news.size} Newsletter`);
+    console.log(`📣 Publish-Benachrichtigung Mandat ${projectId}: ${alreadyNotified.size} Suchprofil, ${succ.size} Nachfolge-Match, ${sim.size} Ähnlichkeit, ${news.size} Newsletter`);
   } catch (e) { console.warn('[notify.notifyProjectPublished]', e.message); }
 }
 
 module.exports = {
   DEFAULT_PREFS, prefsFor, autoFollow, followerIds, notifyFollowers,
   similarityScore, similarProjects, notifySimilarInterested, notifyNewsletter, notifyProjectPublished,
+  notifyMatchingSuccessors,
 };
