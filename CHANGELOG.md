@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.325 · 21.07.2026 · Navigationsleiste mit mehr Luft
+- **Abstand korrigiert**: Logo und Menü berührten sich bei vielen Menüpunkten (Logo und „Marktplatz"). Die Navigation hat jetzt einen festen Abstand nach beiden Seiten
+- **Mehr Luft**: etwas breitere Leiste, mehr Innenabstand und Höhe über alle Ansichten hinweg
+- Verifiziert: Client-Build sauber
+
 ## v0.324 · 21.07.2026 · Nachfolge-Profil zum Selbstpflegen
 - **Eigenes Nachfolge-Profil**: Nachfolge-Interessierte pflegen jetzt ein Profil angelehnt an den Fragebogen CH-NF-03: berufliche und funktionale Erfahrung, Führungserfahrung, Erfahrung in Sondersituationen (Start-up, Spin-off, Turnaround, Buy-out und mehr), gesuchte Länder und Regionen, Branchenfokus, Umsatzgröße, MBI-Szenario, Eigenkapital und Verfügbarkeit
 - **Menüpunkt „Nachfolge-Profil"**: erscheint nur für Nachfolge-Interessierte, jederzeit änderbar, vertraulich behandelt

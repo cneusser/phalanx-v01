@@ -113,11 +113,11 @@ export default function Navbar() {
       boxShadow: '0 2px 16px rgba(26,77,138,0.22)',
     }}>
       <div style={{
-        maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64,
+        maxWidth: 1320, margin: '0 auto', padding: '0 2rem',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 68, gap: '1.5rem',
       }}>
         {/* Logo: bei White-Label-Tenants: Logo/Name des Mandanten */}
-        <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0, marginRight: '0.5rem' }}>
           {branding ? (
             <>
               {branding.logo_url && <img src={branding.logo_url} alt="" style={{ height: 32, width: 'auto' }} />}
@@ -132,7 +132,7 @@ export default function Navbar() {
 
         {/* Desktop Nav */}
         {!isMobile && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.6rem', margin: '0 1.5rem', flexWrap: 'nowrap' }}>
           {/* Verkäufer sehen den Marktplatz und die Käufer-Werkzeuge bewusst nicht */}
           {!isSeller && navLink('/projekte', t('nav.marketplace', 'Marktplatz'))}
           {!isSeller && navLink('/nachfolge', t('nav.succession', 'Nachfolge'))}
@@ -160,7 +160,7 @@ export default function Navbar() {
 
         {/* Auth area (Desktop) */}
         {!isMobile && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0 }}>
           {/* Sprachumschalter DE / EN */}
           <div style={{ display: 'flex', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 6, overflow: 'hidden' }}>
             {['de', 'en'].map(l => (
