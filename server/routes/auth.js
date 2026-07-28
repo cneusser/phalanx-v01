@@ -20,7 +20,7 @@ router.get('/config', (req, res) => {
 });
 
 router.post('/register', wrap(async (req, res) => {
-  const { email, password, first_name, last_name, company, position, buyer_type, mobile, phone, role, privacy_consent, salutation, title, turnstile_token } = req.body;
+  const { email, password, first_name, last_name, company, position, buyer_type, succession_type, mobile, phone, role, privacy_consent, salutation, title, turnstile_token } = req.body;
   // Bot-Test (Cloudflare Turnstile), sofern konfiguriert
   if (!(await require('../utils/turnstile').verifyTurnstile(turnstile_token, req.ip))) {
     return res.status(400).json({ success: false, error: 'Bitte bestätigen Sie den Sicherheitscheck (kein Roboter).' });
@@ -52,14 +52,17 @@ router.post('/register', wrap(async (req, res) => {
   const result = await db.withTenant(tenantId, async (t) => {
     const existing = await t.get('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
     if (existing) return { conflict: true };
+    const succType = (userRole === 'buyer' && buyer_type === 'successor'
+      && ['mit_beteiligung', 'ohne_beteiligung'].includes(succession_type)) ? succession_type : null;
     const userId = await t.insert(
-      `INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, buyer_type, mobile, phone, is_approved, is_active, email_verified, email_verify_token, email_verify_expires, privacy_consent_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 0, ?, ?, now())`,
+      `INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, buyer_type, succession_type, mobile, phone, is_approved, is_active, email_verified, email_verify_token, email_verify_expires, privacy_consent_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 0, ?, ?, now())`,
       [tenantId, email.toLowerCase(), password_hash, userRole,
        salutation, title || null,
        first_name, last_name,
        company || null, position || null,
        userRole === 'buyer' ? (buyer_type || null) : null,
+       succType,
        mobile || null, phone || null, verifyToken, verifyExpires]
     );
     // Create buyer profile only for buyers

@@ -135,6 +135,7 @@ export default function Navbar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
           {/* Verkäufer sehen den Marktplatz und die Käufer-Werkzeuge bewusst nicht */}
           {!isSeller && navLink('/projekte', t('nav.marketplace', 'Marktplatz'))}
+          {!isSeller && navLink('/nachfolge', t('nav.succession', 'Nachfolge'))}
           {navLink('/unternehmenswert', t('nav.valuation', 'Unternehmenswert'))}
           {user && !isAdmin && !isSeller && navLink('/bewertung', t('nav.detailed_valuation', 'Bewertung'))}
           {user && !isAdmin && navLink('/feedback', t('nav.feedback', 'Feedback'))}

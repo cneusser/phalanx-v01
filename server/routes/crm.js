@@ -1303,7 +1303,10 @@ router.delete('/parties/:id', ...isStaff, canDelete, wrap(async (req, res) => {
 const CONSENT_TEXT_VERSION = '2026-07-v1';
 const INVITE_DAYS = 21;
 
-async function createInvite(req, contact) {
+const INVITE_TEMPLATES = ['crm_invite', 'nachfolge_invite'];
+
+async function createInvite(req, contact, templateKey) {
+  const key = INVITE_TEMPLATES.includes(templateKey) ? templateKey : 'crm_invite';
   const crypto = require('crypto');
   const token = crypto.randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + INVITE_DAYS * 24 * 3600 * 1000);
@@ -1312,9 +1315,13 @@ async function createInvite(req, contact) {
     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [req.tenantId || 1, contact.id, contact.email, token, req.body.message || null, req.user.id, expires]));
 
-  // Text kommt aus der Vorlage „crm_invite" (im Admin änderbar)
-  const tpl = await scoped(req, (t) => t.get(`SELECT * FROM mail_templates WHERE key = 'crm_invite' AND is_active = 1`)).catch(() => null);
-  const meta = { type: 'invite', templateKey: 'crm_invite', contactId: contact.id, actorId: req.user.id, tenantId: req.tenantId || 1 };
+  // Text kommt aus der gewählten Vorlage (im Admin änderbar). Fällt die Nachfolge-
+  // Vorlage aus, greift die Standard-Einladung.
+  let tpl = await scoped(req, (t) => t.get(`SELECT * FROM mail_templates WHERE key = ? AND is_active = 1`, [key])).catch(() => null);
+  if (!tpl && key !== 'crm_invite') {
+    tpl = await scoped(req, (t) => t.get(`SELECT * FROM mail_templates WHERE key = 'crm_invite' AND is_active = 1`)).catch(() => null);
+  }
+  const meta = { type: 'invite', templateKey: key, contactId: contact.id, actorId: req.user.id, tenantId: req.tenantId || 1 };
 
   if (tpl) {
     const mtl = require('../utils/mailTemplates');
@@ -1391,7 +1398,7 @@ router.post('/invite/bulk', ...isStaff, canSend, wrap(async (req, res) => {
 // Onboarding selbst Stammdaten und Interesse (Käufer/Verkäufer) aus.
 const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
 
-async function inviteByEmail(req, { email, first_name, last_name }) {
+async function inviteByEmail(req, { email, first_name, last_name }, templateKey) {
   const mail = String(email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(mail)) return { email, status: 'skipped', reason: 'ungültige E-Mail' };
 
@@ -1413,11 +1420,11 @@ async function inviteByEmail(req, { email, first_name, last_name }) {
     contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [id]));
     db.auditLog(req.user.id, 'CRM_CONTACT_CREATED', 'crm_contact', id, `${first_name || ''} ${last}`.trim() + ' (Einladung)', req.ip);
   }
-  await createInvite(req, contact);
+  await createInvite(req, contact, templateKey);
   return { email: mail, status: 'invited' };
 }
 
-async function runInvites(req, entries) {
+async function runInvites(req, entries, templateKey) {
   // Dubletten in der Eingabe selbst zusammenführen
   const seen = new Set();
   const list = [];
@@ -1430,7 +1437,7 @@ async function runInvites(req, entries) {
   const capped = list.slice(0, 200); // Sicherheitsgrenze gegen versehentlichen Massenversand
   const invited = [], skipped = [];
   for (const e of capped) {
-    const r = await inviteByEmail(req, e);
+    const r = await inviteByEmail(req, e, templateKey);
     (r.status === 'invited' ? invited : skipped).push(r);
   }
   return { invited: invited.length, skipped: skipped.length, total: capped.length, details: { invited, skipped } };
@@ -1447,7 +1454,7 @@ router.post('/invite/emails', ...isStaff, canSend, wrap(async (req, res) => {
     entries = matches.map(email => ({ email }));
   }
   if (!entries.length) return res.status(400).json({ success: false, error: 'Keine gültige E-Mail-Adresse gefunden.' });
-  const result = await runInvites(req, entries);
+  const result = await runInvites(req, entries, req.body.template_key);
   res.json({ success: true, data: result });
 }));
 
@@ -1472,7 +1479,7 @@ router.post('/invite/import-file', ...isStaff, canSend, importUpload.single('fil
     last_name: keyOf(row, ['nachname', 'lastname', 'name']),
   })).filter(e => e.email);
   if (!entries.length) return res.status(400).json({ success: false, error: 'Keine E-Mail-Spalte gefunden (Spalte „E-Mail").' });
-  const result = await runInvites(req, entries);
+  const result = await runInvites(req, entries, req.body.template_key);
   res.json({ success: true, data: result });
 }));
 
@@ -1594,6 +1601,8 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
   const regions = asArr(req.body.regions);
   const deal_types = asArr(req.body.deal_types);
   const buyerType = cleanBuyerType(req.body.buyer_type);
+  const succType = (role === 'buyer' && buyerType === 'successor'
+    && ['mit_beteiligung', 'ohne_beteiligung'].includes(req.body.succession_type)) ? req.body.succession_type : null;
   const focus = req.body.investment_focus ? String(req.body.investment_focus).trim().slice(0, 2000) : null;
 
   const bcrypt = require('bcryptjs');
@@ -1601,11 +1610,11 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
   const password_hash = bcrypt.hashSync(String(password), 10);
   // Einwilligung + Token belegen die E-Mail-Adresse → direkt freigeschaltet & verifiziert
   const userId = await db.insert(`
-    INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, buyer_type, mobile,
+    INSERT INTO users (tenant_id, email, password_hash, role, salutation, title, first_name, last_name, company, position, buyer_type, succession_type, mobile,
                        is_approved, is_active, email_verified, privacy_consent_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, now())`,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, now())`,
     [inv.tenant_id || 1, String(inv.email).toLowerCase(), password_hash, role, salutation, title || null,
-     first_name, last_name, company || null, position || null, role === 'buyer' ? buyerType : null, mobile]);
+     first_name, last_name, company || null, position || null, role === 'buyer' ? buyerType : null, succType, mobile]);
   if (role === 'buyer') {
     await db.run(`INSERT INTO buyer_profiles (tenant_id, user_id, industries, regions, deal_types) VALUES (?, ?, ?, ?, ?)
                   ON CONFLICT (user_id) DO UPDATE SET industries = EXCLUDED.industries, regions = EXCLUDED.regions, deal_types = EXCLUDED.deal_types`,
@@ -1621,11 +1630,11 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
       : null;
     await db.run(`UPDATE crm_contacts SET user_id = ?, salutation = ?, title = COALESCE(?, title), first_name = ?, last_name = ?,
                     mobile = COALESCE(?, mobile), linkedin_url = COALESCE(?, linkedin_url),
-                    buyer_type = COALESCE(?, buyer_type), investment_focus = COALESCE(?, investment_focus),
+                    buyer_type = COALESCE(?, buyer_type), succession_type = COALESCE(?, succession_type), investment_focus = COALESCE(?, investment_focus),
                     notes = CASE WHEN ? IS NOT NULL THEN COALESCE(notes || E'\n', '') || ? ELSE notes END,
                     updated_at = now() WHERE id = ?`,
       [userId, salutation, title || null, first_name, last_name, mobile, linkedin_url || null,
-       buyerType, role === 'buyer' ? focus : null, noteAdd, noteAdd, inv.contact_id]).catch(() => {});
+       buyerType, succType, role === 'buyer' ? focus : null, noteAdd, noteAdd, inv.contact_id]).catch(() => {});
   }
   db.auditLog(userId, 'REGISTER_VIA_CRM_INVITE', 'user', userId, `${inv.email} · Einwilligung ${inv.consent_text_version}`, req.ip);
 

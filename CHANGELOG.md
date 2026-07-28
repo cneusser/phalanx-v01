@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.322 · 21.07.2026 · Nachfolge-Netzwerk, Schritt 1
+- **Registrierung mit Weiche**: Wer sich als Käufer registriert, wählt jetzt zuerst, ob er Nachfolge-Interessent (mit oder ohne Kapitalbeteiligung) oder professioneller Käufer ist (Stratege, Finanzinvestor, Business Angel, Venture Capital, Family Office, M&A-Berater mit Suchmandat). Nachfolge-Interessierte sind damit Teil des Nachfolge-Netzwerks
+- **Onboarding**: Auch nach einer Einladung wird die Nachfolge-Richtung erfasst und ins CRM zurückgeschrieben (neue Angabe am Kontakt und Nutzer)
+- **Einladungs-Vorlage Nachfolge-Netzwerk**: eine ansprechende, persönlich geschriebene E-Mail, die das Netzwerk erklärt und Lust darauf macht. Im Einladungsdialog wählbar zwischen Standard (M&A) und Nachfolge-Netzwerk, im Admin unter Mailvorlagen editierbar
+- **Neue Menü-Seite „Nachfolge"**: öffentlich, erklärt das Netzwerk, das Matching, Matching-Events und Veranstaltungen, betont die kostenfreie Teilnahme und führt direkt zur Registrierung
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.321 · 21.07.2026 · Kontakte einladen und reiches Onboarding
 - **Neue Einladungs-Strecke im CRM**: Knopf „Kontakte einladen" mit zwei Wegen: E-Mail-Adressen einfügen (Massen-Paste) oder eine Excel/CSV hochladen. Für jede Adresse entsteht ein Kontakt (falls neu) und eine DSGVO-konforme Double-Opt-in-Einladung. Doppelte, bereits eingeladene und widersprochene Adressen werden automatisch übersprungen
 - **Eigene Onboarding-Strecke**: Nach der Einwilligung wählt die Person ihr Interesse (Käufer oder Verkäufer) und füllt schlanke Pflichtfelder plus optional ein reiches Profil aus. Käufer: Käufertyp, Wunschbranchen, Regionen, Ticket, Fokus. Verkäufer: Branche, Umsatzband, Anlass und Vorhaben

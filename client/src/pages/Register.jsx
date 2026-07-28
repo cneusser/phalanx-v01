@@ -41,8 +41,10 @@ export default function Register() {
   const [roleType, setRoleType] = useState('buyer'); // 'buyer' or 'seller'
   const [form, setForm] = useState({
     email: '', password: '', salutation: '', title: '', first_name: '', last_name: '',
-    company: '', position: '', buyer_type: 'strategic', mobile: '', phone: '',
+    company: '', position: '', buyer_type: 'strategic', succession_type: '', mobile: '', phone: '',
   });
+  // Käufer-Segment: Nachfolge-Interessent oder professioneller Käufer
+  const [buyerSegment, setBuyerSegment] = useState('succession');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -201,23 +203,50 @@ export default function Register() {
           />
           <Field label="Position" value={form.position} onChange={set('position')} placeholder="Geschäftsführer" />
 
-          {/* Buyer type: only for buyers */}
+          {/* Käufer-Segment: Nachfolge-Interessent vs professioneller Käufer */}
           {roleType === 'buyer' && (
             <div style={{ marginBottom: '0.9rem' }}>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.35rem' }}>
-                Käufertyp
+                Was beschreibt Sie am besten?
               </label>
-              {/* Dieselbe Werteliste wie im CRM: nur so greift die Käufergruppen-Zielsteuerung */}
-              <select value={form.buyer_type} onChange={set('buyer_type')} style={{ ...inputStyle, background: C.xLight }}>
-                <option value="strategic">Strategischer Käufer</option>
-                <option value="financial">Finanzinvestor / Private Equity</option>
-                <option value="business_angel">Business Angel</option>
-                <option value="venture_capital">Venture Capital</option>
-                <option value="family_office">Family Office</option>
-                <option value="successor">Nachfolger (MBO/MBI)</option>
-                <option value="private">Privatperson</option>
-                <option value="advisor_mandate">M&A-Berater mit Suchmandat</option>
-              </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                {[['succession', 'Nachfolge-Interessent', 'MBI / MBO, ich möchte ein Unternehmen übernehmen'],
+                  ['professional', 'Professioneller Käufer', 'Stratege, Investor, Family Office, Berater']].map(([val, t, sub]) => (
+                  <button type="button" key={val}
+                    onClick={() => { setBuyerSegment(val); setForm(f => ({ ...f, buyer_type: val === 'succession' ? 'successor' : 'strategic', succession_type: val === 'succession' ? (f.succession_type || 'mit_beteiligung') : '' })); }}
+                    style={{ textAlign: 'left', padding: '0.6rem 0.75rem', borderRadius: 8, cursor: 'pointer',
+                      border: `1.5px solid ${buyerSegment === val ? C.steel : C.border}`, background: buyerSegment === val ? C.lightBg : C.xLight }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>{t}</div>
+                    <div style={{ fontSize: '0.72rem', color: C.gray, marginTop: 2, lineHeight: 1.3 }}>{sub}</div>
+                  </button>
+                ))}
+              </div>
+
+              {buyerSegment === 'succession' ? (
+                <>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: C.navy, marginBottom: '0.3rem' }}>Ihr Nachfolge-Interesse</label>
+                  <select value={form.succession_type} onChange={set('succession_type')} style={{ ...inputStyle, background: C.xLight }}>
+                    <option value="mit_beteiligung">Nachfolge mit Kapitalbeteiligung</option>
+                    <option value="ohne_beteiligung">Nachfolge ohne Beteiligung (operative Führung)</option>
+                  </select>
+                  <div style={{ fontSize: '0.72rem', color: C.gray, marginTop: '0.4rem', lineHeight: 1.4 }}>
+                    Als Nachfolge-Interessent sind Sie Teil unseres Nachfolge-Netzwerks, kostenfrei, mit Matching und Events.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: C.navy, marginBottom: '0.3rem' }}>Käufertyp</label>
+                  {/* Werteliste wie im CRM: nur so greift die Käufergruppen-Zielsteuerung */}
+                  <select value={form.buyer_type} onChange={set('buyer_type')} style={{ ...inputStyle, background: C.xLight }}>
+                    <option value="strategic">Strategischer Käufer</option>
+                    <option value="financial">Finanzinvestor / Private Equity</option>
+                    <option value="business_angel">Business Angel</option>
+                    <option value="venture_capital">Venture Capital</option>
+                    <option value="family_office">Family Office</option>
+                    <option value="advisor_mandate">M&A-Berater mit Suchmandat</option>
+                  </select>
+                </>
+              )}
             </div>
           )}
 

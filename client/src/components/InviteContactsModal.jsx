@@ -10,6 +10,7 @@ const INPUT = { width: '100%', padding: '0.6rem 0.75rem', border: `1px solid ${C
 // Einladung verschickt. Die Person füllt beim Onboarding Interesse und Daten selbst.
 export default function InviteContactsModal({ onClose, onDone }) {
   const [mode, setMode] = useState('paste');   // paste | file
+  const [templateKey, setTemplateKey] = useState('crm_invite'); // crm_invite | nachfolge_invite
   const [text, setText] = useState('');
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -19,7 +20,7 @@ export default function InviteContactsModal({ onClose, onDone }) {
   async function sendPaste() {
     setBusy(true); setErr('');
     try {
-      const r = await api.post('/crm/invite/emails', { text });
+      const r = await api.post('/crm/invite/emails', { text, template_key: templateKey });
       setResult(r); onDone && onDone();
     } catch (e) { setErr(e.message); }
     finally { setBusy(false); }
@@ -28,7 +29,7 @@ export default function InviteContactsModal({ onClose, onDone }) {
     if (!file) { setErr('Bitte wählen Sie eine Datei.'); return; }
     setBusy(true); setErr('');
     try {
-      const fd = new FormData(); fd.append('file', file);
+      const fd = new FormData(); fd.append('file', file); fd.append('template_key', templateKey);
       const r = await api.upload('/crm/invite/import-file', fd);
       setResult(r); onDone && onDone();
     } catch (e) { setErr(e.message); }
@@ -62,6 +63,18 @@ export default function InviteContactsModal({ onClose, onDone }) {
             <p style={{ fontSize: '0.83rem', color: C.muted, lineHeight: 1.5, marginTop: 0 }}>
               Die Eingeladenen bestätigen zuerst die Einwilligung (DSGVO) und füllen dann selbst ihr Profil und ihr Interesse (Käufer oder Verkäufer) aus. So kommen viele Daten sauber und rechtssicher herein.
             </p>
+            {/* Einladungstyp: bestimmt die E-Mail-Vorlage */}
+            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#333', marginBottom: '0.35rem' }}>Einladungstyp</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem' }}>
+              {[['crm_invite', 'Standard (M&A)', 'Marktplatz und Mandate'],
+                ['nachfolge_invite', 'Nachfolge-Netzwerk', 'Für Nachfolge-Interessierte']].map(([val, t, sub]) => (
+                <button key={val} onClick={() => setTemplateKey(val)} style={{ textAlign: 'left', padding: '0.55rem 0.7rem', borderRadius: 8, cursor: 'pointer', border: `1.5px solid ${templateKey === val ? '#166534' : C.border}`, background: templateKey === val ? '#ecfdf5' : '#fff' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.navy }}>{t}</div>
+                  <div style={{ fontSize: '0.71rem', color: C.muted, marginTop: 1 }}>{sub}</div>
+                </button>
+              ))}
+            </div>
+
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
               <button onClick={() => setMode('paste')} style={{ flex: 1, padding: '0.5rem', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', border: `1.5px solid ${mode === 'paste' ? C.accent : C.border}`, background: mode === 'paste' ? '#EDF4FA' : '#fff', color: C.navy }}><Mail size={13} style={{ verticalAlign: -2 }} /> E-Mails einfügen</button>
               <button onClick={() => setMode('file')} style={{ flex: 1, padding: '0.5rem', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', border: `1.5px solid ${mode === 'file' ? C.accent : C.border}`, background: mode === 'file' ? '#EDF4FA' : '#fff', color: C.navy }}><Upload size={13} style={{ verticalAlign: -2 }} /> Excel / CSV</button>

@@ -5,6 +5,7 @@ import { I18nProvider, useT } from './i18n';
 import Navbar from './components/Navbar';
 import CapitalMatchLogo from './components/CapitalMatchLogo';
 import Landing from './pages/Landing';
+import Nachfolge from './pages/Nachfolge';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import ValuationCalculator from './pages/ValuationCalculator';
@@ -85,6 +86,7 @@ function AppRoutes() {
         <ErrorBoundary>
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/nachfolge" element={<Nachfolge />} />
           <Route path="/projekte" element={<Projects />} />
           <Route path="/projekte/:id" element={<ProjectDetail />} />
           <Route path="/unternehmenswert" element={<ValuationCalculator />} />

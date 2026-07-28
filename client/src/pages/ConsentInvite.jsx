@@ -17,7 +17,7 @@ export default function ConsentInvite() {
   const [accepted, setAccepted] = useState(false);
   const [form, setForm] = useState({
     salutation: '', title: '', first_name: '', last_name: '', company: '', position: '', mobile: '', password: '',
-    linkedin_url: '', interest: '', buyer_type: '',
+    linkedin_url: '', interest: '', buyer_type: '', succession_type: '',
     industries: '', regions: '', deal_types: '', investment_focus: '',
   });
 
@@ -213,12 +213,22 @@ export default function ConsentInvite() {
                           <option value="business_angel">Business Angel</option>
                           <option value="venture_capital">Venture Capital</option>
                           <option value="family_office">Family Office</option>
-                          <option value="successor">Nachfolger / MBI</option>
+                          <option value="successor">Nachfolger / MBI / MBO</option>
                           <option value="private">Privat</option>
                           <option value="advisor_mandate">Berater mit Mandat</option>
                         </select>
                       </div>
-                      <div><label style={LABEL}>Ticket / Umsatzband</label><input value={form.deal_types} onChange={set('deal_types')} placeholder="z. B. 1-5 Mio." style={INPUT} /></div>
+                      {form.buyer_type === 'successor' ? (
+                        <div><label style={LABEL}>Nachfolge-Interesse</label>
+                          <select value={form.succession_type} onChange={set('succession_type')} style={INPUT}>
+                            <option value="">Bitte wählen</option>
+                            <option value="mit_beteiligung">Mit Kapitalbeteiligung</option>
+                            <option value="ohne_beteiligung">Ohne Beteiligung (operative Führung)</option>
+                          </select>
+                        </div>
+                      ) : (
+                        <div><label style={LABEL}>Ticket / Umsatzband</label><input value={form.deal_types} onChange={set('deal_types')} placeholder="z. B. 1-5 Mio." style={INPUT} /></div>
+                      )}
                       <div><label style={LABEL}>Wunschbranchen</label><input value={form.industries} onChange={set('industries')} placeholder="Komma-getrennt" style={INPUT} /></div>
                       <div><label style={LABEL}>Regionen</label><input value={form.regions} onChange={set('regions')} placeholder="z. B. DACH, Bayern" style={INPUT} /></div>
                       <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Stichworte / Fokus</label><textarea value={form.investment_focus} onChange={set('investment_focus')} rows={2} placeholder="Worauf achten Sie besonders?" style={{ ...INPUT, resize: 'vertical' }} /></div>
