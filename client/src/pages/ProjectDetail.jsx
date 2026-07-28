@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import ProjectEditModal from '../components/ProjectEditModal';
+import SuccessionCandidates from '../components/SuccessionCandidates';
 import TeamModal from '../components/TeamModal';
 import { api, getToken } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -284,6 +285,11 @@ export default function ProjectDetail() {
             <button onClick={downloadTeaserPdf} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: C.bg, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.5rem 0.9rem', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', marginBottom: '1.25rem' }}>
               ⬇ Kurzprofil als PDF
             </button>
+          )}
+
+          {/* Übergeber-Sicht: passende Nachfolge-Kandidaten (nur Pfleger, nur Nachfolge-Mandate) */}
+          {teaser.can_manage && ['Nachfolge', 'MBO', 'MBI'].includes(teaser.deal_type) && (
+            <SuccessionCandidates projectId={teaser.id} isAdmin={isAdmin} />
           )}
 
           {/* Exposé: nach NDA (IM-Gate) bzw. für Pfleger */}

@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.329 · 21.07.2026 · Übergeber sehen passende Nachfolge-Kandidaten
+- **Kandidatenansicht**: Pfleger eines Nachfolge-Mandats sehen auf der Mandatsseite die passenden Nachfolge-Kandidaten aus dem Netzwerk, mit Übereinstimmung in Prozent und Begründung (Branche, Region, Umsatz)
+- **Datenschutz mit Freischalt-Gate**: Ohne Freischaltung nur Anzahl und anonyme Vorschau (Score, Branche, Region, Umsatzziel, Führungserfahrung), keine Namen. Nach Freischaltung erscheinen Name, Kontakt, Eigenkapital und Verfügbarkeit
+- **Freischaltung durch das Team**: als spätere Bezahlstufe für Übergeber angelegt. Ein Knopf schaltet je Mandat frei oder sperrt wieder. Nur Pfleger des Mandats sehen überhaupt Kandidaten, alles serverseitig geprüft
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.328 · 21.07.2026 · Nachfolge: Benachrichtigung bei passenden Mandaten
 - **Automatischer Hinweis**: Wird ein neues Nachfolge-Mandat veröffentlicht, bekommen passende Nachfolge-Interessierte eine Mail mit der Begründung (Branche, Region, Umsatz) und direktem Link
 - **Nur bei starkem Treffer**: benachrichtigt wird, wenn mindestens Branche oder Region passt, und nur, wer solche Hinweise nicht abbestellt hat. Die Match-Mail hat Vorrang vor der Newsletter-Mail, keine Doppelbenachrichtigung
