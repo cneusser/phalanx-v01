@@ -29,8 +29,13 @@ const PLACEHOLDERS = [
 ];
 
 // Fertiger Herkunftssatz für die Ansprache eines eingelesenen Marktplatz-Leads.
+// Nur für echte Eingangs-Anfragen (Marktplätze). Bei intern/aktiv erzeugten
+// Quellen (eigene Einladung, Recherche, Netzwerk, Empfehlung) gab es keine
+// „Anfrage", der Satz wäre dort falsch und bleibt leer.
+const INTERNAL_SOURCES = ['einladung', 'recherche', 'netzwerk', 'empfehlung'];
 function herkunftSatz(contact = {}) {
   if (!contact.lead_source) return '';
+  if (INTERNAL_SOURCES.includes(String(contact.lead_source).trim().toLowerCase())) return '';
   const ref = contact.lead_ref ? ` (${contact.lead_ref})` : '';
   return `Ihre Anfrage haben wir über ${contact.lead_source}${ref} erhalten.`;
 }

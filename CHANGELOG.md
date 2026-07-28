@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.323 · 21.07.2026 · Nachfolge-Einladung: saubere Anrede
+- **Anrede korrigiert**: Die Nachfolge-Einladung begrüßte doppelt und nannte den Namen zweimal. Jetzt steht die Anrede genau einmal. Der Mailrahmen setzt Begrüßung und Unterschrift, die Vorlage enthält nur noch den Text
+- **Name aus der E-Mail**: Wird nur eine E-Mail-Adresse eingefügt, bilden wir daraus nach Möglichkeit einen echten Namen (michael.philipp wird zu Michael Philipp). Ist das nicht möglich, grüßen wir neutral mit „Guten Tag,"
+- **Keine falsche Herkunftszeile**: „Ihre Anfrage haben wir über ... erhalten" erscheint nicht mehr bei selbst erzeugten Quellen wie Einladung, Recherche, Netzwerk oder Empfehlung
+- Verifiziert: acht Testsuites grün, Textwächter ohne Befund
+
 ## v0.322 · 21.07.2026 · Nachfolge-Netzwerk, Schritt 1
 - **Registrierung mit Weiche**: Wer sich als Käufer registriert, wählt jetzt zuerst, ob er Nachfolge-Interessent (mit oder ohne Kapitalbeteiligung) oder professioneller Käufer ist (Stratege, Finanzinvestor, Business Angel, Venture Capital, Family Office, M&A-Berater mit Suchmandat). Nachfolge-Interessierte sind damit Teil des Nachfolge-Netzwerks
 - **Onboarding**: Auch nach einer Einladung wird die Nachfolge-Richtung erfasst und ins CRM zurückgeschrieben (neue Angabe am Kontakt und Nutzer)

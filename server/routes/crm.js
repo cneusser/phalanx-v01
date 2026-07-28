@@ -1411,14 +1411,26 @@ async function inviteByEmail(req, { email, first_name, last_name }, templateKey)
       `SELECT id FROM crm_invitations WHERE contact_id = ? AND status IN ('invited','opened','consented','registered')`, [contact.id]));
     if (open) return { email: mail, status: 'skipped', reason: 'Einladung läuft bereits' };
   } else {
-    // last_name ist Pflicht: Name nehmen, sonst den Teil vor dem @ als Platzhalter.
-    const last = (last_name && String(last_name).trim()) || mail.split('@')[0];
+    // Name nehmen, wenn mitgegeben. Sonst versuchen wir, aus dem Teil vor dem @
+    // einen echten Namen zu bilden (z. B. michael.philipp wird zu Michael Philipp),
+    // damit die Anrede persönlich wirkt statt „Guten Tag michael.philipp".
+    let fn = (first_name && String(first_name).trim()) || null;
+    let ln = (last_name && String(last_name).trim()) || null;
+    if (!fn && !ln) {
+      const local = mail.split('@')[0];
+      const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+      const parts = local.split(/[._-]+/).filter(p => /^[a-zäöüß]{2,}$/i.test(p));
+      if (parts.length >= 2) { fn = cap(parts[0]); ln = cap(parts[parts.length - 1]); }
+      else if (parts.length === 1) { ln = cap(parts[0]); }
+      else { ln = local; } // last_name ist Pflicht
+    }
+    if (!ln) ln = mail.split('@')[0];
     const id = await scoped(req, (t) => t.insert(`
       INSERT INTO crm_contacts (tenant_id, first_name, last_name, email, lead_source, consent_status, contact_status, created_by)
       VALUES (?, ?, ?, ?, 'einladung', 'unknown', 'active', ?)`,
-      [req.tenantId || 1, (first_name && String(first_name).trim()) || null, last, mail, req.user.id]));
+      [req.tenantId || 1, fn, ln, mail, req.user.id]));
     contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [id]));
-    db.auditLog(req.user.id, 'CRM_CONTACT_CREATED', 'crm_contact', id, `${first_name || ''} ${last}`.trim() + ' (Einladung)', req.ip);
+    db.auditLog(req.user.id, 'CRM_CONTACT_CREATED', 'crm_contact', id, `${fn || ''} ${ln}`.trim() + ' (Einladung)', req.ip);
   }
   await createInvite(req, contact, templateKey);
   return { email: mail, status: 'invited' };
