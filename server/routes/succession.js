@@ -51,7 +51,7 @@ router.get('/interested', authenticate, isStaff, wrap(async (req, res) => {
   const { umsatz, szenario, q, stage } = req.query;
   const rows = await db.all(`
     SELECT u.id, u.salutation, u.title, u.first_name, u.last_name, u.email, u.company, u.succession_type,
-           u.succession_stage, u.created_at, u.is_approved, u.is_active,
+           u.succession_stage, u.succession_note, u.created_at, u.is_approved, u.is_active,
            sp.plz_ort, sp.branchenfokus, sp.branchenerfahrung, sp.ziel_laender, sp.ziel_regionen,
            sp.umsatz_band, sp.mbi_szenario, sp.eigenkapital, sp.verfuegbarkeit, sp.fuehrungserfahrung,
            sp.updated_at AS profile_updated_at
@@ -91,6 +91,16 @@ router.put('/interested/:userId/stage', authenticate, isStaff, wrap(async (req, 
   await db.run('UPDATE users SET succession_stage = ? WHERE id = ?', [req.body.stage, req.params.userId]);
   db.auditLog(req.user.id, 'SUCCESSION_STAGE_SET', 'user', req.params.userId, req.body.stage, req.ip);
   res.json({ success: true, data: { stage: req.body.stage } });
+}));
+
+// Interne Notiz je Nachfolge-Interessent (Team)
+router.put('/interested/:userId/note', authenticate, isStaff, wrap(async (req, res) => {
+  const u = await db.get(`SELECT id FROM users WHERE id = ? AND role = 'buyer' AND buyer_type = 'successor'`, [req.params.userId]);
+  if (!u) return res.status(404).json({ success: false, error: 'Nachfolge-Interessent nicht gefunden' });
+  const note = req.body.note == null ? null : String(req.body.note).slice(0, 4000);
+  await db.run('UPDATE users SET succession_note = ? WHERE id = ?', [note, req.params.userId]);
+  db.auditLog(req.user.id, 'SUCCESSION_NOTE_SET', 'user', req.params.userId, null, req.ip);
+  res.json({ success: true, data: { note } });
 }));
 
 // Eigenes Nachfolge-Profil lesen

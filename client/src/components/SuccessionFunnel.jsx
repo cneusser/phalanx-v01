@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
-import { Users } from 'lucide-react';
+import { StickyNote, Check, X } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const STAGE_LABEL = {
@@ -11,41 +11,45 @@ const STAGE_COLOR = {
   neu: '#64748B', profil: '#1D4E89', vorgestellt: '#0891b2',
   gespraech: '#d97706', vermittelt: '#166534', kein_match: '#991b1b',
 };
+const ORDER = ['neu', 'profil', 'vorgestellt', 'gespraech', 'vermittelt', 'kein_match'];
+const sel = { padding: '0.5rem', border: '1px solid #DDE8F3', borderRadius: 6, fontSize: '0.82rem', background: '#fff' };
 
-// Nachfolge-Funnel im CRM: Interessierte pflegen und durch die Stufen führen.
+// Nachfolge-Funnel im CRM als Kanban: Kandidaten per Drag-and-drop durch die
+// Stufen führen, mit interner Notiz je Karte.
 export default function SuccessionFunnel() {
-  const [data, setData] = useState({ list: [], overview: {}, stages: [] });
-  const [filter, setFilter] = useState({ umsatz: '', szenario: '', q: '', stage: '' });
+  const [list, setList] = useState([]);
+  const [stages, setStages] = useState(ORDER);
+  const [filter, setFilter] = useState({ umsatz: '', szenario: '', q: '' });
+  const [drag, setDrag] = useState(null);
+  const [over, setOver] = useState(null);
+  const [noteEdit, setNoteEdit] = useState(null);
+  const [noteText, setNoteText] = useState('');
 
   const load = useCallback(() => {
     const p = new URLSearchParams();
-    ['umsatz', 'szenario', 'q', 'stage'].forEach(k => { if (filter[k]) p.set(k, filter[k]); });
+    ['umsatz', 'szenario', 'q'].forEach(k => { if (filter[k]) p.set(k, filter[k]); });
     const qs = p.toString();
-    api.get('/succession/interested' + (qs ? '?' + qs : '')).then(setData).catch(() => setData({ list: [], overview: {}, stages: [] }));
+    api.get('/succession/interested' + (qs ? '?' + qs : '')).then(d => {
+      setList(d.list || []);
+      if (d.stages && d.stages.length) setStages(d.stages);
+    }).catch(() => setList([]));
   }, [filter]);
-
   useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [load]);
 
-  async function setStage(userId, stage) {
-    try { await api.put(`/succession/interested/${userId}/stage`, { stage }); load(); } catch { /* ignore */ }
+  async function moveTo(userId, stage) {
+    setList(l => l.map(u => u.id === userId ? { ...u, succession_stage: stage } : u)); // optimistisch
+    try { await api.put(`/succession/interested/${userId}/stage`, { stage }); } catch { load(); }
+  }
+  async function saveNote(userId) {
+    try { await api.put(`/succession/interested/${userId}/note`, { note: noteText }); } catch { /* ignore */ }
+    setList(l => l.map(u => u.id === userId ? { ...u, succession_note: noteText } : u));
+    setNoteEdit(null);
   }
 
-  const stages = data.stages && data.stages.length ? data.stages : Object.keys(STAGE_LABEL);
+  const byStage = (st) => list.filter(u => (u.succession_stage || 'neu') === st);
 
   return (
     <div>
-      {/* Trichter-Überblick: Anzahl je Stufe, klickbar als Filter */}
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        <button onClick={() => setFilter(f => ({ ...f, stage: '' }))} style={chip(!filter.stage, C.navy)}>
-          Alle <strong>{Object.values(data.overview || {}).reduce((a, b) => a + b, 0)}</strong>
-        </button>
-        {stages.map(st => (
-          <button key={st} onClick={() => setFilter(f => ({ ...f, stage: f.stage === st ? '' : st }))} style={chip(filter.stage === st, STAGE_COLOR[st])}>
-            {STAGE_LABEL[st] || st} <strong>{data.overview?.[st] || 0}</strong>
-          </button>
-        ))}
-      </div>
-
       <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
         <input value={filter.q} onChange={e => setFilter(f => ({ ...f, q: e.target.value }))} placeholder="Suche: Name, Firma, Branche, Region..."
           style={{ flex: 1, minWidth: 200, padding: '0.5rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.85rem' }} />
@@ -59,39 +63,60 @@ export default function SuccessionFunnel() {
         </select>
       </div>
 
-      <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
-          <thead><tr style={{ background: C.bg }}>
-            {['Name', 'Interesse', 'Branchenfokus', 'Region', 'Umsatz', 'Profil', 'Funnel-Status'].map(h => <th key={h} style={{ padding: '0.7rem 1rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.72rem' }}>{h.toUpperCase()}</th>)}
-          </tr></thead>
-          <tbody>
-            {(data.list || []).length === 0 && <tr><td colSpan={7} style={{ padding: '2.5rem', textAlign: 'center', color: C.muted }}>Keine Nachfolge-Interessierten gefunden.</td></tr>}
-            {(data.list || []).map(u => (
-              <tr key={u.id} style={{ borderBottom: `1px solid ${C.border}` }}>
-                <td style={{ padding: '0.7rem 1rem', fontWeight: 600, color: C.text }}>{[u.first_name, u.last_name].filter(Boolean).join(' ')}<div style={{ fontSize: '0.72rem', color: C.muted, fontWeight: 400 }}>{u.email}{u.company ? ' · ' + u.company : ''}</div></td>
-                <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{u.succession_type === 'mit_beteiligung' ? 'Mit Beteiligung' : u.succession_type === 'ohne_beteiligung' ? 'Ohne Beteiligung' : 'k. A.'}</td>
-                <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{(u.branchenfokus || []).slice(0, 2).join(', ') || 'k. A.'}</td>
-                <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{[...(u.ziel_laender || []), ...(u.ziel_regionen || [])].slice(0, 2).join(', ') || 'k. A.'}</td>
-                <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{u.umsatz_band || 'k. A.'}</td>
-                <td style={{ padding: '0.7rem 1rem' }}>{u.has_profile ? <span style={{ color: '#166534', fontWeight: 600, fontSize: '0.75rem' }}>gepflegt</span> : <span style={{ color: '#92400e', fontWeight: 600, fontSize: '0.75rem' }}>offen</span>}</td>
-                <td style={{ padding: '0.7rem 1rem' }}>
-                  <select value={u.succession_stage || 'neu'} onChange={e => setStage(u.id, e.target.value)}
-                    style={{ padding: '0.3rem 0.5rem', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: '0.78rem', fontWeight: 600, color: STAGE_COLOR[u.succession_stage || 'neu'], background: '#fff' }}>
-                    {stages.map(st => <option key={st} value={st}>{STAGE_LABEL[st] || st}</option>)}
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div style={{ display: 'flex', gap: '0.75rem', overflowX: 'auto', paddingBottom: '0.75rem', alignItems: 'flex-start' }}>
+        {stages.map(st => {
+          const cards = byStage(st);
+          return (
+            <div key={st}
+              onDragOver={(e) => { e.preventDefault(); setOver(st); }}
+              onDragLeave={() => setOver(o => (o === st ? null : o))}
+              onDrop={() => { if (drag != null) moveTo(drag, st); setDrag(null); setOver(null); }}
+              style={{ flex: '0 0 260px', width: 260, background: over === st ? '#EDF4FA' : C.bg, border: `1.5px solid ${over === st ? STAGE_COLOR[st] : C.border}`, borderRadius: 10, padding: '0.7rem', minHeight: 140 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.82rem', color: STAGE_COLOR[st] }}>{STAGE_LABEL[st] || st}</span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fff', background: STAGE_COLOR[st], borderRadius: 20, padding: '0.05rem 0.5rem' }}>{cards.length}</span>
+              </div>
+
+              {cards.length === 0 && <div style={{ fontSize: '0.74rem', color: C.muted, textAlign: 'center', padding: '0.8rem 0' }}>Hierher ziehen</div>}
+
+              <div style={{ display: 'grid', gap: '0.5rem' }}>
+                {cards.map(u => (
+                  <div key={u.id} draggable onDragStart={() => setDrag(u.id)} onDragEnd={() => { setDrag(null); setOver(null); }}
+                    style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem 0.7rem', cursor: 'grab', boxShadow: drag === u.id ? '0 4px 12px rgba(13,27,54,0.15)' : 'none' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.83rem', color: C.text }}>{[u.first_name, u.last_name].filter(Boolean).join(' ')}</div>
+                    <div style={{ fontSize: '0.72rem', color: C.muted, margin: '2px 0' }}>{u.email}{u.company ? ' · ' + u.company : ''}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#555' }}>
+                      {[u.succession_type === 'mit_beteiligung' ? 'Mit Beteiligung' : u.succession_type === 'ohne_beteiligung' ? 'Ohne Beteiligung' : null,
+                        (u.branchenfokus || [])[0], [...(u.ziel_laender || []), ...(u.ziel_regionen || [])][0], u.umsatz_band ? u.umsatz_band + ' Mio.' : null]
+                        .filter(Boolean).join(' · ')}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: 5 }}>
+                      <span style={{ fontSize: '0.66rem', fontWeight: 600, color: u.has_profile ? '#166534' : '#92400e', background: u.has_profile ? '#d1fae5' : '#fef3c7', borderRadius: 20, padding: '0.05rem 0.45rem' }}>{u.has_profile ? 'Profil gepflegt' : 'Profil offen'}</span>
+                      <button onClick={() => { setNoteEdit(u.id); setNoteText(u.succession_note || ''); }} title="Notiz" style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: u.succession_note ? C.accent : C.muted, display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: '0.7rem' }}>
+                        <StickyNote size={13} />{u.succession_note ? 'Notiz' : ''}
+                      </button>
+                    </div>
+
+                    {noteEdit === u.id ? (
+                      <div style={{ marginTop: 6 }}>
+                        <textarea value={noteText} onChange={e => setNoteText(e.target.value)} rows={3} autoFocus
+                          style={{ width: '100%', boxSizing: 'border-box', fontSize: '0.75rem', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.4rem', resize: 'vertical' }} />
+                        <div style={{ display: 'flex', gap: '0.4rem', marginTop: 4 }}>
+                          <button onClick={() => saveNote(u.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: C.navy, color: '#fff', border: 'none', borderRadius: 5, padding: '0.25rem 0.6rem', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}><Check size={12} /> Speichern</button>
+                          <button onClick={() => setNoteEdit(null)} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: '#fff', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 5, padding: '0.25rem 0.6rem', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}><X size={12} /> Abbrechen</button>
+                        </div>
+                      </div>
+                    ) : u.succession_note ? (
+                      <div style={{ marginTop: 6, fontSize: '0.72rem', color: '#475569', background: C.bg, borderRadius: 6, padding: '0.35rem 0.5rem', whiteSpace: 'pre-wrap' }}>{u.succession_note}</div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
+      <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: '0.4rem' }}>Karten per Ziehen zwischen den Stufen verschieben. Die Notiz ist nur intern sichtbar.</div>
     </div>
   );
 }
-
-const chip = (active, color) => ({
-  padding: '0.4rem 0.75rem', borderRadius: 20, cursor: 'pointer', fontSize: '0.8rem',
-  border: `1.5px solid ${active ? (color || '#0D1B36') : '#DDE8F3'}`,
-  background: active ? (color || '#0D1B36') : '#fff', color: active ? '#fff' : (color || '#0D1B36'), fontWeight: 600,
-});
-const sel = { padding: '0.5rem', border: '1px solid #DDE8F3', borderRadius: 6, fontSize: '0.82rem', background: '#fff' };

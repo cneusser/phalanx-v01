@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.332 · 21.07.2026 · Nachfolge-Funnel als Kanban-Board
+- **Echtes Kanban**: Der Nachfolge-Funnel im CRM hat jetzt eine Spalte je Stufe. Kandidaten werden per Ziehen zwischen den Stufen verschoben, die Anzahl je Spalte ist immer sichtbar
+- **Notiz je Kandidat**: direkt auf der Karte pflegbar, nur intern für das Team sichtbar
+- **Filter bleiben**: Suche und Filter nach Umsatz und Szenario stehen weiter über dem Board
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.331 · 21.07.2026 · Nachfolge im CRM mit eigenem Funnel
 - **CRM-Reiter „Nachfolge"**: alle Nachfolge-Interessierten an einem Ort im CRM, mit Suche und Filtern (Umsatz, Szenario)
 - **Kandidaten-Funnel**: eigener Status je Person (neu, Profil vollständig, Mandat vorgestellt, im Gespräch, vermittelt, kein Match), direkt in der Liste setzbar
