@@ -377,7 +377,7 @@ export default function Projects() {
 
       {/* Main layout */}
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2rem 1.5rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '2rem', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: '2rem', alignItems: 'start' }}>
 
           {/* Sidebar */}
           <aside style={{

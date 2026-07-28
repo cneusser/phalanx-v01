@@ -54,7 +54,8 @@ router.get('/interested', authenticate, isStaff, wrap(async (req, res) => {
            u.succession_stage, u.succession_note, u.created_at, u.is_approved, u.is_active,
            sp.plz_ort, sp.branchenfokus, sp.branchenerfahrung, sp.ziel_laender, sp.ziel_regionen,
            sp.umsatz_band, sp.mbi_szenario, sp.eigenkapital, sp.verfuegbarkeit, sp.fuehrungserfahrung,
-           sp.updated_at AS profile_updated_at
+           sp.updated_at AS profile_updated_at,
+           (SELECT COUNT(*) FROM succession_links sl WHERE sl.user_id = u.id)::int AS link_count
     FROM users u
     LEFT JOIN succession_profiles sp ON sp.user_id = u.id
     WHERE u.role = 'buyer' AND u.buyer_type = 'successor'
@@ -135,6 +136,70 @@ router.put('/profile', authenticate, wrap(async (req, res) => {
   db.auditLog(req.user.id, 'SUCCESSION_PROFILE_SAVED', 'user', req.user.id, null, req.ip);
   const row = await db.get('SELECT * FROM succession_profiles WHERE user_id = ?', [req.user.id]);
   res.json({ success: true, data: parseRow(row) });
+}));
+
+// ── Kandidat-zu-Mandat-Verknüpfung (Mini-Funnel je Zuordnung) ───────────────
+const LINK_STATUS = ['vorgeschlagen', 'vorgestellt', 'interesse', 'gespraech', 'abgesagt', 'vermittelt'];
+
+// Auswahlliste: aktive Nachfolge-Mandate (für den Zuordnungs-Picker)
+router.get('/mandates', authenticate, isStaff, wrap(async (req, res) => {
+  const ph = SUCCESSION_DEAL_TYPES.map(() => '?').join(', ');
+  const rows = await db.all(
+    `SELECT id, codename, industry, region, revenue_band, deal_type
+       FROM projects WHERE status = 'active' AND deal_type IN (${ph}) ORDER BY codename`, SUCCESSION_DEAL_TYPES);
+  res.json({ success: true, data: rows });
+}));
+
+// Verknüpfungen eines Kandidaten
+router.get('/interested/:userId/links', authenticate, isStaff, wrap(async (req, res) => {
+  const rows = await db.all(`
+    SELECT sl.id, sl.project_id, sl.status, sl.note, sl.created_at, sl.updated_at,
+           p.codename, p.industry, p.region
+    FROM succession_links sl JOIN projects p ON p.id = sl.project_id
+    WHERE sl.user_id = ? ORDER BY sl.created_at DESC`, [req.params.userId]);
+  res.json({ success: true, data: { links: rows, statuses: LINK_STATUS } });
+}));
+
+// Kandidat einem Mandat zuordnen
+router.post('/interested/:userId/links', authenticate, isStaff, wrap(async (req, res) => {
+  const projectId = Number(req.body.project_id);
+  if (!projectId) return res.status(400).json({ success: false, error: 'project_id fehlt' });
+  const u = await db.get(`SELECT id FROM users WHERE id = ? AND role = 'buyer' AND buyer_type = 'successor'`, [req.params.userId]);
+  if (!u) return res.status(404).json({ success: false, error: 'Nachfolge-Interessent nicht gefunden' });
+  const proj = await db.get('SELECT id FROM projects WHERE id = ?', [projectId]);
+  if (!proj) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  const dup = await db.get('SELECT id FROM succession_links WHERE user_id = ? AND project_id = ?', [req.params.userId, projectId]);
+  if (dup) return res.status(409).json({ success: false, error: 'Dieser Kandidat ist dem Mandat bereits zugeordnet.' });
+  const id = await db.insert(
+    `INSERT INTO succession_links (tenant_id, user_id, project_id, status, created_by) VALUES (?, ?, ?, 'vorgeschlagen', ?)`,
+    [req.tenantId || 1, req.params.userId, projectId, req.user.id]);
+  db.auditLog(req.user.id, 'SUCCESSION_LINK_ADD', 'project', projectId, `Kandidat ${req.params.userId}`, req.ip);
+  res.status(201).json({ success: true, data: { id } });
+}));
+
+// Verknüpfung ändern (Status/Notiz)
+router.put('/links/:linkId', authenticate, isStaff, wrap(async (req, res) => {
+  const link = await db.get('SELECT id FROM succession_links WHERE id = ?', [req.params.linkId]);
+  if (!link) return res.status(404).json({ success: false, error: 'Verknüpfung nicht gefunden' });
+  const sets = [], params = [];
+  if (req.body.status !== undefined) {
+    if (!LINK_STATUS.includes(req.body.status)) return res.status(400).json({ success: false, error: 'Ungültiger Status' });
+    sets.push('status = ?'); params.push(req.body.status);
+  }
+  if (req.body.note !== undefined) { sets.push('note = ?'); params.push(req.body.note == null ? null : String(req.body.note).slice(0, 4000)); }
+  if (!sets.length) return res.json({ success: true, data: { message: 'Nichts zu ändern' } });
+  sets.push('updated_at = now()');
+  params.push(req.params.linkId);
+  await db.run(`UPDATE succession_links SET ${sets.join(', ')} WHERE id = ?`, params);
+  db.auditLog(req.user.id, 'SUCCESSION_LINK_UPDATE', 'succession_link', req.params.linkId, req.body.status || null, req.ip);
+  res.json({ success: true, data: { message: 'Gespeichert' } });
+}));
+
+// Verknüpfung entfernen
+router.delete('/links/:linkId', authenticate, isStaff, wrap(async (req, res) => {
+  await db.run('DELETE FROM succession_links WHERE id = ?', [req.params.linkId]);
+  db.auditLog(req.user.id, 'SUCCESSION_LINK_DELETE', 'succession_link', req.params.linkId, null, req.ip);
+  res.json({ success: true, data: { message: 'Entfernt' } });
 }));
 
 // ── Übergeber-Seite: passende Nachfolge-Kandidaten je Mandat ────────────────

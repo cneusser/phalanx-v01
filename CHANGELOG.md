@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.333 · 21.07.2026 · Kandidat zu Mandat verknüpfen, Marktplatz-Layout
+- **Kandidat-zu-Mandat-Verknüpfung**: Im Nachfolge-Funnel lässt sich je Kandidat festhalten, welchem Mandat (Übergeber) er zugeordnet ist, mit eigenem Status je Zuordnung (vorgeschlagen, vorgestellt, Übergeber interessiert, im Gespräch, abgesagt, vermittelt) und eigener Notiz. Die Karte zeigt die Anzahl der Zuordnungen, ein Klick öffnet die Verwaltung
+- **Marktplatz-Layout**: In der Listen- und Tabellenansicht sprengte die breite Tabelle bei schmaler Spalte das Layout. Behoben über eine schrumpffähige Spalte, die Tabelle scrollt jetzt sauber innerhalb ihres Bereichs
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.332 · 21.07.2026 · Nachfolge-Funnel als Kanban-Board
 - **Echtes Kanban**: Der Nachfolge-Funnel im CRM hat jetzt eine Spalte je Stufe. Kandidaten werden per Ziehen zwischen den Stufen verschoben, die Anzahl je Spalte ist immer sichtbar
 - **Notiz je Kandidat**: direkt auf der Karte pflegbar, nur intern für das Team sichtbar

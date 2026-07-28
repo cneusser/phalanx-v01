@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
-import { StickyNote, Check, X } from 'lucide-react';
+import { StickyNote, Check, X, Link2 } from 'lucide-react';
+import SuccessionLinksModal from './SuccessionLinksModal';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const STAGE_LABEL = {
@@ -24,6 +25,7 @@ export default function SuccessionFunnel() {
   const [over, setOver] = useState(null);
   const [noteEdit, setNoteEdit] = useState(null);
   const [noteText, setNoteText] = useState('');
+  const [linksFor, setLinksFor] = useState(null);
 
   const load = useCallback(() => {
     const p = new URLSearchParams();
@@ -92,7 +94,10 @@ export default function SuccessionFunnel() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: 5 }}>
                       <span style={{ fontSize: '0.66rem', fontWeight: 600, color: u.has_profile ? '#166534' : '#92400e', background: u.has_profile ? '#d1fae5' : '#fef3c7', borderRadius: 20, padding: '0.05rem 0.45rem' }}>{u.has_profile ? 'Profil gepflegt' : 'Profil offen'}</span>
-                      <button onClick={() => { setNoteEdit(u.id); setNoteText(u.succession_note || ''); }} title="Notiz" style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: u.succession_note ? C.accent : C.muted, display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: '0.7rem' }}>
+                      <button onClick={() => setLinksFor(u)} title="Mandats-Zuordnungen" style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: u.link_count > 0 ? C.accent : C.muted, display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: '0.7rem', fontWeight: 600 }}>
+                        <Link2 size={13} /> Mandate{u.link_count > 0 ? ` (${u.link_count})` : ''}
+                      </button>
+                      <button onClick={() => { setNoteEdit(u.id); setNoteText(u.succession_note || ''); }} title="Notiz" style={{ background: 'none', border: 'none', cursor: 'pointer', color: u.succession_note ? C.accent : C.muted, display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: '0.7rem' }}>
                         <StickyNote size={13} />{u.succession_note ? 'Notiz' : ''}
                       </button>
                     </div>
@@ -116,7 +121,9 @@ export default function SuccessionFunnel() {
           );
         })}
       </div>
-      <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: '0.4rem' }}>Karten per Ziehen zwischen den Stufen verschieben. Die Notiz ist nur intern sichtbar.</div>
+      <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: '0.4rem' }}>Karten per Ziehen zwischen den Stufen verschieben. Notiz und Mandats-Zuordnungen sind nur intern sichtbar.</div>
+
+      {linksFor && <SuccessionLinksModal candidate={linksFor} onClose={() => setLinksFor(null)} onChanged={load} />}
     </div>
   );
 }
