@@ -45,11 +45,13 @@ function isStaff(req, res, next) {
   return res.status(403).json({ success: false, error: 'Nur für das Team.' });
 }
 
+const SUCCESSION_STAGES = ['neu', 'profil', 'vorgestellt', 'gespraech', 'vermittelt', 'kein_match'];
+
 router.get('/interested', authenticate, isStaff, wrap(async (req, res) => {
-  const { umsatz, szenario, q } = req.query;
+  const { umsatz, szenario, q, stage } = req.query;
   const rows = await db.all(`
-    SELECT u.id, u.salutation, u.title, u.first_name, u.last_name, u.email, u.company, u.succession_type, u.created_at,
-           u.is_approved, u.is_active,
+    SELECT u.id, u.salutation, u.title, u.first_name, u.last_name, u.email, u.company, u.succession_type,
+           u.succession_stage, u.created_at, u.is_approved, u.is_active,
            sp.plz_ort, sp.branchenfokus, sp.branchenerfahrung, sp.ziel_laender, sp.ziel_regionen,
            sp.umsatz_band, sp.mbi_szenario, sp.eigenkapital, sp.verfuegbarkeit, sp.fuehrungserfahrung,
            sp.updated_at AS profile_updated_at
@@ -59,6 +61,7 @@ router.get('/interested', authenticate, isStaff, wrap(async (req, res) => {
     ORDER BY u.created_at DESC`);
   let list = rows.map(r => ({
     ...r,
+    succession_stage: r.succession_stage || 'neu',
     branchenfokus: JSON.parse(r.branchenfokus || '[]'),
     ziel_laender: JSON.parse(r.ziel_laender || '[]'),
     ziel_regionen: JSON.parse(r.ziel_regionen || '[]'),
@@ -66,13 +69,28 @@ router.get('/interested', authenticate, isStaff, wrap(async (req, res) => {
   }));
   if (umsatz) list = list.filter(r => r.umsatz_band === umsatz);
   if (szenario) list = list.filter(r => r.mbi_szenario === szenario);
+  if (stage) list = list.filter(r => r.succession_stage === stage);
   if (q) {
     const s = String(q).toLowerCase();
     list = list.filter(r =>
       [r.first_name, r.last_name, r.email, r.company, r.plz_ort, r.branchenerfahrung, ...(r.branchenfokus || []), ...(r.ziel_regionen || [])]
         .filter(Boolean).some(v => String(v).toLowerCase().includes(s)));
   }
-  res.json({ success: true, data: list });
+  // Trichter-Überblick: Anzahl je Stufe (immer über die Gesamtmenge, ohne Stufenfilter)
+  const overview = {};
+  for (const st of SUCCESSION_STAGES) overview[st] = 0;
+  for (const r of rows) overview[(r.succession_stage || 'neu')] = (overview[(r.succession_stage || 'neu')] || 0) + 1;
+  res.json({ success: true, data: { list, overview, stages: SUCCESSION_STAGES } });
+}));
+
+// Funnel-Status eines Nachfolge-Interessenten setzen (Team)
+router.put('/interested/:userId/stage', authenticate, isStaff, wrap(async (req, res) => {
+  if (!SUCCESSION_STAGES.includes(req.body.stage)) return res.status(400).json({ success: false, error: 'Ungültige Stufe' });
+  const u = await db.get(`SELECT id FROM users WHERE id = ? AND role = 'buyer' AND buyer_type = 'successor'`, [req.params.userId]);
+  if (!u) return res.status(404).json({ success: false, error: 'Nachfolge-Interessent nicht gefunden' });
+  await db.run('UPDATE users SET succession_stage = ? WHERE id = ?', [req.body.stage, req.params.userId]);
+  db.auditLog(req.user.id, 'SUCCESSION_STAGE_SET', 'user', req.params.userId, req.body.stage, req.ip);
+  res.json({ success: true, data: { stage: req.body.stage } });
 }));
 
 // Eigenes Nachfolge-Profil lesen

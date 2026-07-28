@@ -489,7 +489,7 @@ export default function Admin() {
       if (succFilter.szenario) p.set('szenario', succFilter.szenario);
       if (succFilter.q) p.set('q', succFilter.q);
       const qs = p.toString();
-      api.get('/succession/interested' + (qs ? '?' + qs : '')).then(setSuccList).catch(() => setSuccList([]));
+      api.get('/succession/interested' + (qs ? '?' + qs : '')).then(d => setSuccList(d.list || [])).catch(() => setSuccList([]));
     }
   }, [activeTab]);
 
@@ -510,7 +510,7 @@ export default function Admin() {
       if (succFilter.szenario) p.set('szenario', succFilter.szenario);
       if (succFilter.q) p.set('q', succFilter.q);
       const qs = p.toString();
-      api.get('/succession/interested' + (qs ? '?' + qs : '')).then(setSuccList).catch(() => setSuccList([]));
+      api.get('/succession/interested' + (qs ? '?' + qs : '')).then(d => setSuccList(d.list || [])).catch(() => setSuccList([]));
     }, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -8,6 +8,7 @@ import DealFunnelBoard from '../components/DealFunnelBoard';
 import ContactDrawer from '../components/ContactDrawer';
 import ImportListModal from '../components/ImportListModal';
 import InviteContactsModal from '../components/InviteContactsModal';
+import SuccessionFunnel from '../components/SuccessionFunnel';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.55rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
@@ -223,7 +224,7 @@ export default function Crm() {
           <button onClick={() => exportCsv(tab === 'contacts' ? 'contacts' : 'companies')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
             <Download size={14} /> Export
           </button>
-          {tab !== 'funnel' && (
+          {tab !== 'funnel' && tab !== 'nachfolge' && (
             <button onClick={() => (tab === 'companies' ? setEditCompany({}) : setEditContact({}))} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
               <Plus size={14} /> {tab === 'companies' ? 'Unternehmen' : 'Kontakt'}
             </button>
@@ -256,7 +257,7 @@ export default function Crm() {
       {/* Tabs + Suche */}
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
         <div style={{ display: 'flex', gap: '0.15rem', borderBottom: `1px solid ${C.border}`, flex: 1, minWidth: 240 }}>
-          {[['companies', 'Unternehmen', Building2], ['contacts', 'Kontakte', Users], ['funnel', 'Deal-Funnel', KanbanSquare]].map(([key, label, Icon]) => (
+          {[['companies', 'Unternehmen', Building2], ['contacts', 'Kontakte', Users], ['funnel', 'Deal-Funnel', KanbanSquare], ['nachfolge', 'Nachfolge', Users]].map(([key, label, Icon]) => (
             <button key={key} onClick={() => { setTab(key); setDetail(null); }} style={{
               display: 'inline-flex', alignItems: 'center', gap: 5, padding: '0.6rem 1.1rem', border: 'none', background: 'transparent',
               cursor: 'pointer', fontSize: '0.875rem', fontWeight: tab === key ? 700 : 400,
@@ -433,6 +434,7 @@ export default function Crm() {
 
       {/* Sprint 20: Sell-Side-Funnel je Mandat (Longlist → Closing) */}
       {tab === 'funnel' && <DealFunnelBoard show={show} />}
+      {tab === 'nachfolge' && <SuccessionFunnel />}
 
       {detail && (
         <CompanyDetail
