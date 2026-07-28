@@ -45,10 +45,18 @@ function scoreMatch(profile, p) {
 
   const regionen = [...(profile.ziel_regionen || []), ...(profile.ziel_laender || [])];
   const reg = String(p.region || '').toLowerCase();
-  if (regionen.length && reg && regionen.some(r => {
+  const laender = (profile.ziel_laender || []).map(x => String(x).toLowerCase());
+  // Land des Mandats grob ableiten (deutsche Bundesländer und bundesweit gelten als DE).
+  const DE_REGIONS = ['baden-württemberg', 'bayern', 'berlin', 'brandenburg', 'bremen', 'hamburg', 'hessen',
+    'mecklenburg-vorpommern', 'niedersachsen', 'nordrhein-westfalen', 'rheinland-pfalz', 'saarland',
+    'sachsen', 'sachsen-anhalt', 'schleswig-holstein', 'thüringen', 'deutschland', 'bundesweit'];
+  const regCountry = /österreich/.test(reg) ? 'österreich' : /schweiz/.test(reg) ? 'schweiz'
+    : (DE_REGIONS.some(d => reg.includes(d)) || /dach/.test(reg)) ? 'deutschland' : null;
+  const regionMatch = (regionen.length && reg && regionen.some(r => {
     const x = String(r).toLowerCase();
     return reg.includes(x) || x.includes(reg);
-  })) { score += 28; reasons.push('Region passt'); }
+  })) || (regCountry && laender.includes(regCountry)) || (/dach/.test(reg) && laender.length > 0);
+  if (regionMatch) { score += 28; reasons.push('Region passt'); }
 
   if (profile.umsatz_band && UMSATZ_RANGE[profile.umsatz_band]) {
     const rv = revenueMio(p.revenue_band);

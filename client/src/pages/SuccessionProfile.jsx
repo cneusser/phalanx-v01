@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Save, CheckCircle, UserCog, Target, ArrowRight } from 'lucide-react';
+import { NACE_INDUSTRIES, BUNDESLAENDER } from '../constants/projectOptions';
 
 const C = { navy: '#1A4D8A', accent: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
@@ -10,13 +11,8 @@ const LABEL = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C
 
 const SPECIALS = ['Seed / Start-up', 'Spin-off', 'Growth / Internationalisierung', 'Buy-out / Buy-in', 'Turnaround', 'IPO'];
 const LAENDER = ['Deutschland', 'Österreich', 'Schweiz'];
-const BRANCHEN = [
-  'Verarbeitendes Gewerbe', 'Maschinenbau', 'Automobilzulieferer', 'Elektro / Elektronik',
-  'Bau und Baustoffe', 'Handel und E-Commerce', 'Konsumgüter', 'Nahrungs- und Genussmittel',
-  'Chemie und Pharma', 'Kunststoff und Verpackung', 'IT und Software', 'Dienstleistungen',
-  'Logistik und Verkehr', 'Gesundheit und Pflege', 'Energie und Umwelt', 'Immobilien',
-  'Handwerk', 'Medien und Kommunikation',
-];
+// Nur die Bundesländer (die Länder-/DACH-Einträge stehen bereits bei „Zielländer")
+const REGIONEN = BUNDESLAENDER.filter(r => !['Deutschland (bundesweit)', 'Österreich', 'Schweiz', 'DACH'].includes(r));
 const UMSATZ = [['<1', 'unter 1 Mio.'], ['1-3', '1 bis 3 Mio.'], ['3-10', '3 bis 10 Mio.'], ['10-30', '10 bis 30 Mio.'], ['>30', 'über 30 Mio.']];
 const MBI = [['reine_beteiligung', 'Reine Beteiligung'], ['partnerschaft', 'Strategische Partnerschaft'], ['operative_fuehrung', 'Übernahme der operativen Führung'], ['andere', 'Andere']];
 
@@ -34,6 +30,28 @@ function CheckGroup({ options, value, onChange }) {
   );
 }
 
+// Gruppierte Mehrfachauswahl (für die NACE-Branchen). Mehrere Branchen wählbar.
+function GroupedCheck({ groups, value, onChange }) {
+  const list = value || [];
+  const toggle = (o) => onChange(list.includes(o) ? list.filter(x => x !== o) : [...list, o]);
+  return (
+    <div style={{ maxHeight: 260, overflowY: 'auto', border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem 0.8rem', background: '#fff' }}>
+      {groups.map(g => (
+        <div key={g.group} style={{ marginBottom: '0.6rem' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.03em', margin: '0.2rem 0 0.3rem' }}>{g.group}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '0.15rem' }}>
+            {g.options.map(o => (
+              <label key={o} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.82rem', color: C.text, cursor: 'pointer', padding: '0.15rem 0' }}>
+                <input type="checkbox" checked={list.includes(o)} onChange={() => toggle(o)} /> {o}
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const Section = ({ title, children }) => (
   <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.4rem', marginBottom: '1.1rem' }}>
     <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: C.navy, margin: '0 0 1rem' }}>{title}</h3>
@@ -45,7 +63,7 @@ export default function SuccessionProfile() {
   const { user } = useAuth();
   const [f, setF] = useState({
     plz_ort: '', branchenerfahrung: '', funktionale_erfahrung: '', fuehrungserfahrung: '', budgetverantwortung: '',
-    special_situations: [], ziel_laender: [], ziel_regionen: '', branchenfokus: [],
+    special_situations: [], ziel_laender: [], ziel_regionen: [], branchenfokus: [],
     umsatz_band: '', mbi_szenario: '', eigenkapital: '', verfuegbarkeit: '', bemerkungen: '',
   });
   const [loading, setLoading] = useState(true);
@@ -57,7 +75,7 @@ export default function SuccessionProfile() {
 
   useEffect(() => {
     api.get('/succession/profile').then(d => {
-      if (d) setF(prev => ({ ...prev, ...d, ziel_regionen: (d.ziel_regionen || []).join(', ') }));
+      if (d) setF(prev => ({ ...prev, ...d }));
     }).catch(() => {}).finally(() => setLoading(false));
     loadMatches();
   }, []);
@@ -67,7 +85,7 @@ export default function SuccessionProfile() {
 
   async function save() {
     setSaving(true); setMsg('');
-    const payload = { ...f, ziel_regionen: String(f.ziel_regionen || '').split(',').map(x => x.trim()).filter(Boolean) };
+    const payload = { ...f };
     try {
       await api.put('/succession/profile', payload);
       setMsg('Gespeichert. Danke, Ihr Nachfolge-Profil ist aktualisiert.');
@@ -148,8 +166,8 @@ export default function SuccessionProfile() {
           <div style={{ marginBottom: '0.9rem' }}><label style={LABEL}>Zielländer</label>
             <CheckGroup options={LAENDER} value={f.ziel_laender} onChange={setArr('ziel_laender')} />
           </div>
-          <div style={{ marginBottom: '0.9rem' }}><label style={LABEL}>Regionen / Bundesländer</label>
-            <input value={f.ziel_regionen} onChange={set('ziel_regionen')} placeholder="z. B. Bayern, Baden-Württemberg (kommagetrennt), leer = bundesweit" style={INPUT} />
+          <div style={{ marginBottom: '0.9rem' }}><label style={LABEL}>Regionen / Bundesländer (mehrere möglich, leer = bundesweit)</label>
+            <CheckGroup options={REGIONEN} value={f.ziel_regionen} onChange={setArr('ziel_regionen')} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '0.9rem' }}>
             <div><label style={LABEL}>Umsatzgröße</label>
@@ -165,8 +183,8 @@ export default function SuccessionProfile() {
               </select>
             </div>
           </div>
-          <div><label style={LABEL}>Branchenfokus</label>
-            <CheckGroup options={BRANCHEN} value={f.branchenfokus} onChange={setArr('branchenfokus')} />
+          <div><label style={LABEL}>Branchenfokus (mehrere möglich)</label>
+            <GroupedCheck groups={NACE_INDUSTRIES} value={f.branchenfokus} onChange={setArr('branchenfokus')} />
           </div>
         </Section>
 

@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.327 · 21.07.2026 · Gemeinsame Branchenliste, schärferes Matching
+- **Eine Branchenliste für alle**: Das Nachfolge-Profil nutzt jetzt dieselbe NACE-Branchenliste wie die Mandate. Mehrere Branchen sind auswählbar, gruppiert und übersichtlich in einer scrollbaren Auswahl
+- **Regionen vereinheitlicht**: Die Zielregionen laufen über die gemeinsame Bundesländer-Liste, ebenfalls mehrfach wählbar, statt Freitext
+- **Genauere Vorschläge**: Branche und Region werden gegen dieselbe Systematik abgeglichen, dadurch treffen die Nachfolge-Vorschläge schärfer
+- **Bessere Region-Logik**: Wer als Zielland Deutschland wählt, bekommt auch deutsche Mandate ohne konkretes Bundesland als Treffer
+- Hinweis: Ältere Mandate mit frei getippter Branche matchen erst dann exakt, wenn ihre Branche einmal aus der NACE-Liste neu gewählt wurde
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.326 · 21.07.2026 · Nachfolge-Matching und Interessenten-Liste
 - **Passende Mandate**: Nachfolge-Interessierte sehen auf ihrer Profilseite die am besten passenden Nachfolge-Mandate mit einem Richtwert in Prozent (Branche, Region, Umsatz) und einer kurzen Begründung, mit direktem Link ins Mandat. Die Liste aktualisiert sich nach dem Speichern des Profils
 - **Admin-Reiter „Nachfolge"**: alle Nachfolge-Interessierten auf einen Blick, mit Interesse (mit/ohne Beteiligung), Branchenfokus, Region, Umsatz und Profilstatus. Filterbar nach Umsatzgröße, MBI-Szenario und Freitext, mit Sprung ins Nutzer-Detail
