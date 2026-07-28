@@ -25,6 +25,12 @@ class StubPaymentProvider {
     return { providerRef: `stub-dr-${crypto.randomUUID()}`, status: 'paid', amountCents };
   }
 
+  async chargeSuccessionUnlock(tenant, project) {
+    const amountCents = cents('BILLING_SUCCESSION_UNLOCK_CENTS', 29900);
+    console.log(`💳 [Billing-Stub] Nachfolge-Freischaltung für "${project.codename}" (Tenant ${tenant.slug}): ${(amountCents / 100).toFixed(2)} €`);
+    return { providerRef: `stub-succ-${crypto.randomUUID()}`, status: 'paid', amountCents };
+  }
+
   async status() { return 'paid'; }
 }
 

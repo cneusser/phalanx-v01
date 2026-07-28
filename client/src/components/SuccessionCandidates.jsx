@@ -18,6 +18,7 @@ export default function SuccessionCandidates({ projectId, isAdmin }) {
   const [data, setData] = useState(null);
   const [linksData, setLinksData] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [payErr, setPayErr] = useState('');
 
   const load = () => {
     api.get(`/succession/mandate/${projectId}/candidates`).then(setData).catch(() => setData(null));
@@ -31,6 +32,13 @@ export default function SuccessionCandidates({ projectId, isAdmin }) {
     catch { /* ignore */ }
     finally { setBusy(false); }
   }
+  async function purchase() {
+    setBusy(true); setPayErr('');
+    try { await api.post(`/succession/mandate/${projectId}/purchase-unlock`, {}); await load(); }
+    catch (e) { setPayErr(e.message); }
+    finally { setBusy(false); }
+  }
+  const euro = (c) => (c / 100).toLocaleString('de-DE', { minimumFractionDigits: 0 }) + ' €';
 
   if (!data || !data.is_succession) return null;
 
@@ -85,8 +93,20 @@ export default function SuccessionCandidates({ projectId, isAdmin }) {
       {data.count === 0 && <div style={{ fontSize: '0.85rem', color: C.muted }}>Aktuell keine passenden Kandidaten im Nachfolge-Netzwerk. Sobald jemand Passendes dazukommt, taucht er hier auf.</div>}
 
       {!data.unlocked && data.count > 0 && (
-        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '0.7rem 0.9rem', fontSize: '0.8rem', color: '#92400e', marginBottom: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Lock size={14} /> Die Namen und Kontaktdaten der Kandidaten sind noch nicht freigeschaltet. {isAdmin ? 'Als Team können Sie oben freischalten.' : 'Ihr Ansprechpartner bei Phalanx schaltet sie für Sie frei.'}
+        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '0.8rem 0.9rem', marginBottom: '0.9rem' }}>
+          <div style={{ fontSize: '0.8rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Lock size={14} /> Die Namen und Kontaktdaten der Kandidaten sind noch nicht freigeschaltet.
+          </div>
+          {payErr && <div style={{ color: '#991b1b', fontSize: '0.78rem', marginTop: '0.5rem' }}>{payErr}</div>}
+          {!isAdmin && data.billing_enabled && (
+            <button onClick={purchase} disabled={busy} style={{ marginTop: '0.6rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: '#166534', color: '#fff', border: 'none', borderRadius: 6, padding: '0.5rem 1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.7 : 1 }}>
+              <Unlock size={14} /> {busy ? 'Wird freigeschaltet...' : `Kandidaten freischalten für ${euro(data.price_cents || 0)}`}
+            </button>
+          )}
+          {!isAdmin && !data.billing_enabled && (
+            <div style={{ fontSize: '0.78rem', color: '#92400e', marginTop: '0.4rem' }}>Ihr Ansprechpartner bei Phalanx schaltet die Kandidaten für Sie frei.</div>
+          )}
+          {isAdmin && <div style={{ fontSize: '0.78rem', color: '#92400e', marginTop: '0.4rem' }}>Als Team können Sie oben ohne Zahlung freischalten.</div>}
         </div>
       )}
 

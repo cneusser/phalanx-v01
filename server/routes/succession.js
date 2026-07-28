@@ -208,9 +208,19 @@ router.delete('/links/:linkId', authenticate, isStaff, wrap(async (req, res) => 
 // nur Anzahl und anonyme Vorschau (Score, Branche, Region), keine Namen.
 const access = require('../utils/projectAccess');
 
+function successionPriceCents() { return parseInt(process.env.BILLING_SUCCESSION_UNLOCK_CENTS || '29900', 10); }
+
+// Ist die Bezahlung für dieses Mandat aktiv (global UND für den Mandanten)?
+async function billingActive(tenantId) {
+  const { billingGloballyEnabled } = require('../providers/payment');
+  if (!billingGloballyEnabled()) return false;
+  const t = await db.get('SELECT billing_enabled FROM tenants WHERE id = ?', [tenantId]).catch(() => null);
+  return !!(t && t.billing_enabled === 1);
+}
+
 router.get('/mandate/:projectId/candidates', authenticate, wrap(async (req, res) => {
   const projectId = req.params.projectId;
-  const p = await db.get('SELECT id, codename, industry, region, revenue_band, revenue_class, deal_type, succession_unlocked FROM projects WHERE id = ?', [projectId]);
+  const p = await db.get('SELECT id, codename, industry, region, revenue_band, revenue_class, deal_type, succession_unlocked, tenant_id FROM projects WHERE id = ?', [projectId]);
   if (!p) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
   const mayManage = await access.canManage((sql, pr) => db.get(sql, pr), req.user, projectId);
   if (!mayManage) return res.status(403).json({ success: false, error: 'Nur für Pfleger dieses Mandats.' });
@@ -256,7 +266,8 @@ router.get('/mandate/:projectId/candidates', authenticate, wrap(async (req, res)
     }
     return { ...base, unlocked: false, label: `Kandidat ${i + 1}` };
   });
-  res.json({ success: true, data: { is_succession: true, unlocked, count: candidates.length, codename: p.codename, candidates } });
+  const billing_enabled = await billingActive(p.tenant_id);
+  res.json({ success: true, data: { is_succession: true, unlocked, count: candidates.length, codename: p.codename, candidates, billing_enabled, price_cents: successionPriceCents() } });
 }));
 
 // Zugeordnete Kandidaten je Mandat (aus succession_links), für die Übergeber-Sicht.
@@ -296,7 +307,37 @@ router.get('/mandate/:projectId/links', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { unlocked, count: links.length, links } });
 }));
 
-// Freischaltung setzen/aufheben (Team). Steht später für die Bezahlstufe.
+// Freischaltung kaufen (Übergeber/Pfleger). Zahlt über das Payment-Interface und
+// schaltet danach die Kandidaten-Kontaktdaten frei. Idempotent, doppelbuchungssicher.
+router.post('/mandate/:projectId/purchase-unlock', authenticate, wrap(async (req, res) => {
+  const projectId = req.params.projectId;
+  const project = await db.get('SELECT id, codename, tenant_id, succession_unlocked FROM projects WHERE id = ?', [projectId]);
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  const mayManage = await access.canManage((sql, pr) => db.get(sql, pr), req.user, projectId);
+  if (!mayManage) return res.status(403).json({ success: false, error: 'Nur für Pfleger dieses Mandats.' });
+  if (project.succession_unlocked === 1) return res.json({ success: true, data: { unlocked: true, already: true } });
+
+  const { getPaymentProvider, billingGloballyEnabled } = require('../providers/payment');
+  const tenant = await db.get('SELECT * FROM tenants WHERE id = ?', [project.tenant_id]);
+  if (!billingGloballyEnabled() || !tenant || tenant.billing_enabled !== 1) {
+    return res.status(400).json({ success: false, error: 'Die Bezahl-Freischaltung ist für Ihren Zugang nicht aktiv. Bitte wenden Sie sich an Ihren Ansprechpartner bei Phalanx.' });
+  }
+  // Doppelbuchung vermeiden: bereits bezahlt?
+  const already = await db.get(`SELECT id FROM billing_events WHERE project_id = ? AND event_type = 'succession_unlock' AND status = 'paid'`, [projectId]);
+  if (!already) {
+    const provider = getPaymentProvider();
+    const charge = await provider.chargeSuccessionUnlock(tenant, project);
+    await db.run(
+      `INSERT INTO billing_events (tenant_id, event_type, project_id, amount_cents, provider, provider_ref, status)
+       VALUES (?, 'succession_unlock', ?, ?, ?, ?, ?)`,
+      [tenant.id, projectId, charge.amountCents, (process.env.PAYMENT_PROVIDER || 'stub'), charge.providerRef, charge.status === 'paid' ? 'paid' : 'recorded']);
+    db.auditLog(req.user.id, 'BILLING_SUCCESSION_UNLOCK', 'project', projectId, `${(charge.amountCents / 100).toFixed(2)} EUR (${charge.providerRef})`, req.ip);
+  }
+  await db.run('UPDATE projects SET succession_unlocked = 1 WHERE id = ?', [projectId]);
+  res.json({ success: true, data: { unlocked: true } });
+}));
+
+// Freischaltung setzen/aufheben (Team, ohne Zahlung).
 router.post('/mandate/:projectId/unlock', authenticate, isStaff, wrap(async (req, res) => {
   const on = req.body.unlocked ? 1 : 0;
   const p = await db.get('SELECT id FROM projects WHERE id = ?', [req.params.projectId]);

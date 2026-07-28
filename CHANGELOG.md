@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.335 · 21.07.2026 · Bezahl-Freischaltung für Übergeber
+- **Selbst freischalten gegen Gebühr**: Ist die Bezahlung aktiviert, kann der Übergeber die Nachfolge-Kandidaten selbst freischalten. Der Preis steht direkt am Knopf
+- **Über das Payment-Interface**: abgewickelt über den vorhandenen, austauschbaren Payment-Provider (Stub, später echter Anbieter). Jede Freischaltung wird als Abrechnungsereignis protokolliert und ist doppelbuchungssicher
+- **Fallback**: Ist die Bezahlung nicht aktiv, schaltet wie bisher das Team ohne Zahlung frei, der Übergeber sieht den Hinweis auf seinen Ansprechpartner
+- Konfiguration: `BILLING_ENABLED=1`, Mandant `billing_enabled=1`, Preis über `BILLING_SUCCESSION_UNLOCK_CENTS` (Standard 299 Euro)
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.334 · 21.07.2026 · Übergeber sehen zugeordnete Kandidaten
 - **Zugeordnete Kandidaten zuerst**: Auf der Mandatsseite sieht der Übergeber jetzt oben die ihm vom Team zugeordneten Kandidaten mit dem Status der Zuordnung (vorgeschlagen, vorgestellt, Übergeber interessiert, im Gespräch, abgesagt, vermittelt)
 - **Darunter die Vorschläge**: die weiteren passenden Kandidaten aus dem Netzwerk stehen wie bisher darunter
