@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.330 · 21.07.2026 · Umsatz beidseitig als Auswahl
+- **Strukturierte Umsatzklasse am Mandat**: dieselben Bänder wie im Nachfolge-Profil (unter 1, 1 bis 3, 3 bis 10, 10 bis 30, über 30 Mio. Euro), wählbar im Bearbeiten-Dialog von Admin und Marktplatz. Die Freitext-Anzeige des Umsatzbands bleibt erhalten
+- **Exakteres Matching**: Der Umsatz wird nun Klasse gegen Klasse verglichen. Fehlt die Klasse, wird wie bisher aus dem Freitext gelesen
+- **Automatische Übernahme**: Bestehende Mandate wurden aus ihrem Umsatzband automatisch klassifiziert
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.329 · 21.07.2026 · Übergeber sehen passende Nachfolge-Kandidaten
 - **Kandidatenansicht**: Pfleger eines Nachfolge-Mandats sehen auf der Mandatsseite die passenden Nachfolge-Kandidaten aus dem Netzwerk, mit Übereinstimmung in Prozent und Begründung (Branche, Region, Umsatz)
 - **Datenschutz mit Freischalt-Gate**: Ohne Freischaltung nur Anzahl und anonyme Vorschau (Score, Branche, Region, Umsatzziel, Führungserfahrung), keine Namen. Nach Freischaltung erscheinen Name, Kontakt, Eigenkapital und Verfügbarkeit

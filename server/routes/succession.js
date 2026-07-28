@@ -28,7 +28,7 @@ router.get('/matches', authenticate, wrap(async (req, res) => {
   const profile = parseRow(await db.get('SELECT * FROM succession_profiles WHERE user_id = ?', [req.user.id])) || {};
   const placeholders = SUCCESSION_DEAL_TYPES.map(() => '?').join(', ');
   const rows = await db.all(`
-    SELECT id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, sector_emoji, mandate_type
+    SELECT id, codename, industry, region, revenue_band, revenue_class, ebitda_band, deal_type, short_description, sector_emoji, mandate_type
     FROM projects
     WHERE status = 'active' AND visibility = 'public' AND deal_type IN (${placeholders})`,
     SUCCESSION_DEAL_TYPES);
@@ -117,7 +117,7 @@ const access = require('../utils/projectAccess');
 
 router.get('/mandate/:projectId/candidates', authenticate, wrap(async (req, res) => {
   const projectId = req.params.projectId;
-  const p = await db.get('SELECT id, codename, industry, region, revenue_band, deal_type, succession_unlocked FROM projects WHERE id = ?', [projectId]);
+  const p = await db.get('SELECT id, codename, industry, region, revenue_band, revenue_class, deal_type, succession_unlocked FROM projects WHERE id = ?', [projectId]);
   if (!p) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
   const mayManage = await access.canManage((sql, pr) => db.get(sql, pr), req.user, projectId);
   if (!mayManage) return res.status(403).json({ success: false, error: 'Nur für Pfleger dieses Mandats.' });

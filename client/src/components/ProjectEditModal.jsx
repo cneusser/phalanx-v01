@@ -3,7 +3,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { X, Upload } from 'lucide-react';
 import GroupedSelect from './GroupedSelect';
-import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES } from '../constants/projectOptions';
+import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES, REVENUE_CLASSES } from '../constants/projectOptions';
 
 const C = { navy: '#0D1B36', border: '#E2E8F0', bg: '#F8FAFC', muted: '#64748B', text: '#0F172A' };
 const INPUT = { width: '100%', padding: '0.55rem 0.75rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' };
@@ -21,7 +21,7 @@ export default function ProjectEditModal({ project, onClose, onSaved }) {
   const [form, setForm] = useState({
     codename: project.codename || '', industry: project.industry || '', region: project.region || '',
     deal_type: project.deal_type || '', stage: project.stage || '',
-    revenue_band: project.revenue_band || '', ebitda_band: project.ebitda_band || '',
+    revenue_band: project.revenue_band || '', revenue_class: project.revenue_class || '', ebitda_band: project.ebitda_band || '',
     investment_needed: project.investment_needed || '', equity_stake: project.equity_stake || '',
     post_money_valuation: project.post_money_valuation || '', tam_band: project.tam_band || '',
     location_city: project.location_city || '', short_description: project.short_description || '',
@@ -123,8 +123,14 @@ export default function ProjectEditModal({ project, onClose, onSaved }) {
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.9rem', marginBottom: '0.9rem' }}>
-              <div><label style={LABEL}>Umsatzband</label><input value={form.revenue_band} onChange={set('revenue_band')} placeholder="5–10 Mio. €" style={INPUT} /></div>
+              <div><label style={LABEL}>Umsatzband (Anzeige)</label><input value={form.revenue_band} onChange={set('revenue_band')} placeholder="5–10 Mio. €" style={INPUT} /></div>
               <div><label style={LABEL}>EBITDA-Band</label><input value={form.ebitda_band} onChange={set('ebitda_band')} placeholder="1–2 Mio. €" style={INPUT} /></div>
+              <div><label style={LABEL}>Umsatzklasse (für Matching)</label>
+                <select value={form.revenue_class} onChange={set('revenue_class')} style={INPUT}>
+                  <option value="">Bitte wählen (optional)</option>
+                  {REVENUE_CLASSES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                </select>
+              </div>
             </div>
           )}
 

@@ -218,7 +218,7 @@ async function notifyMatchingSuccessors(projectId, exclude = new Set()) {
   try {
     const { isSuccessionDeal, scoreMatch, isStrongMatch } = require('./successionMatch');
     const p = await db.get(
-      `SELECT id, codename, industry, region, revenue_band, deal_type, visibility, short_description
+      `SELECT id, codename, industry, region, revenue_band, revenue_class, deal_type, visibility, short_description
        FROM projects WHERE id = ?`, [projectId]).catch(() => null);
     if (!p || !isSuccessionDeal(p.deal_type) || p.visibility === 'invite_only') return notified;
 

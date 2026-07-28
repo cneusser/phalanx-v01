@@ -48,9 +48,17 @@ function scoreMatch(profile, p) {
   if (regionMatch) { score += WEIGHTS.region; reasons.push('Region passt'); }
 
   if (profile.umsatz_band && UMSATZ_RANGE[profile.umsatz_band]) {
-    const rv = revenueMio(p.revenue_band);
-    const [lo, hi] = UMSATZ_RANGE[profile.umsatz_band];
-    if (rv != null && rv >= lo && rv <= hi) { score += WEIGHTS.umsatz; reasons.push('Umsatz passt'); }
+    // Bevorzugt die strukturierte Umsatzklasse des Mandats (exakter Bandvergleich),
+    // sonst den Freitext-Umsatz auslesen (Rückwärtskompatibilität).
+    let umsatzMatch = false;
+    if (p.revenue_class && UMSATZ_RANGE[p.revenue_class]) {
+      umsatzMatch = p.revenue_class === profile.umsatz_band;
+    } else {
+      const rv = revenueMio(p.revenue_band);
+      const [lo, hi] = UMSATZ_RANGE[profile.umsatz_band];
+      umsatzMatch = rv != null && rv >= lo && rv <= hi;
+    }
+    if (umsatzMatch) { score += WEIGHTS.umsatz; reasons.push('Umsatz passt'); }
   }
   return { score: Math.min(score, 100), reasons };
 }

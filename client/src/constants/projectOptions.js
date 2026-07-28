@@ -85,6 +85,16 @@ export const BUNDESLAENDER = [
   'Deutschland (bundesweit)', 'Österreich', 'Schweiz', 'DACH',
 ];
 
+// Strukturierte Umsatzklassen (gleiche Bänder wie im Nachfolge-Profil).
+// Wert (für Matching) und Anzeige-Label.
+export const REVENUE_CLASSES = [
+  ['<1', 'unter 1 Mio. €'],
+  ['1-3', '1 bis 3 Mio. €'],
+  ['3-10', '3 bis 10 Mio. €'],
+  ['10-30', '10 bis 30 Mio. €'],
+  ['>30', 'über 30 Mio. €'],
+];
+
 export const DEAL_TYPES_MA = [
   'Nachfolge', 'Mehrheitsverkauf', 'Minderheitsbeteiligung', 'MBO', 'MBI',
   'Wachstumskapital', 'Buy-and-Build', 'Carve-out', 'Strategische Partnerschaft',

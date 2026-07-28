@@ -401,7 +401,7 @@ router.post('/projects', ...isAdmin, wrap(async (req, res) => {
 }));
 
 router.put('/projects/:id', ...isAdmin, wrap(async (req, res) => {
-  const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status,
+  const { codename, industry, region, revenue_band, revenue_class, ebitda_band, deal_type, short_description, highlights, status,
           mandate_type, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city } = req.body;
   // Sprint 18: alten Stand laden, um Änderungen zu erkennen (Follower-Mail / Publish-Kaskade)
   const project = await db.get(
@@ -411,7 +411,7 @@ router.put('/projects/:id', ...isAdmin, wrap(async (req, res) => {
   await db.run(`
     UPDATE projects SET
       codename=COALESCE(?,codename), industry=COALESCE(?,industry), region=COALESCE(?,region),
-      revenue_band=COALESCE(?,revenue_band), ebitda_band=COALESCE(?,ebitda_band),
+      revenue_band=COALESCE(?,revenue_band), revenue_class=COALESCE(?,revenue_class), ebitda_band=COALESCE(?,ebitda_band),
       deal_type=COALESCE(?,deal_type), short_description=COALESCE(?,short_description),
       highlights=COALESCE(?,highlights), status=COALESCE(?,status),
       mandate_type=COALESCE(?,mandate_type), stage=COALESCE(?,stage),
@@ -420,7 +420,7 @@ router.put('/projects/:id', ...isAdmin, wrap(async (req, res) => {
       sector_emoji=COALESCE(?,sector_emoji), location_city=COALESCE(?,location_city),
       updated_at=now() WHERE id=?
   `, [
-    codename||null, industry||null, region||null, revenue_band||null, ebitda_band||null,
+    codename||null, industry||null, region||null, revenue_band||null, revenue_class||null, ebitda_band||null,
     deal_type||null, short_description||null, highlights?JSON.stringify(highlights):null, status||null,
     mandate_type||null, stage||null, investment_needed||null, equity_stake||null,
     post_money_valuation||null, tam_band||null, sector_emoji||null, location_city||null,

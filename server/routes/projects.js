@@ -494,7 +494,7 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
     return res.status(403).json({ success: false, error: 'Keine Berechtigung zur Pflege dieses Mandats' });
   }
   const isAdmin = ['super_admin', 'advisor'].includes(req.user.role);
-  const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights,
+  const { codename, industry, region, revenue_band, revenue_class, ebitda_band, deal_type, short_description, highlights,
           stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, status,
           buyer_groups, keywords, visibility } = req.body;
   const cleanVisibility = ['public', 'invite_only'].includes(visibility) ? visibility : null;
@@ -514,7 +514,7 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
   await db.run(`
     UPDATE projects SET
       codename=COALESCE(?,codename), industry=COALESCE(?,industry), region=COALESCE(?,region),
-      revenue_band=COALESCE(?,revenue_band), ebitda_band=COALESCE(?,ebitda_band),
+      revenue_band=COALESCE(?,revenue_band), revenue_class=COALESCE(?,revenue_class), ebitda_band=COALESCE(?,ebitda_band),
       deal_type=COALESCE(?,deal_type), short_description=COALESCE(?,short_description),
       highlights=COALESCE(?,highlights), stage=COALESCE(?,stage),
       investment_needed=COALESCE(?,investment_needed), equity_stake=COALESCE(?,equity_stake),
@@ -525,7 +525,7 @@ router.put('/:id', authenticate, wrap(async (req, res) => {
       status=COALESCE(?,status),
       updated_at=now() WHERE id=?
   `, [
-    codename||null, industry||null, region||null, revenue_band||null, ebitda_band||null,
+    codename||null, industry||null, region||null, revenue_band||null, revenue_class||null, ebitda_band||null,
     deal_type||null, short_description||null, highlights?JSON.stringify(highlights):null, stage||null,
     investment_needed||null, equity_stake||null, post_money_valuation||null, tam_band||null,
     sector_emoji||null, location_city||null,

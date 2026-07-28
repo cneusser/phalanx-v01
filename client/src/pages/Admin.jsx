@@ -8,7 +8,7 @@ import {
   ClipboardList, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import GroupedSelect from '../components/GroupedSelect';
-import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES } from '../constants/projectOptions';
+import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES, REVENUE_CLASSES } from '../constants/projectOptions';
 import DealCrmModal, { DEAL_STATUS_LABELS, DEAL_TRANSITIONS } from '../components/DealCrmModal';
 import ContactDrawer from '../components/ContactDrawer';
 import TemplateAdmin from '../components/TemplateAdmin';
@@ -2344,6 +2344,13 @@ export default function Admin() {
               <div style={{ marginBottom: '0.9rem' }}>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.3rem' }}>Kurzbeschreibung *</label>
                 <textarea value={editProject.short_description || ''} onChange={setEdit('short_description')} required rows={3} style={{ ...INPUT_STYLE, resize: 'vertical' }} />
+              </div>
+              <div style={{ marginBottom: '0.9rem' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.3rem' }}>Umsatzklasse (für Matching)</label>
+                <select value={editProject.revenue_class || ''} onChange={setEdit('revenue_class')} style={{ ...INPUT_STYLE, background: '#fff' }}>
+                  <option value="">Bitte wählen (optional)</option>
+                  {REVENUE_CLASSES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                </select>
               </div>
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.3rem' }}>Status</label>
