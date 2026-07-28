@@ -259,6 +259,43 @@ router.get('/mandate/:projectId/candidates', authenticate, wrap(async (req, res)
   res.json({ success: true, data: { is_succession: true, unlocked, count: candidates.length, codename: p.codename, candidates } });
 }));
 
+// Zugeordnete Kandidaten je Mandat (aus succession_links), für die Übergeber-Sicht.
+// Gleiches Freischalt-Gate: ohne Freischaltung anonyme Vorschau, mit Namen erst danach.
+router.get('/mandate/:projectId/links', authenticate, wrap(async (req, res) => {
+  const projectId = req.params.projectId;
+  const p = await db.get('SELECT id, succession_unlocked FROM projects WHERE id = ?', [projectId]);
+  if (!p) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  const mayManage = await access.canManage((sql, pr) => db.get(sql, pr), req.user, projectId);
+  if (!mayManage) return res.status(403).json({ success: false, error: 'Nur für Pfleger dieses Mandats.' });
+  const unlocked = p.succession_unlocked === 1;
+  const rows = await db.all(`
+    SELECT sl.id AS link_id, sl.status, sl.note, sl.created_at,
+           u.salutation, u.title, u.first_name, u.last_name, u.email, u.company, u.succession_type,
+           sp.branchenfokus, sp.ziel_laender, sp.ziel_regionen, sp.umsatz_band, sp.plz_ort,
+           sp.fuehrungserfahrung, sp.eigenkapital, sp.verfuegbarkeit
+    FROM succession_links sl
+    JOIN users u ON u.id = sl.user_id
+    LEFT JOIN succession_profiles sp ON sp.user_id = u.id
+    WHERE sl.project_id = ? ORDER BY sl.created_at DESC`, [projectId]);
+  const links = rows.map((r, i) => {
+    const base = {
+      link_id: r.link_id, status: r.status,
+      succession_type: r.succession_type === 'mit_beteiligung' ? 'Mit Beteiligung' : r.succession_type === 'ohne_beteiligung' ? 'Ohne Beteiligung' : null,
+      branchenfokus: JSON.parse(r.branchenfokus || '[]').slice(0, 3),
+      region: [...JSON.parse(r.ziel_laender || '[]'), ...JSON.parse(r.ziel_regionen || '[]')].slice(0, 3),
+      umsatz_band: r.umsatz_band || null, fuehrungserfahrung: r.fuehrungserfahrung || null,
+    };
+    if (unlocked) {
+      return { ...base, unlocked: true,
+        name: [r.salutation, r.title, r.first_name, r.last_name].filter(Boolean).join(' '),
+        email: r.email, company: r.company || null, plz_ort: r.plz_ort || null,
+        eigenkapital: r.eigenkapital || null, verfuegbarkeit: r.verfuegbarkeit || null };
+    }
+    return { ...base, unlocked: false, label: `Kandidat ${i + 1}` };
+  });
+  res.json({ success: true, data: { unlocked, count: links.length, links } });
+}));
+
 // Freischaltung setzen/aufheben (Team). Steht später für die Bezahlstufe.
 router.post('/mandate/:projectId/unlock', authenticate, isStaff, wrap(async (req, res) => {
   const on = req.body.unlocked ? 1 : 0;

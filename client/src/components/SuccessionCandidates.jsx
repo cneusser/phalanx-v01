@@ -3,14 +3,26 @@ import { api } from '../api/client';
 import { Users, Lock, Unlock, Mail } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
+const LINK_STATUS_LABEL = {
+  vorgeschlagen: 'Vorgeschlagen', vorgestellt: 'Vorgestellt', interesse: 'Übergeber interessiert',
+  gespraech: 'Im Gespräch', abgesagt: 'Abgesagt', vermittelt: 'Vermittelt',
+};
+const LINK_STATUS_COLOR = {
+  vorgeschlagen: '#64748B', vorgestellt: '#0891b2', interesse: '#1D4E89',
+  gespraech: '#d97706', abgesagt: '#991b1b', vermittelt: '#166534',
+};
 
 // Übergeber-Sicht: passende Nachfolge-Kandidaten zum Mandat. Kontaktdaten erst
 // nach Freischaltung (spätere Bezahlstufe, aktuell durch das Team).
 export default function SuccessionCandidates({ projectId, isAdmin }) {
   const [data, setData] = useState(null);
+  const [linksData, setLinksData] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const load = () => api.get(`/succession/mandate/${projectId}/candidates`).then(setData).catch(() => setData(null));
+  const load = () => {
+    api.get(`/succession/mandate/${projectId}/candidates`).then(setData).catch(() => setData(null));
+    api.get(`/succession/mandate/${projectId}/links`).then(setLinksData).catch(() => setLinksData(null));
+  };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [projectId]);
 
   async function toggle() {
@@ -36,6 +48,39 @@ export default function SuccessionCandidates({ projectId, isAdmin }) {
           </button>
         )}
       </div>
+
+      {/* Zugeordnete Kandidaten (vom Team ausgewählt/vorgestellt) */}
+      {linksData && linksData.count > 0 && (
+        <div style={{ marginBottom: '1.1rem' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Ihnen zugeordnet ({linksData.count})</div>
+          <div style={{ display: 'grid', gap: '0.5rem' }}>
+            {linksData.links.map((c, i) => (
+              <div key={c.link_id} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem 0.8rem', background: '#fff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                  <div style={{ fontWeight: 700, color: C.text, fontSize: '0.88rem' }}>
+                    {c.unlocked ? c.name : c.label}
+                    {c.succession_type && <span style={{ fontWeight: 500, color: C.muted, fontSize: '0.76rem' }}> · {c.succession_type}</span>}
+                  </div>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#fff', background: LINK_STATUS_COLOR[c.status] || C.muted, borderRadius: 20, padding: '0.1rem 0.55rem' }}>{LINK_STATUS_LABEL[c.status] || c.status}</span>
+                </div>
+                <div style={{ fontSize: '0.77rem', color: C.muted, marginTop: 3 }}>
+                  {[c.branchenfokus?.join(', '), c.region?.join(', '), c.umsatz_band ? 'Umsatzziel ' + c.umsatz_band + ' Mio.' : null, c.fuehrungserfahrung].filter(Boolean).join(' · ')}
+                </div>
+                {c.unlocked && (
+                  <div style={{ fontSize: '0.77rem', color: C.text, marginTop: 5, display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
+                    <a href={`mailto:${c.email}`} style={{ color: C.accent, fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Mail size={13} /> {c.email}</a>
+                    {c.company && <span>{c.company}</span>}
+                    {c.plz_ort && <span>{c.plz_ort}</span>}
+                    {c.eigenkapital && <span>EK: {c.eigenkapital}</span>}
+                    {c.verfuegbarkeit && <span>Verfügbar: {c.verfuegbarkeit}</span>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: '0.74rem', color: C.muted, marginTop: '0.6rem', fontWeight: 700 }}>Weitere passende Kandidaten aus dem Netzwerk</div>
+        </div>
+      )}
 
       {data.count === 0 && <div style={{ fontSize: '0.85rem', color: C.muted }}>Aktuell keine passenden Kandidaten im Nachfolge-Netzwerk. Sobald jemand Passendes dazukommt, taucht er hier auf.</div>}
 

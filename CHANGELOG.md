@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.334 · 21.07.2026 · Übergeber sehen zugeordnete Kandidaten
+- **Zugeordnete Kandidaten zuerst**: Auf der Mandatsseite sieht der Übergeber jetzt oben die ihm vom Team zugeordneten Kandidaten mit dem Status der Zuordnung (vorgeschlagen, vorgestellt, Übergeber interessiert, im Gespräch, abgesagt, vermittelt)
+- **Darunter die Vorschläge**: die weiteren passenden Kandidaten aus dem Netzwerk stehen wie bisher darunter
+- **Gleiches Freischalt-Gate**: ohne Freischaltung anonyme Vorschau, Namen und Kontakt erst nach Freischaltung durch das Team
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.333 · 21.07.2026 · Kandidat zu Mandat verknüpfen, Marktplatz-Layout
 - **Kandidat-zu-Mandat-Verknüpfung**: Im Nachfolge-Funnel lässt sich je Kandidat festhalten, welchem Mandat (Übergeber) er zugeordnet ist, mit eigenem Status je Zuordnung (vorgeschlagen, vorgestellt, Übergeber interessiert, im Gespräch, abgesagt, vermittelt) und eigener Notiz. Die Karte zeigt die Anzahl der Zuordnungen, ein Klick öffnet die Verwaltung
 - **Marktplatz-Layout**: In der Listen- und Tabellenansicht sprengte die breite Tabelle bei schmaler Spalte das Layout. Behoben über eine schrumpffähige Spalte, die Tabelle scrollt jetzt sauber innerhalb ihres Bereichs
