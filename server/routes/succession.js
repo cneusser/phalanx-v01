@@ -21,6 +21,95 @@ function parseRow(row) {
   return out;
 }
 
+// Mandate, die eine Nachfolge sind (Käuferseite: MBI/MBO/Nachfolge).
+const SUCCESSION_DEAL_TYPES = ['Nachfolge', 'MBO', 'MBI'];
+const UMSATZ_RANGE = { '<1': [0, 1], '1-3': [1, 3], '3-10': [3, 10], '10-30': [10, 30], '>30': [30, Infinity] };
+
+// Größte in „Mio." genannte Zahl aus einem Umsatz-Freitext ziehen (z. B. „€ 1,5-2 Mio." → 2).
+function revenueMio(str) {
+  const nums = String(str || '').replace(/\./g, '').replace(/,/g, '.').match(/\d+(\.\d+)?/g);
+  if (!nums) return null;
+  return Math.max(...nums.map(Number));
+}
+
+// Transparentes Scoring: Branche, Region, Umsatz. Nur gefüllte Profilfelder zählen.
+function scoreMatch(profile, p) {
+  const reasons = [];
+  let score = 12; // Grundgewicht: es ist ein Nachfolge-Mandat
+  const branchen = profile.branchenfokus || [];
+  const ind = String(p.industry || '').toLowerCase();
+  if (branchen.length && ind && branchen.some(b => {
+    const x = String(b).toLowerCase();
+    return ind.includes(x) || x.includes(ind.split(/[ /]/)[0]);
+  })) { score += 45; reasons.push('Branche passt'); }
+
+  const regionen = [...(profile.ziel_regionen || []), ...(profile.ziel_laender || [])];
+  const reg = String(p.region || '').toLowerCase();
+  if (regionen.length && reg && regionen.some(r => {
+    const x = String(r).toLowerCase();
+    return reg.includes(x) || x.includes(reg);
+  })) { score += 28; reasons.push('Region passt'); }
+
+  if (profile.umsatz_band && UMSATZ_RANGE[profile.umsatz_band]) {
+    const rv = revenueMio(p.revenue_band);
+    const [lo, hi] = UMSATZ_RANGE[profile.umsatz_band];
+    if (rv != null && rv >= lo && rv <= hi) { score += 15; reasons.push('Umsatz passt'); }
+  }
+  return { score: Math.min(score, 100), reasons };
+}
+
+// Passende Nachfolge-Mandate für den eingeloggten Nachfolge-Interessenten
+router.get('/matches', authenticate, wrap(async (req, res) => {
+  const profile = parseRow(await db.get('SELECT * FROM succession_profiles WHERE user_id = ?', [req.user.id])) || {};
+  const placeholders = SUCCESSION_DEAL_TYPES.map(() => '?').join(', ');
+  const rows = await db.all(`
+    SELECT id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, sector_emoji, mandate_type
+    FROM projects
+    WHERE status = 'active' AND visibility = 'public' AND deal_type IN (${placeholders})`,
+    SUCCESSION_DEAL_TYPES);
+  const matches = rows
+    .map(p => ({ ...p, ...scoreMatch(profile, p) }))
+    .sort((a, b) => b.score - a.score);
+  res.json({ success: true, data: { matches, has_profile: !!profile.id } });
+}));
+
+// ── Admin: Liste der Nachfolge-Interessierten mit Profil und Filtern ─────────
+const { ADMIN_ROLES } = require('../middleware/gates');
+function isStaff(req, res, next) {
+  if (req.user && ADMIN_ROLES.includes(req.user.role)) return next();
+  return res.status(403).json({ success: false, error: 'Nur für das Team.' });
+}
+
+router.get('/interested', authenticate, isStaff, wrap(async (req, res) => {
+  const { umsatz, szenario, q } = req.query;
+  const rows = await db.all(`
+    SELECT u.id, u.salutation, u.title, u.first_name, u.last_name, u.email, u.company, u.succession_type, u.created_at,
+           u.is_approved, u.is_active,
+           sp.plz_ort, sp.branchenfokus, sp.branchenerfahrung, sp.ziel_laender, sp.ziel_regionen,
+           sp.umsatz_band, sp.mbi_szenario, sp.eigenkapital, sp.verfuegbarkeit, sp.fuehrungserfahrung,
+           sp.updated_at AS profile_updated_at
+    FROM users u
+    LEFT JOIN succession_profiles sp ON sp.user_id = u.id
+    WHERE u.role = 'buyer' AND u.buyer_type = 'successor'
+    ORDER BY u.created_at DESC`);
+  let list = rows.map(r => ({
+    ...r,
+    branchenfokus: JSON.parse(r.branchenfokus || '[]'),
+    ziel_laender: JSON.parse(r.ziel_laender || '[]'),
+    ziel_regionen: JSON.parse(r.ziel_regionen || '[]'),
+    has_profile: !!r.profile_updated_at,
+  }));
+  if (umsatz) list = list.filter(r => r.umsatz_band === umsatz);
+  if (szenario) list = list.filter(r => r.mbi_szenario === szenario);
+  if (q) {
+    const s = String(q).toLowerCase();
+    list = list.filter(r =>
+      [r.first_name, r.last_name, r.email, r.company, r.plz_ort, r.branchenerfahrung, ...(r.branchenfokus || []), ...(r.ziel_regionen || [])]
+        .filter(Boolean).some(v => String(v).toLowerCase().includes(s)));
+  }
+  res.json({ success: true, data: list });
+}));
+
 // Eigenes Nachfolge-Profil lesen
 router.get('/profile', authenticate, wrap(async (req, res) => {
   const row = await db.get('SELECT * FROM succession_profiles WHERE user_id = ?', [req.user.id]);

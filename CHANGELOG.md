@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.326 · 21.07.2026 · Nachfolge-Matching und Interessenten-Liste
+- **Passende Mandate**: Nachfolge-Interessierte sehen auf ihrer Profilseite die am besten passenden Nachfolge-Mandate mit einem Richtwert in Prozent (Branche, Region, Umsatz) und einer kurzen Begründung, mit direktem Link ins Mandat. Die Liste aktualisiert sich nach dem Speichern des Profils
+- **Admin-Reiter „Nachfolge"**: alle Nachfolge-Interessierten auf einen Blick, mit Interesse (mit/ohne Beteiligung), Branchenfokus, Region, Umsatz und Profilstatus. Filterbar nach Umsatzgröße, MBI-Szenario und Freitext, mit Sprung ins Nutzer-Detail
+- Verifiziert: acht Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.325 · 21.07.2026 · Navigationsleiste mit mehr Luft
 - **Abstand korrigiert**: Logo und Menü berührten sich bei vielen Menüpunkten (Logo und „Marktplatz"). Die Navigation hat jetzt einen festen Abstand nach beiden Seiten
 - **Mehr Luft**: etwas breitere Leiste, mehr Innenabstand und Höhe über alle Ansichten hinweg

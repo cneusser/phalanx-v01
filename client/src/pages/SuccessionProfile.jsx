@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Save, CheckCircle, UserCog } from 'lucide-react';
+import { Save, CheckCircle, UserCog, Target, ArrowRight } from 'lucide-react';
 
 const C = { navy: '#1A4D8A', accent: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
@@ -50,11 +51,15 @@ export default function SuccessionProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [matches, setMatches] = useState([]);
+
+  const loadMatches = () => api.get('/succession/matches').then(d => setMatches(d.matches || [])).catch(() => {});
 
   useEffect(() => {
     api.get('/succession/profile').then(d => {
       if (d) setF(prev => ({ ...prev, ...d, ziel_regionen: (d.ziel_regionen || []).join(', ') }));
     }).catch(() => {}).finally(() => setLoading(false));
+    loadMatches();
   }, []);
 
   const set = (k) => (e) => setF(s => ({ ...s, [k]: e.target.value }));
@@ -66,6 +71,7 @@ export default function SuccessionProfile() {
     try {
       await api.put('/succession/profile', payload);
       setMsg('Gespeichert. Danke, Ihr Nachfolge-Profil ist aktualisiert.');
+      loadMatches();
     } catch (e) { setMsg('Fehler: ' + e.message); }
     finally { setSaving(false); }
   }
@@ -86,6 +92,38 @@ export default function SuccessionProfile() {
         {msg && (
           <div style={{ background: msg.startsWith('Fehler') ? '#fee2e2' : '#d1fae5', color: msg.startsWith('Fehler') ? '#991b1b' : '#065f46', borderRadius: 8, padding: '0.7rem 1rem', fontSize: '0.85rem', marginBottom: '1rem' }}>
             <CheckCircle size={15} style={{ verticalAlign: -2 }} /> {msg}
+          </div>
+        )}
+
+        {/* Passende Nachfolge-Mandate */}
+        {matches.length > 0 && (
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.4rem', marginBottom: '1.1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem' }}>
+              <Target size={18} color={C.navy} />
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: C.navy, margin: 0 }}>Passende Nachfolge-Mandate für Sie</h3>
+            </div>
+            <div style={{ display: 'grid', gap: '0.7rem' }}>
+              {matches.slice(0, 5).map(m => (
+                <Link key={m.id} to={`/projekte/${m.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.75rem 0.9rem', background: C.bg }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, color: C.text, fontSize: '0.9rem' }}>{m.sector_emoji ? m.sector_emoji + ' ' : ''}{m.codename} <span style={{ fontWeight: 500, color: C.muted, fontSize: '0.8rem' }}>· {m.deal_type}</span></div>
+                    <div style={{ fontSize: '0.78rem', color: C.muted, marginTop: 2 }}>{[m.industry, m.region, m.revenue_band].filter(Boolean).join(' · ')}</div>
+                    {m.reasons?.length > 0 && (
+                      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: 5 }}>
+                        {m.reasons.map(r => <span key={r} style={{ fontSize: '0.68rem', fontWeight: 600, color: '#065f46', background: '#d1fae5', borderRadius: 20, padding: '0.1rem 0.5rem' }}>{r}</span>)}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
+                    <span style={{ fontWeight: 800, fontSize: '0.95rem', color: m.score >= 55 ? '#166534' : C.navy }}>{m.score}%</span>
+                    <ArrowRight size={16} color={C.navy} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div style={{ fontSize: '0.74rem', color: C.muted, marginTop: '0.7rem' }}>
+              Je vollständiger Ihr Profil unten, desto genauer die Übereinstimmung. Die Prozentzahl ist ein Richtwert nach Branche, Region und Umsatz.
+            </div>
           </div>
         )}
 

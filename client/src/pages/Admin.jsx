@@ -151,6 +151,9 @@ export default function Admin() {
   const [editMembers, setEditMembers] = useState([]);
   const [newMemberId, setNewMemberId] = useState('');
   const [memberMsg, setMemberMsg] = useState('');
+  // Nachfolge-Interessierte (Admin-Reiter)
+  const [succList, setSuccList] = useState([]);
+  const [succFilter, setSuccFilter] = useState({ umsatz: '', szenario: '', q: '' });
 
   // Nutzerverwaltung: Suche + Detail-Modal (Pitchbook-Ansicht)
   const [userSearch, setUserSearch] = useState('');
@@ -480,6 +483,14 @@ export default function Admin() {
     if (activeTab === 'contacts') loadCrmContacts();
     if (activeTab === 'qa') loadQuestions();
     if (activeTab === 'users') api.get('/admin/roles').then(d => setRoleList(d.roles || [])).catch(() => {});
+    if (activeTab === 'succession') {
+      const p = new URLSearchParams();
+      if (succFilter.umsatz) p.set('umsatz', succFilter.umsatz);
+      if (succFilter.szenario) p.set('szenario', succFilter.szenario);
+      if (succFilter.q) p.set('q', succFilter.q);
+      const qs = p.toString();
+      api.get('/succession/interested' + (qs ? '?' + qs : '')).then(setSuccList).catch(() => setSuccList([]));
+    }
   }, [activeTab]);
 
   // Suche im Kontakte-Tab (entprellt)
@@ -489,6 +500,21 @@ export default function Admin() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactSearch]);
+
+  // Nachfolge-Liste neu laden, wenn Filter sich ändern (entprellt)
+  useEffect(() => {
+    if (activeTab !== 'succession') return;
+    const t = setTimeout(() => {
+      const p = new URLSearchParams();
+      if (succFilter.umsatz) p.set('umsatz', succFilter.umsatz);
+      if (succFilter.szenario) p.set('szenario', succFilter.szenario);
+      if (succFilter.q) p.set('q', succFilter.q);
+      const qs = p.toString();
+      api.get('/succession/interested' + (qs ? '?' + qs : '')).then(setSuccList).catch(() => setSuccList([]));
+    }, 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [succFilter]);
 
   useEffect(() => {
     if (activeTab === 'audit') loadAuditLogs(auditPage);
@@ -767,13 +793,14 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'roles', 'contacts', 'tasks', 'qa', 'templates', 'mails', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'succession', 'roles', 'contacts', 'tasks', 'qa', 'templates', 'mails', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
     projects: 'Projekte',
     ndas:     'NDA-Anfragen',
     users:    'Nutzer',
+    succession: 'Nachfolge',
     roles: 'Rollen & Rechte',
     contacts: 'Kontakte',
     tasks: 'Wiedervorlagen',
@@ -1500,6 +1527,46 @@ export default function Admin() {
             })}
           </div>
         </>
+      )}
+
+      {/* Nachfolge-Interessierte */}
+      {activeTab === 'succession' && (
+        <div>
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
+            <input value={succFilter.q} onChange={e => setSuccFilter(s => ({ ...s, q: e.target.value }))} placeholder="Suche: Name, Firma, Branche, Region..."
+              style={{ flex: 1, minWidth: 220, padding: '0.5rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.85rem' }} />
+            <select value={succFilter.umsatz} onChange={e => setSuccFilter(s => ({ ...s, umsatz: e.target.value }))} style={{ padding: '0.5rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.82rem', background: '#fff' }}>
+              <option value="">Umsatz: alle</option>
+              <option value="<1">unter 1 Mio.</option><option value="1-3">1 bis 3 Mio.</option><option value="3-10">3 bis 10 Mio.</option><option value="10-30">10 bis 30 Mio.</option><option value=">30">über 30 Mio.</option>
+            </select>
+            <select value={succFilter.szenario} onChange={e => setSuccFilter(s => ({ ...s, szenario: e.target.value }))} style={{ padding: '0.5rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.82rem', background: '#fff' }}>
+              <option value="">Szenario: alle</option>
+              <option value="reine_beteiligung">Reine Beteiligung</option><option value="partnerschaft">Strategische Partnerschaft</option><option value="operative_fuehrung">Operative Führung</option><option value="andere">Andere</option>
+            </select>
+          </div>
+          <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
+              <thead><tr style={{ background: C.bg }}>
+                {['Name', 'Interesse', 'Branchenfokus', 'Region', 'Umsatz', 'Profil', ''].map(h => <th key={h} style={{ padding: '0.7rem 1rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.72rem' }}>{h.toUpperCase()}</th>)}
+              </tr></thead>
+              <tbody>
+                {succList.length === 0 && <tr><td colSpan={7} style={{ padding: '2.5rem', textAlign: 'center', color: C.muted }}>Keine Nachfolge-Interessierten gefunden.</td></tr>}
+                {succList.map(u => (
+                  <tr key={u.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '0.7rem 1rem', fontWeight: 600, color: C.text }}>{[u.first_name, u.last_name].filter(Boolean).join(' ')}<div style={{ fontSize: '0.72rem', color: C.muted, fontWeight: 400 }}>{u.email}{u.company ? ' · ' + u.company : ''}</div></td>
+                    <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{u.succession_type === 'mit_beteiligung' ? 'Mit Beteiligung' : u.succession_type === 'ohne_beteiligung' ? 'Ohne Beteiligung' : 'k. A.'}</td>
+                    <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{(u.branchenfokus || []).slice(0, 3).join(', ') || 'k. A.'}</td>
+                    <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{[...(u.ziel_laender || []), ...(u.ziel_regionen || [])].slice(0, 3).join(', ') || 'k. A.'}</td>
+                    <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{u.umsatz_band || 'k. A.'}</td>
+                    <td style={{ padding: '0.7rem 1rem' }}>{u.has_profile ? <span style={{ color: '#166534', fontWeight: 600, fontSize: '0.75rem' }}>gepflegt</span> : <span style={{ color: '#92400e', fontWeight: 600, fontSize: '0.75rem' }}>offen</span>}</td>
+                    <td style={{ padding: '0.7rem 1rem', textAlign: 'right' }}><button onClick={() => openUserDetail(u.id)} style={{ background: '#fff', color: C.navy, border: `1px solid ${C.navy}`, borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>Details</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: '0.78rem', color: C.muted, marginTop: '0.7rem' }}>{succList.length} Nachfolge-Interessierte. Das Nachfolge-Profil pflegen die Personen selbst; „gepflegt" heißt, es liegen Angaben vor.</div>
+        </div>
       )}
 
       {/* Users Tab */}
