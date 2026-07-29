@@ -57,6 +57,7 @@ export default function Crm() {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [buyerType, setBuyerType] = useState('');   // Käufertyp-Filter (Kontakte)
+  const [special, setSpecial] = useState('');       // Kachel-Filter: decision|opt_in|blocked
   // Deeplinks: /crm?contact=123 öffnet den Kontakt, /crm?company=7 das Unternehmen,
   // /crm?q=Name springt in die Unternehmensliste mit gesetzter Suche.
   useEffect(() => {
@@ -72,7 +73,7 @@ export default function Crm() {
     if (query && !contactId && !companyId) { setTab('companies'); setQ(query); }
   }, []);
   useEffect(() => { setPage(1); setLetter(''); }, [tab]);
-  useEffect(() => { setPage(1); }, [letter, q, pageSize, buyerType]);
+  useEffect(() => { setPage(1); }, [letter, q, pageSize, buyerType, special]);
   const initialLetter = (s) => (String(s || '').trim()[0] || '#').toUpperCase();
   const byLetter = (arr, keyFn) => letter
     ? arr.filter(x => (letter === '#' ? !/[A-Z]/.test(initialLetter(keyFn(x))) : initialLetter(keyFn(x)) === letter))
@@ -80,7 +81,17 @@ export default function Crm() {
   const paginate = (arr) => pageSize === 'all' ? arr : arr.slice((page - 1) * pageSize, page * pageSize);
   const pageCount = (arr) => pageSize === 'all' ? 1 : Math.max(1, Math.ceil(arr.length / pageSize));
 
-  const contactsFiltered = buyerType ? contacts.filter(k => k.buyer_type === buyerType) : contacts;
+  // Kachel-Filter auf die Kontaktliste anwenden (Entscheider, Einwilligung, Widerspruch).
+  const specialMatch = (k) => {
+    if (special === 'decision') return !!k.is_decision_maker;
+    if (special === 'opt_in') return k.consent_status === 'opt_in';
+    if (special === 'blocked') return k.contact_status === 'do_not_contact' || k.consent_status === 'opt_out';
+    return true;
+  };
+  const contactsFiltered = contacts
+    .filter(k => (buyerType ? k.buyer_type === buyerType : true))
+    .filter(specialMatch);
+  const SPECIAL_LABEL = { decision: 'Entscheider', opt_in: 'Einwilligung', blocked: 'Nicht kontaktieren' };
   const contactsByLetter = byLetter(contactsFiltered, k => k.last_name || k.first_name || k.companies);
   const pageContacts = paginate(contactsByLetter);
   const totalPages = pageCount(contactsByLetter);
@@ -240,16 +251,20 @@ export default function Crm() {
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem', marginBottom: '1.5rem' }}>
           {[
-            ['Unternehmen', stats.companies, C.navy],
-            ['Kontakte', stats.contacts, C.accent],
-            ['Entscheider', stats.decision_makers, '#8b5cf6'],
-            ['Einwilligung', stats.opt_in, '#10b981'],
-            ['Nicht kontaktieren', stats.blocked, '#ef4444'],
-          ].map(([label, val, color]) => (
-            <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.9rem 1rem' }}>
+            ['Unternehmen', stats.companies, C.navy, () => { setTab('companies'); setDetail(null); }, tab === 'companies'],
+            ['Kontakte', stats.contacts, C.accent, () => { setTab('contacts'); setSpecial(''); setBuyerType(''); setLetter(''); }, tab === 'contacts' && !special],
+            ['Entscheider', stats.decision_makers, '#8b5cf6', () => { setTab('contacts'); setSpecial('decision'); setBuyerType(''); setLetter(''); }, tab === 'contacts' && special === 'decision'],
+            ['Einwilligung', stats.opt_in, '#10b981', () => { setTab('contacts'); setSpecial('opt_in'); setBuyerType(''); setLetter(''); }, tab === 'contacts' && special === 'opt_in'],
+            ['Nicht kontaktieren', stats.blocked, '#ef4444', () => { setTab('contacts'); setSpecial('blocked'); setBuyerType(''); setLetter(''); }, tab === 'contacts' && special === 'blocked'],
+          ].map(([label, val, color, onClick, active]) => (
+            <button key={label} onClick={onClick} title={`${label} anzeigen`} style={{
+              textAlign: 'left', background: active ? `${color}0F` : C.card,
+              border: `1.5px solid ${active ? color : C.border}`, borderRadius: 8, padding: '0.9rem 1rem', cursor: 'pointer',
+              boxShadow: active ? `0 0 0 1px ${color}` : 'none', transition: 'all 0.12s',
+            }}>
               <div style={{ fontSize: '1.5rem', fontWeight: 800, color }}>{val}</div>
               <div style={{ fontSize: '0.75rem', color: C.muted, fontWeight: 600 }}>{label}</div>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -349,6 +364,12 @@ export default function Crm() {
       {/* Kontakte */}
       {tab === 'contacts' && (
         <>
+        {special && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: '0.6rem', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 20, padding: '0.3rem 0.7rem', fontSize: '0.78rem', color: '#3730a3', fontWeight: 600 }}>
+            Filter: {SPECIAL_LABEL[special]} ({contactsFiltered.length})
+            <button onClick={() => setSpecial('')} title="Filter entfernen" style={{ background: 'none', border: 'none', color: '#3730a3', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem', lineHeight: 1 }}>×</button>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.5rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Käufertyp</span>
           <button onClick={() => setBuyerType('')} style={azBtn(!buyerType)}>Alle</button>
