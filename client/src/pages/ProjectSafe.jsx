@@ -37,6 +37,34 @@ export default function ProjectSafe() {
   const [denied, setDenied] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [report, setReport] = useState(null);
+  const [structOpen, setStructOpen] = useState(false);
+  const [structVal, setStructVal] = useState('');
+
+  // Ordnerstruktur aus Freitext bauen (leere Ordner inklusive). Zwei Formate,
+  // frei mischbar: vollständige Pfade mit „/" oder eine eingerückte Baumliste.
+  function parseStructure(text) {
+    const lines = text.split('\n').map(l => l.replace(/\r$/, '')).filter(l => l.trim());
+    const paths = [];
+    const stack = [];
+    for (const raw of lines) {
+      const clean = raw.trim();
+      if (clean.includes('/')) { paths.push(clean.replace(/^\/+|\/+$/g, '')); continue; }
+      const indent = (raw.match(/^[\s]*/)[0] || '').replace(/\t/g, '  ').length;
+      const depth = Math.floor(indent / 2);
+      const name = clean.replace(/\//g, '').trim();
+      if (!name) continue;
+      while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop();
+      stack.push({ depth, name });
+      paths.push(stack.map(s => s.name).join('/'));
+    }
+    return Array.from(new Set(paths)).filter(Boolean);
+  }
+  async function createStructure() {
+    const paths = parseStructure(structVal);
+    if (!paths.length) { setStructOpen(false); return; }
+    setStructOpen(false); setStructVal('');
+    await uploadCollected([], paths);
+  }
 
   async function loadReport() {
     try { setReport(await api.get(`/safe/${pid}/access-report`)); setShowReport(true); setShowTrash(false); }
@@ -235,6 +263,7 @@ export default function ProjectSafe() {
           <button onClick={createFolder} style={btn(C.navy, '#fff')}><FolderPlus size={15} /> Neuer Ordner</button>
           <button onClick={() => fileInput.current?.click()} style={btn('#fff', C.navy, true)}><Upload size={15} /> Dateien</button>
           <button onClick={() => dirInput.current?.click()} style={btn('#fff', C.navy, true)}><Folder size={15} /> Ordner hochladen</button>
+          <button onClick={() => { setStructVal(''); setStructOpen(true); }} title="Leere Ordnerstruktur anlegen (auch verschachtelt)" style={btn('#fff', C.navy, true)}><FolderPlus size={15} /> Ordnerstruktur</button>
           <div style={{ flex: 1 }} />
           <button onClick={() => setPublishItem({ all: true, name: 'Alle Dateien' })} title="Alle Dateien dieses Mandats in den Datenraum übernehmen" style={btn('#fff', C.navy, true)}><Share2 size={15} /> Alles in Datenraum</button>
           <button onClick={() => showReport ? setShowReport(false) : loadReport()} style={btn('#fff', showReport ? C.accent : C.muted, true)}><BarChart3 size={15} /> Zugriffe</button>
@@ -366,6 +395,23 @@ export default function ProjectSafe() {
           </div>
         )}
       </div>
+
+      {/* Ordnerstruktur-Dialog */}
+      {structOpen && (
+        <div onClick={() => setStructOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', maxWidth: 520, width: '92%' }}>
+            <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.4rem' }}>Ordnerstruktur anlegen</div>
+            <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: '0.8rem' }}>Eine Zeile je Ordner. Verschachtelung entweder mit Schrägstrich („01 Recht/Vertraege") oder mit Einrückung (zwei Leerzeichen je Ebene). Leere Ordner werden angelegt, unter dem aktuellen Ordner.</div>
+            <textarea autoFocus value={structVal} onChange={e => setStructVal(e.target.value)} rows={9}
+              placeholder={'01 Financials\n02 Recht\n  Vertraege\n  Gesellschaftsvertrag\n03 Steuern/Bescheide\n04 HR'}
+              style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'ui-monospace, monospace', fontSize: '0.82rem', padding: '0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, outline: 'none', resize: 'vertical' }} />
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.9rem', justifyContent: 'flex-end' }}>
+              <button onClick={() => setStructOpen(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '0.85rem' }}>Abbrechen</button>
+              <button onClick={createStructure} style={btn(C.navy, '#fff')}><FolderPlus size={15} /> Struktur anlegen</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Publish-Dialog */}
       {publishItem && (

@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.346 · 21.07.2026 · Safe: leere Ordnerstruktur anlegen
+- **Ordnerstruktur**: Neuer Button legt eine ganze, auch verschachtelte und leere Ordnerstruktur in einem Schritt an. Hintergrund: Der Browser überträgt beim normalen „Ordner hochladen" leere Ordner technisch nicht mit
+- **Zwei Formate**: vollständige Pfade mit Schrägstrich („02 Recht/Vertraege") oder eine eingerückte Baumliste, frei mischbar
+- Die Ordner entstehen unter dem aktuell geöffneten Ordner und werden automatisch nummeriert
+- Verifiziert: zehn Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.345 · 21.07.2026 · Safe: in Datenraum übernehmen je Datei, Ordner oder gesamt
 - **Ordner übernehmen**: Ein ganzer Ordner (inklusive aller Unterordner) lässt sich mit einem Klick in den Datenraum übernehmen (Freigabe-Symbol am Ordner)
 - **Alles übernehmen**: Neuer Toolbar-Button „Alles in Datenraum" kopiert sämtliche Dateien eines Mandats auf einmal, mit Auswahl der Zugriffsebene
