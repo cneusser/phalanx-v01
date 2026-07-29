@@ -555,14 +555,20 @@ router.post('/:projectId/dedupe-structure', authenticate, wrap(async (req, res) 
       WHERE project_id = ? AND parent_id IS NULL AND is_folder = 1 AND deleted_at IS NULL
       ORDER BY position ASC, id ASC`, [projectId]));
   const seen = new Map();   // name -> behaltene id
-  let removed = 0;
+  let removed = 0; let moved = 0;
   for (const f of folders) {
     const key = String(f.name).trim().toLowerCase();
     if (!seen.has(key)) { seen.set(key, f.id); continue; }
-    // Dublette: nur entfernen, wenn komplett leer (keine Kinder).
-    const child = await scoped(req, (t) => t.get(
-      `SELECT id FROM safe_items WHERE project_id = ? AND parent_id = ? AND deleted_at IS NULL LIMIT 1`, [projectId, f.id]));
-    if (child) continue;
+    const keepId = seen.get(key);
+    // Dublette: vorhandene Inhalte in den behaltenen Ordner verschieben, dann leeren
+    // Ordner in den Papierkorb. So geht nichts verloren, auch wenn Dateien drinliegen.
+    const children = await scoped(req, (t) => t.all(
+      `SELECT id FROM safe_items WHERE project_id = ? AND parent_id = ? AND deleted_at IS NULL`, [projectId, f.id]));
+    for (const c of children) {
+      const pos = await nextPosition(req, projectId, keepId);
+      await scoped(req, (t) => t.run(`UPDATE safe_items SET parent_id = ?, position = ? WHERE id = ?`, [keepId, pos, c.id]));
+      moved += 1;
+    }
     await scoped(req, (t) => t.run(`UPDATE safe_items SET deleted_at = now() WHERE id = ?`, [f.id]));
     removed += 1;
   }
@@ -571,8 +577,8 @@ router.post('/:projectId/dedupe-structure', authenticate, wrap(async (req, res) 
     `SELECT id FROM safe_items WHERE project_id = ? AND parent_id IS NULL AND deleted_at IS NULL ORDER BY position ASC, id ASC`, [projectId]));
   let pos = 1;
   for (const r of rest) { await scoped(req, (t) => t.run(`UPDATE safe_items SET position = ? WHERE id = ?`, [pos++, r.id])); }
-  db.auditLog(req.user.id, 'SAFE_DEDUPE_STRUCTURE', 'project', projectId, `${removed} leere Dubletten entfernt`, req.ip);
-  res.json({ success: true, data: { removed } });
+  db.auditLog(req.user.id, 'SAFE_DEDUPE_STRUCTURE', 'project', projectId, `${removed} Dubletten zusammengeführt, ${moved} Objekte verschoben`, req.ip);
+  res.json({ success: true, data: { removed, moved } });
 }));
 
 // ── Speicherverbrauch (Mandat) ──────────────────────────────────────────────

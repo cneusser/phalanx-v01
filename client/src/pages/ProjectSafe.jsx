@@ -60,10 +60,10 @@ export default function ProjectSafe() {
     return Array.from(new Set(paths)).filter(Boolean);
   }
   async function dedupeStructure() {
-    if (!window.confirm('Doppelte, leere Ordner bereinigen?\n\nJe Ordnername auf oberster Ebene bleibt der erste erhalten, leere Dubletten wandern in den Papierkorb. Ordner mit Inhalt bleiben unberührt.')) return;
+    if (!window.confirm('Doppelte Ordner zusammenführen?\n\nJe Ordnername auf oberster Ebene bleibt der erste erhalten. Inhalte gleichnamiger Dubletten werden dorthin verschoben, die geleerten Dubletten wandern in den Papierkorb. Es geht nichts verloren.')) return;
     try {
       const d = await api.post(`/safe/${pid}/dedupe-structure`, {});
-      setMsg(d.removed ? `${d.removed} leere Dublette(n) bereinigt.` : 'Keine leeren Dubletten gefunden.');
+      setMsg(d.removed ? `${d.removed} Dublette(n) zusammengeführt${d.moved ? `, ${d.moved} Objekt(e) verschoben` : ''}.` : 'Keine doppelten Ordner gefunden.');
       load(parent);
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }
@@ -308,7 +308,7 @@ export default function ProjectSafe() {
           <button onClick={() => fileInput.current?.click()} style={btn('#fff', C.navy, true)}><Upload size={15} /> Dateien</button>
           <button onClick={() => dirInput.current?.click()} style={btn('#fff', C.navy, true)}><Folder size={15} /> Ordner hochladen</button>
           <button onClick={() => { setStructVal(''); setStructOpen(true); }} title="Leere Ordnerstruktur anlegen (auch verschachtelt)" style={btn('#fff', C.navy, true)}><FolderPlus size={15} /> Ordnerstruktur</button>
-          <button onClick={dedupeStructure} title="Doppelte, leere Ordner bereinigen" style={btn('#fff', C.muted, true)}><RotateCcw size={15} /> Bereinigen</button>
+          <button onClick={dedupeStructure} title="Doppelte Ordner zusammenführen (Inhalte werden in den ersten verschoben)" style={btn('#fff', C.navy, true)}><RotateCcw size={15} /> Bereinigen</button>
           <div style={{ flex: 1 }} />
           <button onClick={buildTeaserIm} title="Teaser und IM als PDF bereitstellen (Master bevorzugt, sonst generiert)" style={btn('#fff', C.navy, true)}><File size={15} /> Teaser & IM</button>
           <button onClick={notifyDataroom} title="Käufer mit Datenraum-Zugang über neue Unterlagen per E-Mail informieren" style={btn('#fff', C.navy, true)}><Bell size={15} /> Käufer benachrichtigen</button>

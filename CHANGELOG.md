@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.354 · 21.07.2026 · Safe: doppelte Ordner zuverlässig zusammenführen
+- **Zusammenführen statt überspringen**: Die Bereinigung führt gleichnamige Ordner jetzt zusammen. Inhalte einer Dublette werden in den ersten Ordner verschoben, die geleerte Dublette wandert in den Papierkorb. Bisher wurden Dubletten mit Inhalt übersprungen, deshalb schien nichts zu passieren
+- **Klare Rückmeldung**: nennt die Zahl der zusammengeführten Ordner und der verschobenen Objekte
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.353 · 21.07.2026 · Datenraum direkt freigeben, doppelte Ordner bereinigen
 - **Datenraum je Käufer freigeben**: Im Kontakt-Fenster gibt es je Mandat „Datenraum freigeben" und „Zugang entziehen". Das setzt den echten serverseitigen Zugang (Lesen, Download, Q&A) und informiert den Käufer, ohne den NDA-Umweg
 - **Klarstellung**: Prozess-Mail und CRM-Kennzeichen „Zugang" erteilen allein keinen Datenraum-Zugang. Der echte Zugang kommt über „Datenraum freigeben" oder die NDA-Freigabe im NDA-Tab
