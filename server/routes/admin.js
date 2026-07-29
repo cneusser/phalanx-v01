@@ -405,6 +405,11 @@ router.post('/projects', ...isAdmin, wrap(async (req, res) => {
     post_money_valuation || null, tam_band || null, sector_emoji || null, location_city || null,
     req.user.id,
   ]);
+  // Standard-Ordnerstruktur im Safe automatisch anlegen (leer).
+  try {
+    const { seedStandardStructure } = require('../utils/safeStructure');
+    await seedStandardStructure(projectId, { tenantId: req.tenantId || 1, userId: req.user.id });
+  } catch (e) { /* Struktur ist optional, darf die Anlage nie blockieren */ }
   db.auditLog(req.user.id, 'CREATE_PROJECT', 'project', projectId, codename, req.ip);
   res.status(201).json({ success: true, data: { id: projectId } });
 }));

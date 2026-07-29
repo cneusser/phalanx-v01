@@ -963,6 +963,53 @@ router.get('/deals/:projectId/parties', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { parties, stages: FUNNEL_STAGES, counts, reached } });
 }));
 
+// Rechte-/Sichten-Abgleich: gleicht die Funnel-Anzeige mit der echten Autorisierung
+// (interests.stage + permissions) ab, spiegelt fehlende Stufen/Zugänge nach und
+// meldet Diskrepanzen, die sich nicht automatisch beheben lassen (z. B. E-Mail-Abweichung).
+router.post('/deals/:projectId/reconcile', ...isStaff, wrap(async (req, res) => {
+  const projectId = Number(req.params.projectId);
+  const { syncFromUser } = require('../utils/dealSync');
+  const GRANTS = ['im_granted', 'dataroom_granted', 'loi'];
+  const interests = await db.all(
+    `SELECT i.buyer_id, i.stage, u.email, u.first_name, u.last_name
+       FROM interests i JOIN users u ON u.id = i.buyer_id
+      WHERE i.project_id = ?`, [projectId]).catch(() => []);
+
+  let reconciled = 0;
+  const issues = [];
+  for (const it of interests) {
+    await syncFromUser(it.buyer_id, projectId, { kind: 'interest', interestStage: it.stage, actorId: req.user.id });
+    reconciled += 1;
+    // Nach dem Spiegeln prüfen, ob eine Partei zum Nutzer existiert (E-Mail-Abgleich).
+    const party = await db.get(
+      `SELECT dp.funnel_stage, dp.access_granted FROM crm_deal_parties dp
+         JOIN crm_contacts k ON k.id = dp.contact_id
+        WHERE dp.project_id = ? AND lower(k.email) = lower(?) LIMIT 1`,
+      [projectId, it.email]).catch(() => null);
+    if (GRANTS.includes(it.stage)) {
+      if (!party) issues.push({ email: it.email, name: `${it.first_name || ''} ${it.last_name || ''}`.trim(), kind: 'kein_kontakt', detail: 'Zugang erteilt, aber kein passender CRM-Kontakt (E-Mail weicht ab)' });
+      else if (!party.access_granted) issues.push({ email: it.email, name: `${it.first_name || ''} ${it.last_name || ''}`.trim(), kind: 'kein_zugang_badge', detail: 'Zugang erteilt, Kennzeichen konnte nicht gesetzt werden' });
+    }
+  }
+
+  // Gegenprobe: Parteien mit Zugang-Kennzeichen oder Datenraum-Stufe, aber ohne echte Freigabe.
+  const flagged = await db.all(
+    `SELECT k.email, k.first_name, k.last_name, dp.funnel_stage, dp.access_granted
+       FROM crm_deal_parties dp JOIN crm_contacts k ON k.id = dp.contact_id
+      WHERE dp.project_id = ? AND (dp.access_granted = 1 OR dp.funnel_stage >= 4)`, [projectId]).catch(() => []);
+  for (const f of flagged) {
+    if (!f.email) continue;
+    const real = await db.get(
+      `SELECT i.stage FROM interests i JOIN users u ON u.id = i.buyer_id
+        WHERE i.project_id = ? AND lower(u.email) = lower(?) LIMIT 1`, [projectId, f.email]).catch(() => null);
+    const hasReal = real && GRANTS.includes(real.stage);
+    if (!hasReal) issues.push({ email: f.email, name: `${f.first_name || ''} ${f.last_name || ''}`.trim(), kind: 'anzeige_ohne_freigabe', detail: 'Im Funnel als Zugang/Datenraum markiert, aber keine echte Freigabe hinterlegt (manuell gesetzt)' });
+  }
+
+  db.auditLog(req.user.id, 'CRM_RECONCILE', 'project', projectId, `${reconciled} Interessenten abgeglichen, ${issues.length} Hinweise`, req.ip);
+  res.json({ success: true, data: { reconciled, issues } });
+}));
+
 // ── Lead-Ingest: Kaufanfrage aus einem Marktplatz (DUB.de u. a.) einlesen ─────
 // Zwei Schritte, damit der Admin vor dem Anlegen prüfen kann:
 //   POST /leads/parse    zerlegt den eingefügten Text, ordnet ein Mandat zu (Vorschau)

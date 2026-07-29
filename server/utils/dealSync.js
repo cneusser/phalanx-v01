@@ -60,18 +60,23 @@ async function syncFromUser(userId, projectId, opts = {}) {
     if (!contactId) return;
 
     let { stage, signal } = planFor(opts.kind, opts.interestStage);
+    // Eine erteilte Freigabe (IM, Datenraum, LOI) impliziert Zugang, unabhängig
+    // vom NDA-Textstatus. Diese Stufen zählen daher immer als „unterschrieben".
+    const grantsAccess = ['nda_signed', 'im_granted', 'dataroom_granted', 'loi'].includes(opts.interestStage);
     // NDA-Feinabstimmung: „Datenraum-Zugang" (Stufe 4) setzt eine unterschriebene NDA
     // voraus. Ist die NDA nur freigegeben, aber noch nicht gegengezeichnet, bleibt es
-    // bei „NDA" (Stufe 3). So steht z. B. ein freigegebener, aber ungezeichneter
-    // Interessent korrekt in der NDA-Spalte.
+    // bei „NDA" (Stufe 3). „approved" zählt wie „signed" (Gleichlauf mit dem Board).
     if (opts.kind === 'interest' && stage >= 3) {
       const nda = await db.get(
         `SELECT signed_at, status FROM nda_requests WHERE user_id = ? AND project_id = ? ORDER BY id DESC LIMIT 1`,
         [userId, projectId]).catch(() => null);
-      const signed = !!(nda && (nda.signed_at || nda.status === 'signed'));
+      const signed = grantsAccess || !!(nda && (nda.signed_at || nda.status === 'signed' || nda.status === 'approved'));
       if (!signed && stage > 3) stage = 3;
       signal = 'nda';
     }
+    // Dokument-/Datenraum-Zugang wird ab „IM freigegeben" tatsächlich gewährt und
+    // deshalb auch als Zugang-Kennzeichen im Funnel gespiegelt (nur setzen, nie entziehen).
+    const accessGranted = ['im_granted', 'dataroom_granted', 'loi'].includes(opts.interestStage) ? 1 : 0;
     const existing = await db.get(
       'SELECT id, funnel_stage, party_status, source FROM crm_deal_parties WHERE project_id = ? AND contact_id = ?',
       [projectId, contactId]).catch(() => null);
@@ -82,16 +87,17 @@ async function syncFromUser(userId, projectId, opts = {}) {
             SET funnel_stage = GREATEST(funnel_stage, ?),
                 party_status = CASE WHEN party_status = 'dropped' THEN party_status ELSE 'active' END,
                 source = CASE WHEN source = 'outreach' THEN source ELSE 'inbound' END,
+                access_granted = CASE WHEN ? = 1 THEN 1 ELSE access_granted END,
                 inbound_signal = ?, inbound_at = now(),
                 stage_changed_at = CASE WHEN funnel_stage < ? THEN now() ELSE stage_changed_at END
           WHERE id = ?`,
-        [stage, signal, stage, existing.id]).catch(() => {});
+        [stage, accessGranted, signal, stage, existing.id]).catch(() => {});
     } else {
       await db.insert(
         `INSERT INTO crm_deal_parties
-           (tenant_id, project_id, contact_id, party_role, funnel_stage, party_status, source, inbound_signal, inbound_at, created_by)
-         VALUES (?, ?, ?, 'buyer', ?, 'active', 'inbound', ?, now(), ?)`,
-        [tenantId, projectId, contactId, stage, signal, opts.actorId || userId]).catch(() => {});
+           (tenant_id, project_id, contact_id, party_role, funnel_stage, party_status, source, access_granted, inbound_signal, inbound_at, created_by)
+         VALUES (?, ?, ?, 'buyer', ?, 'active', 'inbound', ?, ?, now(), ?)`,
+        [tenantId, projectId, contactId, stage, accessGranted, signal, opts.actorId || userId]).catch(() => {});
     }
   } catch (e) {
     // Spiegelung darf den auslösenden Vorgang (NDA, Interesse) nie stören

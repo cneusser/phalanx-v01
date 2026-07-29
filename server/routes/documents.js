@@ -51,7 +51,9 @@ async function streamDocument(res, doc, user, projectId, via) {
   db.activityLog(user.id, via === 'signed' ? 'DOWNLOAD_SIGNED_LINK' : 'DOWNLOAD_DOCUMENT', category, doc.id, null);
 
   const isPdf = (doc.file_type || '').includes('pdf') || String(doc.filename).toLowerCase().endsWith('.pdf');
-  const needsWatermark = ['im', 'dataroom'].includes(category) && isPdf;
+  // Jede freigegebene PDF (Teaser, IM, Datenraum) wird beim Download personalisiert
+  // gewasserzeichnet: Name, E-Mail und Datum. So trägt jedes Exemplar seinen Empfänger.
+  const needsWatermark = isPdf;
 
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.filename)}"`);
   res.setHeader('Content-Type', doc.file_type || 'application/octet-stream');
@@ -61,6 +63,7 @@ async function streamDocument(res, doc, user, projectId, via) {
       const stamped = await addWatermark(fs.readFileSync(doc.file_path), {
         name: `${user.first_name} ${user.last_name}`,
         email: user.email,
+        date: new Date(),
       });
       return res.send(stamped);
     } catch (e) {

@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.348 · 21.07.2026 · Freigabe-Ampel, Standardstruktur, personalisierter Teaser/IM, Funnel-Abgleich
+- **Freigabe-Ampel im Safe**: Je Datei zeigt ein grüner oder roter Punkt, ob und mit welcher Zugriffsebene sie im Datenraum liegt (Teaser, IM, Datenraum)
+- **Standard-Ordnerstruktur**: Wird in jedem neuen Mandat automatisch angelegt und in bestehende nachgezogen (leer, inkl. „Teaser und Investment Memorandum")
+- **Teaser und IM als PDF**: Hochgeladenes Master-PDF bevorzugt, sonst wird eines aus den Mandatsdaten erzeugt. Beides landet im Ordner „Teaser und Investment Memorandum" und im Datenraum (Teaser öffentlich, IM nach NDA)
+- **Personalisierung**: Jede heruntergeladene Datenraum-PDF (Teaser, IM, Datenraum) trägt jetzt Name, E-Mail und Datum des Empfängers als Wasserzeichen, jeder erhält sein eigenes Exemplar
+- **Rechte-Abgleich im Funnel**: Neuer Button „Rechte abgleichen" gleicht alle Beteiligten mit ihrer echten Freigabe ab, setzt das Zugang-Kennzeichen korrekt und listet Diskrepanzen auf
+- **Fehler behoben**: Eine erteilte Datenraum-Freigabe hob den Kontakt im Funnel nicht immer auf die Datenraum-Stufe. Eine freigegebene NDA zählt jetzt wie eine unterschriebene (Gleichlauf mit dem Board)
+- Verifiziert: elf Testsuites grün (inkl. neuer Teaser-/IM-Generierung), Client-Build sauber, Textwächter ohne Befund
+
 ## v0.347 · 21.07.2026 · Safe: klare Rückwege
 - **Zurück zum Mandat**: Der obere Zurück-Link führt jetzt zum jeweiligen Mandat statt ins Admin-Dashboard
 - **Zurück zum Safe**: Aus dem Zugriffsbericht und dem Papierkorb führt ein eigener Button direkt in die Ordneransicht zurück

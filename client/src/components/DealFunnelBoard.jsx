@@ -36,6 +36,8 @@ export default function DealFunnelBoard({ show }) {
   const [stages, setStages] = useState([]);
   const [showArchive, setShowArchive] = useState(false);   // Mailings: Archiv statt aktueller Liste
   const [archivedCount, setArchivedCount] = useState(0);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcile, setReconcile] = useState(null);        // Ergebnis des Rechte-Abgleichs
   const [active, setActive] = useState(null);
   const [board, setBoard] = useState(null);
   const [drag, setDrag] = useState(null);
@@ -109,6 +111,19 @@ export default function DealFunnelBoard({ show }) {
     try { await api.put(`/crm/campaigns/${campId}`, { archived }); await loadBoard(); }
     catch (e) { show('Fehler: ' + e.message); }
   }
+  // Rechte-/Sichten-Abgleich: echte Freigaben mit der Funnel-Anzeige abgleichen
+  async function runReconcile() {
+    if (!active) return;
+    setReconciling(true); setReconcile(null);
+    try {
+      const r = await api.post(`/crm/deals/${active}/reconcile`, {});
+      setReconcile(r);
+      show(`Abgeglichen: ${r.reconciled} Interessent(en)${r.issues.length ? `, ${r.issues.length} Hinweis(e)` : ', keine Auffälligkeiten'}`);
+      await loadBoard();
+    } catch (e) { show('Fehler: ' + e.message); }
+    finally { setReconciling(false); }
+  }
+
   // Papierkorb: Beteiligung am Mandat entfernen (der Kontakt selbst bleibt im CRM)
   async function removeParty(p) {
     const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Diesen Eintrag';
@@ -333,6 +348,15 @@ export default function DealFunnelBoard({ show }) {
               <BellRing size={14} /> Prozess-Update
             </button>
           )}
+          {active && (
+            <button onClick={runReconcile} disabled={reconciling} title="Alle Beteiligten mit ihrer echten Freigabe abgleichen (Datenraum-Zugang, Rechte, Sichten)" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: C.navy,
+              border: `1.5px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem',
+              fontSize: '0.82rem', fontWeight: 700, cursor: reconciling ? 'default' : 'pointer',
+            }}>
+              <ShieldCheck size={14} /> {reconciling ? 'Wird abgeglichen…' : 'Rechte abgleichen'}
+            </button>
+          )}
           {selected.length > 0 && (
             <>
               <button onClick={() => setTplSend(true)} style={{
@@ -359,6 +383,27 @@ export default function DealFunnelBoard({ show }) {
           )}
         </div>
       </div>
+
+      {/* Ergebnis Rechte-Abgleich */}
+      {reconcile && (
+        <div style={{ background: reconcile.issues.length ? '#FFFBEB' : '#ECFDF5', border: `1px solid ${reconcile.issues.length ? '#FDE68A' : '#A7F3D0'}`, borderRadius: 10, padding: '0.7rem 0.9rem', marginBottom: '0.9rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 800, color: reconcile.issues.length ? '#92400E' : '#065F46' }}>
+              {reconcile.issues.length
+                ? `Rechte-Abgleich: ${reconcile.issues.length} Hinweis(e) bei ${reconcile.reconciled} Beteiligten`
+                : `Rechte-Abgleich: alle ${reconcile.reconciled} Beteiligten stimmig`}
+            </div>
+            <button onClick={() => setReconcile(null)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '0.72rem' }}>schließen</button>
+          </div>
+          {reconcile.issues.length > 0 && (
+            <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.1rem', fontSize: '0.75rem', color: '#78350F' }}>
+              {reconcile.issues.map((it, i) => (
+                <li key={i} style={{ marginBottom: 2 }}><strong>{it.name || it.email}</strong>{it.email && it.name ? ` (${it.email})` : ''}: {it.detail}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Kampagnen des Mandats: Reaktionen und Reminder-Automatik */}
       {(!!camps.length || archivedCount > 0) && (

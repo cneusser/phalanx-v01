@@ -108,10 +108,21 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
     crumbs.unshift({ id: f.id, name: f.name, number_index: (rk ? rk.c : 0) + 1 });
     cur = f.parent_id;
   }
+  // Freigabestatus je Datei: liegt eine gleichnamige Datei im Datenraum (documents)?
+  // Zugriffsebene: public (Teaser) < nda (IM) < approved (Datenraum).
+  const docRows = await scoped(req, (t) => t.all('SELECT filename, access_level FROM documents WHERE project_id = ?', [req.params.projectId]));
+  const pubMap = new Map();
+  for (const d of docRows) if (!pubMap.has(d.filename)) pubMap.set(d.filename, d.access_level);
   // Strukturbasierte Nummer je Objekt: Präfix aus den Ebenen + laufender Rang.
   const prefix = crumbs.map(c => c.number_index).join('.');
   let idx = 0;
-  const out = items.map(r => { idx += 1; const o = rowOut(r); o.number = prefix ? `${prefix}.${idx}` : String(idx); return o; });
+  const out = items.map(r => {
+    idx += 1;
+    const o = rowOut(r);
+    o.number = prefix ? `${prefix}.${idx}` : String(idx);
+    o.published_level = r.is_folder ? null : (pubMap.get(r.name) || null);
+    return o;
+  });
   res.json({ success: true, data: { items: out, breadcrumb: crumbs, parent_id: pid, project } });
 }));
 
@@ -427,6 +438,64 @@ router.post('/:projectId/publish-bulk', authenticate, wrap(async (req, res) => {
   }
   db.auditLog(req.user.id, 'SAFE_PUBLISH_BULK', 'project', projectId, `${published} übernommen, ${skipped} übersprungen (${access_level})`, req.ip);
   res.json({ success: true, data: { published, skipped } });
+}));
+
+// Eine erzeugte Datei als Safe-Objekt ablegen (unter parentId), gibt das Item zurück.
+async function putSafeFile(req, projectId, parentId, name, buf, mime) {
+  const key = `project_${projectId}/${uuidv4()}${path.extname(name).toLowerCase()}`;
+  await getStorage().put(key, buf, mime);
+  const pos = await nextPosition(req, projectId, parentId);
+  const id = await scoped(req, (t) => t.insert(
+    `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, storage_key, size, mime, position, uploaded_by)
+     VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
+    [req.tenantId || 1, projectId, parentId, name, key, buf.length, mime, pos, req.user.id]));
+  return { id, name, is_folder: 0, storage_key: key, size: buf.length, mime };
+}
+
+// ── Teaser & Investment Memorandum als PDF bereitstellen ────────────────────
+// Master-PDF im Ordner „Teaser und Investment Memorandum" bevorzugt, sonst wird
+// aus den Mandatsdaten ein PDF generiert. Beides landet im Safe-Ordner und im
+// Datenraum (Teaser: öffentlich, IM: nach NDA). Personalisierung beim Download.
+router.post('/:projectId/teaser-im/build', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = req.params.projectId;
+  const { TEASER_FOLDER } = require('../utils/safeStructure');
+  const project = await scoped(req, (t) => t.get('SELECT * FROM projects WHERE id = ?', [projectId]));
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+
+  // Zielordner sicherstellen
+  const folderId = await ensureFolderPath(req, projectId, null, [TEASER_FOLDER]);
+  const inFolder = await scoped(req, (t) => t.all(
+    'SELECT * FROM safe_items WHERE project_id = ? AND parent_id = ? AND is_folder = 0 AND deleted_at IS NULL', [projectId, folderId]));
+
+  const findMaster = (re) => inFolder.find((f) => re.test(String(f.name).toLowerCase()) && String(f.name).toLowerCase().endsWith('.pdf'));
+  const result = { teaser: null, im: null };
+
+  // Teaser (öffentlich)
+  let teaserItem = findMaster(/teaser/);
+  let teaserSource = teaserItem ? 'master' : 'generiert';
+  if (!teaserItem) {
+    const { generateTeaser } = require('../utils/teaserPdf');
+    const buf = await generateTeaser(project);
+    teaserItem = await putSafeFile(req, projectId, folderId, `Teaser ${project.codename}.pdf`, buf, 'application/pdf');
+  }
+  const tRes = await materializeToDocument(req, projectId, teaserItem, 'public', 'Teaser');
+  result.teaser = { source: teaserSource, document_id: tRes.document_id || null, skipped: tRes.skipped || null };
+
+  // Investment Memorandum (nach NDA)
+  let imItem = findMaster(/(investment|memorandum|\bim\b)/);
+  if (imItem && imItem.id === teaserItem.id) imItem = null;   // nicht denselben Master doppelt nehmen
+  let imSource = imItem ? 'master' : 'generiert';
+  if (!imItem) {
+    const { generateIM } = require('../utils/teaserPdf');
+    const buf = await generateIM(project);
+    imItem = await putSafeFile(req, projectId, folderId, `Investment Memorandum ${project.codename}.pdf`, buf, 'application/pdf');
+  }
+  const iRes = await materializeToDocument(req, projectId, imItem, 'nda', 'Investment Memorandum');
+  result.im = { source: imSource, document_id: iRes.document_id || null, skipped: iRes.skipped || null };
+
+  db.auditLog(req.user.id, 'SAFE_TEASER_IM_BUILD', 'project', projectId, `Teaser (${result.teaser.source}), IM (${result.im.source})`, req.ip);
+  res.json({ success: true, data: result });
 }));
 
 // ── Speicherverbrauch (Mandat) ──────────────────────────────────────────────

@@ -214,6 +214,18 @@ export default function ProjectSafe() {
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }
 
+  async function buildTeaserIm() {
+    if (!window.confirm('Teaser und Investment Memorandum als PDF bereitstellen?\n\nEin bereits hochgeladenes Master-PDF im Ordner „Teaser und Investment Memorandum" wird bevorzugt, sonst wird eines aus den Mandatsdaten erzeugt. Beides wird in den Datenraum übernommen (Teaser öffentlich, IM nach NDA). Jeder Empfänger erhält beim Download sein persönlich gewasserzeichntes Exemplar.')) return;
+    setUploading(true); setMsg('');
+    try {
+      const d = await api.post(`/safe/${pid}/teaser-im/build`, {});
+      const t = d.teaser, im = d.im;
+      setMsg(`Teaser (${t.source}${t.skipped ? ', bereits im Datenraum' : ''}) und IM (${im.source}${im.skipped ? ', bereits im Datenraum' : ''}) bereitgestellt.`);
+      load(parent);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+    finally { setUploading(false); }
+  }
+
   const onDrop = async (e) => {
     e.preventDefault(); setDrag(false);
     const dt = e.dataTransfer;
@@ -235,6 +247,18 @@ export default function ProjectSafe() {
   const images = items.filter(i => !i.is_folder && isImage(i.mime));
   // Führende manuelle Nummer (z. B. „5.1.8 ") wird angezeigt über die Auto-Nummer ersetzt.
   const displayName = (name) => String(name || '').replace(/^\s*\d+(\.\d+)*[.)]?\s+/, '');
+  // Freigabe-Ampel: grün = im Datenraum (mit Stufe), rot = noch nicht übernommen.
+  const PUB_LABEL = { public: 'Teaser', nda: 'IM (nach NDA)', approved: 'Datenraum' };
+  const pubDot = (level) => {
+    const on = !!level;
+    return (
+      <span title={on ? `Im Datenraum · ${PUB_LABEL[level] || level}` : 'Noch nicht in den Datenraum übernommen'}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 96, fontSize: '0.7rem', color: on ? '#166534' : '#b91c1c', fontWeight: 600 }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: on ? '#22c55e' : '#ef4444', flexShrink: 0 }} />
+        {on ? (PUB_LABEL[level] || level) : 'nicht freigegeben'}
+      </span>
+    );
+  };
 
   return (
     <div style={{ background: C.bg, minHeight: '100vh' }}>
@@ -265,6 +289,7 @@ export default function ProjectSafe() {
           <button onClick={() => dirInput.current?.click()} style={btn('#fff', C.navy, true)}><Folder size={15} /> Ordner hochladen</button>
           <button onClick={() => { setStructVal(''); setStructOpen(true); }} title="Leere Ordnerstruktur anlegen (auch verschachtelt)" style={btn('#fff', C.navy, true)}><FolderPlus size={15} /> Ordnerstruktur</button>
           <div style={{ flex: 1 }} />
+          <button onClick={buildTeaserIm} title="Teaser und IM als PDF bereitstellen (Master bevorzugt, sonst generiert)" style={btn('#fff', C.navy, true)}><File size={15} /> Teaser & IM</button>
           <button onClick={() => setPublishItem({ all: true, name: 'Alle Dateien' })} title="Alle Dateien dieses Mandats in den Datenraum übernehmen" style={btn('#fff', C.navy, true)}><Share2 size={15} /> Alles in Datenraum</button>
           <button onClick={() => showReport ? setShowReport(false) : loadReport()} style={btn('#fff', showReport ? C.accent : C.muted, true)}><BarChart3 size={15} /> Zugriffe</button>
           <button onClick={() => showTrash ? setShowTrash(false) : loadTrash()} style={btn('#fff', showTrash ? '#991b1b' : C.muted, true)}><Trash2 size={15} /> Papierkorb</button>
@@ -363,6 +388,7 @@ export default function ProjectSafe() {
                         </span>
                       )}
                       {!it.is_folder && <span style={{ fontSize: '0.74rem', color: C.muted, minWidth: 60, textAlign: 'right' }}>{fmtBytes(it.size)}</span>}
+                      {!it.is_folder && pubDot(it.published_level)}
                       <span style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                         <button title="Nach oben" disabled={i === 0} onClick={() => moveItem(it, 'up')} style={{ ...iconBtn, color: i === 0 ? '#cbd5e1' : C.muted }}><ChevronUp size={15} /></button>
                         <button title="Nach unten" disabled={i === listItems.length - 1} onClick={() => moveItem(it, 'down')} style={{ ...iconBtn, color: i === listItems.length - 1 ? '#cbd5e1' : C.muted }}><ChevronDown size={15} /></button>
