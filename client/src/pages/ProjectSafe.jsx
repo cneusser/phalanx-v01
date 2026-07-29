@@ -85,6 +85,44 @@ export default function ProjectSafe() {
     finally { setUploading(false); }
   }
 
+  // Drag-and-drop: Verzeichnisse rekursiv durchlaufen (Dateien + auch leere Ordner).
+  async function collectFromEntry(entry, prefix, files, folders) {
+    if (!entry) return;
+    if (entry.isFile) {
+      await new Promise((resolve) => entry.file(f => { files.push({ file: f, path: prefix + entry.name }); resolve(); }, resolve));
+    } else if (entry.isDirectory) {
+      const dirPath = prefix + entry.name;
+      folders.push(dirPath);
+      const reader = entry.createReader();
+      const all = [];
+      await new Promise((resolve) => {
+        const readBatch = () => reader.readEntries((batch) => {
+          if (!batch.length) return resolve();
+          all.push(...batch); readBatch();
+        }, resolve);
+        readBatch();
+      });
+      for (const child of all) await collectFromEntry(child, dirPath + '/', files, folders);
+    }
+  }
+  async function uploadCollected(fileEntries, folderPaths) {
+    if (!fileEntries.length && !folderPaths.length) return;
+    setUploading(true); setMsg('');
+    const fd = new FormData();
+    const paths = [];
+    for (const { file, path } of fileEntries) { fd.append('files', file); paths.push(path); }
+    if (parent) fd.append('parent_id', parent);
+    fd.append('paths', JSON.stringify(paths));
+    fd.append('folder_paths', JSON.stringify(folderPaths));
+    try {
+      const res = await fetch(`/api/safe/${pid}/upload`, { method: 'POST', headers: authHeaders(), body: fd });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || 'Upload fehlgeschlagen');
+      setMsg(`${fileEntries.length} Datei(en) und ${folderPaths.length} Ordner hochgeladen.`); load(parent);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+    finally { setUploading(false); }
+  }
+
   async function download(item) {
     try {
       const res = await fetch(`/api/safe/${pid}/item/${item.id}/download`, { headers: authHeaders() });
@@ -124,7 +162,19 @@ export default function ProjectSafe() {
     catch (e) { setMsg('Fehler: ' + e.message); }
   }
 
-  const onDrop = (e) => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files?.length) doUpload(Array.from(e.dataTransfer.files), false); };
+  const onDrop = async (e) => {
+    e.preventDefault(); setDrag(false);
+    const dt = e.dataTransfer;
+    // Ordner-Drag-and-drop über die Entry-API (falls unterstützt), sonst flache Dateien.
+    const items = dt.items ? Array.from(dt.items) : [];
+    const entries = items.map(it => (it.webkitGetAsEntry ? it.webkitGetAsEntry() : null)).filter(Boolean);
+    if (entries.length) {
+      const files = [], folders = [];
+      for (const entry of entries) await collectFromEntry(entry, '', files, folders);
+      if (files.length || folders.length) return uploadCollected(files, folders);
+    }
+    if (dt.files?.length) doUpload(Array.from(dt.files), false);
+  };
 
   if (denied) return <div style={{ maxWidth: 700, margin: '4rem auto', padding: '2rem', textAlign: 'center', color: C.muted }}>Kein Zugriff auf den Safe dieses Mandats. Der Container-Safe ist ausschließlich für Administratoren und Mandats-Pfleger zugänglich.</div>;
 

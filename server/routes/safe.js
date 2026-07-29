@@ -121,15 +121,25 @@ router.post('/:projectId/folder', authenticate, wrap(async (req, res) => {
 // ── Upload (mehrere Dateien; optional Ordnerbaum via relative Pfade) ─────────
 router.post('/:projectId/upload', authenticate, upload.array('files', 500), wrap(async (req, res) => {
   if (!(await guard(req, res))) return;
-  if (!req.files || !req.files.length) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen' });
   const projectId = req.params.projectId;
   const baseParent = req.body.parent_id ? Number(req.body.parent_id) : null;
   let paths = [];
   try { paths = JSON.parse(req.body.paths || '[]'); } catch {}
+  // Optional: leere Ordner (Drag-and-drop) mitanlegen, auch ohne enthaltene Datei.
+  let folderPaths = [];
+  try { folderPaths = JSON.parse(req.body.folder_paths || '[]'); } catch {}
+  const hasFiles = req.files && req.files.length;
+  if (!hasFiles && !folderPaths.length) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen' });
   const storage = getStorage();
   const created = [];
 
-  for (let i = 0; i < req.files.length; i++) {
+  // Zuerst die (auch leeren) Ordnerpfade anlegen.
+  for (const fp of folderPaths) {
+    const segs = String(fp).split('/').filter(Boolean);
+    if (segs.length) await ensureFolderPath(req, projectId, baseParent, segs);
+  }
+
+  for (let i = 0; i < (req.files ? req.files.length : 0); i++) {
     const file = req.files[i];
     const rel = paths[i] || file.originalname;      // z. B. "Unterordner/Datei.pdf"
     const parts = String(rel).split('/').filter(Boolean);

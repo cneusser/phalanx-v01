@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.341 · 21.07.2026 · Aktivitätslog-Mandat korrekt, Ordner-Upload
+- **Falsches Mandat im Log behoben**: Bei Safe-Aktionen (Ansicht, Download, Löschen) zeigte das Aktivitätslog ein zufälliges Mandat, weil die Safe-Objekt-Id fälschlich als Projekt-Id gelesen wurde. Das Mandat wird jetzt korrekt über die Safe-Ablage aufgelöst, sonst bleibt es leer statt falsch
+- **Ordner per Drag-and-drop**: Ordner lassen sich jetzt auch durch Ziehen hochladen, mitsamt Unterordnerstruktur. Auch leere Ordner werden dabei angelegt
+- Verifiziert: neun Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.340 · 21.07.2026 · Safe-Vorschau öffnet wieder zuverlässig
 - **Vorschau-Popup-Fix**: Die Vorschau im Datensafe wurde vom Browser als Popup blockiert und öffnete sich nicht, obwohl der Zugriff bereits gezählt wurde. Das Tab wird jetzt direkt beim Klick geöffnet und danach mit der Datei gefüllt
 - **Klick auf den Namen**: Ein Klick auf den Dateinamen öffnet die Vorschau, ein Klick auf einen Ordner blättert hinein

@@ -50,7 +50,10 @@ const ACTIVITY_TEXT = {
   PROJECT_KILLSWITCH: 'hat ein Mandat vom Netz genommen',
 };
 // Bei welchen Aktionen ist resource_id = Projekt-ID?
-const PROJECT_RESOURCES = ['details', 'documents', 'project', 'expose', 'safe_item', 'qa', 'deal'];
+// Ressourcen, deren resource_id direkt die Projekt-Id IST. safe_item gehört NICHT
+// dazu: dort ist die resource_id eine Safe-Objekt-Id, das Mandat wird gesondert
+// über die Safe-Tabelle aufgelöst (sonst zeigt der Log ein zufälliges Mandat).
+const PROJECT_RESOURCES = ['details', 'documents', 'project', 'expose', 'qa', 'deal'];
 
 const isSuperAdmin = [authenticate, requireRole('super_admin')];
 const isAuditorOrAdmin = [authenticate, requireRole('super_admin', 'advisor', 'tenant_owner', 'auditor')];
@@ -1379,8 +1382,11 @@ router.get('/activity', ...isAuditorOrAdmin, wrap(async (req, res) => {
     LEFT JOIN crm_contacts k ON k.user_id = al.user_id
     LEFT JOIN crm_company_contacts cc ON cc.contact_id = k.id AND cc.ended_on IS NULL
     LEFT JOIN crm_companies c ON c.id = cc.company_id
-    LEFT JOIN projects p ON p.id = al.resource_id
-                        AND al.resource_type IN (${PROJECT_RESOURCES.map(() => '?').join(',')})
+    LEFT JOIN safe_items si ON si.id = al.resource_id AND al.resource_type = 'safe_item'
+    LEFT JOIN projects p ON (
+         (al.resource_type IN (${PROJECT_RESOURCES.map(() => '?').join(',')}) AND p.id = al.resource_id)
+      OR (al.resource_type = 'safe_item' AND p.id = si.project_id)
+    )
     ORDER BY al.created_at DESC LIMIT 60
   `, PROJECT_RESOURCES).catch(() => []);
 
