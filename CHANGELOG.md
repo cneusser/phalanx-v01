@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.340 · 21.07.2026 · Safe-Vorschau öffnet wieder zuverlässig
+- **Vorschau-Popup-Fix**: Die Vorschau im Datensafe wurde vom Browser als Popup blockiert und öffnete sich nicht, obwohl der Zugriff bereits gezählt wurde. Das Tab wird jetzt direkt beim Klick geöffnet und danach mit der Datei gefüllt
+- **Klick auf den Namen**: Ein Klick auf den Dateinamen öffnet die Vorschau, ein Klick auf einen Ordner blättert hinein
+- Verifiziert: Client-Build sauber, Textwächter ohne Befund
+
 ## v0.339 · 21.07.2026 · Übersicht: Zeitraum-Umschalter wirkt auf die Kacheln
 - **Zeitraum wirkt jetzt**: Der Umschalter (7/30/90 Tage, YTD) beeinflusst die zeitraumbezogenen Kacheln (NDA-Anfragen, neue Nutzer, Feedback, ausführliche Bewertungen, Bewertungs-Leads, Aktivität). Sie zählen die im gewählten Fenster neu entstandenen Vorgänge
 - **Momentaufnahmen bleiben stabil**: Pipeline im Prozess und aktive Projekte sind aktueller Stand und als „aktuell" gekennzeichnet

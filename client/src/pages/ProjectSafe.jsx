@@ -94,15 +94,21 @@ export default function ProjectSafe() {
     } catch (e) { setMsg('Download-Fehler: ' + e.message); }
   }
 
-  // Sichere Vorschau (PDFs mit Wasserzeichen) in neuem Tab
+  // Sichere Vorschau (PDFs mit Wasserzeichen) in neuem Tab. Das Tab wird SYNCHRON
+  // beim Klick geöffnet, sonst blockiert der Browser das Popup nach dem await.
   async function preview(item) {
+    const win = window.open('', '_blank');
+    if (win) win.document.write('<p style="font-family:sans-serif;color:#555;padding:1rem">Vorschau wird geladen…</p>');
     try {
       const res = await fetch(`/api/safe/${pid}/item/${item.id}/preview`, { headers: authHeaders() });
-      if (!res.ok) throw new Error('Fehler');
+      if (!res.ok) throw new Error('Fehler beim Laden');
       const blob = await res.blob(); const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener');
+      if (win) win.location = url; else window.location.assign(url);
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (e) { setMsg('Vorschau-Fehler: ' + e.message); }
+    } catch (e) {
+      if (win) win.close();
+      setMsg('Vorschau-Fehler: ' + e.message);
+    }
   }
 
   async function del(item) {
@@ -237,7 +243,7 @@ export default function ProjectSafe() {
                   {[...folders, ...others].map(it => (
                     <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.75rem', borderBottom: `1px solid ${C.border}` }}>
                       {it.is_folder ? <Folder size={18} color={C.accent} /> : <File size={18} color={C.muted} />}
-                      <span onClick={() => it.is_folder && load(it.id)} style={{ flex: 1, fontSize: '0.88rem', fontWeight: it.is_folder ? 600 : 400, color: C.text, cursor: it.is_folder ? 'pointer' : 'default' }}>
+                      <span onClick={() => it.is_folder ? load(it.id) : preview(it)} title={it.is_folder ? 'Ordner öffnen' : 'Vorschau öffnen'} style={{ flex: 1, fontSize: '0.88rem', fontWeight: it.is_folder ? 600 : 400, color: C.text, cursor: 'pointer' }}>
                         {it.name}{!it.is_folder && it.version > 1 && <span style={{ marginLeft: 6, fontSize: '0.68rem', background: C.bg, color: C.muted, padding: '0.05rem 0.4rem', borderRadius: 10 }}>v{it.version}</span>}
                       </span>
                       {!it.is_folder && <span style={{ fontSize: '0.74rem', color: C.muted, minWidth: 60, textAlign: 'right' }}>{fmtBytes(it.size)}</span>}
