@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.352 · 21.07.2026 · Zwei-Wege-Mail vorbereitet: Antwortadresse und Brevo-Inbound
+- **Antwortadresse**: Neue Einstellung `INBOUND_REPLY_TO`. Ist sie gesetzt, gehen Antworten auf Kontakt-Mails an die überwachte Plattform-Adresse und landen automatisch im Kontakt-Thread. Ohne die Einstellung bleibt alles wie bisher (Antwort geht direkt an den Absender)
+- **Brevo-Inbound**: Der Endpoint `/api/inbound/email` versteht jetzt zusätzlich das Brevo-Format (mehrere Mails je Aufruf über „items")
+- env-Beispiel um `MAIL_FROM` und `INBOUND_REPLY_TO` ergänzt
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.351 · 21.07.2026 · CRM: Kennzahl-Kacheln anklickbar
 - **Kacheln als Filter**: Die Kennzahl-Kacheln im CRM (Unternehmen, Kontakte, Entscheider, Einwilligung, „Nicht kontaktieren") sind jetzt anklickbar und filtern die Liste entsprechend
 - **Sichtbarer Filter**: Die aktive Kachel ist hervorgehoben, ein Chip über der Kontaktliste zeigt den gesetzten Filter und entfernt ihn per Klick

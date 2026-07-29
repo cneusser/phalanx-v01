@@ -64,12 +64,18 @@ router.post('/email', wrap(async (req, res) => {
   if (!process.env.INBOUND_SECRET) return res.status(503).json({ success: false, error: 'Inbound ist nicht konfiguriert.' });
   if (!secretOk(req)) return res.status(401).json({ success: false, error: 'Nicht autorisiert' });
 
-  const mail = normalize(req.body || {});
-  if (!mail.from) return res.status(400).json({ success: false, error: 'Absender fehlt' });
-
-  const r = await ingestReply({ ...mail, source: 'webhook' });
+  // Brevo Inbound Parsing schickt { items: [ … ] }; andere Provider ein einzelnes
+  // Objekt. Beides unterstützen: eine oder mehrere Mails je Aufruf verarbeiten.
+  const body = req.body || {};
+  const raw = Array.isArray(body.items) ? body.items : [body];
+  const results = [];
+  for (const it of raw) {
+    const mail = normalize(it || {});
+    if (!mail.from) { results.push({ skipped: 'Absender fehlt' }); continue; }
+    results.push(await ingestReply({ ...mail, source: 'webhook' }));
+  }
   // Dem Provider immer 200 geben, damit er nicht endlos wiederholt
-  res.json({ success: true, data: r });
+  res.json({ success: true, data: { processed: results.length, results } });
 }));
 
 // ── Marktplatz-Anfrage per weitergeleiteter E-Mail (Brevo Inbound Parsing) ────

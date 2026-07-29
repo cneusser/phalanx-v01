@@ -190,7 +190,17 @@ async function logMail({ to, subject, html, meta = {}, status = 'sent', error = 
   } catch { /* Protokoll darf den Versand nie blockieren */ }
 }
 
+// Wenn eine überwachte Inbound-Adresse konfiguriert ist (INBOUND_REPLY_TO), gehen
+// Antworten standardmäßig dorthin und werden automatisch dem Kontakt-Thread
+// zugeordnet. Ein ausdrücklich gesetztes replyTo hat weiterhin Vorrang.
+function defaultReplyTo(explicit) {
+  if (explicit && explicit.email) return explicit;
+  if (process.env.INBOUND_REPLY_TO) return { email: process.env.INBOUND_REPLY_TO, name: 'CapitalMatch' };
+  return explicit;
+}
+
 async function sendMail({ to, subject, html, attachments, meta, replyTo }) {
+  replyTo = defaultReplyTo(replyTo);
   try {
     if (process.env.BREVO_API_KEY) {
       await sendViaBrevoApi({ to, subject, html, attachments, replyTo });

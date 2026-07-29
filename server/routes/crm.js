@@ -316,8 +316,11 @@ router.post('/contacts/:id/send-message', ...isStaff, canSend, wrap(async (req, 
     title: subject,
     salutation: greetingLine(k),
     bodyHtml,
-    // Antworten sollen direkt beim Absender ankommen, nicht bei der Plattform
-    replyTo: { email: req.user.email, name: [req.user.first_name, req.user.last_name].filter(Boolean).join(' ') },
+    // Ohne konfigurierte Inbound-Adresse gehen Antworten direkt an den Absender.
+    // Ist INBOUND_REPLY_TO gesetzt, gehen sie an die Plattform und landen im Thread.
+    replyTo: process.env.INBOUND_REPLY_TO
+      ? { email: process.env.INBOUND_REPLY_TO, name: 'CapitalMatch' }
+      : { email: req.user.email, name: [req.user.first_name, req.user.last_name].filter(Boolean).join(' ') },
     signatureHtml: null,
     meta: { type: 'message', contactId: k.id, projectId, actorId: req.user.id, tenantId: req.tenantId || 1 },
   });
