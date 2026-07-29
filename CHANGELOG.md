@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.343 · 21.07.2026 · Safe: Dateien und Ordner umbenennen
+- **Umbenennen**: Dateien und Ordner im Safe lassen sich nachträglich umbenennen (Stift-Symbol, Enter speichert, Escape bricht ab). Bei Dateien bleibt die Endung erhalten
+- **Mandatsname konsequent**: Im Aktivitätslog erscheint der Codename (z. B. Betongold) statt der reinen Projekt-Id, und das Hochladen wird korrekt dem Mandat zugeordnet
+- Verifiziert: zehn Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.342 · 21.07.2026 · Safe-Datenraum-Freigaben: Fundament
 - **Drooms-Modell vorbereitet**: Grundlage für Freigaben direkt im Safe, je Datei oder Ordner an Einzelpersonen, Käufergruppen, alle Beteiligten eines Mandats oder eigene Gruppen, jeweils nur Ansicht oder Download
 - **Datenmodell und Logik**: neue Tabellen (safe_grants, safe_groups, safe_group_members) mit Mandantentrennung, plus die getestete Zugriffs-Auflösung mit Ordner-Vererbung (höchste zutreffende Stufe gewinnt)

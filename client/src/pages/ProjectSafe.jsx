@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
-import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3 } from 'lucide-react';
+import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2 } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const fmtBytes = (b) => { b = Number(b) || 0; if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB'; return (b / 1073741824).toFixed(2) + ' GB'; };
@@ -40,6 +40,14 @@ export default function ProjectSafe() {
 
   async function loadReport() {
     try { setReport(await api.get(`/safe/${pid}/access-report`)); setShowReport(true); setShowTrash(false); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+  const [renameId, setRenameId] = useState(null);
+  const [renameVal, setRenameVal] = useState('');
+  async function saveRename(item) {
+    const name = renameVal.trim();
+    if (!name || name === item.name) { setRenameId(null); return; }
+    try { await api.patch(`/safe/${pid}/item/${item.id}`, { name }); setRenameId(null); load(parent); }
     catch (e) { setMsg('Fehler: ' + e.message); }
   }
   const fmtDate = (d) => d ? new Date(d).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'k. A.';
@@ -293,11 +301,19 @@ export default function ProjectSafe() {
                   {[...folders, ...others].map(it => (
                     <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.75rem', borderBottom: `1px solid ${C.border}` }}>
                       {it.is_folder ? <Folder size={18} color={C.accent} /> : <File size={18} color={C.muted} />}
-                      <span onClick={() => it.is_folder ? load(it.id) : preview(it)} title={it.is_folder ? 'Ordner öffnen' : 'Vorschau öffnen'} style={{ flex: 1, fontSize: '0.88rem', fontWeight: it.is_folder ? 600 : 400, color: C.text, cursor: 'pointer' }}>
-                        {it.name}{!it.is_folder && it.version > 1 && <span style={{ marginLeft: 6, fontSize: '0.68rem', background: C.bg, color: C.muted, padding: '0.05rem 0.4rem', borderRadius: 10 }}>v{it.version}</span>}
-                      </span>
+                      {renameId === it.id ? (
+                        <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveRename(it); if (e.key === 'Escape') setRenameId(null); }}
+                          onBlur={() => saveRename(it)}
+                          style={{ flex: 1, fontSize: '0.88rem', padding: '0.3rem 0.5rem', border: `1px solid ${C.navy}`, borderRadius: 5, outline: 'none' }} />
+                      ) : (
+                        <span onClick={() => it.is_folder ? load(it.id) : preview(it)} title={it.is_folder ? 'Ordner öffnen' : 'Vorschau öffnen'} style={{ flex: 1, fontSize: '0.88rem', fontWeight: it.is_folder ? 600 : 400, color: C.text, cursor: 'pointer' }}>
+                          {it.name}{!it.is_folder && it.version > 1 && <span style={{ marginLeft: 6, fontSize: '0.68rem', background: C.bg, color: C.muted, padding: '0.05rem 0.4rem', borderRadius: 10 }}>v{it.version}</span>}
+                        </span>
+                      )}
                       {!it.is_folder && <span style={{ fontSize: '0.74rem', color: C.muted, minWidth: 60, textAlign: 'right' }}>{fmtBytes(it.size)}</span>}
                       <span style={{ display: 'flex', gap: 4 }}>
+                        <button title="Umbenennen" onClick={() => { setRenameId(it.id); setRenameVal(it.name); }} style={iconBtn}><Edit2 size={15} /></button>
                         {!it.is_folder && <><button title="Vorschau (mit Wasserzeichen)" onClick={() => preview(it)} style={iconBtn}><Eye size={15} /></button><button title="Herunterladen" onClick={() => download(it)} style={iconBtn}><Download size={15} /></button>
                           <button title="In Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button></>}
                         <button title="Löschen" onClick={() => del(it)} style={{ ...iconBtn, color: '#991b1b' }}><Trash2 size={15} /></button>

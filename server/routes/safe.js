@@ -163,8 +163,34 @@ router.post('/:projectId/upload', authenticate, upload.array('files', 500), wrap
       [req.tenantId || 1, projectId, parentId, fileName, key, file.size, file.mimetype, checksum, version, req.user.id]));
     created.push({ id, name: fileName, version });
   }
-  db.auditLog(req.user.id, 'SAFE_UPLOAD', 'safe_item', null, `${created.length} Datei(en) → Projekt ${projectId}`, req.ip);
+  // Mandat im Log mit Codenamen (nicht mit der Projekt-Id) benennen und als
+  // Projekt-Ressource ablegen, damit der Aktivitätslog das Mandat sauber auflöst.
+  const proj = await scoped(req, (t) => t.get('SELECT codename FROM projects WHERE id = ?', [projectId])).catch(() => null);
+  const label = proj && proj.codename ? proj.codename : `Mandat #${projectId}`;
+  db.auditLog(req.user.id, 'SAFE_UPLOAD', 'project', projectId, `${created.length} Datei(en) in ${label}`, req.ip);
   res.json({ success: true, data: { created } });
+}));
+
+// ── Umbenennen (Datei oder Ordner) ──────────────────────────────────────────
+router.patch('/:projectId/item/:id', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const item = await scoped(req, (t) => t.get(
+    'SELECT id, name, is_folder FROM safe_items WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
+    [req.params.id, req.params.projectId]));
+  if (!item) return res.status(404).json({ success: false, error: 'Objekt nicht gefunden' });
+  let clean = String(req.body.name || '')
+    .replace(/[/\\]/g, '_')                      // keine Pfadangaben
+    .replace(/[\u0000-\u001F\u007F]/g, '')       // keine Steuerzeichen
+    .replace(/\s+/g, ' ').trim().slice(0, 200);
+  if (!clean) return res.status(400).json({ success: false, error: 'Der Name darf nicht leer sein.' });
+  // Bei Dateien die Endung der Originaldatei erhalten (sonst öffnet der Browser falsch).
+  if (!item.is_folder) {
+    const ext = (item.name.match(/\.[A-Za-z0-9]{1,8}$/) || [''])[0];
+    if (ext && !clean.toLowerCase().endsWith(ext.toLowerCase())) clean += ext;
+  }
+  await scoped(req, (t) => t.run('UPDATE safe_items SET name = ? WHERE id = ?', [clean, item.id]));
+  db.auditLog(req.user.id, 'SAFE_RENAME', 'safe_item', item.id, `${item.name} -> ${clean}`, req.ip);
+  res.json({ success: true, data: { name: clean } });
 }));
 
 // ── Download / Inline-Vorschau ──────────────────────────────────────────────
