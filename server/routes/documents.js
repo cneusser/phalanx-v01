@@ -35,6 +35,13 @@ async function checkDownloadAccess(user, doc, projectId) {
   if (category === 'dataroom' && !(await hasPermission(user, projectId, 'download'))) {
     return { ok: false, error: 'Kein Download-Recht für den Datenraum, bitte an den Berater wenden' };
   }
+  // Feingranular: ist das Dokument beschränkt, braucht der Empfänger eine
+  // ausdrückliche Freigabe. Nur „download" erlaubt den Download, „read" nur Ansicht.
+  if (doc.restricted) {
+    const g = await db.get('SELECT level FROM document_grants WHERE document_id = ? AND user_id = ?', [doc.id, user.id]);
+    if (!g) return { ok: false, error: 'Dieses Dokument ist nicht für Sie freigegeben' };
+    if (g.level !== 'download') return { ok: false, error: 'Für dieses Dokument ist nur die Ansicht freigegeben, kein Download' };
+  }
   return { ok: true };
 }
 
@@ -230,6 +237,7 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
   // has_file: Seed-Einträge ohne physische Datei → Download-Button deaktivieren
   const docs = await db.all(`
     SELECT id, filename, file_type, file_size, access_level, category, folder, version, description, created_at,
+           COALESCE(restricted, 0) AS restricted,
            (file_path IS NOT NULL)::int AS has_file
     FROM documents WHERE project_id = ? ORDER BY created_at DESC
   `, [projectId]);
@@ -267,10 +275,20 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
   // Datenraum zusätzlich nur mit granularem Lese-Recht (Sprint 4).
   const stage = await getStage(req.user.id, projectId);
   const dataroomRead = await hasPermission(req.user, projectId, 'read');
+  // Beschränkte Dokumente: nur zeigen, wenn der Nutzer eine Freigabe hat.
+  const restrictedIds = docs.filter(d => d.restricted).map(d => d.id);
+  let grantedSet = new Set();
+  if (restrictedIds.length) {
+    const gr = await db.all(
+      `SELECT document_id FROM document_grants WHERE user_id = ? AND document_id IN (${restrictedIds.map(() => '?').join(',')})`,
+      [req.user.id, ...restrictedIds]);
+    grantedSet = new Set(gr.map(x => x.document_id));
+  }
   const visible = docs.filter(d => {
     const cat = docCategory(d);
     if (!stageAllows(stage, cat)) return false;
     if (cat === 'dataroom' && !dataroomRead) return false;
+    if (d.restricted && !grantedSet.has(d.id)) return false;
     return true;
   });
   // Exposé nur zeigen, wenn es veröffentlicht ist UND das IM-Gate offen steht
@@ -375,13 +393,17 @@ router.patch('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
     newName = (ext && !clean.toLowerCase().endsWith(ext.toLowerCase())) ? clean + ext : clean;
   }
 
+  // Beschränkung (feingranular) optional mitsetzen.
+  const newRestricted = req.body.restricted === undefined ? null : (req.body.restricted ? 1 : 0);
+
   await db.run(
     `UPDATE documents SET
        filename = COALESCE(?, filename),
        access_level = ?, category = ?,
-       description = COALESCE(?, description)
+       description = COALESCE(?, description),
+       restricted = COALESCE(?, restricted)
      WHERE id = ?`,
-    [newName, newLevel, newCategory, description ?? null, docId]
+    [newName, newLevel, newCategory, description ?? null, newRestricted, docId]
   );
 
   const changes = [];
@@ -399,6 +421,48 @@ router.patch('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
       access_level: newLevel, category: newCategory,
     },
   });
+}));
+
+// ── Feingranulare Freigaben je Dokument (Admin) ────────────────────────────
+// Wer darf ein beschränktes Dokument sehen (read) oder herunterladen (download).
+router.get('/:projectId/:docId/grants', ...isAdmin, wrap(async (req, res) => {
+  const { projectId, docId } = req.params;
+  const doc = await db.get('SELECT id, filename, COALESCE(restricted,0) AS restricted FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
+  if (!doc) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
+  const grants = await db.all(`
+    SELECT g.user_id, g.level, u.first_name || ' ' || u.last_name AS name, u.email
+    FROM document_grants g JOIN users u ON u.id = g.user_id
+    WHERE g.document_id = ? ORDER BY name`, [docId]);
+  // Auswahl: Interessenten dieses Mandats (Datenraum-nah), als mögliche Empfänger.
+  const recipients = await db.all(`
+    SELECT u.id, u.first_name || ' ' || u.last_name AS name, u.email, i.stage
+    FROM interests i JOIN users u ON u.id = i.buyer_id
+    WHERE i.project_id = ? AND i.stage <> 'rejected' ORDER BY name`, [projectId]);
+  res.json({ success: true, data: { restricted: doc.restricted === 1, grants, recipients } });
+}));
+
+router.post('/:projectId/:docId/grants', ...isAdmin, wrap(async (req, res) => {
+  const { projectId, docId } = req.params;
+  const userId = Number(req.body.user_id);
+  const level = ['read', 'download'].includes(req.body.level) ? req.body.level : 'read';
+  if (!userId) return res.status(400).json({ success: false, error: 'user_id fehlt' });
+  const doc = await db.get('SELECT id FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
+  if (!doc) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
+  await db.run(`
+    INSERT INTO document_grants (tenant_id, document_id, user_id, level, created_by)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (document_id, user_id) DO UPDATE SET level = EXCLUDED.level`,
+    [req.tenantId || 1, docId, userId, level, req.user.id]);
+  // Wird eine Freigabe gesetzt, ist das Dokument automatisch beschränkt.
+  await db.run('UPDATE documents SET restricted = 1 WHERE id = ?', [docId]);
+  db.auditLog(req.user.id, 'DOC_GRANT_SET', 'document', docId, `user ${userId} (${level})`, req.ip);
+  res.status(201).json({ success: true, data: { user_id: userId, level } });
+}));
+
+router.delete('/:projectId/:docId/grants/:userId', ...isAdmin, wrap(async (req, res) => {
+  await db.run('DELETE FROM document_grants WHERE document_id = ? AND user_id = ?', [req.params.docId, req.params.userId]);
+  db.auditLog(req.user.id, 'DOC_GRANT_REMOVED', 'document', req.params.docId, `user ${req.params.userId}`, req.ip);
+  res.json({ success: true, data: { message: 'Freigabe entfernt' } });
 }));
 
 // ── POST /api/documents/:projectId/:docId/file  (Admin: Datei nachreichen/ersetzen) ──

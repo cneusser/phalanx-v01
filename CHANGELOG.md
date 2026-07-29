@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.338 · 21.07.2026 · Datensafe: Zugriff je Empfänger und Dokument
+- **Feingranulare Zugriffsstruktur**: Ein Dokument im Datenraum lässt sich beschränken, dann sehen es nur ausdrücklich freigegebene Empfänger
+- **Ansicht oder Download je Person**: Eine reine Ansichts-Freigabe zeigt das Dokument, erlaubt aber keinen Download. Download ist eine eigene Stufe
+- **Serverseitig durchgesetzt**: für Liste, Download, sichere Vorschau und ablaufende Links, nicht über die Oberfläche umgehbar. Verwaltung im Admin je Dokument über „Zugriff je Empfänger"
+- **Rückwärtskompatibel**: Ohne Beschränkung bleibt der bisherige Datenraum-Zugang unverändert
+- Verifiziert: neun Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.337 · 21.07.2026 · Datensafe: Zugriffsbericht und sichere Vorschau (Sprint 30)
 - **Zugriffs-Dokumentation**: Jede Ansicht und jeder Download einer Safe-Datei wird revisionssicher protokolliert (wer, welches Dokument, wann, welche Aktion)
 - **Zugriffsbericht für Pfleger**: neuer Reiter „Zugriffe" im Safe, ausgewertet nach Person und nach Dokument, mit Ansichten, Downloads, Anzahl Dokumente und letztem Zugriff. Das ist die Interessen-Heatmap je Bieter für den Verkäufer

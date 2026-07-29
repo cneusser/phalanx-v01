@@ -11,6 +11,7 @@ import GroupedSelect from '../components/GroupedSelect';
 import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES, REVENUE_CLASSES } from '../constants/projectOptions';
 import DealCrmModal, { DEAL_STATUS_LABELS, DEAL_TRANSITIONS } from '../components/DealCrmModal';
 import ContactDrawer from '../components/ContactDrawer';
+import DocumentGrantsModal from '../components/DocumentGrantsModal';
 import TemplateAdmin from '../components/TemplateAdmin';
 import TaskBoard from '../components/TaskBoard';
 import MailOutbox from '../components/MailOutbox';
@@ -691,6 +692,11 @@ export default function Admin() {
 
   // Dokument-Upload
   const [uploadProject, setUploadProject] = useState(null);
+  const [grantsDoc, setGrantsDoc] = useState(null);
+  async function reloadUploadDocs() {
+    if (!uploadProject) return;
+    try { const docs = await api.get(`/documents/${uploadProject.id}`); setUploadState(s => ({ ...s, existingDocs: docs })); } catch { /* ignore */ }
+  }
   const [uploadState, setUploadState] = useState({
     file: null, description: '', access_level: 'nda',
     uploading: false, done: [], error: '',
@@ -2582,6 +2588,9 @@ export default function Admin() {
                       <option value="nda">NDA</option>
                       <option value="approved">Freigegeben</option>
                     </select>
+                    <button onClick={() => setGrantsDoc(doc)} title="Zugriff je Empfänger" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: doc.restricted ? '#fef3c7' : '#f1f5f9', color: doc.restricted ? '#92400e' : C.muted, border: 'none', padding: '0.3rem 0.5rem', borderRadius: 5, cursor: 'pointer', flexShrink: 0, fontSize: '0.68rem', fontWeight: 700 }}>
+                      <Lock size={12} />{doc.restricted ? 'Beschränkt' : ''}
+                    </button>
                     <button onClick={() => deleteDocument(uploadProject.id, doc.id, doc.filename)} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.3rem 0.5rem', borderRadius: 5, cursor: 'pointer', flexShrink: 0 }}>
                       <Trash2 size={12} />
                     </button>
@@ -2596,6 +2605,11 @@ export default function Admin() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Feingranulare Dokument-Freigaben */}
+      {grantsDoc && uploadProject && (
+        <DocumentGrantsModal projectId={uploadProject.id} doc={grantsDoc} onClose={() => setGrantsDoc(null)} onChanged={reloadUploadDocs} />
       )}
 
       {/* Sprint 4: Deal-CRM-Modal */}
