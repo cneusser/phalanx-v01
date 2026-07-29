@@ -124,6 +124,21 @@ export default function DealFunnelBoard({ show }) {
     finally { setReconciling(false); }
   }
 
+  // Ausgewählte Kontakte auf „nicht kontaktieren" setzen (Widerspruch). Sie werden
+  // danach von jeder Ansprache und jedem Mailing ausgenommen, bleiben aber im CRM.
+  async function bulkDoNotContact() {
+    if (!selected.length) return;
+    if (!window.confirm(`${selected.length} Kontakt(e) auf „nicht kontaktieren" setzen?\n\nSie werden künftig von jeder Ansprache und jedem Mailing ausgenommen. Die Kontakte bleiben im CRM erhalten.`)) return;
+    let done = 0;
+    for (const cid of selected) {
+      try { await api.put(`/crm/contacts/${cid}`, { consent_status: 'opt_out', contact_status: 'do_not_contact' }); done += 1; }
+      catch { /* einzelne Fehler überspringen */ }
+    }
+    setSelected([]);
+    show(`${done} Kontakt(e) auf „nicht kontaktieren" gesetzt`);
+    await loadBoard();
+  }
+
   // Papierkorb: Beteiligung am Mandat entfernen (der Kontakt selbst bleibt im CRM)
   async function removeParty(p) {
     const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Diesen Eintrag';
@@ -378,6 +393,12 @@ export default function DealFunnelBoard({ show }) {
                 borderRadius: 8, padding: '0.5rem 1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
               }}>
                 <Megaphone size={14} /> {selected.length} anschreiben (Mandats-Mailing)
+              </button>
+              <button onClick={bulkDoNotContact} title={'Ausgewählte Kontakte auf „nicht kontaktieren" setzen (Widerspruch)'} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: '#991b1b',
+                border: '1.5px solid #fca5a5', borderRadius: 8, padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+              }}>
+                <ShieldOff size={14} /> Nicht kontaktieren
               </button>
             </>
           )}

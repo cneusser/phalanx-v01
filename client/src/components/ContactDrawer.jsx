@@ -131,6 +131,18 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
     try { await api.post(`/crm/contacts/${contactId}/invite`, {}); show('Einladung (DSGVO) versendet ✓'); await load(); }
     catch (e) { show('Fehler: ' + e.message); }
   }
+  // Auf „nicht kontaktieren" setzen (Widerspruch) bzw. wieder freigeben. Ein
+  // gesperrter Kontakt wird von jeder Ansprache und jedem Mailing ausgenommen.
+  async function setDoNotContact(on) {
+    if (on && !window.confirm(`${[k.first_name, k.last_name].filter(Boolean).join(' ') || 'Diesen Kontakt'} auf „nicht kontaktieren" setzen?\n\nDer Kontakt wird künftig von jeder Ansprache und jedem Mailing ausgenommen. Der Eintrag bleibt im CRM erhalten.`)) return;
+    try {
+      await api.put(`/crm/contacts/${contactId}`, on
+        ? { consent_status: 'opt_out', contact_status: 'do_not_contact' }
+        : { consent_status: 'unknown', contact_status: 'active' });
+      show(on ? 'Auf „nicht kontaktieren" gesetzt' : 'Kontakt wieder freigegeben');
+      await load(); onChanged && onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
   async function setStage(partyId, stage) {
     try { await api.put(`/crm/parties/${partyId}`, { funnel_stage: Number(stage) }); await load(); onChanged && onChanged(); }
     catch (e) { show('Fehler: ' + e.message); }
@@ -343,6 +355,19 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                 <a href={`mailto:${k.email}`} title="Im eigenen Mailprogramm öffnen (wird hier nicht protokolliert)" style={{ ...btn(false), textDecoration: 'none' }}>
                   <ExternalLink size={13} /> Direkt mailen
                 </a>
+              )}
+              {blocked ? (
+                <button onClick={() => setDoNotContact(false)}
+                  title="Sperre aufheben: der Kontakt darf wieder angeschrieben werden (Einwilligung dann separat einholen)"
+                  style={{ ...btn(false), color: '#065f46', borderColor: '#6ee7b7' }}>
+                  <ShieldCheck size={13} /> Wieder freigeben
+                </button>
+              ) : (
+                <button onClick={() => setDoNotContact(true)}
+                  title={'Kontakt auf „nicht kontaktieren" setzen: künftig von jeder Ansprache und jedem Mailing ausgenommen'}
+                  style={{ ...btn(false), color: '#991b1b', borderColor: '#fca5a5' }}>
+                  <ShieldOff size={13} /> Nicht kontaktieren
+                </button>
               )}
               {data.account?.id && (
                 <button
