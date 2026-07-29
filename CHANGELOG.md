@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.344 · 21.07.2026 · Safe: automatische Nummerierung nach Ordnerstruktur
+- **Auto-Nummerierung**: Dateien und Ordner werden automatisch nach der Ordnerstruktur nummeriert (z. B. 5.1.8), abgeleitet aus der Position entlang der Ordnerkette
+- **Umsortieren**: Pfeile nach oben und unten je Zeile, die Nummerierung wird sofort neu vergeben (lückenrobust über den Rang)
+- **Keine Dopplung**: Eine bereits im Namen enthaltene manuelle Nummer wird in der Anzeige durch die automatische ersetzt
+- Verifiziert: zehn Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.343 · 21.07.2026 · Safe: Dateien und Ordner umbenennen
 - **Umbenennen**: Dateien und Ordner im Safe lassen sich nachträglich umbenennen (Stift-Symbol, Enter speichert, Escape bricht ab). Bei Dateien bleibt die Endung erhalten
 - **Mandatsname konsequent**: Im Aktivitätslog erscheint der Codename (z. B. Betongold) statt der reinen Projekt-Id, und das Hochladen wird korrekt dem Mandat zugeordnet

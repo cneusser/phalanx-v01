@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
-import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2 } from 'lucide-react';
+import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const fmtBytes = (b) => { b = Number(b) || 0; if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB'; return (b / 1073741824).toFixed(2) + ' GB'; };
@@ -48,6 +48,10 @@ export default function ProjectSafe() {
     const name = renameVal.trim();
     if (!name || name === item.name) { setRenameId(null); return; }
     try { await api.patch(`/safe/${pid}/item/${item.id}`, { name }); setRenameId(null); load(parent); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+  async function moveItem(item, dir) {
+    try { await api.post(`/safe/${pid}/item/${item.id}/move`, { dir }); load(parent); }
     catch (e) { setMsg('Fehler: ' + e.message); }
   }
   const fmtDate = (d) => d ? new Date(d).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'k. A.';
@@ -186,10 +190,11 @@ export default function ProjectSafe() {
 
   if (denied) return <div style={{ maxWidth: 700, margin: '4rem auto', padding: '2rem', textAlign: 'center', color: C.muted }}>Kein Zugriff auf den Safe dieses Mandats. Der Container-Safe ist ausschließlich für Administratoren und Mandats-Pfleger zugänglich.</div>;
 
-  const folders = items.filter(i => i.is_folder);
-  const files = items.filter(i => !i.is_folder);
-  const images = files.filter(f => isImage(f.mime));
-  const others = files.filter(f => !isImage(f.mime));
+  // In Server-Reihenfolge (Position), damit die strukturbasierte Nummer stimmt.
+  const listItems = items.filter(i => i.is_folder || !isImage(i.mime));
+  const images = items.filter(i => !i.is_folder && isImage(i.mime));
+  // Führende manuelle Nummer (z. B. „5.1.8 ") wird angezeigt über die Auto-Nummer ersetzt.
+  const displayName = (name) => String(name || '').replace(/^\s*\d+(\.\d+)*[.)]?\s+/, '');
 
   return (
     <div style={{ background: C.bg, minHeight: '100vh' }}>
@@ -297,9 +302,10 @@ export default function ProjectSafe() {
               : items.length === 0 ? <div style={{ padding: '3rem', textAlign: 'center', color: C.muted }}>Leer. Dateien hierher ziehen oder oben hochladen.</div>
               : (
                 <div style={{ padding: '0.5rem' }}>
-                  {/* Ordner + Nicht-Bild-Dateien als Liste */}
-                  {[...folders, ...others].map(it => (
-                    <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.75rem', borderBottom: `1px solid ${C.border}` }}>
+                  {/* Ordner + Nicht-Bild-Dateien in strukturierter Reihenfolge */}
+                  {listItems.map((it, i) => (
+                    <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.75rem', borderBottom: `1px solid ${C.border}` }}>
+                      <span style={{ minWidth: 46, fontSize: '0.78rem', fontWeight: 700, color: C.navy, fontVariantNumeric: 'tabular-nums' }}>{it.number}</span>
                       {it.is_folder ? <Folder size={18} color={C.accent} /> : <File size={18} color={C.muted} />}
                       {renameId === it.id ? (
                         <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
@@ -308,12 +314,14 @@ export default function ProjectSafe() {
                           style={{ flex: 1, fontSize: '0.88rem', padding: '0.3rem 0.5rem', border: `1px solid ${C.navy}`, borderRadius: 5, outline: 'none' }} />
                       ) : (
                         <span onClick={() => it.is_folder ? load(it.id) : preview(it)} title={it.is_folder ? 'Ordner öffnen' : 'Vorschau öffnen'} style={{ flex: 1, fontSize: '0.88rem', fontWeight: it.is_folder ? 600 : 400, color: C.text, cursor: 'pointer' }}>
-                          {it.name}{!it.is_folder && it.version > 1 && <span style={{ marginLeft: 6, fontSize: '0.68rem', background: C.bg, color: C.muted, padding: '0.05rem 0.4rem', borderRadius: 10 }}>v{it.version}</span>}
+                          {displayName(it.name)}{!it.is_folder && it.version > 1 && <span style={{ marginLeft: 6, fontSize: '0.68rem', background: C.bg, color: C.muted, padding: '0.05rem 0.4rem', borderRadius: 10 }}>v{it.version}</span>}
                         </span>
                       )}
                       {!it.is_folder && <span style={{ fontSize: '0.74rem', color: C.muted, minWidth: 60, textAlign: 'right' }}>{fmtBytes(it.size)}</span>}
-                      <span style={{ display: 'flex', gap: 4 }}>
-                        <button title="Umbenennen" onClick={() => { setRenameId(it.id); setRenameVal(it.name); }} style={iconBtn}><Edit2 size={15} /></button>
+                      <span style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <button title="Nach oben" disabled={i === 0} onClick={() => moveItem(it, 'up')} style={{ ...iconBtn, color: i === 0 ? '#cbd5e1' : C.muted }}><ChevronUp size={15} /></button>
+                        <button title="Nach unten" disabled={i === listItems.length - 1} onClick={() => moveItem(it, 'down')} style={{ ...iconBtn, color: i === listItems.length - 1 ? '#cbd5e1' : C.muted }}><ChevronDown size={15} /></button>
+                        <button title="Umbenennen" onClick={() => { setRenameId(it.id); setRenameVal(displayName(it.name)); }} style={iconBtn}><Edit2 size={15} /></button>
                         {!it.is_folder && <><button title="Vorschau (mit Wasserzeichen)" onClick={() => preview(it)} style={iconBtn}><Eye size={15} /></button><button title="Herunterladen" onClick={() => download(it)} style={iconBtn}><Download size={15} /></button>
                           <button title="In Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button></>}
                         <button title="Löschen" onClick={() => del(it)} style={{ ...iconBtn, color: '#991b1b' }}><Trash2 size={15} /></button>

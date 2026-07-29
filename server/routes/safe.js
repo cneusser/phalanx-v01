@@ -53,8 +53,17 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100
 
 function rowOut(r) {
   return { id: r.id, name: r.name, is_folder: !!r.is_folder, parent_id: r.parent_id,
+    position: Number(r.position || 0),
     size: Number(r.size || 0), mime: r.mime, version: r.version, checksum: r.checksum_sha256,
     uploaded_by: r.uploaded_by, created_at: r.created_at, deleted_at: r.deleted_at };
+}
+
+// Nächste freie Position (1..N) innerhalb eines Ordners.
+async function nextPosition(req, projectId, parentId) {
+  const r = await scoped(req, (t) => t.get(
+    `SELECT COALESCE(MAX(position), 0) AS m FROM safe_items WHERE project_id = ? AND deleted_at IS NULL AND ${parentId == null ? 'parent_id IS NULL' : 'parent_id = ?'}`,
+    parentId == null ? [projectId] : [projectId, parentId]));
+  return (r ? Number(r.m) : 0) + 1;
 }
 
 // Ordner-Kette unter parent anlegen/auflösen (für Ordner-Uploads via relative Pfade)
@@ -66,9 +75,10 @@ async function ensureFolderPath(req, projectId, parentId, segments) {
       `SELECT id FROM safe_items WHERE project_id = ? AND is_folder = 1 AND name = ? AND deleted_at IS NULL AND ${pid == null ? 'parent_id IS NULL' : 'parent_id = ?'}`,
       pid == null ? [projectId, seg] : [projectId, seg, pid]));
     if (!f) {
+      const pos = await nextPosition(req, projectId, pid);
       const id = await scoped(req, (t) => t.insert(
-        `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, uploaded_by) VALUES (?, ?, ?, ?, 1, ?)`,
-        [req.tenantId || 1, projectId, pid, seg, req.user.id]));
+        `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, position, uploaded_by) VALUES (?, ?, ?, ?, 1, ?, ?)`,
+        [req.tenantId || 1, projectId, pid, seg, pos, req.user.id]));
       pid = id;
     } else pid = f.id;
   }
@@ -83,18 +93,46 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
   const pid = req.query.parent_id ? Number(req.query.parent_id) : null;
   const items = await scoped(req, (t) => t.all(
     `SELECT * FROM safe_items WHERE project_id = ? AND deleted_at IS NULL AND ${pid == null ? 'parent_id IS NULL' : 'parent_id = ?'}
-     ORDER BY is_folder DESC, name ASC`,
+     ORDER BY position ASC, name ASC`,
     pid == null ? [req.params.projectId] : [req.params.projectId, pid]));
-  // Breadcrumb
+  // Breadcrumb mit Rang je Ebene (1..N), damit die Nummer strukturbasiert und
+  // lückenrobust ist (Rang statt Rohposition).
   const crumbs = [];
   let cur = pid;
   while (cur) {
-    const f = await scoped(req, (t) => t.get('SELECT id, name, parent_id FROM safe_items WHERE id = ?', [cur]));
+    const f = await scoped(req, (t) => t.get('SELECT id, name, parent_id, position FROM safe_items WHERE id = ?', [cur]));
     if (!f) break;
-    crumbs.unshift({ id: f.id, name: f.name });
+    const rk = await scoped(req, (t) => t.get(
+      `SELECT COUNT(*)::int AS c FROM safe_items WHERE project_id = ? AND deleted_at IS NULL AND ${f.parent_id == null ? 'parent_id IS NULL' : 'parent_id = ?'} AND position < ?`,
+      f.parent_id == null ? [req.params.projectId, f.position] : [req.params.projectId, f.parent_id, f.position]));
+    crumbs.unshift({ id: f.id, name: f.name, number_index: (rk ? rk.c : 0) + 1 });
     cur = f.parent_id;
   }
-  res.json({ success: true, data: { items: items.map(rowOut), breadcrumb: crumbs, parent_id: pid, project } });
+  // Strukturbasierte Nummer je Objekt: Präfix aus den Ebenen + laufender Rang.
+  const prefix = crumbs.map(c => c.number_index).join('.');
+  let idx = 0;
+  const out = items.map(r => { idx += 1; const o = rowOut(r); o.number = prefix ? `${prefix}.${idx}` : String(idx); return o; });
+  res.json({ success: true, data: { items: out, breadcrumb: crumbs, parent_id: pid, project } });
+}));
+
+// ── Umsortieren (Position tauschen), Nummerierung ergibt sich neu ────────────
+router.post('/:projectId/item/:id/move', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const dir = req.body.dir === 'down' ? 'down' : 'up';
+  const item = await scoped(req, (t) => t.get(
+    'SELECT id, parent_id, position FROM safe_items WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
+    [req.params.id, req.params.projectId]));
+  if (!item) return res.status(404).json({ success: false, error: 'Objekt nicht gefunden' });
+  const parentCond = item.parent_id == null ? 'parent_id IS NULL' : 'parent_id = ?';
+  const base = item.parent_id == null ? [req.params.projectId] : [req.params.projectId, item.parent_id];
+  const neighbor = await scoped(req, (t) => t.get(
+    `SELECT id, position FROM safe_items WHERE project_id = ? AND deleted_at IS NULL AND ${parentCond}
+       AND position ${dir === 'up' ? '<' : '>'} ? ORDER BY position ${dir === 'up' ? 'DESC' : 'ASC'} LIMIT 1`,
+    [...base, item.position]));
+  if (!neighbor) return res.json({ success: true, data: { moved: false } });
+  await scoped(req, (t) => t.run('UPDATE safe_items SET position = ? WHERE id = ?', [neighbor.position, item.id]));
+  await scoped(req, (t) => t.run('UPDATE safe_items SET position = ? WHERE id = ?', [item.position, neighbor.id]));
+  res.json({ success: true, data: { moved: true } });
 }));
 
 // ── Ordnerbaum (alle Ordner, für Sidebar) ───────────────────────────────────
@@ -111,9 +149,10 @@ router.post('/:projectId/folder', authenticate, wrap(async (req, res) => {
   if (!(await guard(req, res))) return;
   const { name, parent_id } = req.body;
   if (!name || !String(name).trim()) return res.status(400).json({ success: false, error: 'Ordnername fehlt' });
+  const pos = await nextPosition(req, req.params.projectId, parent_id || null);
   const id = await scoped(req, (t) => t.insert(
-    `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, uploaded_by) VALUES (?, ?, ?, ?, 1, ?)`,
-    [req.tenantId || 1, req.params.projectId, parent_id || null, String(name).trim(), req.user.id]));
+    `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, position, uploaded_by) VALUES (?, ?, ?, ?, 1, ?, ?)`,
+    [req.tenantId || 1, req.params.projectId, parent_id || null, String(name).trim(), pos, req.user.id]));
   db.auditLog(req.user.id, 'SAFE_FOLDER_CREATE', 'safe_item', id, name, req.ip);
   res.json({ success: true, data: { id } });
 }));
@@ -157,10 +196,11 @@ router.post('/:projectId/upload', authenticate, upload.array('files', 500), wrap
     const key = `project_${projectId}/${uuidv4()}${ext}`;
     await storage.put(key, file.buffer, file.mimetype);
 
+    const pos = await nextPosition(req, projectId, parentId);
     const id = await scoped(req, (t) => t.insert(
-      `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, storage_key, size, mime, checksum_sha256, version, uploaded_by)
-       VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
-      [req.tenantId || 1, projectId, parentId, fileName, key, file.size, file.mimetype, checksum, version, req.user.id]));
+      `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, position, storage_key, size, mime, checksum_sha256, version, uploaded_by)
+       VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.tenantId || 1, projectId, parentId, fileName, pos, key, file.size, file.mimetype, checksum, version, req.user.id]));
     created.push({ id, name: fileName, version });
   }
   // Mandat im Log mit Codenamen (nicht mit der Projekt-Id) benennen und als
