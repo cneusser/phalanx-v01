@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.337 · 21.07.2026 · Datensafe: Zugriffsbericht und sichere Vorschau (Sprint 30)
+- **Zugriffs-Dokumentation**: Jede Ansicht und jeder Download einer Safe-Datei wird revisionssicher protokolliert (wer, welches Dokument, wann, welche Aktion)
+- **Zugriffsbericht für Pfleger**: neuer Reiter „Zugriffe" im Safe, ausgewertet nach Person und nach Dokument, mit Ansichten, Downloads, Anzahl Dokumente und letztem Zugriff. Das ist die Interessen-Heatmap je Bieter für den Verkäufer
+- **Sichere Vorschau**: PDFs werden mit einem Wasserzeichen auf den Betrachter gestempelt und nur zur Ansicht geöffnet, statt sie herunterzuladen
+- Erster Baustein des Datensafe-Ausbaus. Es folgen Zugriffsstruktur je Ordner und Nutzer sowie das Schwärzen von Passagen
+- Verifiziert: neun Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.336 · 21.07.2026 · Sicherheit und Datenschutz härten (Sprint 29)
 - **JWT-Schlüssel zentral und fail-closed**: eine Quelle für den Schlüssel, in Produktion bricht der Start bei fehlendem oder schwachem Wert ab (Notausgang `ALLOW_WEAK_JWT=1`). Der Schlüssel signiert Sessions und Datei-Links
 - **Sicherheits-Header**: Content-Security-Policy und HSTS aktiviert (bei Problemen abschaltbar über `CSP_DISABLED=1`). CORS spiegelt keine fremde Origin mehr, ohne gesetzten `FRONTEND_URL` wird kein Cross-Origin erlaubt

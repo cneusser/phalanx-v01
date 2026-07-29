@@ -42,6 +42,13 @@ async function guardRead(req, res) {
   return true;
 }
 
+// Revisionssichere Zugriffs-Dokumentation (Ansicht/Download) je Datei.
+async function logSafeAccess(req, projectId, itemId, action) {
+  await scoped(req, (t) => t.run(
+    `INSERT INTO safe_access_log (tenant_id, project_id, item_id, user_id, action) VALUES (?, ?, ?, ?, ?)`,
+    [req.tenantId || 1, projectId, itemId, req.user.id, action])).catch(() => {});
+}
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024, files: 500 } });
 
 function rowOut(r) {
@@ -156,10 +163,67 @@ router.get('/:projectId/item/:id/download', authenticate, wrap(async (req, res) 
   const item = await scoped(req, (t) => t.get('SELECT * FROM safe_items WHERE id = ? AND project_id = ?', [req.params.id, req.params.projectId]));
   if (!item || item.is_folder || !item.storage_key) return res.status(404).json({ success: false, error: 'Datei nicht gefunden' });
   const buf = await getStorage().get(item.storage_key);
-  db.activityLog(req.user.id, 'SAFE_DOWNLOAD', 'safe_item', item.id, req.ip);
+  const inline = !!req.query.inline;
+  db.activityLog(req.user.id, inline ? 'SAFE_VIEW' : 'SAFE_DOWNLOAD', 'safe_item', item.id, req.ip);
+  await logSafeAccess(req, Number(req.params.projectId), item.id, inline ? 'view' : 'download');
   res.setHeader('Content-Type', item.mime || 'application/octet-stream');
-  res.setHeader('Content-Disposition', `${req.query.inline ? 'inline' : 'attachment'}; filename="${encodeURIComponent(item.name)}"`);
+  res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${encodeURIComponent(item.name)}"`);
   res.send(buf);
+}));
+
+// Sichere Vorschau: PDFs werden mit Wasserzeichen auf den Betrachter gestempelt
+// und nur zur Ansicht (inline) ausgeliefert. Andere Dateitypen unverändert inline.
+// Zählt als Ansicht in der Zugriffs-Dokumentation.
+router.get('/:projectId/item/:id/preview', authenticate, wrap(async (req, res) => {
+  if (!(await guardRead(req, res))) return;
+  const item = await scoped(req, (t) => t.get('SELECT * FROM safe_items WHERE id = ? AND project_id = ?', [req.params.id, req.params.projectId]));
+  if (!item || item.is_folder || !item.storage_key) return res.status(404).json({ success: false, error: 'Datei nicht gefunden' });
+  let buf = await getStorage().get(item.storage_key);
+  const isPdf = (item.mime || '').includes('pdf') || /\.pdf$/i.test(item.name || '');
+  if (isPdf) {
+    try {
+      const { addWatermark } = require('../utils/watermark');
+      buf = await addWatermark(buf, { name: `${req.user.first_name} ${req.user.last_name}`, email: req.user.email });
+    } catch (e) { console.warn('Safe-Vorschau Wasserzeichen fehlgeschlagen:', e.message); }
+  }
+  db.activityLog(req.user.id, 'SAFE_VIEW', 'safe_item', item.id, req.ip);
+  await logSafeAccess(req, Number(req.params.projectId), item.id, 'view');
+  res.setHeader('Content-Type', item.mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(item.name)}"`);
+  res.send(buf);
+}));
+
+// Zugriffsbericht (nur Pflegende/Admin): wer hat welche Datei wie oft angesehen
+// oder heruntergeladen, und wann zuletzt.
+router.get('/:projectId/access-report', authenticate, wrap(async (req, res) => {
+  if (!(await canManage(req, req.params.projectId))) {
+    return res.status(403).json({ success: false, error: 'Nur Pflegende sehen den Zugriffsbericht.' });
+  }
+  const projectId = req.params.projectId;
+  const perUser = await scoped(req, (t) => t.all(`
+    SELECT l.user_id, u.first_name || ' ' || u.last_name AS name, u.email, u.role,
+           COUNT(*) FILTER (WHERE l.action = 'view')::int     AS views,
+           COUNT(*) FILTER (WHERE l.action = 'download')::int AS downloads,
+           COUNT(DISTINCT l.item_id)::int                     AS documents,
+           MAX(l.created_at) AS last_access
+    FROM safe_access_log l LEFT JOIN users u ON u.id = l.user_id
+    WHERE l.project_id = ? GROUP BY l.user_id, u.first_name, u.last_name, u.email, u.role
+    ORDER BY last_access DESC NULLS LAST`, [projectId]));
+  const perItem = await scoped(req, (t) => t.all(`
+    SELECT l.item_id, s.name,
+           COUNT(*) FILTER (WHERE l.action = 'view')::int     AS views,
+           COUNT(*) FILTER (WHERE l.action = 'download')::int AS downloads,
+           COUNT(DISTINCT l.user_id)::int                     AS users,
+           MAX(l.created_at) AS last_access
+    FROM safe_access_log l LEFT JOIN safe_items s ON s.id = l.item_id
+    WHERE l.project_id = ? GROUP BY l.item_id, s.name
+    ORDER BY (COUNT(*) FILTER (WHERE l.action = 'download')) DESC, views DESC`, [projectId]));
+  const recent = await scoped(req, (t) => t.all(`
+    SELECT l.created_at, l.action, s.name AS item_name,
+           u.first_name || ' ' || u.last_name AS user_name, u.email
+    FROM safe_access_log l LEFT JOIN safe_items s ON s.id = l.item_id LEFT JOIN users u ON u.id = l.user_id
+    WHERE l.project_id = ? ORDER BY l.created_at DESC LIMIT 100`, [projectId]));
+  res.json({ success: true, data: { per_user: perUser, per_item: perItem, recent } });
 }));
 
 // ── Rekursiv alle Nachfahren-IDs sammeln ────────────────────────────────────

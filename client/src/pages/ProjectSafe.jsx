@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
-import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X } from 'lucide-react';
+import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3 } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const fmtBytes = (b) => { b = Number(b) || 0; if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB'; return (b / 1073741824).toFixed(2) + ' GB'; };
@@ -35,6 +35,14 @@ export default function ProjectSafe() {
   const [uploading, setUploading] = useState(false);
   const [drag, setDrag] = useState(false);
   const [denied, setDenied] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [report, setReport] = useState(null);
+
+  async function loadReport() {
+    try { setReport(await api.get(`/safe/${pid}/access-report`)); setShowReport(true); setShowTrash(false); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+  const fmtDate = (d) => d ? new Date(d).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'k. A.';
   const fileInput = useRef(); const dirInput = useRef();
 
   const load = useCallback(async (parentId = null) => {
@@ -84,6 +92,17 @@ export default function ProjectSafe() {
       const blob = await res.blob(); const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = item.name; a.click(); URL.revokeObjectURL(url);
     } catch (e) { setMsg('Download-Fehler: ' + e.message); }
+  }
+
+  // Sichere Vorschau (PDFs mit Wasserzeichen) in neuem Tab
+  async function preview(item) {
+    try {
+      const res = await fetch(`/api/safe/${pid}/item/${item.id}/preview`, { headers: authHeaders() });
+      if (!res.ok) throw new Error('Fehler');
+      const blob = await res.blob(); const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) { setMsg('Vorschau-Fehler: ' + e.message); }
   }
 
   async function del(item) {
@@ -136,6 +155,7 @@ export default function ProjectSafe() {
           <button onClick={() => fileInput.current?.click()} style={btn('#fff', C.navy, true)}><Upload size={15} /> Dateien</button>
           <button onClick={() => dirInput.current?.click()} style={btn('#fff', C.navy, true)}><Folder size={15} /> Ordner hochladen</button>
           <div style={{ flex: 1 }} />
+          <button onClick={() => showReport ? setShowReport(false) : loadReport()} style={btn('#fff', showReport ? C.accent : C.muted, true)}><BarChart3 size={15} /> Zugriffe</button>
           <button onClick={() => showTrash ? setShowTrash(false) : loadTrash()} style={btn('#fff', showTrash ? '#991b1b' : C.muted, true)}><Trash2 size={15} /> Papierkorb</button>
           <input ref={fileInput} type="file" multiple hidden onChange={e => doUpload(Array.from(e.target.files), false)} />
           <input ref={dirInput} type="file" hidden multiple onChange={e => doUpload(Array.from(e.target.files), true)} />
@@ -144,7 +164,50 @@ export default function ProjectSafe() {
         {msg && <div style={{ background: msg.includes('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: msg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{msg}</div>}
         {uploading && <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: C.accent }}>Wird hochgeladen…</div>}
 
-        {showTrash ? (
+        {showReport ? (
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <strong style={{ color: C.navy }}>Zugriffsbericht</strong>
+              <span style={{ fontSize: '0.75rem', color: C.muted }}>Wer hat welche Datei angesehen oder heruntergeladen.</span>
+            </div>
+            {(!report || (report.per_user.length === 0)) ? (
+              <div style={{ color: C.muted, padding: '1.5rem', textAlign: 'center' }}>Noch keine Zugriffe protokolliert.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: '1.25rem' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.navy, marginBottom: '0.5rem' }}>Nach Person</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                    <thead><tr style={{ background: C.bg }}>{['Person', 'Ansichten', 'Downloads', 'Dokumente', 'Zuletzt'].map(h => <th key={h} style={thS}>{h.toUpperCase()}</th>)}</tr></thead>
+                    <tbody>
+                      {report.per_user.map((u, i) => (
+                        <tr key={i} style={{ borderBottom: `1px solid ${C.border}` }}>
+                          <td style={tdS}>{u.name || 'k. A.'}<div style={{ fontSize: '0.7rem', color: C.muted }}>{u.email}{u.role ? ' · ' + u.role : ''}</div></td>
+                          <td style={tdS}>{u.views}</td><td style={{ ...tdS, fontWeight: 700, color: u.downloads > 0 ? '#166534' : C.muted }}>{u.downloads}</td>
+                          <td style={tdS}>{u.documents}</td><td style={tdS}>{fmtDate(u.last_access)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.navy, marginBottom: '0.5rem' }}>Nach Dokument</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                    <thead><tr style={{ background: C.bg }}>{['Dokument', 'Ansichten', 'Downloads', 'Personen', 'Zuletzt'].map(h => <th key={h} style={thS}>{h.toUpperCase()}</th>)}</tr></thead>
+                    <tbody>
+                      {report.per_item.map((it, i) => (
+                        <tr key={i} style={{ borderBottom: `1px solid ${C.border}` }}>
+                          <td style={tdS}>{it.name || '(gelöscht)'}</td>
+                          <td style={tdS}>{it.views}</td><td style={{ ...tdS, fontWeight: 700, color: it.downloads > 0 ? '#166534' : C.muted }}>{it.downloads}</td>
+                          <td style={tdS}>{it.users}</td><td style={tdS}>{fmtDate(it.last_access)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : showTrash ? (
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}><strong style={{ color: C.navy }}>Papierkorb</strong><span style={{ fontSize: '0.75rem', color: C.muted }}>Objekte werden nach 30 Tagen automatisch entfernt.</span></div>
             {trash.length === 0 ? <div style={{ color: C.muted, padding: '1.5rem', textAlign: 'center' }}>Papierkorb ist leer.</div> : trash.map(t => (
@@ -179,7 +242,7 @@ export default function ProjectSafe() {
                       </span>
                       {!it.is_folder && <span style={{ fontSize: '0.74rem', color: C.muted, minWidth: 60, textAlign: 'right' }}>{fmtBytes(it.size)}</span>}
                       <span style={{ display: 'flex', gap: 4 }}>
-                        {!it.is_folder && <><button title="Herunterladen" onClick={() => download(it)} style={iconBtn}><Download size={15} /></button>
+                        {!it.is_folder && <><button title="Vorschau (mit Wasserzeichen)" onClick={() => preview(it)} style={iconBtn}><Eye size={15} /></button><button title="Herunterladen" onClick={() => download(it)} style={iconBtn}><Download size={15} /></button>
                           <button title="In Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button></>}
                         <button title="Löschen" onClick={() => del(it)} style={{ ...iconBtn, color: '#991b1b' }}><Trash2 size={15} /></button>
                       </span>
@@ -229,5 +292,7 @@ export default function ProjectSafe() {
 
 const btn = (bg, color, border) => ({ display: 'inline-flex', alignItems: 'center', gap: 6, background: bg, color, border: border ? `1px solid ${C.border}` : 'none', borderRadius: 8, padding: '0.55rem 1rem', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' });
 const iconBtn = { background: 'none', border: 'none', cursor: 'pointer', color: C.accent, padding: 4, display: 'inline-flex' };
+const thS = { padding: '0.5rem 0.7rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.68rem' };
+const tdS = { padding: '0.5rem 0.7rem', color: '#334155' };
 const miniBtn = { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.3rem 0.55rem', fontSize: '0.72rem', cursor: 'pointer', color: C.navy };
 const crumbBtn = { background: 'none', border: 'none', color: C.accent, cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, padding: 0 };
