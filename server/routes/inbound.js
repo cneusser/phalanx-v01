@@ -14,10 +14,22 @@
 // angelegt, sondern nur protokolliert.
 // ─────────────────────────────────────────────────────────────────────────────
 const express = require('express');
+const crypto = require('crypto');
 const wrap = require('../utils/asyncHandler');
 const { ingestReply } = require('../utils/inbound');
 const db = require('../db/database');
 const { parseLead } = require('../utils/leadParser');
+
+// Zeitsicherer Vergleich, damit sich das Secret nicht über Laufzeitunterschiede
+// erraten lässt. Header wird bevorzugt (Query-Parameter landen in Proxy-Logs).
+function secretOk(req) {
+  const expected = process.env.INBOUND_SECRET;
+  if (!expected) return false;
+  const given = req.get('x-inbound-secret') || req.query.secret || '';
+  const a = Buffer.from(String(given));
+  const b = Buffer.from(String(expected));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 const { ingestLead } = require('../utils/leadIngest');
 const router = express.Router();
 
@@ -49,11 +61,8 @@ function normalize(b) {
 }
 
 router.post('/email', wrap(async (req, res) => {
-  const secret = process.env.INBOUND_SECRET;
-  if (!secret) return res.status(503).json({ success: false, error: 'Inbound ist nicht konfiguriert.' });
-
-  const given = req.query.secret || req.get('x-inbound-secret');
-  if (given !== secret) return res.status(401).json({ success: false, error: 'Nicht autorisiert' });
+  if (!process.env.INBOUND_SECRET) return res.status(503).json({ success: false, error: 'Inbound ist nicht konfiguriert.' });
+  if (!secretOk(req)) return res.status(401).json({ success: false, error: 'Nicht autorisiert' });
 
   const mail = normalize(req.body || {});
   if (!mail.from) return res.status(400).json({ success: false, error: 'Absender fehlt' });
@@ -68,10 +77,8 @@ router.post('/email', wrap(async (req, res) => {
 // RawHtmlBody } ] }. Jede Mail wird geparst und als Lead in den Funnel gelegt.
 // Einrichtung siehe README/Changelog. Absicherung über denselben INBOUND_SECRET.
 router.post('/lead', wrap(async (req, res) => {
-  const secret = process.env.INBOUND_SECRET;
-  if (!secret) return res.status(503).json({ success: false, error: 'Inbound ist nicht konfiguriert.' });
-  const given = req.query.secret || req.get('x-inbound-secret');
-  if (given !== secret) return res.status(401).json({ success: false, error: 'Nicht autorisiert' });
+  if (!process.env.INBOUND_SECRET) return res.status(503).json({ success: false, error: 'Inbound ist nicht konfiguriert.' });
+  if (!secretOk(req)) return res.status(401).json({ success: false, error: 'Nicht autorisiert' });
 
   const body = req.body || {};
   const items = Array.isArray(body.items) ? body.items : [body];

@@ -34,11 +34,12 @@ router.post('/feedback', msgLimiter, authenticate, wrap(async (req, res) => {
   db.auditLog(req.user.id, 'FEEDBACK_SUBMITTED', 'feedback', id, cat, req.ip);
   // Admin benachrichtigen (Branded-Mail)
   const { sendProcessUpdateEmail } = require('../utils/email');
+  const { escapeHtml: esc } = require('../utils/escapeHtml');
   const catLabel = { idea: 'Idee/Wunsch', bug: 'Fehler', change: 'Änderungswunsch', other: 'Sonstiges' }[cat];
   sendProcessUpdateEmail({
     to: process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de', firstName: '',
-    title: `Neues Feedback (${catLabel}) von ${req.user.first_name} ${req.user.last_name}`,
-    message: `<strong>${req.user.first_name} ${req.user.last_name}</strong> (${req.user.email}, ${req.user.role}) hat Feedback gesendet:<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${message.trim()}</span>`,
+    title: `Neues Feedback (${catLabel}) von ${esc(req.user.first_name)} ${esc(req.user.last_name)}`,
+    message: `<strong>${esc(req.user.first_name)} ${esc(req.user.last_name)}</strong> (${esc(req.user.email)}, ${esc(req.user.role)}) hat Feedback gesendet:<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${esc(message.trim())}</span>`,
     ctaLabel: 'Im Admin ansehen', ctaPath: '/admin',
   }).catch(() => {});
   res.status(201).json({ success: true, data: { id } });
@@ -77,10 +78,11 @@ router.post('/contact', msgLimiter, optionalAuth, wrap(async (req, res) => {
     `INSERT INTO feedback (tenant_id, user_id, role, category, message) VALUES (?, ?, ?, 'other', ?)`,
     [req.tenantId || 1, req.user ? req.user.id : null, 'kontakt', `Kontakt von ${name} <${email}>:\n${message.trim()}`]));
   const { sendProcessUpdateEmail } = require('../utils/email');
+  const { escapeHtml: esc } = require('../utils/escapeHtml');
   sendProcessUpdateEmail({
     to: process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de', firstName: '',
-    title: `Neue Kontaktanfrage von ${name}`,
-    message: `<strong>${name}</strong> (<a href="mailto:${email}">${email}</a>) schreibt:<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${message.trim()}</span>`,
+    title: `Neue Kontaktanfrage von ${esc(name)}`,
+    message: `<strong>${esc(name)}</strong> (<a href="mailto:${encodeURIComponent(email)}">${esc(email)}</a>) schreibt:<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${esc(message.trim())}</span>`,
     ctaLabel: 'Im Admin ansehen', ctaPath: '/admin',
   }).catch(() => {});
   res.status(201).json({ success: true, data: { id } });

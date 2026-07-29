@@ -8,7 +8,8 @@ const { authenticate } = require('../middleware/auth');
 const wrap = require('../utils/asyncHandler');
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'phalanx-secret';
+const { getJwtSecret } = require('../utils/jwtSecret');
+const JWT_SECRET = getJwtSecret();
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 // ── POST /register ─────────────────────────────────────────────────────────
@@ -144,7 +145,7 @@ router.post('/login', wrap(async (req, res) => {
   }
 
   db.auditLog(user.id, 'LOGIN', 'user', user.id, null, req.ip);
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const token = jwt.sign({ userId: user.id, tv: user.token_version || 0 }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
   const { password_hash, reset_token, reset_token_expires, totp_secret, backup_codes_json, ...safeUser } = user;
   res.json({ success: true, data: { token, user: safeUser } });
 }));
@@ -187,7 +188,7 @@ router.post('/login/2fa', wrap(async (req, res) => {
   }
 
   db.auditLog(user.id, 'LOGIN', 'user', user.id, usedBackup ? 'mit Backup-Code' : 'mit 2FA', req.ip);
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const token = jwt.sign({ userId: user.id, tv: user.token_version || 0 }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
   const { password_hash, reset_token, reset_token_expires, totp_secret, backup_codes_json, ...safeUser } = user;
   res.json({ success: true, data: { token, user: safeUser, used_backup_code: usedBackup } });
 }));
@@ -357,7 +358,9 @@ router.post('/reset-password', wrap(async (req, res) => {
   }
 
   const password_hash = bcrypt.hashSync(password, 10);
-  await db.run('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?', [password_hash, user.id]);
+  // token_version hochzählen: alle bestehenden Sitzungen werden dadurch ungültig
+  // (ein zuvor gestohlenes Token gilt nach dem Passwortwechsel nicht mehr).
+  await db.run('UPDATE users SET password_hash = ?, token_version = COALESCE(token_version, 0) + 1, reset_token = NULL, reset_token_expires = NULL WHERE id = ?', [password_hash, user.id]);
 
   db.auditLog(user.id, 'PASSWORD_RESET_DONE', 'user', user.id, null, req.ip);
   console.log(`✅ Passwort geändert für ${user.email}`);

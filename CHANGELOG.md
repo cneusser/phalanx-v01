@@ -3,6 +3,16 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.336 · 21.07.2026 · Sicherheit und Datenschutz härten (Sprint 29)
+- **JWT-Schlüssel zentral und fail-closed**: eine Quelle für den Schlüssel, in Produktion bricht der Start bei fehlendem oder schwachem Wert ab (Notausgang `ALLOW_WEAK_JWT=1`). Der Schlüssel signiert Sessions und Datei-Links
+- **Sicherheits-Header**: Content-Security-Policy und HSTS aktiviert (bei Problemen abschaltbar über `CSP_DISABLED=1`). CORS spiegelt keine fremde Origin mehr, ohne gesetzten `FRONTEND_URL` wird kein Cross-Origin erlaubt
+- **Sitzungsentwertung**: Ein Passwort-Reset macht alle bestehenden Sitzungen ungültig (Token-Version). Bestehende Anmeldungen ohne den Claim gelten als Version 0, es gibt keinen Massen-Logout beim Einführen
+- **Content-Injection geschlossen**: Nutzereingaben werden in Benachrichtigungs-Mails escaped. Die E-Mail der Gegenseite erscheint erst nach angenommener Verbindung
+- **Inbound-Webhook**: zeitsicherer Vergleich des Secrets, Header bevorzugt statt Query-Parameter
+- **Tests und Doku**: neue Sicherheits-Testsuite, Datenschutz-, Aufbewahrungs- und Löschkonzept als Dokument
+- Handlungsbedarf für den Betrieb: in Railway ein starkes `JWT_SECRET` setzen und rotieren, danach ist der harte Start-Check unkritisch
+- Verifiziert: neun Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.335 · 21.07.2026 · Bezahl-Freischaltung für Übergeber
 - **Selbst freischalten gegen Gebühr**: Ist die Bezahlung aktiviert, kann der Übergeber die Nachfolge-Kandidaten selbst freischalten. Der Preis steht direkt am Knopf
 - **Über das Payment-Interface**: abgewickelt über den vorhandenen, austauschbaren Payment-Provider (Stub, später echter Anbieter). Jede Freischaltung wird als Abrechnungsereignis protokolliert und ist doppelbuchungssicher

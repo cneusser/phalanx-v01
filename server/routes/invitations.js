@@ -25,7 +25,8 @@ const { authenticate, optionalAuth } = require('../middleware/auth');
 const access = require('../utils/projectAccess');
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'phalanx-secret';
+const { getJwtSecret } = require('../utils/jwtSecret');
+const JWT_SECRET = getJwtSecret();
 const FRONTEND = () => process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
 const EXPIRY_DAYS = 14;
 const _get = (sql, p) => db.get(sql, p);

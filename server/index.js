@@ -9,36 +9,44 @@ const { initialize } = require('./db/database');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Sicherheits-Startcheck: In Produktion muss ein starkes JWT_SECRET gesetzt sein.
-// Ohne eigenen Wert würden Tokens mit einem öffentlich bekannten Default signiert,
-// dann könnte jeder gültige Sitzungen fälschen. Wir warnen laut (ohne den Start zu
-// blockieren, um ein laufendes Deployment nicht abzuwürgen).
-// Als schwach gelten: leer, die Kurz-Defaults und der (versehentlich einst
-// eingecheckte) Beispielwert. Zusätzlich alles unter 32 Zeichen.
-const WEAK_JWT_SECRETS = new Set([
-  'phalanx-secret',
-  'phalanx-secret-key-change-in-production-2024',
-]);
-const jwtSecret = process.env.JWT_SECRET || '';
-const jwtIsWeak = !jwtSecret || WEAK_JWT_SECRETS.has(jwtSecret) || jwtSecret.length < 32;
-if (process.env.NODE_ENV === 'production' && jwtIsWeak) {
-  console.error('\n🔴 SICHERHEITSWARNUNG: JWT_SECRET fehlt, ist ein bekannter Beispielwert oder zu kurz (< 32 Zeichen).');
-  console.error('   Bitte in Railway eine lange Zufallszeichenkette als JWT_SECRET hinterlegen und den alten Wert rotieren.');
-  console.error('   Erzeugen: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"');
-  console.error('   Sonst lassen sich Anmelde-Tokens und Datei-Links fälschen.\n');
-}
+// Sicherheits-Startcheck: In Produktion bricht der Start bei schwachem
+// JWT_SECRET ab (fail-closed, Notausgang ALLOW_WEAK_JWT=1). Außerhalb der
+// Produktion nur eine Warnung.
+require('./utils/jwtSecret').assertStrongOrExit();
 
 // Railway/Reverse-Proxy: echte Client-IP aus X-Forwarded-For lesen.
 // Ohne dies zählt der Rate-Limiter ALLE Besucher als eine IP (globale Sperre)
 // und Audit-Logs enthalten nur die Proxy-IP.
 app.set('trust proxy', 1);
 
-app.use(helmet({ contentSecurityPolicy: false }));
+// Sicherheits-Header inkl. Content-Security-Policy und HSTS. Die CSP ist bewusst
+// so gewählt, dass die SPA (externes Bundle, Inline-Styles über style-Attribute)
+// und der Cloudflare-Roboter-Test funktionieren. Notausgang bei Problemen: CSP_DISABLED=1.
+const cspEnabled = process.env.CSP_DISABLED !== '1';
+app.use(helmet({
+  contentSecurityPolicy: cspEnabled ? {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", 'https://challenges.cloudflare.com'],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+      fontSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'", 'https:'],
+      frameSrc: ["'self'", 'https://challenges.cloudflare.com'],
+      objectSrc: ["'self'", 'blob:'],
+      baseUri: ["'self'"],
+      frameAncestors: ["'self'"],
+    },
+  } : false,
+  hsts: { maxAge: 15552000, includeSubDomains: true },
+  crossOriginEmbedderPolicy: false,
+}));
 
-// In production the React build is served by this same Express server (same origin),
-// so CORS is only relevant for local development.
+// Same-Origin in Produktion: der Client-Build wird vom selben Server ausgeliefert,
+// CORS ist dort nur für einen ausdrücklich gesetzten FRONTEND_URL nötig. Ohne
+// diesen wird keine fremde Origin mehr gespiegelt (kein Wildcard).
 const corsOrigins = process.env.NODE_ENV === 'production'
-  ? (process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : true)
+  ? (process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : false)
   : ['http://localhost:5173', 'http://localhost:3000'];
 
 app.use(cors({ origin: corsOrigins, credentials: true }));

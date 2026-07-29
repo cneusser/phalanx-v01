@@ -308,7 +308,7 @@ router.post('/impersonate/:userId', ...isSuperAdmin, wrap(async (req, res) => {
   const jwt = require('jsonwebtoken');
   const token = jwt.sign(
     { userId: targetId, imp: req.user.id, log: logId },
-    process.env.JWT_SECRET || 'phalanx-secret',
+    require('../utils/jwtSecret').getJwtSecret(),
     { expiresIn: '2h' },     // bewusst kurzlebig
   );
   res.json({

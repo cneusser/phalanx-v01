@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 const crypto = require('crypto');
 
-const SECRET = () => process.env.JWT_SECRET || 'phalanx-secret';
+const SECRET = () => require('./jwtSecret').getJwtSecret();
 const DEFAULT_TTL_MS = 15 * 60 * 1000;
 
 function sign(payload) {

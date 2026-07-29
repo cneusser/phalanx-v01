@@ -1,9 +1,16 @@
 const jwt = require('jsonwebtoken');
 const db = require('../db/database');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'phalanx-secret';
+const { getJwtSecret } = require('../utils/jwtSecret');
+const JWT_SECRET = getJwtSecret();
 
-const USER_FIELDS = 'id, tenant_id, email, role, salutation, title, first_name, last_name, company, buyer_type, succession_type, is_active';
+const USER_FIELDS = 'id, tenant_id, email, role, salutation, title, first_name, last_name, company, buyer_type, succession_type, token_version, is_active';
+
+// Passt die Token-Version zum aktuellen Stand des Nutzers? Ältere Tokens ohne
+// den Claim gelten als Version 0 (kein Massen-Logout beim Einführen).
+function tokenVersionOk(decoded, user) {
+  return (decoded.tv || 0) === (user.token_version || 0);
+}
 
 // Sprint 5 (RLS): Nutzer-Lookup im Kontext des über die Subdomain aufgelösten
 // Tenants: sonst wären Nutzer anderer Mandanten unsichtbar (fail closed).
@@ -77,6 +84,9 @@ async function authenticate(req, res, next) {
   if (!user || !user.is_active) {
     return res.status(401).json({ success: false, error: 'Benutzer nicht gefunden' });
   }
+  if (!tokenVersionOk(decoded, user)) {
+    return res.status(401).json({ success: false, error: 'Sitzung abgelaufen, bitte erneut anmelden.' });
+  }
   req.user = user;
   await attachImpersonation(req, decoded);
   if (!impersonationGuard(req, res)) return;   // Antwort wurde bereits gesendet
@@ -94,7 +104,7 @@ async function optionalAuth(req, res, next) {
     return next();   // ungültiges Token → als anonym behandeln
   }
   const user = await lookupUser(req, decoded.userId).catch(() => null);
-  if (user && user.is_active) {
+  if (user && user.is_active && tokenVersionOk(decoded, user)) {
     req.user = user;
     await attachImpersonation(req, decoded);
     // Auch hier greift der Schreibschutz: sonst wäre optionalAuth ein Schlupfloch.

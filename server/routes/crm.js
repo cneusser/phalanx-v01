@@ -1664,7 +1664,7 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
     db.auditLog(userId, 'PROJECT_MEMBER_AUTO', 'project', inv.project_id, `Verkäufer ${inv.email} automatisch als Pfleger`, req.ip);
   }
 
-  const token = jwt.sign({ userId }, process.env.JWT_SECRET || 'phalanx-secret', { expiresIn: '7d' });
+  const token = jwt.sign({ userId }, require('../utils/jwtSecret').getJwtSecret(), { expiresIn: '7d' });
   const user = await db.get('SELECT id, email, role, salutation, title, first_name, last_name, company FROM users WHERE id = ?', [userId]);
   res.status(201).json({ success: true, data: { token, user } });
 }));

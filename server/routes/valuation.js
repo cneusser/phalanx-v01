@@ -86,17 +86,18 @@ router.post('/report', valLimiter, optionalAuth, wrap(async (req, res) => {
 
   // Report per E-Mail an den Lead (nur wenn Mailversand konfiguriert) + Admin-Info
   const { sendMail } = require('../utils/email');
+  const { escapeHtml: esc } = require('../utils/escapeHtml');
   const b64 = pdf.toString('base64');
   sendMail({
     to: email.toLowerCase(),
     subject: '[CapitalMatch] Ihre indikative Unternehmensbewertung',
-    html: `<p>Hallo ${name || ''},</p><p>anbei Ihre indikative Unternehmensbewertung als PDF. <strong>Wichtig:</strong> Es handelt sich um eine erste Orientierung (Werte-Korridor), nicht um eine Bewertung nach IDW S1 und keinen Marktpreis. Gern besprechen wir das Ergebnis persönlich.</p><p>Ihr Phalanx-Team</p>`,
+    html: `<p>Hallo ${esc(name || '')},</p><p>anbei Ihre indikative Unternehmensbewertung als PDF. <strong>Wichtig:</strong> Es handelt sich um eine erste Orientierung (Werte-Korridor), nicht um eine Bewertung nach IDW S1 und keinen Marktpreis. Gern besprechen wir das Ergebnis persönlich.</p><p>Ihr Phalanx-Team</p>`,
     attachments: [{ filename: 'CapitalMatch_Unternehmensbewertung.pdf', content: b64, encoding: 'base64', contentType: 'application/pdf' }],
   }).catch(() => {});
   sendMail({
     to: process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de',
     subject: `[CapitalMatch] Neuer Bewertungs-Lead: ${name || email}`,
-    html: `<p>Neuer Bewertungs-Lead über den Quick-Check:</p><p>${name || 'k. A.'} · <a href="mailto:${email}">${email}</a>${company ? ' · ' + company : ''}<br/>Branche: ${result.industryLabel || key} · Korridor (Basis): ${result.positive ? Math.round(result.corridor.base).toLocaleString('de-DE') + ' €' : 'n. b.'}</p>`,
+    html: `<p>Neuer Bewertungs-Lead über den Quick-Check:</p><p>${esc(name || 'k. A.')} · <a href="mailto:${encodeURIComponent(email)}">${esc(email)}</a>${company ? ' · ' + esc(company) : ''}<br/>Branche: ${esc(result.industryLabel || key)} · Korridor (Basis): ${result.positive ? Math.round(result.corridor.base).toLocaleString('de-DE') + ' €' : 'n. b.'}</p>`,
   }).catch(() => {});
 
   db.auditLog(req.user ? req.user.id : null, 'VALUATION_LEAD', 'valuation', null, email.toLowerCase(), req.ip);

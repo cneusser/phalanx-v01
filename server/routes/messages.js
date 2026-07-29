@@ -61,9 +61,11 @@ router.get('/connections', authenticate, wrap(async (req, res) => {
     ORDER BY c.created_at DESC`, [req.user.id, req.user.id]));
   const me = req.user.id;
   const map = (c) => {
+    // E-Mail der Gegenseite erst preisgeben, wenn die Verbindung angenommen ist.
+    const accepted = c.status === 'accepted';
     const other = c.requester_id === me
-      ? { id: c.addressee_id, name: `${c.adr_first} ${c.adr_last}`, company: c.adr_company, email: c.adr_email }
-      : { id: c.requester_id, name: `${c.req_first} ${c.req_last}`, company: c.req_company, email: c.req_email };
+      ? { id: c.addressee_id, name: `${c.adr_first} ${c.adr_last}`, company: c.adr_company, email: accepted ? c.adr_email : null }
+      : { id: c.requester_id, name: `${c.req_first} ${c.req_last}`, company: c.req_company, email: accepted ? c.req_email : null };
     return { id: c.id, status: c.status, direction: c.requester_id === me ? 'outgoing' : 'incoming', other };
   };
   res.json({ success: true, data: rows.map(map) });
@@ -132,10 +134,11 @@ router.post('/send', authenticate, msgLimiter, wrap(async (req, res) => {
   const id = await scoped(req, (t) => t.insert(`INSERT INTO messages (tenant_id, sender_id, recipient_id, body) VALUES (?, ?, ?, ?)`, [req.tenantId || 1, req.user.id, recipient_id, body]));
   db.activityLog(req.user.id, 'MESSAGE_SENT', 'message', id, req.ip);
   const { sendProcessUpdateEmail } = require('../utils/email');
+  const { escapeHtml } = require('../utils/escapeHtml');
   sendProcessUpdateEmail({
     to: other.email, firstName: other.first_name, person: other,
-    title: `Neue Nachricht von ${req.user.first_name} ${req.user.last_name}`,
-    message: `Sie haben eine neue Nachricht auf CapitalMatch erhalten:<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${body.slice(0, 400)}</span>`,
+    title: `Neue Nachricht von ${escapeHtml(req.user.first_name)} ${escapeHtml(req.user.last_name)}`,
+    message: `Sie haben eine neue Nachricht auf CapitalMatch erhalten:<br/><br/><span style="display:block;background:#F4F8FC;border-left:3px solid #5B8FC9;padding:10px 14px;color:#333;">${escapeHtml(body.slice(0, 400))}</span>`,
     ctaLabel: 'Antworten', ctaPath: '/nachrichten',
   }).catch(() => {});
   res.status(201).json({ success: true, data: { id } });
