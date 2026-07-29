@@ -131,6 +131,19 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
     try { await api.post(`/crm/contacts/${contactId}/invite`, {}); show('Einladung (DSGVO) versendet ✓'); await load(); }
     catch (e) { show('Fehler: ' + e.message); }
   }
+  // Datenraum echt freigeben bzw. entziehen (setzt die serverseitige Stage + Rechte).
+  async function grantDataroom(projectId, on) {
+    const uid = data.account?.id;
+    if (!uid) { show('Dieser Kontakt hat kein Nutzerkonto. Datenraum-Zugang ist nur für registrierte Nutzer möglich, bitte zuerst zur Plattform einladen.'); return; }
+    if (on && !window.confirm('Datenraum für diesen Kontakt freigeben?\n\nEr erhält echten Zugriff auf den Datenraum mit allen freigegebenen Unterlagen und wird per E-Mail informiert.')) return;
+    if (!on && !window.confirm('Datenraum-Zugang wieder entziehen?')) return;
+    try {
+      await api.post(`/admin/projects/${projectId}/interests/${uid}/${on ? 'grant-dataroom' : 'revoke-dataroom'}`, {});
+      show(on ? 'Datenraum freigegeben ✓' : 'Datenraum-Zugang entzogen');
+      await load(); onChanged && onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
+
   // Auf „nicht kontaktieren" setzen (Widerspruch) bzw. wieder freigeben. Ein
   // gesperrter Kontakt wird von jeder Ansprache und jedem Mailing ausgenommen.
   async function setDoNotContact(on) {
@@ -742,12 +755,27 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                           )}
                         </div>
                         <div>
-                          <div style={LBL}>Zugang zum Mandat</div>
+                          <div style={LBL}>Zugang-Kennzeichen (CRM)</div>
                           <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: '0.8rem', color: C.text, cursor: 'pointer' }}>
                             <input type="checkbox" checked={d.access_granted === 1} onChange={e => setPartyField(d.party_id, { access_granted: e.target.checked })} />
                             {d.access_granted === 1 ? 'freigegeben' : 'kein Zugang'}
                           </label>
                         </div>
+                      </div>
+                      {/* Echte Datenraum-Freigabe (Recht auf dem Server, nicht nur Anzeige) */}
+                      <div style={{ marginTop: '0.6rem', padding: '0.6rem', background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
+                        <div style={{ ...LBL, marginBottom: 4 }}>Datenraum-Zugang (echte Freigabe)</div>
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <button onClick={() => grantDataroom(d.project_id, true)} title="Diesem Kontakt echten Datenraum-Zugang geben (Lesen, Download, Q&A) und ihn per E-Mail informieren"
+                            style={{ ...btn(false), color: '#065f46', borderColor: '#6ee7b7' }}>
+                            <ShieldCheck size={13} /> Datenraum freigeben
+                          </button>
+                          <button onClick={() => grantDataroom(d.project_id, false)} title="Datenraum-Zugang wieder entziehen"
+                            style={{ ...btn(false), color: '#991b1b', borderColor: '#fca5a5' }}>
+                            <ShieldOff size={13} /> Zugang entziehen
+                          </button>
+                        </div>
+                        {!data.account?.id && <div style={{ fontSize: '0.68rem', color: '#92400e', marginTop: 5 }}>Kein Nutzerkonto verknüpft, bitte zuerst zur Plattform einladen.</div>}
                       </div>
                       {/* Namensnennung (Demasking): Klarname bewusst freigeben */}
                       <div style={{ marginTop: '0.6rem' }}>

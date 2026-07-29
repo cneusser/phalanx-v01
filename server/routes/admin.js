@@ -888,6 +888,44 @@ router.post('/projects/:projectId/interests/:userId/revoke-documents', ...isAdmi
   res.json({ success: true, data: { stage: 'requested' } });
 }));
 
+// ── Datenraum direkt freigeben (ohne den NDA-Umweg) ─────────────────────────
+// Der Berater entscheidet ausdrücklich, dass ein Käufer den Datenraum sehen darf.
+// Setzt die echte Stage 'dataroom_granted' und damit die Datenraum-Rechte
+// (Lesen + Download + Q&A). Funktioniert für M&A und Finanzierung.
+router.post('/projects/:projectId/interests/:userId/grant-dataroom', ...isAdmin, wrap(async (req, res) => {
+  const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.projectId]);
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  const buyer = await db.get('SELECT id, email, first_name FROM users WHERE id = ?', [req.params.userId]);
+  if (!buyer) return res.status(404).json({ success: false, error: 'Käufer hat kein Nutzerkonto, Zugang ist nur für registrierte Nutzer möglich' });
+
+  const { setStage } = require('../middleware/gates');
+  await setStage(buyer.id, project.id, 'dataroom_granted', req.user.id, req.ip);
+  db.auditLog(req.user.id, 'DATAROOM_GRANTED_DIRECT', 'project', project.id, `Datenraum freigegeben für ${buyer.email}`, req.ip);
+  require('../utils/xp').award(buyer.id, 'DATAROOM_GRANTED', { refType: 'project', refId: project.id }).catch(() => {});
+
+  if (req.body.notify !== false) {
+    require('../utils/email').sendProcessUpdateEmail({
+      to: buyer.email, firstName: buyer.first_name,
+      title: `Datenraum freigeschaltet: ${project.codename}`,
+      message: `Ihr Zugang für das Mandat <strong>${project.codename}</strong> wurde freigegeben. Sie haben ab sofort Zugriff auf den Datenraum mit allen freigegebenen Unterlagen.`,
+      ctaLabel: 'Zum Datenraum', ctaPath: `/projekte/${project.id}`,
+      meta: { type: 'process', projectId: project.id, userId: buyer.id, actorId: req.user.id },
+    }).catch(() => {});
+  }
+  res.json({ success: true, data: { stage: 'dataroom_granted', notified: req.body.notify !== false } });
+}));
+
+// Datenraum-Zugang wieder entziehen (Rechte löschen, Stage zurücksetzen)
+router.post('/projects/:projectId/interests/:userId/revoke-dataroom', ...isAdmin, wrap(async (req, res) => {
+  const pid = req.params.projectId; const uid = req.params.userId;
+  await db.run(`DELETE FROM permissions WHERE project_id = ? AND user_id = ? AND resource IN ('dataroom','qa')`, [pid, uid]);
+  // Zurück auf NDA-unterschrieben, wenn eine NDA vorliegt, sonst auf angefragt.
+  const nda = await db.get(`SELECT id FROM nda_requests WHERE project_id = ? AND user_id = ? AND (signed_at IS NOT NULL OR status IN ('signed','approved')) LIMIT 1`, [pid, uid]).catch(() => null);
+  await db.run(`UPDATE interests SET stage = ?, updated_at = now() WHERE project_id = ? AND buyer_id = ?`, [nda ? 'nda_signed' : 'requested', pid, uid]);
+  db.auditLog(req.user.id, 'DATAROOM_REVOKED_DIRECT', 'project', pid, `Datenraum-Zugang entzogen (Nutzer ${uid})`, req.ip);
+  res.json({ success: true, data: { stage: nda ? 'nda_signed' : 'requested' } });
+}));
+
 router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {
   const nda = await db.get('SELECT * FROM nda_requests WHERE id = ?', [req.params.id]);
   if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });

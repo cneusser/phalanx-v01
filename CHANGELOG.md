@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.353 · 21.07.2026 · Datenraum direkt freigeben, doppelte Ordner bereinigen
+- **Datenraum je Käufer freigeben**: Im Kontakt-Fenster gibt es je Mandat „Datenraum freigeben" und „Zugang entziehen". Das setzt den echten serverseitigen Zugang (Lesen, Download, Q&A) und informiert den Käufer, ohne den NDA-Umweg
+- **Klarstellung**: Prozess-Mail und CRM-Kennzeichen „Zugang" erteilen allein keinen Datenraum-Zugang. Der echte Zugang kommt über „Datenraum freigeben" oder die NDA-Freigabe im NDA-Tab
+- **Ordner bereinigen**: Neuer Button „Bereinigen" im Safe entfernt doppelte, leere Ordner (etwa nach mehrfachem Anlegen der Standardstruktur) und vergibt die Nummerierung neu
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.352 · 21.07.2026 · Zwei-Wege-Mail vorbereitet: Antwortadresse und Brevo-Inbound
 - **Antwortadresse**: Neue Einstellung `INBOUND_REPLY_TO`. Ist sie gesetzt, gehen Antworten auf Kontakt-Mails an die überwachte Plattform-Adresse und landen automatisch im Kontakt-Thread. Ohne die Einstellung bleibt alles wie bisher (Antwort geht direkt an den Absender)
 - **Brevo-Inbound**: Der Endpoint `/api/inbound/email` versteht jetzt zusätzlich das Brevo-Format (mehrere Mails je Aufruf über „items")

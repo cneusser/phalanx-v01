@@ -543,6 +543,38 @@ router.post('/:projectId/notify-dataroom', authenticate, wrap(async (req, res) =
   res.json({ success: true, data: { notified: recips.length } });
 }));
 
+// ── Doppelte, leere Ordner bereinigen (z. B. nach mehrfachem Struktur-Anlegen) ─
+// Behält je Ordnername auf oberster Ebene den ersten Eintrag und verschiebt leere
+// Dubletten (keine Unterordner, keine Dateien) in den Papierkorb. Nichts mit Inhalt
+// wird angetastet.
+router.post('/:projectId/dedupe-structure', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = req.params.projectId;
+  const folders = await scoped(req, (t) => t.all(
+    `SELECT id, name, position FROM safe_items
+      WHERE project_id = ? AND parent_id IS NULL AND is_folder = 1 AND deleted_at IS NULL
+      ORDER BY position ASC, id ASC`, [projectId]));
+  const seen = new Map();   // name -> behaltene id
+  let removed = 0;
+  for (const f of folders) {
+    const key = String(f.name).trim().toLowerCase();
+    if (!seen.has(key)) { seen.set(key, f.id); continue; }
+    // Dublette: nur entfernen, wenn komplett leer (keine Kinder).
+    const child = await scoped(req, (t) => t.get(
+      `SELECT id FROM safe_items WHERE project_id = ? AND parent_id = ? AND deleted_at IS NULL LIMIT 1`, [projectId, f.id]));
+    if (child) continue;
+    await scoped(req, (t) => t.run(`UPDATE safe_items SET deleted_at = now() WHERE id = ?`, [f.id]));
+    removed += 1;
+  }
+  // Positionen der verbleibenden Ordner neu vergeben (1..N), damit die Nummern sauber sind.
+  const rest = await scoped(req, (t) => t.all(
+    `SELECT id FROM safe_items WHERE project_id = ? AND parent_id IS NULL AND deleted_at IS NULL ORDER BY position ASC, id ASC`, [projectId]));
+  let pos = 1;
+  for (const r of rest) { await scoped(req, (t) => t.run(`UPDATE safe_items SET position = ? WHERE id = ?`, [pos++, r.id])); }
+  db.auditLog(req.user.id, 'SAFE_DEDUPE_STRUCTURE', 'project', projectId, `${removed} leere Dubletten entfernt`, req.ip);
+  res.json({ success: true, data: { removed } });
+}));
+
 // ── Speicherverbrauch (Mandat) ──────────────────────────────────────────────
 router.get('/:projectId/usage', authenticate, wrap(async (req, res) => {
   if (!(await guardRead(req, res))) return;
