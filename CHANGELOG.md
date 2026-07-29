@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.347 · 21.07.2026 · Safe: klare Rückwege
+- **Zurück zum Mandat**: Der obere Zurück-Link führt jetzt zum jeweiligen Mandat statt ins Admin-Dashboard
+- **Zurück zum Safe**: Aus dem Zugriffsbericht und dem Papierkorb führt ein eigener Button direkt in die Ordneransicht zurück
+- Verifiziert: zehn Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.346 · 21.07.2026 · Safe: leere Ordnerstruktur anlegen
 - **Ordnerstruktur**: Neuer Button legt eine ganze, auch verschachtelte und leere Ordnerstruktur in einem Schritt an. Hintergrund: Der Browser überträgt beim normalen „Ordner hochladen" leere Ordner technisch nicht mit
 - **Zwei Formate**: vollständige Pfade mit Schrägstrich („02 Recht/Vertraege") oder eine eingerückte Baumliste, frei mischbar

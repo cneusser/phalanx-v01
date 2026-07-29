@@ -240,7 +240,7 @@ export default function ProjectSafe() {
     <div style={{ background: C.bg, minHeight: '100vh' }}>
       <div style={{ background: C.navy, color: '#fff', padding: '1.75rem 1.5rem' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <Link to="/admin" style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: '0.6rem' }}><ChevronLeft size={14} /> Admin</Link>
+          <Link to={`/projekte/${pid}`} style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: '0.6rem' }}><ChevronLeft size={14} /> Zurück zum Mandat{project ? ` „${project.codename}"` : ''}</Link>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'rgba(255,255,255,0.65)', fontSize: '0.78rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
@@ -278,7 +278,10 @@ export default function ProjectSafe() {
         {showReport ? (
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <strong style={{ color: C.navy }}>Zugriffsbericht</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <button onClick={() => setShowReport(false)} style={{ ...miniBtn }}><ChevronLeft size={13} /> Zurück zum Safe</button>
+                <strong style={{ color: C.navy }}>Zugriffsbericht</strong>
+              </div>
               <span style={{ fontSize: '0.75rem', color: C.muted }}>Wer hat welche Datei angesehen oder heruntergeladen.</span>
             </div>
             {(!report || (report.per_user.length === 0)) ? (
@@ -320,7 +323,7 @@ export default function ProjectSafe() {
           </div>
         ) : showTrash ? (
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}><strong style={{ color: C.navy }}>Papierkorb</strong><span style={{ fontSize: '0.75rem', color: C.muted }}>Objekte werden nach 30 Tagen automatisch entfernt.</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}><div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><button onClick={() => setShowTrash(false)} style={{ ...miniBtn }}><ChevronLeft size={13} /> Zurück zum Safe</button><strong style={{ color: C.navy }}>Papierkorb</strong></div><span style={{ fontSize: '0.75rem', color: C.muted }}>Objekte werden nach 30 Tagen automatisch entfernt.</span></div>
             {trash.length === 0 ? <div style={{ color: C.muted, padding: '1.5rem', textAlign: 'center' }}>Papierkorb ist leer.</div> : trash.map(t => (
               <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontSize: '0.86rem' }}>{t.is_folder ? <Folder size={14} style={{ verticalAlign: -2 }} /> : <File size={14} style={{ verticalAlign: -2 }} />} {t.name}</span>
