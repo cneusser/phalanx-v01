@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.349 · 21.07.2026 · Käufer-Datenraum: Ordnerbrowser, neue Unterlagen, Benachrichtigung
+- **Ordnerbrowser für Käufer**: Der Käufer klickt sich jetzt wie im Safe durch Ordner und Dateien (Breadcrumb, Unterordner, eine Ebene höher) statt durch eine flache Liste. Die Struktur wird beim Übernehmen aus dem Safe mitgeführt
+- **Neue Unterlagen**: Dokumente, die seit dem letzten Besuch dazukamen, sind je Käufer als „NEU" markiert, mit Zähler und Punkt am Ordner
+- **Suche**: Suchfeld im Datenraum über Dateiname, Beschreibung und Ordner (Volltext über Dokumentinhalte folgt als nächster Schritt)
+- **Benachrichtigung**: Neuer Button im Safe „Käufer benachrichtigen" informiert alle Käufer mit Datenraum-Zugang per E-Mail über neue Unterlagen (optional mit eigenem Text)
+- **Nachzug**: Bestehende Dokumente wurden per Migration ihrem Safe-Ordner zugeordnet
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.348 · 21.07.2026 · Freigabe-Ampel, Standardstruktur, personalisierter Teaser/IM, Funnel-Abgleich
 - **Freigabe-Ampel im Safe**: Je Datei zeigt ein grüner oder roter Punkt, ob und mit welcher Zugriffsebene sie im Datenraum liegt (Teaser, IM, Datenraum)
 - **Standard-Ordnerstruktur**: Wird in jedem neuen Mandat automatisch angelegt und in bestehende nachgezogen (leer, inkl. „Teaser und Investment Memorandum")

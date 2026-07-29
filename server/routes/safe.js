@@ -380,8 +380,23 @@ router.delete('/:projectId/item/:id/purge', authenticate, wrap(async (req, res) 
 const DOC_UPLOAD_DIR = process.env.UPLOAD_DIR
   || (process.env.RAILWAY_VOLUME_MOUNT_PATH ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads') : path.join(__dirname, '../../uploads'));
 
+// Ordnerpfad eines Safe-Objekts aus der Elternkette (Namen, mit „/" verbunden).
+async function folderPathOf(req, projectId, parentId) {
+  const parts = [];
+  let cur = parentId; let guard = 0;
+  while (cur && guard++ < 50) {
+    const f = await scoped(req, (t) => t.get('SELECT name, parent_id FROM safe_items WHERE id = ? AND project_id = ?', [cur, projectId]));
+    if (!f) break;
+    parts.unshift(f.name);
+    cur = f.parent_id;
+  }
+  return parts.join('/');
+}
+
 // Eine Safe-Datei in den Datenraum (documents) materialisieren. Dublettenschutz
-// über den Dateinamen je Mandat, damit Sammel-Übernahmen nichts doppeln.
+// über den Dateinamen je Mandat, damit Sammel-Übernahmen nichts doppeln. Der
+// Ordnerpfad wird aus der Safe-Struktur übernommen, damit der Käufer sich genauso
+// durch Ordner klicken kann wie im Safe.
 async function materializeToDocument(req, projectId, item, accessLevel, desc) {
   if (!item || item.is_folder || !item.storage_key) return { skipped: 'keine Datei' };
   const dup = await scoped(req, (t) => t.get('SELECT id FROM documents WHERE project_id = ? AND filename = ?', [projectId, item.name]));
@@ -393,10 +408,11 @@ async function materializeToDocument(req, projectId, item, accessLevel, desc) {
   const base = path.basename(item.name, ext).replace(/[^a-zA-Z0-9_\-\.äöüÄÖÜ]/g, '_').substring(0, 60);
   const diskPath = path.join(dir, `${base}_${Date.now()}${ext}`);
   fs.writeFileSync(diskPath, buf);
+  const folder = await folderPathOf(req, projectId, item.parent_id);
   const docId = await scoped(req, (t) => t.insert(
-    `INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, file_path)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [projectId, item.name, item.mime || 'application/octet-stream', item.size, accessLevel, desc || '', req.user.id, diskPath]));
+    `INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, file_path, folder)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [projectId, item.name, item.mime || 'application/octet-stream', item.size, accessLevel, desc || '', req.user.id, diskPath, folder || null]));
   return { document_id: docId };
 }
 
@@ -496,6 +512,35 @@ router.post('/:projectId/teaser-im/build', authenticate, wrap(async (req, res) =
 
   db.auditLog(req.user.id, 'SAFE_TEASER_IM_BUILD', 'project', projectId, `Teaser (${result.teaser.source}), IM (${result.im.source})`, req.ip);
   res.json({ success: true, data: result });
+}));
+
+// ── Käufer über neue Unterlagen im Datenraum informieren ────────────────────
+router.post('/:projectId/notify-dataroom', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = req.params.projectId;
+  const { stageAllows } = require('../utils/dealStateMachine');
+  const { sendProcessUpdateEmail } = require('../utils/email');
+  const { escapeHtml } = require('../utils/escapeHtml');
+  const proj = await scoped(req, (t) => t.get('SELECT codename FROM projects WHERE id = ?', [projectId]));
+  const interested = await db.all(
+    `SELECT u.email, u.first_name, u.last_name, i.stage FROM interests i
+       JOIN users u ON u.id = i.buyer_id
+      WHERE i.project_id = ? AND i.stage != 'rejected' AND u.is_active = 1`, [projectId]).catch(() => []);
+  const recips = interested.filter((b) => stageAllows(b.stage, 'dataroom'));
+  const custom = (req.body && typeof req.body.message === 'string' && req.body.message.trim()) ? req.body.message.trim() : '';
+  const codename = proj ? proj.codename : 'Mandat';
+  for (const b of recips) {
+    sendProcessUpdateEmail({
+      to: b.email, firstName: b.first_name, person: b,
+      title: `Neue Unterlagen im Datenraum: ${codename}`,
+      message: custom
+        ? escapeHtml(custom)
+        : `Im Datenraum des Mandats <strong>${escapeHtml(codename)}</strong> stehen neue Unterlagen für Sie bereit.`,
+      ctaLabel: 'Datenraum öffnen', ctaPath: `/projekte/${projectId}`,
+    }).catch(() => {});
+  }
+  db.auditLog(req.user.id, 'SAFE_NOTIFY_DATAROOM', 'project', projectId, `${recips.length} Käufer benachrichtigt`, req.ip);
+  res.json({ success: true, data: { notified: recips.length } });
 }));
 
 // ── Speicherverbrauch (Mandat) ──────────────────────────────────────────────

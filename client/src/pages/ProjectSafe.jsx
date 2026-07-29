@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
-import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const fmtBytes = (b) => { b = Number(b) || 0; if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB'; return (b / 1073741824).toFixed(2) + ' GB'; };
@@ -214,6 +214,17 @@ export default function ProjectSafe() {
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }
 
+  async function notifyDataroom() {
+    const note = window.prompt('Käufer mit Datenraum-Zugang über neue Unterlagen informieren.\n\nOptionaler eigener Text (leer lassen für Standardtext):', '');
+    if (note === null) return;
+    setUploading(true); setMsg('');
+    try {
+      const d = await api.post(`/safe/${pid}/notify-dataroom`, note.trim() ? { message: note.trim() } : {});
+      setMsg(d.notified ? `${d.notified} Käufer über neue Unterlagen benachrichtigt.` : 'Keine Käufer mit Datenraum-Zugang gefunden.');
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+    finally { setUploading(false); }
+  }
+
   async function buildTeaserIm() {
     if (!window.confirm('Teaser und Investment Memorandum als PDF bereitstellen?\n\nEin bereits hochgeladenes Master-PDF im Ordner „Teaser und Investment Memorandum" wird bevorzugt, sonst wird eines aus den Mandatsdaten erzeugt. Beides wird in den Datenraum übernommen (Teaser öffentlich, IM nach NDA). Jeder Empfänger erhält beim Download sein persönlich gewasserzeichntes Exemplar.')) return;
     setUploading(true); setMsg('');
@@ -290,6 +301,7 @@ export default function ProjectSafe() {
           <button onClick={() => { setStructVal(''); setStructOpen(true); }} title="Leere Ordnerstruktur anlegen (auch verschachtelt)" style={btn('#fff', C.navy, true)}><FolderPlus size={15} /> Ordnerstruktur</button>
           <div style={{ flex: 1 }} />
           <button onClick={buildTeaserIm} title="Teaser und IM als PDF bereitstellen (Master bevorzugt, sonst generiert)" style={btn('#fff', C.navy, true)}><File size={15} /> Teaser & IM</button>
+          <button onClick={notifyDataroom} title="Käufer mit Datenraum-Zugang über neue Unterlagen per E-Mail informieren" style={btn('#fff', C.navy, true)}><Bell size={15} /> Käufer benachrichtigen</button>
           <button onClick={() => setPublishItem({ all: true, name: 'Alle Dateien' })} title="Alle Dateien dieses Mandats in den Datenraum übernehmen" style={btn('#fff', C.navy, true)}><Share2 size={15} /> Alles in Datenraum</button>
           <button onClick={() => showReport ? setShowReport(false) : loadReport()} style={btn('#fff', showReport ? C.accent : C.muted, true)}><BarChart3 size={15} /> Zugriffe</button>
           <button onClick={() => showTrash ? setShowTrash(false) : loadTrash()} style={btn('#fff', showTrash ? '#991b1b' : C.muted, true)}><Trash2 size={15} /> Papierkorb</button>

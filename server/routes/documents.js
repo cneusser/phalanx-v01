@@ -302,8 +302,26 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
     db.activityLog(req.user.id, 'ACCESS_DOCLIST_DENIED', 'documents', projectId, req.ip);
     return res.status(403).json({ success: false, error: 'NDA-Freigabe erforderlich' });
   }
+
+  // Neu-Markierung: was kam seit dem letzten Besuch dieses Käufers dazu? Beim
+  // ersten Besuch gilt nichts als neu (kein Nachhol-Rauschen), danach jeweils
+  // relativ zum vorherigen Besuch. Der Besuch wird anschließend fortgeschrieben.
+  let lastSeen = null;
+  try {
+    const v = await db.get('SELECT last_seen_at FROM dataroom_visits WHERE user_id = ? AND project_id = ?', [req.user.id, projectId]);
+    lastSeen = v && v.last_seen_at ? new Date(v.last_seen_at).getTime() : null;
+  } catch { /* Tabelle evtl. noch nicht migriert */ }
+  const withNew = out.map(d => ({
+    ...d,
+    is_new: lastSeen != null && d.created_at && !d.virtual && new Date(d.created_at).getTime() > lastSeen,
+  }));
+  db.run(
+    `INSERT INTO dataroom_visits (tenant_id, user_id, project_id, last_seen_at) VALUES (?, ?, ?, now())
+     ON CONFLICT (user_id, project_id) DO UPDATE SET last_seen_at = now()`,
+    [req.tenantId || 1, req.user.id, projectId]).catch(() => {});
+
   db.activityLog(req.user.id, 'ACCESS_DOCLIST', 'documents', projectId, req.ip);
-  res.json({ success: true, data: out });
+  res.json({ success: true, data: withNew });
 }));
 
 // ── GET /api/documents/:projectId/:docId/download ──────────

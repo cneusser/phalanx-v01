@@ -6,6 +6,7 @@ import TeamModal from '../components/TeamModal';
 import { api, getToken } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import NDASignModal from '../components/NDASignModal';
+import DataRoomBrowser from '../components/DataRoomBrowser';
 import {
   Lock, CheckCircle, Clock, FileText, MapPin, Building2,
   ChevronRight, AlertCircle, Download, PenLine, TrendingUp,
@@ -683,20 +684,7 @@ export default function ProjectDetail() {
             ) : ndaDocs.length === 0 ? (
               <p style={{ color: C.muted, fontSize: '0.83rem' }}>Noch keine vertraulichen Dokumente hochgeladen.</p>
             ) : (
-              ndaDocs.map(doc => (
-                <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: C.bg, borderRadius: 6, marginBottom: '0.5rem', border: `1px solid ${C.border}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <div style={{ width: 32, height: 32, background: `${C.navy}12`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <FileText size={14} color={C.navy} />
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.83rem', color: C.text }}>{doc.description || doc.filename}</div>
-                      <div style={{ fontSize: '0.72rem', color: C.muted }}>{doc.filename}{doc.file_size ? ` · ${(doc.file_size / 1024 / 1024).toFixed(1)} MB` : ''}</div>
-                    </div>
-                  </div>
-                  <DownloadButton doc={doc} />
-                </div>
-              ))
+              <DataRoomBrowser docs={ndaDocs} C={C} renderDownload={(d) => <DownloadButton doc={d} />} />
             )}
           </div>
         </div>
