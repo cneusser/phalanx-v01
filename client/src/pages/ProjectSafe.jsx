@@ -170,8 +170,20 @@ export default function ProjectSafe() {
   async function purge(item) { if (!window.confirm(`„${item.name}" endgültig löschen?`)) return; try { await api.delete(`/safe/${pid}/item/${item.id}/purge`); loadTrash(); } catch (e) { setMsg('Fehler: ' + e.message); } }
 
   async function doPublish(access_level) {
-    try { const d = await api.post(`/safe/${pid}/item/${publishItem.id}/publish`, { access_level }); setPublishItem(null); setMsg(`„${publishItem.name}" in den Datenraum übernommen (Dokument #${d.document_id}).`); }
-    catch (e) { setMsg('Fehler: ' + e.message); }
+    const t = publishItem;
+    try {
+      if (t.all) {
+        const d = await api.post(`/safe/${pid}/publish-bulk`, { all: true, access_level });
+        setMsg(`${d.published} Datei(en) in den Datenraum übernommen${d.skipped ? `, ${d.skipped} übersprungen (bereits vorhanden)` : ''}.`);
+      } else if (t.is_folder) {
+        const d = await api.post(`/safe/${pid}/publish-bulk`, { item_id: t.id, access_level });
+        setMsg(`Ordner „${t.name}": ${d.published} Datei(en) übernommen${d.skipped ? `, ${d.skipped} übersprungen (bereits vorhanden)` : ''}.`);
+      } else {
+        const d = await api.post(`/safe/${pid}/item/${t.id}/publish`, { access_level });
+        setMsg(d.skipped ? `„${t.name}" war bereits im Datenraum.` : `„${t.name}" in den Datenraum übernommen (Dokument #${d.document_id}).`);
+      }
+      setPublishItem(null);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
   }
 
   const onDrop = async (e) => {
@@ -224,6 +236,7 @@ export default function ProjectSafe() {
           <button onClick={() => fileInput.current?.click()} style={btn('#fff', C.navy, true)}><Upload size={15} /> Dateien</button>
           <button onClick={() => dirInput.current?.click()} style={btn('#fff', C.navy, true)}><Folder size={15} /> Ordner hochladen</button>
           <div style={{ flex: 1 }} />
+          <button onClick={() => setPublishItem({ all: true, name: 'Alle Dateien' })} title="Alle Dateien dieses Mandats in den Datenraum übernehmen" style={btn('#fff', C.navy, true)}><Share2 size={15} /> Alles in Datenraum</button>
           <button onClick={() => showReport ? setShowReport(false) : loadReport()} style={btn('#fff', showReport ? C.accent : C.muted, true)}><BarChart3 size={15} /> Zugriffe</button>
           <button onClick={() => showTrash ? setShowTrash(false) : loadTrash()} style={btn('#fff', showTrash ? '#991b1b' : C.muted, true)}><Trash2 size={15} /> Papierkorb</button>
           <input ref={fileInput} type="file" multiple hidden onChange={e => doUpload(Array.from(e.target.files), false)} />
@@ -322,6 +335,7 @@ export default function ProjectSafe() {
                         <button title="Nach oben" disabled={i === 0} onClick={() => moveItem(it, 'up')} style={{ ...iconBtn, color: i === 0 ? '#cbd5e1' : C.muted }}><ChevronUp size={15} /></button>
                         <button title="Nach unten" disabled={i === listItems.length - 1} onClick={() => moveItem(it, 'down')} style={{ ...iconBtn, color: i === listItems.length - 1 ? '#cbd5e1' : C.muted }}><ChevronDown size={15} /></button>
                         <button title="Umbenennen" onClick={() => { setRenameId(it.id); setRenameVal(displayName(it.name)); }} style={iconBtn}><Edit2 size={15} /></button>
+                        {it.is_folder && <button title="Ganzen Ordner in Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button>}
                         {!it.is_folder && <><button title="Vorschau (mit Wasserzeichen)" onClick={() => preview(it)} style={iconBtn}><Eye size={15} /></button><button title="Herunterladen" onClick={() => download(it)} style={iconBtn}><Download size={15} /></button>
                           <button title="In Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button></>}
                         <button title="Löschen" onClick={() => del(it)} style={{ ...iconBtn, color: '#991b1b' }}><Trash2 size={15} /></button>
@@ -358,7 +372,7 @@ export default function ProjectSafe() {
         <div onClick={() => setPublishItem(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', maxWidth: 420, width: '90%' }}>
             <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.4rem' }}>In Datenraum übernehmen</div>
-            <div style={{ fontSize: '0.83rem', color: C.muted, marginBottom: '1rem' }}>„{publishItem.name}" wird als freigebbares Dokument kopiert. Zugriffsebene wählen:</div>
+            <div style={{ fontSize: '0.83rem', color: C.muted, marginBottom: '1rem' }}>{publishItem.all ? 'Alle Dateien dieses Mandats werden als freigebbare Dokumente kopiert (bereits vorhandene werden übersprungen). ' : publishItem.is_folder ? `Alle Dateien im Ordner „${publishItem.name}" (inkl. Unterordner) werden kopiert. ` : `„${publishItem.name}" wird als freigebbares Dokument kopiert. `}Zugriffsebene wählen:</div>
             {[['public', 'Teaser (öffentlich)'], ['nda', 'IM (nach NDA)'], ['approved', 'Datenraum (nach Freigabe)']].map(([lvl, lbl]) => (
               <button key={lvl} onClick={() => doPublish(lvl)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '0.7rem 0.9rem', marginBottom: '0.5rem', border: `1px solid ${C.border}`, borderRadius: 8, background: '#fff', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 600, color: C.navy }}>{lbl}</button>
             ))}

@@ -369,14 +369,14 @@ router.delete('/:projectId/item/:id/purge', authenticate, wrap(async (req, res) 
 const DOC_UPLOAD_DIR = process.env.UPLOAD_DIR
   || (process.env.RAILWAY_VOLUME_MOUNT_PATH ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads') : path.join(__dirname, '../../uploads'));
 
-router.post('/:projectId/item/:id/publish', authenticate, wrap(async (req, res) => {
-  if (!(await guard(req, res))) return;
-  const item = await scoped(req, (t) => t.get('SELECT * FROM safe_items WHERE id = ? AND project_id = ? AND deleted_at IS NULL', [req.params.id, req.params.projectId]));
-  if (!item || item.is_folder || !item.storage_key) return res.status(404).json({ success: false, error: 'Datei nicht gefunden' });
-  const access_level = ['public', 'nda', 'approved'].includes(req.body.access_level) ? req.body.access_level : 'nda';
+// Eine Safe-Datei in den Datenraum (documents) materialisieren. Dublettenschutz
+// über den Dateinamen je Mandat, damit Sammel-Übernahmen nichts doppeln.
+async function materializeToDocument(req, projectId, item, accessLevel, desc) {
+  if (!item || item.is_folder || !item.storage_key) return { skipped: 'keine Datei' };
+  const dup = await scoped(req, (t) => t.get('SELECT id FROM documents WHERE project_id = ? AND filename = ?', [projectId, item.name]));
+  if (dup) return { skipped: 'bereits im Datenraum', document_id: dup.id };
   const buf = await getStorage().get(item.storage_key);
-  // In das Dokumenten-Verzeichnis materialisieren (documents streamt von Disk)
-  const dir = path.join(DOC_UPLOAD_DIR, `project_${req.params.projectId}`);
+  const dir = path.join(DOC_UPLOAD_DIR, `project_${projectId}`);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const ext = path.extname(item.name).toLowerCase();
   const base = path.basename(item.name, ext).replace(/[^a-zA-Z0-9_\-\.äöüÄÖÜ]/g, '_').substring(0, 60);
@@ -385,9 +385,48 @@ router.post('/:projectId/item/:id/publish', authenticate, wrap(async (req, res) 
   const docId = await scoped(req, (t) => t.insert(
     `INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, file_path)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [req.params.projectId, item.name, item.mime || 'application/octet-stream', item.size, access_level, req.body.description || '', req.user.id, diskPath]));
-  db.auditLog(req.user.id, 'SAFE_PUBLISH', 'document', docId, `${item.name} (${access_level}) aus Safe`, req.ip);
-  res.json({ success: true, data: { document_id: docId, access_level } });
+    [projectId, item.name, item.mime || 'application/octet-stream', item.size, accessLevel, desc || '', req.user.id, diskPath]));
+  return { document_id: docId };
+}
+
+router.post('/:projectId/item/:id/publish', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const item = await scoped(req, (t) => t.get('SELECT * FROM safe_items WHERE id = ? AND project_id = ? AND deleted_at IS NULL', [req.params.id, req.params.projectId]));
+  if (!item || item.is_folder || !item.storage_key) return res.status(404).json({ success: false, error: 'Datei nicht gefunden' });
+  const access_level = ['public', 'nda', 'approved'].includes(req.body.access_level) ? req.body.access_level : 'nda';
+  const r = await materializeToDocument(req, req.params.projectId, item, access_level, req.body.description);
+  if (r.skipped && !r.document_id) return res.status(400).json({ success: false, error: r.skipped });
+  db.auditLog(req.user.id, 'SAFE_PUBLISH', 'document', r.document_id, `${item.name} (${access_level}) aus Safe`, req.ip);
+  res.json({ success: true, data: { document_id: r.document_id, access_level, skipped: r.skipped || null } });
+}));
+
+// Sammel-Übernahme in den Datenraum: ein ganzer Ordner (rekursiv) oder alles.
+router.post('/:projectId/publish-bulk', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = req.params.projectId;
+  const access_level = ['public', 'nda', 'approved'].includes(req.body.access_level) ? req.body.access_level : 'nda';
+  let files;
+  if (req.body.all) {
+    files = await scoped(req, (t) => t.all(
+      'SELECT * FROM safe_items WHERE project_id = ? AND is_folder = 0 AND deleted_at IS NULL AND storage_key IS NOT NULL', [projectId]));
+  } else if (req.body.item_id) {
+    const folder = await scoped(req, (t) => t.get('SELECT id, is_folder FROM safe_items WHERE id = ? AND project_id = ? AND deleted_at IS NULL', [req.body.item_id, projectId]));
+    if (!folder || !folder.is_folder) return res.status(400).json({ success: false, error: 'Kein Ordner angegeben' });
+    const ids = await descendantIds(req, projectId, folder.id);
+    if (!ids.length) return res.json({ success: true, data: { published: 0, skipped: 0 } });
+    files = await scoped(req, (t) => t.all(
+      `SELECT * FROM safe_items WHERE project_id = ? AND is_folder = 0 AND deleted_at IS NULL AND storage_key IS NOT NULL AND id IN (${ids.map(() => '?').join(',')})`,
+      [projectId, ...ids]));
+  } else {
+    return res.status(400).json({ success: false, error: 'Weder Ordner noch „alles" angegeben' });
+  }
+  let published = 0, skipped = 0;
+  for (const f of files) {
+    const r = await materializeToDocument(req, projectId, f, access_level, '');
+    if (r.document_id && !r.skipped) published += 1; else skipped += 1;
+  }
+  db.auditLog(req.user.id, 'SAFE_PUBLISH_BULK', 'project', projectId, `${published} übernommen, ${skipped} übersprungen (${access_level})`, req.ip);
+  res.json({ success: true, data: { published, skipped } });
 }));
 
 // ── Speicherverbrauch (Mandat) ──────────────────────────────────────────────

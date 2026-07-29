@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.345 · 21.07.2026 · Safe: in Datenraum übernehmen je Datei, Ordner oder gesamt
+- **Ordner übernehmen**: Ein ganzer Ordner (inklusive aller Unterordner) lässt sich mit einem Klick in den Datenraum übernehmen (Freigabe-Symbol am Ordner)
+- **Alles übernehmen**: Neuer Toolbar-Button „Alles in Datenraum" kopiert sämtliche Dateien eines Mandats auf einmal, mit Auswahl der Zugriffsebene
+- **Dublettenschutz**: Bereits vorhandene Dateien werden anhand des Namens erkannt und übersprungen, so entstehen keine Doppel im Datenraum
+- Verifiziert: zehn Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.344 · 21.07.2026 · Safe: automatische Nummerierung nach Ordnerstruktur
 - **Auto-Nummerierung**: Dateien und Ordner werden automatisch nach der Ordnerstruktur nummeriert (z. B. 5.1.8), abgeleitet aus der Position entlang der Ordnerkette
 - **Umsortieren**: Pfeile nach oben und unten je Zeile, die Nummerierung wird sofort neu vergeben (lückenrobust über den Rang)
