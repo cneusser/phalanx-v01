@@ -254,18 +254,24 @@ router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
   }));
 
   // 5) Badges für die Schnellzugriff-Kacheln (Live-Kennzahlen statt statischer Links)
+  // Kacheln: „snapshot" = aktueller Stand (zeitraumunabhängig), „im Zeitraum" =
+  // neu entstanden im gewählten Fenster. So reagiert der Zeitraum-Umschalter auf
+  // die zeitraumbezogenen Kacheln, während echte Momentaufnahmen stabil bleiben.
   const badges = await safe(async () => {
     const g = async (sql, fb = 0) => { try { const r = await db.get(sql); return r ? Number(Object.values(r)[0]) || 0 : fb; } catch { return fb; } };
     return {
+      // Momentaufnahmen (aktueller Stand)
       pipeline: await g(`SELECT COUNT(*)::int c FROM projects WHERE deal_status IN ('in_diligence','loi')`),
       projects: await g(`SELECT COUNT(*)::int c FROM projects WHERE status='active'`),
-      ndas: await g(`SELECT COUNT(*)::int c FROM nda_requests WHERE status IN ('requested','sent')`),
-      users: await g(`SELECT COUNT(*)::int c FROM users WHERE is_approved=0 AND role NOT IN ('super_admin','advisor')`),
-      feedback: await g(`SELECT COUNT(*)::int c FROM feedback WHERE status='new'`),
       qa: await g(`SELECT COUNT(*)::int c FROM qa_threads WHERE status='open'`),
-      detvals: await g(`SELECT COUNT(*)::int c FROM detailed_valuations WHERE status='submitted'`),
-      leads: await g(`SELECT COUNT(*)::int c FROM valuation_leads`),
-      activity_today: await g(`SELECT COUNT(*)::int c FROM activity_log WHERE ts >= date_trunc('day', now())`),
+      users_pending: await g(`SELECT COUNT(*)::int c FROM users WHERE is_approved=0 AND role NOT IN ('super_admin','advisor')`),
+      // Im gewählten Zeitraum neu
+      ndas: await g(`SELECT COUNT(*)::int c FROM nda_requests WHERE ${since('requested_at')}`),
+      users: await g(`SELECT COUNT(*)::int c FROM users WHERE role NOT IN ('super_admin','advisor') AND ${since('created_at')}`),
+      feedback: await g(`SELECT COUNT(*)::int c FROM feedback WHERE ${since('created_at')}`),
+      detvals: await g(`SELECT COUNT(*)::int c FROM detailed_valuations WHERE status='submitted' AND ${since('created_at')}`),
+      leads: await g(`SELECT COUNT(*)::int c FROM valuation_leads WHERE ${since('created_at')}`),
+      activity_today: await g(`SELECT COUNT(*)::int c FROM activity_log WHERE ${since('ts')}`),
     };
   }, {});
 

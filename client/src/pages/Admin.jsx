@@ -947,15 +947,16 @@ export default function Admin() {
         {/* Datengetragene Schnellzugriff-Kacheln (Live-Kennzahl statt statischer Links) */}
         {(() => {
           const B = (analytics && analytics.badges) || {};
+          // „im Zeitraum" reagiert auf den Umschalter oben, „aktuell" ist eine Momentaufnahme.
           const tiles = [
-            ['pipeline', 'Pipeline (CRM)', B.pipeline, 'in Prozess', C.accent],
-            ['ndas', 'NDA-Anfragen', B.ndas, 'offen', '#f59e0b'],
-            ['users', 'Nutzer', B.users, 'z. Freigabe', '#8b5cf6'],
-            ['feedback', 'Feedback', B.feedback, 'neu', '#0ea5e9'],
-            ['detvals', 'Ausf. Bewertungen', B.detvals, 'eingereicht', '#10b981'],
-            ['leads', 'Bewertungs-Leads', B.leads, 'gesamt', C.accent],
-            ['projects', 'Projekte', B.projects, 'aktiv', C.navy],
-            ['activity', 'Aktivität heute', B.activity_today, 'Ereignisse', C.muted],
+            ['pipeline', 'Pipeline (CRM)', B.pipeline, 'in Prozess (aktuell)', C.accent],
+            ['ndas', 'NDA-Anfragen', B.ndas, 'im Zeitraum', '#f59e0b'],
+            ['users', 'Nutzer', B.users, 'neu im Zeitraum', '#8b5cf6'],
+            ['feedback', 'Feedback', B.feedback, 'im Zeitraum', '#0ea5e9'],
+            ['detvals', 'Ausf. Bewertungen', B.detvals, 'im Zeitraum', '#10b981'],
+            ['leads', 'Bewertungs-Leads', B.leads, 'im Zeitraum', C.accent],
+            ['projects', 'Projekte', B.projects, 'aktiv (aktuell)', C.navy],
+            ['activity', 'Aktivität', B.activity_today, 'Ereignisse im Zeitraum', C.muted],
           ];
           return (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.8rem', marginBottom: '1.5rem' }}>

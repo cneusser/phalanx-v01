@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.339 · 21.07.2026 · Übersicht: Zeitraum-Umschalter wirkt auf die Kacheln
+- **Zeitraum wirkt jetzt**: Der Umschalter (7/30/90 Tage, YTD) beeinflusst die zeitraumbezogenen Kacheln (NDA-Anfragen, neue Nutzer, Feedback, ausführliche Bewertungen, Bewertungs-Leads, Aktivität). Sie zählen die im gewählten Fenster neu entstandenen Vorgänge
+- **Momentaufnahmen bleiben stabil**: Pipeline im Prozess und aktive Projekte sind aktueller Stand und als „aktuell" gekennzeichnet
+- Verifiziert: neun Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.338 · 21.07.2026 · Datensafe: Zugriff je Empfänger und Dokument
 - **Feingranulare Zugriffsstruktur**: Ein Dokument im Datenraum lässt sich beschränken, dann sehen es nur ausdrücklich freigegebene Empfänger
 - **Ansicht oder Download je Person**: Eine reine Ansichts-Freigabe zeigt das Dokument, erlaubt aber keinen Download. Download ist eine eigene Stufe
