@@ -335,4 +335,106 @@ router.get('/:projectId/usage', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { files: r.files, folders: r.folders, bytes: Number(r.bytes) } });
 }));
 
+// ── Datenraum-Freigaben (Drooms-Modell): je Datei/Ordner an Person oder Gruppe ─
+const SUBJECT_TYPES = ['user', 'buyer_group', 'party_all', 'group'];
+const BUYER_GROUPS = [
+  ['strategic', 'Strategen'], ['financial', 'Finanzinvestoren / PE'], ['business_angel', 'Business Angels'],
+  ['venture_capital', 'Venture Capital'], ['family_office', 'Family Offices'], ['successor', 'Nachfolger'],
+  ['private', 'Privat'], ['advisor_mandate', 'Berater mit Mandat'],
+];
+
+// Freigaben eines Items lesen + Auswahllisten (Beteiligte, Käufergruppen, eigene Gruppen)
+router.get('/:projectId/item/:id/grants', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = req.params.projectId;
+  const item = await scoped(req, (t) => t.get('SELECT id, name, is_folder FROM safe_items WHERE id = ? AND project_id = ?', [req.params.id, projectId]));
+  if (!item) return res.status(404).json({ success: false, error: 'Objekt nicht gefunden' });
+  const grants = await scoped(req, (t) => t.all(`
+    SELECT sg.id, sg.subject_type, sg.subject_ref, sg.level,
+           u.first_name || ' ' || u.last_name AS user_name, u.email AS user_email,
+           g.name AS group_name
+    FROM safe_grants sg
+    LEFT JOIN users u ON sg.subject_type = 'user' AND u.id = sg.subject_ref::int
+    LEFT JOIN safe_groups g ON sg.subject_type = 'group' AND g.id = sg.subject_ref::int
+    WHERE sg.item_id = ? ORDER BY sg.created_at`, [item.id]));
+  const parties = await scoped(req, (t) => t.all(`
+    SELECT u.id, u.first_name || ' ' || u.last_name AS name, u.email
+    FROM interests i JOIN users u ON u.id = i.buyer_id
+    WHERE i.project_id = ? AND i.stage <> 'rejected' ORDER BY name`, [projectId]));
+  const groups = await scoped(req, (t) => t.all(`
+    SELECT g.id, g.name, (SELECT COUNT(*)::int FROM safe_group_members m WHERE m.group_id = g.id) AS members
+    FROM safe_groups g WHERE g.project_id = ? ORDER BY g.name`, [projectId]));
+  res.json({ success: true, data: { item: { id: item.id, name: item.name, is_folder: item.is_folder === 1 }, grants, parties, groups, buyer_groups: BUYER_GROUPS } });
+}));
+
+router.post('/:projectId/item/:id/grants', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const { subject_type } = req.body;
+  const level = ['read', 'download'].includes(req.body.level) ? req.body.level : 'read';
+  if (!SUBJECT_TYPES.includes(subject_type)) return res.status(400).json({ success: false, error: 'Ungültiger Empfängertyp' });
+  const item = await scoped(req, (t) => t.get('SELECT id FROM safe_items WHERE id = ? AND project_id = ?', [req.params.id, req.params.projectId]));
+  if (!item) return res.status(404).json({ success: false, error: 'Objekt nicht gefunden' });
+  const ref = subject_type === 'party_all' ? null : String(req.body.subject_ref || '');
+  if (subject_type !== 'party_all' && !ref) return res.status(400).json({ success: false, error: 'Empfänger fehlt' });
+  await scoped(req, (t) => t.run(`
+    INSERT INTO safe_grants (tenant_id, project_id, item_id, subject_type, subject_ref, level, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT (item_id, subject_type, subject_ref) DO UPDATE SET level = EXCLUDED.level`,
+    [req.tenantId || 1, req.params.projectId, item.id, subject_type, ref, level, req.user.id]));
+  db.auditLog(req.user.id, 'SAFE_GRANT_SET', 'safe_item', item.id, `${subject_type}:${ref || 'alle'} (${level})`, req.ip);
+  res.status(201).json({ success: true, data: { message: 'Freigabe gesetzt' } });
+}));
+
+router.delete('/:projectId/item/:id/grants/:grantId', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  await scoped(req, (t) => t.run('DELETE FROM safe_grants WHERE id = ? AND item_id = ?', [req.params.grantId, req.params.id]));
+  db.auditLog(req.user.id, 'SAFE_GRANT_REMOVED', 'safe_item', req.params.id, `Freigabe #${req.params.grantId}`, req.ip);
+  res.json({ success: true, data: { message: 'Freigabe entfernt' } });
+}));
+
+// Eigene Gruppen je Mandat
+router.get('/:projectId/groups', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const groups = await scoped(req, (t) => t.all(`
+    SELECT g.id, g.name FROM safe_groups g WHERE g.project_id = ? ORDER BY g.name`, [req.params.projectId]));
+  for (const g of groups) {
+    g.members = await scoped(req, (t) => t.all(`
+      SELECT u.id, u.first_name || ' ' || u.last_name AS name, u.email
+      FROM safe_group_members m JOIN users u ON u.id = m.user_id WHERE m.group_id = ? ORDER BY name`, [g.id]));
+  }
+  res.json({ success: true, data: groups });
+}));
+
+router.post('/:projectId/groups', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const name = String(req.body.name || '').trim().slice(0, 120);
+  if (!name) return res.status(400).json({ success: false, error: 'Name fehlt' });
+  const id = await scoped(req, (t) => t.insert(
+    `INSERT INTO safe_groups (tenant_id, project_id, name, created_by) VALUES (?, ?, ?, ?)`,
+    [req.tenantId || 1, req.params.projectId, name, req.user.id]));
+  res.status(201).json({ success: true, data: { id, name } });
+}));
+
+router.delete('/:projectId/groups/:groupId', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  await scoped(req, (t) => t.run('DELETE FROM safe_groups WHERE id = ? AND project_id = ?', [req.params.groupId, req.params.projectId]));
+  res.json({ success: true, data: { message: 'Gruppe entfernt' } });
+}));
+
+router.post('/:projectId/groups/:groupId/members', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const userId = Number(req.body.user_id);
+  if (!userId) return res.status(400).json({ success: false, error: 'user_id fehlt' });
+  await scoped(req, (t) => t.run(
+    `INSERT INTO safe_group_members (tenant_id, group_id, user_id) VALUES (?, ?, ?) ON CONFLICT (group_id, user_id) DO NOTHING`,
+    [req.tenantId || 1, req.params.groupId, userId]));
+  res.status(201).json({ success: true, data: { message: 'Mitglied hinzugefügt' } });
+}));
+
+router.delete('/:projectId/groups/:groupId/members/:userId', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  await scoped(req, (t) => t.run('DELETE FROM safe_group_members WHERE group_id = ? AND user_id = ?', [req.params.groupId, req.params.userId]));
+  res.json({ success: true, data: { message: 'Mitglied entfernt' } });
+}));
+
 module.exports = router;

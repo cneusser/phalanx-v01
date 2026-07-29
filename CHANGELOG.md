@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.342 · 21.07.2026 · Safe-Datenraum-Freigaben: Fundament
+- **Drooms-Modell vorbereitet**: Grundlage für Freigaben direkt im Safe, je Datei oder Ordner an Einzelpersonen, Käufergruppen, alle Beteiligten eines Mandats oder eigene Gruppen, jeweils nur Ansicht oder Download
+- **Datenmodell und Logik**: neue Tabellen (safe_grants, safe_groups, safe_group_members) mit Mandantentrennung, plus die getestete Zugriffs-Auflösung mit Ordner-Vererbung (höchste zutreffende Stufe gewinnt)
+- **Verwaltungs-Endpunkte**: Freigaben je Objekt und eigene Gruppen sind serverseitig angelegt. Die Oberfläche im Safe und der Investoren-Datenraum folgen als nächste Etappen
+- Verifiziert: zehn Testsuites grün, Textwächter ohne Befund
+
 ## v0.341 · 21.07.2026 · Aktivitätslog-Mandat korrekt, Ordner-Upload
 - **Falsches Mandat im Log behoben**: Bei Safe-Aktionen (Ansicht, Download, Löschen) zeigte das Aktivitätslog ein zufälliges Mandat, weil die Safe-Objekt-Id fälschlich als Projekt-Id gelesen wurde. Das Mandat wird jetzt korrekt über die Safe-Ablage aufgelöst, sonst bleibt es leer statt falsch
 - **Ordner per Drag-and-drop**: Ordner lassen sich jetzt auch durch Ziehen hochladen, mitsamt Unterordnerstruktur. Auch leere Ordner werden dabei angelegt
