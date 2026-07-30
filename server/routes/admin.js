@@ -277,7 +277,12 @@ router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
       feedback: await g(`SELECT COUNT(*)::int c FROM feedback WHERE ${since('created_at')}`),
       detvals: await g(`SELECT COUNT(*)::int c FROM detailed_valuations WHERE status='submitted' AND ${since('created_at')}`),
       leads: await g(`SELECT COUNT(*)::int c FROM valuation_leads WHERE ${since('created_at')}`),
-      activity_today: await g(`SELECT COUNT(*)::int c FROM activity_log WHERE ${since('ts')}`),
+      // Alle Ereignisse im Zeitraum: fachliche Vorgänge (audit_logs, wie in der
+      // Aktivitätsliste) plus technische Zugriffe (activity_log).
+      activity_today: await g(`SELECT (
+          (SELECT COUNT(*) FROM audit_logs WHERE ${since('created_at')})
+        + (SELECT COUNT(*) FROM activity_log WHERE ${since('ts')})
+        )::int c`),
     };
   }, {});
 

@@ -3,6 +3,10 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.356 · 21.07.2026 · Admin: Aktivitäts-Kennzahl passt zur Liste
+- **Vollständige Zählung**: Die Kennzahl „Aktivität" zählt jetzt alle Ereignisse im Zeitraum, fachliche Vorgänge (wie in der Aktivitätsliste, z. B. Uploads, Löschungen, Freigaben) plus technische Zugriffe. Vorher wurde nur das technische Zugriffs-Log gezählt, daher war die Zahl kleiner als die sichtbare Liste
+- Verifiziert: elf Testsuites grün, Textwächter ohne Befund
+
 ## v0.355 · 21.07.2026 · Admin-Cockpit: Zeitraum „Heute" und „3 Tage"
 - **Feinerer Zeitraum-Filter**: Die Leiste bietet jetzt zusätzlich „Heute" und „3 Tage" neben 7/30/90 Tage und YTD
 - „Heute" zählt ab Tagesbeginn (Kalendertag), nicht die letzten 24 Stunden
