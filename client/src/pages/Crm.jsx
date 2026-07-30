@@ -58,6 +58,26 @@ export default function Crm() {
   const [page, setPage] = useState(1);
   const [buyerType, setBuyerType] = useState('');   // Käufertyp-Filter (Kontakte)
   const [special, setSpecial] = useState('');       // Kachel-Filter: decision|opt_in|blocked
+  const [liContact, setLiContact] = useState(null);  // LinkedIn-Popup: Kontakt
+  const [liUrl, setLiUrl] = useState('');            // LinkedIn-Popup: URL-Eingabe
+  const [liBusy, setLiBusy] = useState(false);
+
+  const liName = (k) => [k.first_name, k.last_name].filter(Boolean).join(' ') || k.companies || '';
+  const normLi = (u) => { const s = String(u || '').trim(); if (!s) return ''; return /^https?:\/\//i.test(s) ? s : `https://${s}`; };
+  const liSearchUrl = (k) => `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent([liName(k), k.companies].filter(Boolean).join(' '))}`;
+  const googleUrl = (k) => `https://www.google.com/search?q=${encodeURIComponent([liName(k), k.companies, 'LinkedIn'].filter(Boolean).join(' '))}`;
+  function openLinkedin(k) { setLiContact(k); setLiUrl(k.linkedin_url || ''); }
+  async function saveLinkedin() {
+    if (!liContact) return;
+    setLiBusy(true);
+    try {
+      await api.put(`/crm/contacts/${liContact.id}`, { linkedin_url: normLi(liUrl) || null });
+      setMsg('LinkedIn-Profil gespeichert.');
+      setLiContact({ ...liContact, linkedin_url: normLi(liUrl) });
+      await load();
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+    finally { setLiBusy(false); }
+  }
   // Deeplinks: /crm?contact=123 öffnet den Kontakt, /crm?company=7 das Unternehmen,
   // /crm?q=Name springt in die Unternehmensliste mit gesetzter Suche.
   useEffect(() => {
@@ -440,6 +460,12 @@ export default function Crm() {
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#ECFDF5', color: '#065f46', border: '1px solid #a7f3d0', borderRadius: 6, padding: '0.28rem 0.55rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                         <Send size={12} /> Pflege-Link
                       </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openLinkedin(k); }}
+                        title={k.linkedin_url ? 'LinkedIn-Profil ansehen' : 'Auf LinkedIn suchen und Profil hinterlegen'}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: k.linkedin_url ? '#E8F1FB' : '#F1F5F9', color: '#0a66c2', border: `1px solid ${k.linkedin_url ? '#a9cbec' : C.border}`, borderRadius: 6, padding: '0.28rem 0.55rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <Linkedin size={12} /> {k.linkedin_url ? 'LinkedIn' : 'Suchen'}
+                      </button>
                     </div>
                   </td>
                   <td style={{ padding: '0.7rem 1rem', textAlign: 'right' }}><ChevronRight size={14} color={C.muted} /></td>
@@ -479,6 +505,54 @@ export default function Crm() {
       {importListOpen && <ImportListModal onClose={() => setImportListOpen(false)} onDone={() => load()} show={show} />}
       {inviteOpen && <InviteContactsModal onClose={() => setInviteOpen(false)} onDone={() => load()} />}
       {assign && <AssignDealModal contact={assign} projects={projects} stages={stages} onClose={() => setAssign(null)} show={show} />}
+
+      {/* LinkedIn-Profil ansehen / recherchieren */}
+      {liContact && (
+        <div onClick={() => setLiContact(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', maxWidth: 480, width: '92%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.3rem' }}>
+              <Linkedin size={20} color="#0a66c2" />
+              <strong style={{ color: C.navy, fontSize: '1rem' }}>{liName(liContact)}</strong>
+            </div>
+            <div style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '1rem' }}>{liContact.companies || 'Unternehmen k. A.'}{liContact.email ? ` · ${liContact.email}` : ''}</div>
+
+            {liContact.linkedin_url ? (
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem', marginBottom: '1rem', background: C.bg }}>
+                <div style={{ fontSize: '0.75rem', color: C.muted, marginBottom: 4 }}>Hinterlegtes Profil</div>
+                <div style={{ fontSize: '0.82rem', color: C.accent, wordBreak: 'break-all', marginBottom: '0.7rem' }}>{liContact.linkedin_url}</div>
+                <a href={normLi(liContact.linkedin_url)} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#0a66c2', color: '#fff', borderRadius: 8, padding: '0.5rem 0.9rem', fontSize: '0.83rem', fontWeight: 700, textDecoration: 'none' }}>
+                  <Linkedin size={14} /> Profil in neuem Tab öffnen
+                </a>
+                <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: '0.6rem' }}>Hinweis: LinkedIn erlaubt keine Einbettung im Fenster, das Profil öffnet daher in einem neuen Tab.</div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.82rem', color: C.text, marginBottom: '0.8rem' }}>
+                Für diesen Kontakt ist noch kein LinkedIn-Profil hinterlegt. Suchen, das Profil öffnen und die URL unten einfügen.
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              <a href={liSearchUrl(liContact)} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#E8F1FB', color: '#0a66c2', border: '1px solid #a9cbec', borderRadius: 8, padding: '0.45rem 0.8rem', fontSize: '0.8rem', fontWeight: 700, textDecoration: 'none' }}>
+                <Search size={13} /> Auf LinkedIn suchen
+              </a>
+              <a href={googleUrl(liContact)} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F1F5F9', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.45rem 0.8rem', fontSize: '0.8rem', fontWeight: 700, textDecoration: 'none' }}>
+                <Search size={13} /> Google-Suche
+              </a>
+            </div>
+
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, marginBottom: 4 }}>Profil-URL hinterlegen</div>
+            <input value={liUrl} onChange={e => setLiUrl(e.target.value)} placeholder="https://www.linkedin.com/in/…"
+              style={{ ...INPUT, marginBottom: '0.8rem' }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              <button onClick={() => setLiContact(null)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '0.83rem' }}>Schließen</button>
+              <button onClick={saveLinkedin} disabled={liBusy} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 1rem', fontSize: '0.83rem', fontWeight: 700, cursor: 'pointer' }}>{liBusy ? 'Speichere…' : 'Speichern'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

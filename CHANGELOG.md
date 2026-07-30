@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.359 · 21.07.2026 · CRM: LinkedIn-Profil ansehen und recherchieren
+- **LinkedIn-Button je Kontakt**: öffnet ein Popup mit Profilkarte. Ist ein Profil hinterlegt, öffnet es per Klick in einem neuen Tab (LinkedIn erlaubt keine Einbettung im Fenster)
+- **Recherche**: Ohne hinterlegtes Profil führt ein Klick zur LinkedIn- oder Google-Suche mit Name und Unternehmen. Die gefundene Profil-URL lässt sich direkt im Popup speichern
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.358 · 21.07.2026 · CRM: Zwei-Wege-Mail-Konversation je Kontakt
 - **Konversations-Tab**: Neuer Tab „Konversation" im Kontakt zeigt ausgehende Nachrichten und eingegangene Antworten als Verlauf mit Sprechblasen (gesendet rechts, eingegangen links), mit Betreff, Text, Mandat und Zeit
 - **Inline-Antwort**: Direkt aus der Konversation antworten, Betreff wird als „AW: …" vorbelegt
