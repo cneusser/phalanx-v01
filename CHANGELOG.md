@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.358 · 21.07.2026 · CRM: Zwei-Wege-Mail-Konversation je Kontakt
+- **Konversations-Tab**: Neuer Tab „Konversation" im Kontakt zeigt ausgehende Nachrichten und eingegangene Antworten als Verlauf mit Sprechblasen (gesendet rechts, eingegangen links), mit Betreff, Text, Mandat und Zeit
+- **Inline-Antwort**: Direkt aus der Konversation antworten, Betreff wird als „AW: …" vorbelegt
+- **Vollständiger Thread**: Ausgehende Mails (freie Nachrichten und Prozess-Mails) landen jetzt im Thread. Die Aktivitäts-Timeline vermeidet dabei Doppelungen mit dem Ausgangsbuch
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.357 · 21.07.2026 · Volltextsuche über Dokumentinhalte
 - **Suche im Inhalt**: Neue Volltextsuche im geschlossenen Bereich findet nicht nur Dateinamen, sondern auch Fundstellen im Inhalt der PDFs, mit hervorgehobenem Trefferausschnitt
 - **Safe und Datenraum**: im Safe (nur Pfleger) und im Käufer-Datenraum. Im Datenraum greift die Zugriffslogik, gefunden wird nur, was für den Nutzer freigegeben ist

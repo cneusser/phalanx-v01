@@ -58,6 +58,11 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   const [msgBody, setMsgBody] = useState('');
   const [msgProject, setMsgProject] = useState('');
   const [msgBusy, setMsgBusy] = useState(false);
+  // Konversation (Zwei-Wege-Mail)
+  const [messages, setMessages] = useState([]);
+  const [convReply, setConvReply] = useState('');
+  const [convSubject, setConvSubject] = useState('');
+  const [convBusy, setConvBusy] = useState(false);
   // Konto-Verknüpfung
   const [accOpen, setAccOpen] = useState(false);
   const [accQ, setAccQ] = useState('');
@@ -216,6 +221,33 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
       await load(); onChanged && onChanged();
     } catch (e) { show('Fehler: ' + e.message); }
     finally { setMsgBusy(false); }
+  }
+
+  // ── Konversation laden (In/Out) und Inline-Antwort senden ──
+  async function loadConversation() {
+    try {
+      const d = await api.get(`/crm/contacts/${contactId}/messages`);
+      const list = (d.messages || []).slice().sort((a, b) =>
+        new Date(a.sent_at || a.created_at) - new Date(b.sent_at || b.created_at));
+      setMessages(list);
+      const lastIn = [...list].reverse().find(m => m.direction === 'in');
+      const base = lastIn ? lastIn.subject : (list.length ? list[list.length - 1].subject : '');
+      if (base && !convSubject) setConvSubject(/^AW:/i.test(base) ? base : `AW: ${base}`);
+    } catch { setMessages([]); }
+  }
+  useEffect(() => { if (tab === 'konversation' && contactId) loadConversation(); /* eslint-disable-next-line */ }, [tab, contactId]);
+
+  async function sendConvReply() {
+    const subject = (convSubject || 'Ihre Anfrage').trim();
+    if (convReply.trim().length < 3) return show('Bitte einen Text eingeben');
+    setConvBusy(true);
+    try {
+      await api.post(`/crm/contacts/${contactId}/send-message`, { subject, body: convReply, project_id: null });
+      setConvReply('');
+      show('Antwort gesendet ✓');
+      await loadConversation(); await load(); onChanged && onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
+    finally { setConvBusy(false); }
   }
 
   // ── Plattform-Konto manuell verknüpfen (wenn die E-Mail im CRM abweicht) ──
@@ -498,6 +530,7 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '1.2rem', padding: '0 1.3rem', borderBottom: `1px solid ${C.border}` }}>
               {[['stamm', 'Stammdaten'], ['mandate', `Mandate (${(data.deals || []).length})`],
+                ['konversation', 'Konversation'],
                 ['aufgaben', `Wiedervorlagen (${(data.tasks || []).length})`],
                 ['aktivitaet', `Aktivitäten (${(data.activity || []).length})`]].map(([key, label]) => (
                 <button key={key} onClick={() => setTab(key)} style={{
@@ -803,6 +836,54 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                     </div>
                   ))}
                 </>
+              )}
+
+              {tab === 'konversation' && (
+                <div>
+                  {messages.length === 0 ? (
+                    <div style={{ color: C.muted, fontSize: '0.85rem', padding: '0.5rem 0' }}>
+                      Noch keine E-Mail-Konversation. Ausgehende Nachrichten und eingegangene Antworten erscheinen hier als Verlauf.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.9rem' }}>
+                      {messages.map(m => {
+                        const out = m.direction === 'out';
+                        return (
+                          <div key={m.id} style={{ display: 'flex', justifyContent: out ? 'flex-end' : 'flex-start' }}>
+                            <div style={{ maxWidth: '82%', background: out ? '#0D1B36' : '#fff', color: out ? '#fff' : C.text, border: `1px solid ${out ? '#0D1B36' : C.border}`, borderRadius: 10, padding: '0.55rem 0.7rem' }}>
+                              <div style={{ fontSize: '0.66rem', opacity: 0.8, marginBottom: 2 }}>
+                                {out ? 'Gesendet' : 'Eingegangen'}{m.codename ? ` · ${m.codename}` : ''} · {fmt(m.sent_at || m.created_at)}
+                              </div>
+                              {m.subject && <div style={{ fontWeight: 700, fontSize: '0.8rem', marginBottom: 2 }}>{m.subject}</div>}
+                              <div style={{ fontSize: '0.8rem', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{m.body || ''}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Inline-Antwort senden */}
+                  {blocked ? (
+                    <div style={{ fontSize: '0.78rem', color: '#991b1b' }}>Für diesen Kontakt liegt ein Widerspruch vor, es wird nicht angeschrieben.</div>
+                  ) : !k.email ? (
+                    <div style={{ fontSize: '0.78rem', color: C.muted }}>Keine E-Mail-Adresse hinterlegt.</div>
+                  ) : (
+                    <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.7rem', background: C.bg }}>
+                      <input value={convSubject} onChange={e => setConvSubject(e.target.value)} placeholder="Betreff"
+                        style={{ ...IN, marginBottom: 6 }} />
+                      <textarea value={convReply} onChange={e => setConvReply(e.target.value)} rows={3} placeholder="Antwort schreiben…"
+                        style={{ ...IN, resize: 'vertical' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.68rem', color: C.muted }}>
+                          Antwort geht an {k.email}. Eingegangene Antworten erscheinen automatisch, sobald der Mailempfang eingerichtet ist.
+                        </span>
+                        <button onClick={sendConvReply} disabled={convBusy} style={{ ...btn(false), color: '#065f46', borderColor: '#6ee7b7' }}>
+                          <Send size={13} /> {convBusy ? 'Sendet…' : 'Senden'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               {tab === 'aufgaben' && (

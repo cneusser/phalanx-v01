@@ -325,6 +325,14 @@ router.post('/contacts/:id/send-message', ...isStaff, canSend, wrap(async (req, 
     meta: { type: 'message', contactId: k.id, projectId, actorId: req.user.id, tenantId: req.tenantId || 1 },
   });
 
+  // Ausgehende Mail in den Konversations-Thread schreiben (Zwei-Wege-Ansicht).
+  if (ok) {
+    await scoped(req, (t) => t.run(
+      `INSERT INTO crm_messages (tenant_id, contact_id, project_id, direction, from_email, to_email, subject, body, source, created_by, sent_at)
+       VALUES (?, ?, ?, 'out', ?, ?, ?, ?, 'manual', ?, now())`,
+      [req.tenantId || 1, k.id, projectId, req.user.email, k.email, subject.slice(0, 300), body.slice(0, 8000), req.user.id])).catch(() => {});
+  }
+
   // Ausgang auch in der Mandats-Historie vermerken, falls einem Mandat zugeordnet
   if (projectId) {
     await scoped(req, (t) => t.run(
@@ -678,13 +686,15 @@ async function contactActivity(req, contactId, contact = null) {
     push(c.created_at, 'selfcare', c.status === 'pending' ? 'Selbstpflege, wartet auf Freigabe' : 'Selbstpflege übernommen', fields || null);
   }
 
-  // Eingegangene Antworten (BCC-Ingest oder manuell erfasst)
+  // Eingegangene Antworten (BCC-Ingest oder manuell erfasst). Ausgehende Mails
+  // erscheinen bereits über das Ausgangsbuch (email_log), daher hier nur „in",
+  // um Doppelungen in der Timeline zu vermeiden. Die vollständige Zwei-Wege-
+  // Konversation zeigt der eigene Konversations-Tab.
   const msgs = await scoped(req, (t) => t.all(
     `SELECT m.*, p.codename FROM crm_messages m LEFT JOIN projects p ON p.id = m.project_id
-      WHERE m.contact_id = ? ORDER BY COALESCE(m.sent_at, m.created_at) DESC LIMIT 30`, [contactId])).catch(() => []);
+      WHERE m.contact_id = ? AND m.direction = 'in' ORDER BY COALESCE(m.sent_at, m.created_at) DESC LIMIT 30`, [contactId])).catch(() => []);
   for (const m of msgs) {
-    push(m.sent_at || m.created_at, m.direction === 'in' ? 'reply_in' : 'mail',
-      m.direction === 'in' ? 'Antwort eingegangen' : 'Nachricht versendet',
+    push(m.sent_at || m.created_at, 'reply_in', 'Antwort eingegangen',
       [m.codename ? `Mandat ${m.codename}` : null, m.subject].filter(Boolean).join(' · ') || null);
   }
 
@@ -2345,12 +2355,23 @@ router.post('/deals/:projectId/send-template', ...isStaff, canSend, wrap(async (
     // Mailmerge: individuelle Begründung je Empfänger für {{warum}}
     const warum = (req.body.reasons && (req.body.reasons[cid] || req.body.reasons[String(cid)])) || '';
 
-    sendCampaignEmail({ ...mt.buildFromTemplate({
+    const mail = mt.buildFromTemplate({
       template: tpl, contact: k, project, inviter: req.user,
       inviteToken, profileToken, frist: req.body.frist, warum,
       overrideSubject: req.body.subject, overrideBody: req.body.body,
       withFacts: req.body.with_facts !== false,
-    }), meta: { type: 'campaign', templateKey: tpl.key, contactId: cid, projectId, actorId: req.user.id, tenantId: tenant } }).catch(() => {});
+    });
+    sendCampaignEmail({ ...mail, meta: { type: 'campaign', templateKey: tpl.key, contactId: cid, projectId, actorId: req.user.id, tenantId: tenant } }).catch(() => {});
+
+    // Prozess-Mail in den Konversations-Thread schreiben (Zwei-Wege-Ansicht).
+    {
+      const plain = (req.body.body ? String(req.body.body) : String(mail.bodyHtml || '').replace(/<[^>]+>/g, ' '))
+        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+      await scoped(req, (t) => t.run(`
+        INSERT INTO crm_messages (tenant_id, contact_id, project_id, direction, from_email, to_email, subject, body, source, created_by, sent_at)
+        VALUES (?, ?, ?, 'out', ?, ?, ?, ?, 'campaign', ?, now())`,
+        [tenant, cid, projectId, req.user.email, k.email, String(mail.subject || tpl.subject || '').slice(0, 300), plain.slice(0, 8000), req.user.id])).catch(() => {});
+    }
 
     await scoped(req, (t) => t.run(`
       INSERT INTO crm_campaign_recipients (tenant_id, campaign_id, contact_id, email, invitation_id, profile_link_id, status, sent_at)
