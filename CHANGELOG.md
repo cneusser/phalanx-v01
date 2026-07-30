@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.355 · 21.07.2026 · Admin-Cockpit: Zeitraum „Heute" und „3 Tage"
+- **Feinerer Zeitraum-Filter**: Die Leiste bietet jetzt zusätzlich „Heute" und „3 Tage" neben 7/30/90 Tage und YTD
+- „Heute" zählt ab Tagesbeginn (Kalendertag), nicht die letzten 24 Stunden
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.354 · 21.07.2026 · Safe: doppelte Ordner zuverlässig zusammenführen
 - **Zusammenführen statt überspringen**: Die Bereinigung führt gleichnamige Ordner jetzt zusammen. Inhalte einer Dublette werden in den ersten Ordner verschoben, die geleerte Dublette wandert in den Papierkorb. Bisher wurden Dubletten mit Inhalt übersprungen, deshalb schien nichts zu passieren
 - **Klare Rückmeldung**: nennt die Zahl der zusammengeführten Ordner und der verschobenen Objekte

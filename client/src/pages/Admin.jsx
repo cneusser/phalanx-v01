@@ -930,7 +930,7 @@ export default function Admin() {
         {/* Sprint 16: Cockpit-Toolbar: Zeitraum + Export */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', gap: '0.3rem', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.25rem' }}>
-            {[['7d', '7 Tage'], ['30d', '30 Tage'], ['90d', '90 Tage'], ['ytd', 'YTD']].map(([k, lbl]) => (
+            {[['1d', 'Heute'], ['3d', '3 Tage'], ['7d', '7 Tage'], ['30d', '30 Tage'], ['90d', '90 Tage'], ['ytd', 'YTD']].map(([k, lbl]) => (
               <button key={k} onClick={() => setRange(k)} style={{
                 border: 'none', cursor: 'pointer', borderRadius: 6, padding: '0.35rem 0.8rem', fontSize: '0.8rem', fontWeight: 600,
                 background: range === k ? C.navy : 'transparent', color: range === k ? '#fff' : C.muted,

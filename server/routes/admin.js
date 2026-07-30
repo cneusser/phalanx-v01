@@ -156,13 +156,16 @@ router.get('/stats', ...isAdmin, wrap(async (req, res) => {
 // Jeder Block ist defensiv gekapselt: ein fehlschlagendes Aggregat darf das
 // Dashboard nicht als Ganzes killen.
 router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
-  const RANGES = { '7d': 7, '30d': 30, '90d': 90 };
-  const rangeKey = ['7d', '30d', '90d', 'ytd'].includes(req.query.range) ? req.query.range : '30d';
+  const RANGES = { '1d': 1, '3d': 3, '7d': 7, '30d': 30, '90d': 90 };
+  const rangeKey = ['1d', '3d', '7d', '30d', '90d', 'ytd'].includes(req.query.range) ? req.query.range : '30d';
   const days = rangeKey === 'ytd' ? null : RANGES[rangeKey];
-  // Fensterbedingung für Spalten unterschiedlicher Tabellen
-  const since = (col) => days === null
-    ? `${col} >= date_trunc('year', now())`
-    : `${col} >= now() - interval '${days} days'`;
+  // Fensterbedingung für Spalten unterschiedlicher Tabellen. „Heute" (1d) zählt ab
+  // Tagesbeginn, damit es dem Kalendertag entspricht, nicht den letzten 24 Stunden.
+  const since = (col) => {
+    if (days === null) return `${col} >= date_trunc('year', now())`;
+    if (rangeKey === '1d') return `${col} >= date_trunc('day', now())`;
+    return `${col} >= now() - interval '${days} days'`;
+  };
   const safe = async (fn, fallback) => { try { return await fn(); } catch (e) { console.warn('[analytics]', e.message); return fallback; } };
 
   // 1) Funnel: robuste Quellen (interests + nda_requests + projects.deal_status)
