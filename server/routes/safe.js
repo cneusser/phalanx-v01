@@ -206,12 +206,14 @@ router.post('/:projectId/upload', authenticate, upload.array('files', 500), wrap
     const ext = path.extname(fileName).toLowerCase();
     const key = `project_${projectId}/${uuidv4()}${ext}`;
     await storage.put(key, file.buffer, file.mimetype);
+    // Volltext für die Suche extrahieren (nur PDF, Fehler stören den Upload nicht)
+    const contentText = await require('../utils/pdfText').extractIfPdf(file.buffer, file.mimetype, fileName);
 
     const pos = await nextPosition(req, projectId, parentId);
     const id = await scoped(req, (t) => t.insert(
-      `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, position, storage_key, size, mime, checksum_sha256, version, uploaded_by)
-       VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.tenantId || 1, projectId, parentId, fileName, pos, key, file.size, file.mimetype, checksum, version, req.user.id]));
+      `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, position, storage_key, size, mime, checksum_sha256, version, uploaded_by, content_text)
+       VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.tenantId || 1, projectId, parentId, fileName, pos, key, file.size, file.mimetype, checksum, version, req.user.id, contentText || null]));
     created.push({ id, name: fileName, version });
   }
   // Mandat im Log mit Codenamen (nicht mit der Projekt-Id) benennen und als
@@ -409,10 +411,13 @@ async function materializeToDocument(req, projectId, item, accessLevel, desc) {
   const diskPath = path.join(dir, `${base}_${Date.now()}${ext}`);
   fs.writeFileSync(diskPath, buf);
   const folder = await folderPathOf(req, projectId, item.parent_id);
+  // Vorhandenen Safe-Text übernehmen, sonst aus der Datei extrahieren.
+  let contentText = item.content_text || null;
+  if (!contentText) contentText = (await require('../utils/pdfText').extractIfPdf(buf, item.mime, item.name)) || null;
   const docId = await scoped(req, (t) => t.insert(
-    `INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, file_path, folder)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [projectId, item.name, item.mime || 'application/octet-stream', item.size, accessLevel, desc || '', req.user.id, diskPath, folder || null]));
+    `INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, file_path, folder, content_text)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [projectId, item.name, item.mime || 'application/octet-stream', item.size, accessLevel, desc || '', req.user.id, diskPath, folder || null, contentText]));
   return { document_id: docId };
 }
 
@@ -460,12 +465,13 @@ router.post('/:projectId/publish-bulk', authenticate, wrap(async (req, res) => {
 async function putSafeFile(req, projectId, parentId, name, buf, mime) {
   const key = `project_${projectId}/${uuidv4()}${path.extname(name).toLowerCase()}`;
   await getStorage().put(key, buf, mime);
+  const contentText = (await require('../utils/pdfText').extractIfPdf(buf, mime, name)) || null;
   const pos = await nextPosition(req, projectId, parentId);
   const id = await scoped(req, (t) => t.insert(
-    `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, storage_key, size, mime, position, uploaded_by)
-     VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
-    [req.tenantId || 1, projectId, parentId, name, key, buf.length, mime, pos, req.user.id]));
-  return { id, name, is_folder: 0, storage_key: key, size: buf.length, mime };
+    `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, storage_key, size, mime, position, uploaded_by, content_text)
+     VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
+    [req.tenantId || 1, projectId, parentId, name, key, buf.length, mime, pos, req.user.id, contentText]));
+  return { id, name, is_folder: 0, storage_key: key, size: buf.length, mime, content_text: contentText };
 }
 
 // ── Teaser & Investment Memorandum als PDF bereitstellen ────────────────────
@@ -579,6 +585,66 @@ router.post('/:projectId/dedupe-structure', authenticate, wrap(async (req, res) 
   for (const r of rest) { await scoped(req, (t) => t.run(`UPDATE safe_items SET position = ? WHERE id = ?`, [pos++, r.id])); }
   db.auditLog(req.user.id, 'SAFE_DEDUPE_STRUCTURE', 'project', projectId, `${removed} Dubletten zusammengeführt, ${moved} Objekte verschoben`, req.ip);
   res.json({ success: true, data: { removed, moved } });
+}));
+
+// ── Volltextsuche im Safe (Name + Dateiinhalt), nur Pfleger ─────────────────
+router.get('/:projectId/search', authenticate, wrap(async (req, res) => {
+  if (!(await guardRead(req, res))) return;
+  const projectId = req.params.projectId;
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) return res.json({ success: true, data: { results: [] } });
+  const like = `%${q.replace(/[%_]/g, '')}%`;
+  const rows = await scoped(req, (t) => t.all(
+    `SELECT id, name, parent_id, mime,
+            ts_rank(content_tsv, plainto_tsquery('german', ?)) AS rank,
+            ts_headline('german', coalesce(content_text, ''), plainto_tsquery('german', ?),
+              'MaxFragments=1, MaxWords=20, MinWords=6, ShortWord=2, StartSel=«, StopSel=»') AS snippet
+       FROM safe_items
+      WHERE project_id = ? AND deleted_at IS NULL AND is_folder = 0
+        AND (content_tsv @@ plainto_tsquery('german', ?) OR name ILIKE ?)
+      ORDER BY rank DESC NULLS LAST, name ASC
+      LIMIT 40`, [q, q, projectId, q, like]));
+  const results = [];
+  for (const r of rows) {
+    const folder = await folderPathOf(req, projectId, r.parent_id);
+    results.push({ id: r.id, name: r.name, parent_id: r.parent_id, folder, mime: r.mime, snippet: r.snippet || '' });
+  }
+  res.json({ success: true, data: { results } });
+}));
+
+// ── Bestand neu indexieren (Text aus vorhandenen PDFs nachziehen) ────────────
+router.post('/:projectId/reindex', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = req.params.projectId;
+  const { extractPdfText, isPdf } = require('../utils/pdfText');
+  const files = await scoped(req, (t) => t.all(
+    `SELECT id, name, mime, storage_key FROM safe_items
+      WHERE project_id = ? AND is_folder = 0 AND deleted_at IS NULL AND storage_key IS NOT NULL
+        AND (content_text IS NULL OR content_text = '')
+      LIMIT 300`, [projectId]));
+  let indexed = 0;
+  for (const f of files) {
+    if (!isPdf(f.mime, f.name)) continue;
+    try {
+      const buf = await getStorage().get(f.storage_key);
+      const text = await extractPdfText(buf);
+      if (text) { await scoped(req, (t) => t.run('UPDATE safe_items SET content_text = ? WHERE id = ?', [text, f.id])); indexed += 1; }
+    } catch { /* einzelne Datei überspringen */ }
+  }
+  // Auch die zugehörigen Datenraum-Dokumente (nach Dateiname) nachziehen.
+  const docs = await db.all(
+    `SELECT id, filename, file_type, file_path FROM documents
+      WHERE project_id = ? AND (content_text IS NULL OR content_text = '') AND file_path IS NOT NULL LIMIT 300`, [projectId]).catch(() => []);
+  let docsIndexed = 0;
+  for (const d of docs) {
+    if (!isPdf(d.file_type, d.filename)) continue;
+    try {
+      const text = await extractPdfText(fs.readFileSync(d.file_path));
+      if (text) { await db.run('UPDATE documents SET content_text = ? WHERE id = ?', [text, d.id]); docsIndexed += 1; }
+    } catch { /* überspringen */ }
+  }
+  db.auditLog(req.user.id, 'SAFE_REINDEX', 'project', projectId, `${indexed} Safe-Dateien, ${docsIndexed} Datenraum-Dokumente indexiert`, req.ip);
+  res.json({ success: true, data: { indexed, docsIndexed } });
 }));
 
 // ── Speicherverbrauch (Mandat) ──────────────────────────────────────────────

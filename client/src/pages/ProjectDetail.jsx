@@ -684,7 +684,8 @@ export default function ProjectDetail() {
             ) : ndaDocs.length === 0 ? (
               <p style={{ color: C.muted, fontSize: '0.83rem' }}>Noch keine vertraulichen Dokumente hochgeladen.</p>
             ) : (
-              <DataRoomBrowser docs={ndaDocs} C={C} renderDownload={(d) => <DownloadButton doc={d} />} />
+              <DataRoomBrowser docs={ndaDocs} C={C} renderDownload={(d) => <DownloadButton doc={d} />}
+                onSearch={async (query) => { const r = await api.get(`/documents/${id}/search?q=${encodeURIComponent(query)}`); return r.results || []; }} />
             )}
           </div>
         </div>

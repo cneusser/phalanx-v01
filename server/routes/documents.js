@@ -147,9 +147,16 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
   const { description = '', access_level = 'nda' } = req.body;
   const displayName = req.body.display_name || req.file.originalname;
 
+  // Volltext für die Suche extrahieren (nur PDF, Fehler stören den Upload nicht)
+  let contentText = null;
+  try {
+    const { extractIfPdf } = require('../utils/pdfText');
+    contentText = (await extractIfPdf(fs.readFileSync(req.file.path), req.file.mimetype, displayName)) || null;
+  } catch { /* ignore */ }
+
   const docId = await db.insert(`
-    INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, file_path)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, file_path, content_text)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [
     projectId,
     displayName,
@@ -159,6 +166,7 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
     description,
     req.user.id,
     req.file.path,
+    contentText,
   ]);
 
   db.auditLog(req.user.id, 'UPLOAD_DOCUMENT', 'document', docId,
@@ -322,6 +330,53 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
 
   db.activityLog(req.user.id, 'ACCESS_DOCLIST', 'documents', projectId, req.ip);
   res.json({ success: true, data: withNew });
+}));
+
+// ── Volltextsuche im Datenraum (Dateiname + Inhalt), mit Rechte-Filter ───────
+router.get('/:projectId/search', authenticate, wrap(async (req, res) => {
+  const { projectId } = req.params;
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) return res.json({ success: true, data: { results: [] } });
+  const isAdminUser = ['super_admin', 'advisor'].includes(req.user.role);
+  const like = `%${q.replace(/[%_]/g, '')}%`;
+
+  const rows = await db.all(
+    `SELECT id, filename, folder, access_level, category, file_size,
+            COALESCE(restricted, 0) AS restricted, (file_path IS NOT NULL)::int AS has_file,
+            ts_rank(content_tsv, plainto_tsquery('german', ?)) AS rank,
+            ts_headline('german', coalesce(content_text, ''), plainto_tsquery('german', ?),
+              'MaxFragments=1, MaxWords=20, MinWords=6, ShortWord=2, StartSel=«, StopSel=»') AS snippet
+       FROM documents
+      WHERE project_id = ?
+        AND (content_tsv @@ plainto_tsquery('german', ?) OR filename ILIKE ?)
+      ORDER BY rank DESC NULLS LAST, created_at DESC
+      LIMIT 60`, [q, q, projectId, q, like]).catch(() => []);
+
+  let visible = rows;
+  if (!isAdminUser) {
+    const stage = await getStage(req.user.id, projectId);
+    const dataroomRead = await hasPermission(req.user, projectId, 'read');
+    const restrictedIds = rows.filter(d => d.restricted).map(d => d.id);
+    let grantedSet = new Set();
+    if (restrictedIds.length) {
+      const gr = await db.all(
+        `SELECT document_id FROM document_grants WHERE user_id = ? AND document_id IN (${restrictedIds.map(() => '?').join(',')})`,
+        [req.user.id, ...restrictedIds]);
+      grantedSet = new Set(gr.map(x => x.document_id));
+    }
+    visible = rows.filter(d => {
+      const cat = docCategory(d);
+      if (!stageAllows(stage, cat)) return false;
+      if (cat === 'dataroom' && !dataroomRead) return false;
+      if (d.restricted && !grantedSet.has(d.id)) return false;
+      return true;
+    });
+  }
+  const results = visible.map(d => ({
+    id: d.id, filename: d.filename, folder: d.folder || '', access_level: d.access_level,
+    file_size: d.file_size, has_file: d.has_file, snippet: d.snippet || '',
+  }));
+  res.json({ success: true, data: { results } });
 }));
 
 // ── GET /api/documents/:projectId/:docId/download ──────────

@@ -3,23 +3,37 @@ import { Folder, FileText, ChevronRight, Search, CornerLeftUp } from 'lucide-rea
 
 // Ordner-navigierbarer Käufer-Datenraum. Baut den Baum aus dem Feld doc.folder
 // (Pfad mit „/") und spiegelt so die Ablage aus dem Safe. Nur Ansicht + Download.
-export default function DataRoomBrowser({ docs, C, renderDownload }) {
+export default function DataRoomBrowser({ docs, C, renderDownload, onSearch }) {
   const [path, setPath] = useState([]);      // aktueller Ordnerpfad als Segmente
   const [q, setQ] = useState('');
+  const [remoteHits, setRemoteHits] = useState(null);   // Serversuche (Inhalt)
 
   const segs = (f) => String(f || '').split('/').map(s => s.trim()).filter(Boolean);
   const fmtMB = (b) => (b ? ` · ${(b / 1024 / 1024).toFixed(1)} MB` : '');
   const newCount = useMemo(() => docs.filter(d => d.is_new).length, [docs]);
 
-  // Suche: flache Trefferliste über alle Dokumente (Name, Beschreibung, Ordner)
   const query = q.trim().toLowerCase();
-  const searchHits = useMemo(() => {
+
+  // Volltextsuche über den Server (Inhalt der Dokumente), sonst Namensfilter lokal.
+  React.useEffect(() => {
+    if (!onSearch || query.length < 2) { setRemoteHits(null); return; }
+    let alive = true;
+    const t = setTimeout(async () => {
+      try { const r = await onSearch(q.trim()); if (alive) setRemoteHits(r || []); }
+      catch { if (alive) setRemoteHits([]); }
+    }, 250);
+    return () => { alive = false; clearTimeout(t); };
+  }, [q, query, onSearch]);
+
+  const localHits = useMemo(() => {
     if (!query) return null;
     return docs.filter(d =>
       String(d.filename || '').toLowerCase().includes(query) ||
       String(d.description || '').toLowerCase().includes(query) ||
       String(d.folder || '').toLowerCase().includes(query));
   }, [docs, query]);
+  // Serverergebnisse (mit Trefferausschnitt) bevorzugen, sonst lokaler Namensfilter.
+  const searchHits = query.length >= 2 ? (onSearch ? remoteHits : localHits) : null;
 
   // Aktuelle Ebene: Unterordner + Dateien direkt in diesem Ordner
   const { folders, files } = useMemo(() => {
@@ -59,6 +73,11 @@ export default function DataRoomBrowser({ docs, C, renderDownload }) {
           <div style={{ fontSize: '0.72rem', color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {query && d.folder ? `${d.folder} · ` : ''}{d.filename}{fmtMB(d.file_size)}
           </div>
+          {d.snippet && (
+            <div style={{ fontSize: '0.72rem', color: C.text, marginTop: 3, lineHeight: 1.4 }}>
+              {renderSnippet(d.snippet, C)}
+            </div>
+          )}
         </div>
       </div>
       <div style={{ flexShrink: 0 }}>{renderDownload(d)}</div>
@@ -134,3 +153,12 @@ export default function DataRoomBrowser({ docs, C, renderDownload }) {
 }
 
 const crumbBtn = (C) => ({ background: 'none', border: 'none', color: C.navy, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, padding: '0.1rem 0.2rem' });
+
+// Trefferausschnitt: der Server markiert Fundstellen mit « … », hier hervorgehoben.
+// React escaped Textknoten automatisch, daher kein HTML-Injection-Risiko.
+function renderSnippet(s, C) {
+  const parts = String(s).split(/[«»]/);
+  return parts.map((p, i) => (i % 2 === 1
+    ? <mark key={i} style={{ background: '#fde68a', color: C.text, padding: '0 1px', borderRadius: 2 }}>{p}</mark>
+    : <span key={i}>{p}</span>));
+}

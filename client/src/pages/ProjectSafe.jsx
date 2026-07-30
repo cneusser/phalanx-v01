@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
-import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell } from 'lucide-react';
+import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell, Search } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const fmtBytes = (b) => { b = Number(b) || 0; if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB'; return (b / 1073741824).toFixed(2) + ' GB'; };
@@ -39,6 +39,30 @@ export default function ProjectSafe() {
   const [report, setReport] = useState(null);
   const [structOpen, setStructOpen] = useState(false);
   const [structVal, setStructVal] = useState('');
+  const [safeQ, setSafeQ] = useState('');
+  const [safeHits, setSafeHits] = useState(null);
+  const [reindexing, setReindexing] = useState(false);
+
+  // Volltextsuche im Safe (Name + Dateiinhalt), 250ms entprellt.
+  useEffect(() => {
+    const q = safeQ.trim();
+    if (q.length < 2) { setSafeHits(null); return; }
+    let alive = true;
+    const t = setTimeout(async () => {
+      try { const r = await api.get(`/safe/${pid}/search?q=${encodeURIComponent(q)}`); if (alive) setSafeHits(r.results || []); }
+      catch { if (alive) setSafeHits([]); }
+    }, 250);
+    return () => { alive = false; clearTimeout(t); };
+  }, [safeQ, pid]);
+
+  async function reindex() {
+    setReindexing(true); setMsg('');
+    try {
+      const d = await api.post(`/safe/${pid}/reindex`, {});
+      setMsg(`Volltext-Index aktualisiert: ${d.indexed} Safe-Datei(en), ${d.docsIndexed} Datenraum-Dokument(e).`);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+    finally { setReindexing(false); }
+  }
 
   // Ordnerstruktur aus Freitext bauen (leere Ordner inklusive). Zwei Formate,
   // frei mischbar: vollständige Pfade mit „/" oder eine eingerückte Baumliste.
@@ -319,10 +343,43 @@ export default function ProjectSafe() {
           <input ref={dirInput} type="file" hidden multiple onChange={e => doUpload(Array.from(e.target.files), true)} />
         </div>
 
-        {msg && <div style={{ background: msg.includes('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: msg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{msg}</div>}
+        {/* Volltextsuche im Safe (Name + Dateiinhalt) */}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
+            <Search size={14} color={C.muted} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+            <input value={safeQ} onChange={e => setSafeQ(e.target.value)} placeholder="Im Safe suchen (Name und Dateiinhalt)…"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '0.5rem 0.7rem 0.5rem 1.9rem', fontSize: '0.85rem', border: `1px solid ${C.border}`, borderRadius: 8, outline: 'none' }} />
+          </div>
+          {safeQ && <button onClick={() => setSafeQ('')} style={btn('#fff', C.muted, true)}>Zurück zur Ordneransicht</button>}
+          <button onClick={reindex} disabled={reindexing} title="Text aus vorhandenen PDFs für die Suche nachziehen" style={btn('#fff', C.muted, true)}>{reindexing ? 'Indexiere…' : 'Index aktualisieren'}</button>
+        </div>
+
+        {msg &&<div style={{ background: msg.includes('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: msg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{msg}</div>}
         {uploading && <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: C.accent }}>Wird hochgeladen…</div>}
 
-        {showReport ? (
+        {safeHits !== null ? (
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1rem' }}>
+            <div style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '0.7rem' }}>{safeHits.length} Treffer für „{safeQ.trim()}"</div>
+            {safeHits.length === 0 ? (
+              <div style={{ color: C.muted, padding: '1rem', textAlign: 'center' }}>Keine Treffer. Tipp: „Index aktualisieren" zieht Text aus älteren PDFs nach.</div>
+            ) : safeHits.map(h => (
+              <div key={h.id} style={{ padding: '0.6rem 0.4rem', borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+                  <span onClick={() => { setSafeQ(''); load(h.parent_id || null); }} title="Im Ordner öffnen" style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', minWidth: 0 }}>
+                    <File size={15} color={C.muted} />
+                    <span style={{ fontWeight: 600, fontSize: '0.86rem', color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName(h.name)}</span>
+                  </span>
+                  <span style={{ display: 'flex', gap: 2 }}>
+                    <button title="Vorschau" onClick={() => preview(h)} style={iconBtn}><Eye size={15} /></button>
+                    <button title="Herunterladen" onClick={() => download(h)} style={iconBtn}><Download size={15} /></button>
+                  </span>
+                </div>
+                {h.folder && <div style={{ fontSize: '0.7rem', color: C.muted, marginLeft: 21 }}>{h.folder}</div>}
+                {h.snippet && <div style={{ fontSize: '0.74rem', color: C.text, marginLeft: 21, marginTop: 2, lineHeight: 1.4 }}>{renderSafeSnippet(h.snippet)}</div>}
+              </div>
+            ))}
+          </div>
+        ) : showReport ? (
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -483,6 +540,12 @@ export default function ProjectSafe() {
 
 const btn = (bg, color, border) => ({ display: 'inline-flex', alignItems: 'center', gap: 6, background: bg, color, border: border ? `1px solid ${C.border}` : 'none', borderRadius: 8, padding: '0.55rem 1rem', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' });
 const iconBtn = { background: 'none', border: 'none', cursor: 'pointer', color: C.accent, padding: 4, display: 'inline-flex' };
+// Trefferausschnitt: Server markiert Fundstellen mit « … », hier hervorgehoben.
+function renderSafeSnippet(s) {
+  return String(s).split(/[«»]/).map((p, i) => (i % 2 === 1
+    ? <mark key={i} style={{ background: '#fde68a', padding: '0 1px', borderRadius: 2 }}>{p}</mark>
+    : <span key={i}>{p}</span>));
+}
 const thS = { padding: '0.5rem 0.7rem', textAlign: 'left', fontWeight: 600, color: C.navy, fontSize: '0.68rem' };
 const tdS = { padding: '0.5rem 0.7rem', color: '#334155' };
 const miniBtn = { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.3rem 0.55rem', fontSize: '0.72rem', cursor: 'pointer', color: C.navy };

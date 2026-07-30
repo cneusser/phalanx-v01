@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.357 · 21.07.2026 · Volltextsuche über Dokumentinhalte
+- **Suche im Inhalt**: Neue Volltextsuche im geschlossenen Bereich findet nicht nur Dateinamen, sondern auch Fundstellen im Inhalt der PDFs, mit hervorgehobenem Trefferausschnitt
+- **Safe und Datenraum**: im Safe (nur Pfleger) und im Käufer-Datenraum. Im Datenraum greift die Zugriffslogik, gefunden wird nur, was für den Nutzer freigegeben ist
+- **Automatisch und nachrüstbar**: Text wird beim Hochladen und beim Übernehmen extrahiert. Für ältere Dateien zieht „Index aktualisieren" im Safe den Text nach (pdfjs-dist, deutsche Textsuche, GIN-Index)
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund, Extraktion end-to-end getestet
+
 ## v0.356 · 21.07.2026 · Admin: Aktivitäts-Kennzahl passt zur Liste
 - **Vollständige Zählung**: Die Kennzahl „Aktivität" zählt jetzt alle Ereignisse im Zeitraum, fachliche Vorgänge (wie in der Aktivitätsliste, z. B. Uploads, Löschungen, Freigaben) plus technische Zugriffe. Vorher wurde nur das technische Zugriffs-Log gezählt, daher war die Zahl kleiner als die sichtbare Liste
 - Verifiziert: elf Testsuites grün, Textwächter ohne Befund
