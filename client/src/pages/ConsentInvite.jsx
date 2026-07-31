@@ -27,10 +27,14 @@ export default function ConsentInvite() {
       const d = await api.get(`/crm/invite/${token}`);
       setInv(d);
       // Namen aus dem CRM vorbelegen, Interesse vorbelegen falls bekannt
+      const isNachfolge = d.buyer_type === 'successor' || /nachfolge|successor|mbi|mbo/i.test(String(d.suggested_role || ''));
       setForm(f => ({
         ...f,
         ...(d.name ? { first_name: d.name.split(' ').slice(0, -1).join(' '), last_name: d.name.split(' ').slice(-1)[0] } : {}),
         ...(d.suggested_role ? { interest: d.suggested_role } : {}),
+        // Nachfolge-Einladung: Käufertyp direkt vorbelegen, damit der Nachfolger
+        // von Anfang an die Nachfolge-Ansicht und den Fragebogen bekommt.
+        ...(isNachfolge ? { buyer_type: 'successor' } : {}),
       }));
     } catch (e) { setErr(e.message); }
     finally { setLoading(false); }

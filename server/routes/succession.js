@@ -133,6 +133,15 @@ router.put('/profile', authenticate, wrap(async (req, res) => {
     const ph = cols.map(() => '?').join(', ');
     await db.run(`INSERT INTO succession_profiles (${cols.join(', ')}) VALUES (${ph})`, [req.user.id, ...keys.map(k => vals[k])]);
   }
+  // Wer sein Nachfolge-Profil pflegt, ist Nachfolge-Interessent: Käufertyp setzen,
+  // sofern noch keiner vergeben ist (überschreibt keinen bestehenden Typ). Damit
+  // greifen Nachfolge-Ansicht und -Menü auch bei zunächst untypisierter Einladung.
+  await db.run(
+    `UPDATE users SET buyer_type = 'successor' WHERE id = ? AND (buyer_type IS NULL OR buyer_type = '')`,
+    [req.user.id]).catch(() => {});
+  if (['mit_beteiligung', 'ohne_beteiligung'].includes(b.succession_type)) {
+    await db.run('UPDATE users SET succession_type = ? WHERE id = ?', [b.succession_type, req.user.id]).catch(() => {});
+  }
   db.auditLog(req.user.id, 'SUCCESSION_PROFILE_SAVED', 'user', req.user.id, null, req.ip);
   const row = await db.get('SELECT * FROM succession_profiles WHERE user_id = ?', [req.user.id]);
   res.json({ success: true, data: parseRow(row) });

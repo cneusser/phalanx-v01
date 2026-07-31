@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.361 · 21.07.2026 · Eigener Nachfolge-Bereich statt Käufer-Ansicht
+- **Nachfolge-Dashboard**: Nachfolge-Interessenten sehen unter „Mein Bereich" jetzt einen eigenen Bereich mit Fragebogen-Fortschritt, passenden Nachfolge-Mandaten (mit Match-Wert) und einer Schritt-für-Schritt-Anleitung statt des generischen Käufer-Dashboards
+- **Fragebogen auffindbar**: Einstieg im Dashboard und im Menü (auch mobil); zusätzlich ein Hinweis im Käufer-Dashboard, der ebenfalls dorthin führt
+- **Automatische Typisierung**: Wer den Fragebogen ausfüllt, wird als Nachfolge-Interessent geführt (sofern noch kein Käufertyp gesetzt war). Nachfolge-Einladungen belegen den Typ von Anfang an vor
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.360 · 21.07.2026 · Deploy-Fix: Build der Volltextsuche stabilisiert
 - **Ursache**: Der Docker-Build brach ab, weil pdfjs-dist die optionale native Komponente „canvas" mitzog, die auf dem alpine-Image nicht kompilierbar ist
 - **Fix**: Der Server-Install schließt optionale Abhängigkeiten aus (`npm ci --omit=optional`). „canvas" wird für die reine Textextraktion nicht gebraucht, der Client-Build bleibt unverändert

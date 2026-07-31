@@ -84,10 +84,12 @@ export function AuthProvider({ children }) {
   // Im Birdview ist die eigene Admin-Rolle NICHT die des Zielnutzers
   const isAdmin = user && !isImpersonating && ['super_admin', 'advisor'].includes(user.role);
   const isSeller = user && user.role === 'seller';
+  // Nachfolge-Interessent: über Käufertyp oder gesetztes Nachfolge-Szenario erkannt.
+  const isSuccessor = !!(user && (user.buyer_type === 'successor' || user.succession_type));
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, loginTwoFactor, register, logout, isAdmin, isSeller,
+      user, loading, login, loginTwoFactor, register, logout, isAdmin, isSeller, isSuccessor,
       isImpersonating, startBirdview, endBirdview,
     }}>
       {children}

@@ -19,7 +19,7 @@ export const C = {
 };
 
 export default function Navbar() {
-  const { user, logout, isAdmin, isSeller } = useAuth();
+  const { user, logout, isAdmin, isSeller, isSuccessor } = useAuth();
   const { lang, setLang, t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
@@ -138,7 +138,7 @@ export default function Navbar() {
           {!isSeller && navLink('/nachfolge', t('nav.succession', 'Nachfolge'))}
           {navLink('/unternehmenswert', t('nav.valuation', 'Unternehmenswert'))}
           {user && !isAdmin && !isSeller && navLink('/bewertung', t('nav.detailed_valuation', 'Bewertung'))}
-          {user && !isAdmin && !isSeller && user.buyer_type === 'successor' && navLink('/nachfolge-profil', t('nav.succession_profile', 'Nachfolge-Profil'))}
+          {user && !isAdmin && !isSeller && isSuccessor && navLink('/nachfolge-profil', t('nav.succession_profile', 'Nachfolge-Profil'))}
           {user && !isAdmin && navLink('/feedback', t('nav.feedback', 'Feedback'))}
           {navLink('/kontakt', t('nav.contact', 'Kontakt'))}
           {!user && navLink('/registrieren', t('nav.register', 'Registrieren'))}
@@ -278,8 +278,9 @@ export default function Navbar() {
         <div style={{ background: branding ? branding.primary_color : C.navy, borderTop: '1px solid rgba(255,255,255,0.12)', padding: '0.5rem 1.25rem 1rem' }}>
           {/* Chat oben und prominent */}
           {user && <div style={{ padding: '0.5rem 0' }}>{chatLink(true)}</div>}
-          {[...(!isSeller ? [['/projekte', t('nav.marketplace', 'Marktplatz')]] : []), ['/unternehmenswert', t('nav.valuation', 'Unternehmenswert')],
+          {[...(!isSeller ? [['/projekte', t('nav.marketplace', 'Marktplatz')], ['/nachfolge', t('nav.succession', 'Nachfolge')]] : []), ['/unternehmenswert', t('nav.valuation', 'Unternehmenswert')],
             ...(user && !isAdmin && !isSeller ? [['/bewertung', t('nav.detailed_valuation', 'Bewertung')]] : []),
+            ...(user && !isAdmin && !isSeller && isSuccessor ? [['/nachfolge-profil', t('nav.succession_profile', 'Nachfolge-Profil')]] : []),
             ...(user && !isAdmin ? [['/feedback', t('nav.feedback', 'Feedback')]] : []),
             ['/kontakt', t('nav.contact', 'Kontakt')],
             ...(user && !isAdmin ? [[isSeller ? '/verkaeuferdashboard' : '/dashboard', t('nav.dashboard', 'Mein Bereich')]] : []),

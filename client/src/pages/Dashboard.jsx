@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User, Award, Lock, FileCheck, Database, MessageSquare, ArrowRight } from 'lucide-react';
+import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User, Award, Lock, FileCheck, Database, MessageSquare, ArrowRight, Target, Users, ClipboardList } from 'lucide-react';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB', lightBg: '#EDF4FA', gray: '#878787' };
 
@@ -109,7 +109,7 @@ const statusMap = {
 };
 
 export default function Dashboard() {
-  const { user, isSeller } = useAuth();
+  const { user, isSeller, isSuccessor } = useAuth();
   const navigate = useNavigate();
   const [ndas, setNdas] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -117,6 +117,8 @@ export default function Dashboard() {
   const [platformNda, setPlatformNda] = useState(null); // { signed_at } | null
   const [myDeals, setMyDeals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [succProfile, setSuccProfile] = useState(null);
+  const [succMatches, setSuccMatches] = useState([]);
 
   // Verkäufer haben einen eigenen, fokussierten Bereich (nur eigene Mandate + Funnel).
   useEffect(() => {
@@ -135,6 +137,9 @@ export default function Dashboard() {
     api.get('/gamification/me').then(setXp).catch(() => {});
     api.get('/auth/platform-nda').then(setPlatformNda).catch(() => {});
     api.get('/projects/my-deals').then(d => setMyDeals(d || [])).catch(() => {});
+    // Nachfolge-Kontext (harmlos auch für Käufer): eigenes Profil + passende Mandate
+    api.get('/succession/profile').then(setSuccProfile).catch(() => {});
+    api.get('/succession/matches').then(d => setSuccMatches((d && d.matches) || [])).catch(() => {});
   }, []);
 
   async function signPlatformNda() {
@@ -146,6 +151,123 @@ export default function Dashboard() {
   const pending = ndas.filter(n => ['requested', 'sent', 'signed'].includes(n.status)).length;
 
   if (loading) return <div style={{ padding: '3rem', textAlign: 'center', color: '#999' }}>Wird geladen...</div>;
+
+  // ── Nachfolge-Interessent: eigener, fokussierter Bereich ──
+  if (isSuccessor) {
+    const SUCC_FIELDS = ['plz_ort', 'branchenerfahrung', 'fuehrungserfahrung', 'umsatz_band', 'mbi_szenario', 'eigenkapital', 'verfuegbarkeit'];
+    const SUCC_ARRAYS = ['branchenfokus', 'ziel_regionen', 'ziel_laender'];
+    const total = SUCC_FIELDS.length + SUCC_ARRAYS.length;
+    let filled = 0;
+    if (succProfile) {
+      for (const f of SUCC_FIELDS) if (succProfile[f] && String(succProfile[f]).trim()) filled += 1;
+      for (const a of SUCC_ARRAYS) if (Array.isArray(succProfile[a]) && succProfile[a].length) filled += 1;
+    }
+    const pct = Math.round((filled / total) * 100);
+    const topMatches = succMatches.slice(0, 4);
+    const card = { background: '#fff', borderRadius: 12, padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #dce8f2' };
+    return (
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.navy }}>Willkommen, {user?.first_name}</h1>
+          <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>Ihr persönlicher Nachfolge-Bereich</p>
+        </div>
+
+        {/* Fragebogen / Profil */}
+        <div style={{ ...card, marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+              <div style={{ width: 46, height: 46, background: `${C.navy}12`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ClipboardList size={22} color={C.navy} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, color: C.navy, fontSize: '0.98rem' }}>Ihr Nachfolge-Profil</div>
+                <div style={{ fontSize: '0.82rem', color: '#666' }}>
+                  {succProfile && succProfile.id ? `Zu ${pct}% ausgefüllt. Je vollständiger, desto besser das Matching.` : 'Noch nicht ausgefüllt. Der Fragebogen ist die Grundlage für passende Mandate.'}
+                </div>
+              </div>
+            </div>
+            <Link to="/nachfolge-profil" style={{ background: C.navy, color: '#fff', padding: '0.6rem 1.3rem', borderRadius: 8, textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+              {succProfile && succProfile.id ? 'Fragebogen bearbeiten' : 'Fragebogen ausfüllen'}
+            </Link>
+          </div>
+          <div style={{ height: 8, background: '#eef2f7', borderRadius: 5, overflow: 'hidden', marginTop: '1rem' }}>
+            <div style={{ width: `${pct}%`, height: '100%', background: '#29ABE2', borderRadius: 5 }} />
+          </div>
+        </div>
+
+        {/* KPIs */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
+          {[
+            { label: 'Profil ausgefüllt', value: `${pct}%`, icon: ClipboardList, color: C.navy },
+            { label: 'Passende Mandate', value: succMatches.length, icon: Target, color: '#10b981' },
+            { label: 'Meine Anfragen', value: myDeals.length, icon: MessageSquare, color: '#7c3aed' },
+          ].map(({ label, value, icon: Icon, color }) => (
+            <div key={label} style={{ ...card, display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ width: 44, height: 44, background: `${color}15`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={20} color={color} />
+              </div>
+              <div>
+                <div style={{ fontSize: '1.6rem', fontWeight: 700, color: C.navy }}>{value}</div>
+                <div style={{ fontSize: '0.78rem', color: '#888' }}>{label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Passende Nachfolge-Mandate */}
+        <div style={{ marginBottom: '1.75rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem' }}>
+            <h2 style={{ fontWeight: 700, color: C.navy, fontSize: '1.05rem' }}>Passende Nachfolge-Mandate</h2>
+            <Link to="/nachfolge-profil" style={{ fontSize: '0.82rem', color: C.navy, fontWeight: 600, textDecoration: 'none' }}>Alle Treffer ansehen →</Link>
+          </div>
+          {topMatches.length === 0 ? (
+            <div style={{ ...card, textAlign: 'center', padding: '2.2rem' }}>
+              <Target size={32} color="#c7d7e6" style={{ marginBottom: '0.7rem' }} />
+              <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.3rem' }}>Noch keine Treffer</div>
+              <p style={{ color: '#777', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '1rem' }}>
+                Füllen Sie zuerst Ihr Nachfolge-Profil aus. Danach schlagen wir Ihnen passende Unternehmen zur Nachfolge vor.
+              </p>
+              <Link to="/nachfolge-profil" style={{ background: C.navy, color: '#fff', padding: '0.6rem 1.3rem', borderRadius: 8, textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem' }}>Profil ausfüllen</Link>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+              {topMatches.map(m => (
+                <Link key={m.id} to={`/projekte/${m.id}`} style={{ ...card, textDecoration: 'none', display: 'block' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                    <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.95rem' }}>{m.sector_emoji ? `${m.sector_emoji} ` : ''}{m.codename}</div>
+                    {typeof m.score === 'number' && <span style={{ background: '#ecfdf5', color: '#047857', fontSize: '0.68rem', fontWeight: 800, padding: '0.1rem 0.5rem', borderRadius: 20 }}>{Math.round(m.score)}% Match</span>}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#667', marginTop: 6 }}>
+                    {[m.industry, m.region].filter(Boolean).join(' · ')}
+                  </div>
+                  {m.revenue_band && <div style={{ fontSize: '0.74rem', color: '#889', marginTop: 3 }}>Umsatz {m.revenue_band}</div>}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* So läuft Ihre Nachfolge */}
+        <div style={{ ...card }}>
+          <div style={{ fontWeight: 700, color: C.navy, fontSize: '1rem', marginBottom: '0.9rem' }}>So finden Sie Ihr Unternehmen</div>
+          {[
+            ['Nachfolge-Profil ausfüllen', 'Erfahrung, Zielbranchen, Region, Budget und Szenario (MBI/MBO).'],
+            ['Passende Mandate ansehen', 'Wir schlagen Ihnen anonymisierte Nachfolge-Mandate vor.'],
+            ['Interesse bekunden', 'Bei einem passenden Mandat NDA zeichnen und Unterlagen anfragen.'],
+            ['In den Prozess gehen', 'Datenraum, Gespräche mit dem Übergeber, bis zur Übernahme.'],
+          ].map(([t, d], i) => (
+            <div key={i} style={{ display: 'flex', gap: '0.8rem', padding: '0.5rem 0', borderTop: i ? '1px solid #eef2f7' : 'none' }}>
+              <div style={{ width: 26, height: 26, borderRadius: '50%', background: `${C.navy}12`, color: C.navy, fontWeight: 800, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
+              <div>
+                <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.86rem' }}>{t}</div>
+                <div style={{ fontSize: '0.8rem', color: '#667' }}>{d}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
@@ -260,6 +382,20 @@ export default function Dashboard() {
         </div>
         <Link to="/profil" style={{ background: C.navy, color: '#fff', padding: '0.55rem 1.25rem', borderRadius: 7, textDecoration: 'none', fontWeight: 600, fontSize: '0.825rem' }}>
           Profil bearbeiten
+        </Link>
+      </div>
+
+      {/* Nachfolge-Einstieg: auch für (noch) nicht als Nachfolger markierte Nutzer auffindbar */}
+      <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 12, padding: '1rem 1.25rem', marginTop: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <ClipboardList size={18} color={C.navy} />
+          <div>
+            <div style={{ fontWeight: 600, color: C.navy, fontSize: '0.9rem' }}>Suchen Sie ein Unternehmen zur Nachfolge?</div>
+            <div style={{ fontSize: '0.8rem', color: '#666' }}>Füllen Sie das Nachfolge-Profil aus und erhalten Sie passende Mandate.</div>
+          </div>
+        </div>
+        <Link to="/nachfolge-profil" style={{ background: '#fff', color: C.navy, border: `1px solid ${C.navy}`, padding: '0.5rem 1.1rem', borderRadius: 7, textDecoration: 'none', fontWeight: 700, fontSize: '0.82rem' }}>
+          Zum Nachfolge-Profil
         </Link>
       </div>
     </div>
