@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.364 · 21.07.2026 · CRM: Abgleich Kontakte und registrierte Nutzer
+- **Abgleich-Button**: Neuer Button „Nutzer abgleichen" zeigt die Abweichler zwischen CRM-Kontakten und registrierten Nutzern und erklärt den Unterschied zwischen „Einwilligung" und „Registrierte Nutzer"
+- **Nutzer ohne Kontakt**: mit einem Klick als CRM-Kontakt anlegen (verknüpft)
+- **Verknüpfung heilen**: Kontakte, zu denen ein Konto existiert, aber die Verknüpfung fehlt, werden per eindeutiger E-Mail auf einmal verbunden
+- **Einwilligung ohne Konto**: solche Kontakte werden gelistet, das erklärt, warum es mehr Einwilligungen als Nutzer geben kann
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.363 · 21.07.2026 · Nachfolge-Einladung mit Löschoption, Match-Kachel lesbar
 - **Reaktivierungs-Einladung**: Neue Vorlage „Nachfolge-Netzwerk (Reaktivierung)" fragt nett nach bestehendem Interesse an einer Nachfolge und erklärt die Professionalisierung von Phalanx. DSGVO-konform mit Double-Opt-in-Button
 - **Kein Interesse, dann Löschung**: Auf der Einladungsseite kann der Empfänger mit einem Klick die Löschung seiner Daten wählen, der Kontakt wird vollständig entfernt (mit revisionssicherem Protokolleintrag)

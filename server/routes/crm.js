@@ -2608,4 +2608,76 @@ router.get('/stats', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { companies: c.n, contacts: k.n, decision_makers: k.decision_makers, opt_in: k.opt_in, blocked: k.blocked } });
 }));
 
+// ── Abgleich CRM-Kontakte ↔ registrierte Nutzer ─────────────────────────────
+// Zeigt die Abweichler beider Seiten: registrierte Nutzer ohne CRM-Kontakt und
+// Kontakte mit Einwilligung ohne (verknüpftes) Nutzerkonto. So wird sichtbar,
+// warum die Zahlen „Einwilligung" (Kontakte) und „Registrierte Nutzer" abweichen.
+const NON_STAFF = `role NOT IN ('super_admin','advisor')`;
+router.get('/reconcile-accounts', ...isStaff, wrap(async (req, res) => {
+  const usersTotal = await db.get(`SELECT COUNT(*)::int n FROM users WHERE ${NON_STAFF}`).catch(() => ({ n: 0 }));
+  const optInTotal = await db.get(`SELECT COUNT(*)::int n FROM crm_contacts WHERE consent_status = 'opt_in'`).catch(() => ({ n: 0 }));
+
+  // Nutzer ohne CRM-Kontakt (weder verknüpft noch per E-Mail auffindbar).
+  const usersWithoutContact = await db.all(`
+    SELECT u.id, u.email, u.first_name, u.last_name, u.company, u.role, u.created_at
+    FROM users u
+    WHERE ${NON_STAFF}
+      AND NOT EXISTS (SELECT 1 FROM crm_contacts k WHERE k.user_id = u.id OR lower(k.email) = lower(u.email))
+    ORDER BY u.last_name, u.first_name`).catch(() => []);
+
+  // Einwilligungs-Kontakte ohne passendes Nutzerkonto (haben zugestimmt, aber nie registriert).
+  const contactsWithoutAccount = await db.all(`
+    SELECT k.id, k.email, k.first_name, k.last_name, k.company, k.buyer_type
+    FROM crm_contacts k
+    WHERE k.consent_status = 'opt_in' AND k.user_id IS NULL AND k.email IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM users u WHERE lower(u.email) = lower(k.email))
+    ORDER BY k.last_name, k.first_name`).catch(() => []);
+
+  // Kontakte, zu denen ein Konto existiert, die aber noch nicht verknüpft sind (heilbar).
+  const unlinkedMatchable = await db.all(`
+    SELECT k.id, k.email, k.first_name, k.last_name
+    FROM crm_contacts k
+    WHERE k.user_id IS NULL AND k.email IS NOT NULL
+      AND EXISTS (SELECT 1 FROM users u WHERE lower(u.email) = lower(k.email))
+    ORDER BY k.last_name, k.first_name`).catch(() => []);
+
+  res.json({ success: true, data: {
+    users_total: usersTotal.n, opt_in_total: optInTotal.n,
+    users_without_contact: usersWithoutContact,
+    contacts_without_account: contactsWithoutAccount,
+    unlinked_matchable: unlinkedMatchable,
+  } });
+}));
+
+// Vorhandene Konten per eindeutiger E-Mail mit ihren Kontakten verknüpfen.
+router.post('/reconcile-accounts/link', ...isStaff, canWrite, wrap(async (req, res) => {
+  const before = await db.get(`
+    SELECT COUNT(*)::int n FROM crm_contacts k
+    WHERE k.user_id IS NULL AND k.email IS NOT NULL
+      AND (SELECT COUNT(*) FROM users u WHERE lower(u.email) = lower(k.email)) = 1`).catch(() => ({ n: 0 }));
+  await db.run(`
+    UPDATE crm_contacts k SET user_id = u.id, updated_at = now()
+    FROM users u
+    WHERE k.user_id IS NULL AND lower(k.email) = lower(u.email)
+      AND (SELECT COUNT(*) FROM users u2 WHERE lower(u2.email) = lower(k.email)) = 1`).catch(() => {});
+  db.auditLog(req.user.id, 'CRM_ACCOUNTS_LINKED', 'crm_contact', null, `${before.n} Kontakte mit Konto verknüpft`, req.ip);
+  res.json({ success: true, data: { linked: before.n } });
+}));
+
+// Aus einem registrierten Nutzer einen CRM-Kontakt anlegen (idempotent, verknüpft).
+router.post('/contacts/from-user/:userId', ...isStaff, canWrite, wrap(async (req, res) => {
+  const u = await db.get(`SELECT * FROM users WHERE id = ? AND ${NON_STAFF}`, [req.params.userId]);
+  if (!u) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+  const dup = await db.get(`SELECT id FROM crm_contacts WHERE user_id = ? OR lower(email) = lower(?) LIMIT 1`, [u.id, u.email || '']);
+  if (dup) return res.json({ success: true, data: { id: dup.id, created: false } });
+  const id = await db.insert(`
+    INSERT INTO crm_contacts (tenant_id, first_name, last_name, email, company, buyer_type,
+                              consent_status, consent_at, contact_status, user_id, lead_source, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, 'opt_in', now(), 'active', ?, 'account', ?)`,
+    [u.tenant_id || 1, u.first_name || '', (u.last_name && u.last_name.trim()) || u.email || 'Kontakt',
+     (u.email || '').toLowerCase(), u.company || null, u.buyer_type || null, u.id, req.user.id]);
+  db.auditLog(req.user.id, 'CRM_CONTACT_FROM_USER', 'crm_contact', id, u.email, req.ip);
+  res.json({ success: true, data: { id, created: true } });
+}));
+
 module.exports = router;

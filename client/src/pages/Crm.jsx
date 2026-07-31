@@ -61,6 +61,23 @@ export default function Crm() {
   const [liContact, setLiContact] = useState(null);  // LinkedIn-Popup: Kontakt
   const [liUrl, setLiUrl] = useState('');            // LinkedIn-Popup: URL-Eingabe
   const [liBusy, setLiBusy] = useState(false);
+  const [reconOpen, setReconOpen] = useState(false);
+  const [recon, setRecon] = useState(null);
+  const [reconBusy, setReconBusy] = useState(false);
+
+  async function openRecon() {
+    setReconOpen(true); setRecon(null);
+    try { setRecon(await api.get('/crm/reconcile-accounts')); } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+  async function linkAll() {
+    setReconBusy(true);
+    try { const r = await api.post('/crm/reconcile-accounts/link', {}); setMsg(`${r.linked} Kontakt(e) mit Konto verknüpft.`); await openRecon(); await load(); }
+    catch (e) { setMsg('Fehler: ' + e.message); } finally { setReconBusy(false); }
+  }
+  async function createFromUser(uid) {
+    try { const r = await api.post(`/crm/contacts/from-user/${uid}`, {}); setMsg(r.created ? 'Kontakt aus Nutzer angelegt.' : 'Kontakt bestand bereits.'); await openRecon(); await load(); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+  }
 
   const liName = (k) => [k.first_name, k.last_name].filter(Boolean).join(' ') || k.companies || '';
   const normLi = (u) => { const s = String(u || '').trim(); if (!s) return ''; return /^https?:\/\//i.test(s) ? s : `https://${s}`; };
@@ -245,6 +262,9 @@ export default function Crm() {
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button onClick={() => setInviteOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#166534', color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
             <Mail size={14} /> Kontakte einladen
+          </button>
+          <button onClick={openRecon} title="CRM-Kontakte mit den registrierten Nutzern abgleichen" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+            <Users size={14} /> Nutzer abgleichen
           </button>
           <button onClick={() => setImportListOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
             <Upload size={14} /> Liste importieren (Excel)
@@ -505,6 +525,64 @@ export default function Crm() {
       {importListOpen && <ImportListModal onClose={() => setImportListOpen(false)} onDone={() => load()} show={show} />}
       {inviteOpen && <InviteContactsModal onClose={() => setInviteOpen(false)} onDone={() => load()} />}
       {assign && <AssignDealModal contact={assign} projects={projects} stages={stages} onClose={() => setAssign(null)} show={show} />}
+
+      {/* Abgleich CRM-Kontakte ↔ registrierte Nutzer */}
+      {reconOpen && (
+        <div onClick={() => setReconOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: '1rem' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', maxWidth: 620, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+              <strong style={{ color: C.navy, fontSize: '1.05rem' }}>Kontakte und Nutzer abgleichen</strong>
+              <button onClick={() => setReconOpen(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+            {!recon ? <div style={{ color: C.muted, padding: '1.5rem', textAlign: 'center' }}>Wird geladen…</div> : (
+              <>
+                <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: '1rem' }}>
+                  „Einwilligung" zählt CRM-Kontakte mit Opt-in ({recon.opt_in_total}), „Registrierte Nutzer" zählt Konten ({recon.users_total}). Das sind zwei getrennte Bestände. Hier sehen Sie die Abweichler und können sie angleichen.
+                </div>
+
+                {/* Nutzer ohne Kontakt */}
+                <div style={{ marginBottom: '1.1rem' }}>
+                  <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.88rem', marginBottom: '0.4rem' }}>Registrierte Nutzer ohne CRM-Kontakt ({recon.users_without_contact.length})</div>
+                  {recon.users_without_contact.length === 0 ? <div style={{ fontSize: '0.8rem', color: C.muted }}>Keine. Alle Nutzer haben einen Kontakt.</div> : recon.users_without_contact.map(u => (
+                    <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '0.45rem 0', borderBottom: `1px solid ${C.border}` }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '0.83rem', fontWeight: 600, color: C.text }}>{[u.first_name, u.last_name].filter(Boolean).join(' ') || u.email}</div>
+                        <div style={{ fontSize: '0.72rem', color: C.muted }}>{u.email}{u.company ? ` · ${u.company}` : ''} · {u.role}</div>
+                      </div>
+                      <button onClick={() => createFromUser(u.id)} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 7, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>Als Kontakt anlegen</button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Kontakte, die nur verknüpft werden müssen */}
+                {recon.unlinked_matchable.length > 0 && (
+                  <div style={{ marginBottom: '1.1rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.7rem 0.9rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: '0.82rem', color: '#1e40af' }}><strong>{recon.unlinked_matchable.length}</strong> Kontakt(e) haben ein Konto, sind aber noch nicht damit verknüpft.</div>
+                      <button onClick={linkAll} disabled={reconBusy} style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 7, padding: '0.35rem 0.8rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>{reconBusy ? 'Verknüpfe…' : 'Alle verknüpfen'}</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Kontakte mit Einwilligung ohne Konto */}
+                <div>
+                  <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.88rem', marginBottom: '0.4rem' }}>Kontakte mit Einwilligung ohne Nutzerkonto ({recon.contacts_without_account.length})</div>
+                  <div style={{ fontSize: '0.74rem', color: C.muted, marginBottom: '0.4rem' }}>Diese haben zugestimmt, aber noch kein Konto angelegt. Das ist normal und erklärt, warum es mehr Einwilligungen als Nutzer geben kann.</div>
+                  {recon.contacts_without_account.length === 0 ? <div style={{ fontSize: '0.8rem', color: C.muted }}>Keine.</div> : recon.contacts_without_account.map(k => (
+                    <div key={k.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '0.4rem 0', borderBottom: `1px solid ${C.border}` }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '0.83rem', fontWeight: 600, color: C.text }}>{[k.first_name, k.last_name].filter(Boolean).join(' ') || k.email}</div>
+                        <div style={{ fontSize: '0.72rem', color: C.muted }}>{k.email}{k.company ? ` · ${k.company}` : ''}</div>
+                      </div>
+                      <button onClick={() => { setReconOpen(false); setDrawerContact(k.id); }} style={{ background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>Öffnen</button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* LinkedIn-Profil ansehen / recherchieren */}
       {liContact && (
