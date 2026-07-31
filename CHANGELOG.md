@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.365 · 21.07.2026 · CRM-Abgleich: Kontakte vor dem Verknüpfen einsehen
+- **Einzelansicht**: Die noch nicht verknüpften Kontakte werden jetzt einzeln aufgelistet, mit Name, E-Mail und dem zugehörigen Konto (Name und Rolle)
+- **Einzeln handeln**: Jeder Eintrag lässt sich öffnen (zur Prüfung) oder einzeln verknüpfen, neben „Alle verknüpfen"
+- **Mehrdeutigkeit**: Gibt es zu einer E-Mail mehrere Konten, wird auf manuelle Zuordnung hingewiesen
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.364 · 21.07.2026 · CRM: Abgleich Kontakte und registrierte Nutzer
 - **Abgleich-Button**: Neuer Button „Nutzer abgleichen" zeigt die Abweichler zwischen CRM-Kontakten und registrierten Nutzern und erklärt den Unterschied zwischen „Einwilligung" und „Registrierte Nutzer"
 - **Nutzer ohne Kontakt**: mit einem Klick als CRM-Kontakt anlegen (verknüpft)

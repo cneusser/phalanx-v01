@@ -78,6 +78,10 @@ export default function Crm() {
     try { const r = await api.post(`/crm/contacts/from-user/${uid}`, {}); setMsg(r.created ? 'Kontakt aus Nutzer angelegt.' : 'Kontakt bestand bereits.'); await openRecon(); await load(); }
     catch (e) { setMsg('Fehler: ' + e.message); }
   }
+  async function linkOne(cid) {
+    try { await api.post(`/crm/reconcile-accounts/link/${cid}`, {}); setMsg('Kontakt mit Konto verknüpft.'); await openRecon(); await load(); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+  }
 
   const liName = (k) => [k.first_name, k.last_name].filter(Boolean).join(' ') || k.companies || '';
   const normLi = (u) => { const s = String(u || '').trim(); if (!s) return ''; return /^https?:\/\//i.test(s) ? s : `https://${s}`; };
@@ -554,13 +558,27 @@ export default function Crm() {
                   ))}
                 </div>
 
-                {/* Kontakte, die nur verknüpft werden müssen */}
+                {/* Kontakte, die nur verknüpft werden müssen: einzeln einsehbar */}
                 {recon.unlinked_matchable.length > 0 && (
                   <div style={{ marginBottom: '1.1rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.7rem 0.9rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: '0.5rem' }}>
                       <div style={{ fontSize: '0.82rem', color: '#1e40af' }}><strong>{recon.unlinked_matchable.length}</strong> Kontakt(e) haben ein Konto, sind aber noch nicht damit verknüpft.</div>
                       <button onClick={linkAll} disabled={reconBusy} style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 7, padding: '0.35rem 0.8rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>{reconBusy ? 'Verknüpfe…' : 'Alle verknüpfen'}</button>
                     </div>
+                    {recon.unlinked_matchable.map(k => (
+                      <div key={k.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '0.4rem 0', borderTop: '1px solid #dbeafe' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: C.text }}>{[k.first_name, k.last_name].filter(Boolean).join(' ') || k.email}</div>
+                          <div style={{ fontSize: '0.71rem', color: C.muted }}>
+                            {k.email} · Konto: {k.account_name || 'k. A.'}{k.account_role ? ` (${k.account_role})` : ''}{k.account_count > 1 ? ` · ${k.account_count} Konten, bitte manuell` : ''}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                          <button onClick={() => { setReconOpen(false); setDrawerContact(k.id); }} style={{ background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.32rem 0.6rem', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer' }}>Öffnen</button>
+                          <button onClick={() => linkOne(k.id)} disabled={k.account_count > 1} title={k.account_count > 1 ? 'Mehrere Konten, bitte im Kontakt manuell zuordnen' : 'Diesen Kontakt mit dem Konto verknüpfen'} style={{ background: k.account_count > 1 ? '#cbd5e1' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: 7, padding: '0.32rem 0.7rem', fontSize: '0.73rem', fontWeight: 700, cursor: k.account_count > 1 ? 'default' : 'pointer' }}>Verknüpfen</button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 

@@ -2634,8 +2634,13 @@ router.get('/reconcile-accounts', ...isStaff, wrap(async (req, res) => {
     ORDER BY k.last_name, k.first_name`).catch(() => []);
 
   // Kontakte, zu denen ein Konto existiert, die aber noch nicht verknüpft sind (heilbar).
+  // Zur Ansicht das passende Konto mitgeben (Name, E-Mail, Rolle) plus Eindeutigkeit.
   const unlinkedMatchable = await db.all(`
-    SELECT k.id, k.email, k.first_name, k.last_name
+    SELECT k.id, k.email, k.first_name, k.last_name,
+           (SELECT u.id FROM users u WHERE lower(u.email) = lower(k.email) ORDER BY u.id LIMIT 1) AS account_id,
+           (SELECT trim(coalesce(u.first_name,'') || ' ' || coalesce(u.last_name,'')) FROM users u WHERE lower(u.email) = lower(k.email) ORDER BY u.id LIMIT 1) AS account_name,
+           (SELECT u.role FROM users u WHERE lower(u.email) = lower(k.email) ORDER BY u.id LIMIT 1) AS account_role,
+           (SELECT COUNT(*)::int FROM users u WHERE lower(u.email) = lower(k.email)) AS account_count
     FROM crm_contacts k
     WHERE k.user_id IS NULL AND k.email IS NOT NULL
       AND EXISTS (SELECT 1 FROM users u WHERE lower(u.email) = lower(k.email))
@@ -2662,6 +2667,18 @@ router.post('/reconcile-accounts/link', ...isStaff, canWrite, wrap(async (req, r
       AND (SELECT COUNT(*) FROM users u2 WHERE lower(u2.email) = lower(k.email)) = 1`).catch(() => {});
   db.auditLog(req.user.id, 'CRM_ACCOUNTS_LINKED', 'crm_contact', null, `${before.n} Kontakte mit Konto verknüpft`, req.ip);
   res.json({ success: true, data: { linked: before.n } });
+}));
+
+// Einen einzelnen Kontakt mit seinem (eindeutigen) Konto verknüpfen.
+router.post('/reconcile-accounts/link/:contactId', ...isStaff, canWrite, wrap(async (req, res) => {
+  const k = await db.get('SELECT id, email, user_id FROM crm_contacts WHERE id = ?', [req.params.contactId]);
+  if (!k) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+  if (k.user_id) return res.json({ success: true, data: { linked: false, reason: 'bereits verknüpft' } });
+  const accs = await db.all('SELECT id FROM users WHERE lower(email) = lower(?)', [k.email || '']);
+  if (accs.length !== 1) return res.status(409).json({ success: false, error: accs.length === 0 ? 'Kein passendes Konto' : 'Mehrere Konten mit dieser E-Mail, bitte im Kontakt manuell zuordnen' });
+  await db.run('UPDATE crm_contacts SET user_id = ?, updated_at = now() WHERE id = ?', [accs[0].id, k.id]);
+  db.auditLog(req.user.id, 'CRM_ACCOUNT_LINKED', 'crm_contact', k.id, k.email, req.ip);
+  res.json({ success: true, data: { linked: true } });
 }));
 
 // Aus einem registrierten Nutzer einen CRM-Kontakt anlegen (idempotent, verknüpft).
