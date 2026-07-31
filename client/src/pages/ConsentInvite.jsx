@@ -54,6 +54,15 @@ export default function ConsentInvite() {
     catch (e) { setErr(e.message); }
     finally { setBusy(false); }
   }
+  // Kein Interesse mehr: Kontakt auf Wunsch vollständig löschen (DSGVO).
+  const [erased, setErased] = useState(false);
+  async function eraseData() {
+    if (!window.confirm('Kein Interesse mehr? Dann löschen wir Ihre bei uns gespeicherten Daten vollständig. Das lässt sich nicht rückgängig machen.')) return;
+    setBusy(true);
+    try { await api.post(`/crm/invite/${token}/erase`, {}); setErased(true); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  }
   async function register(e) {
     e.preventDefault();
     if (!form.interest) { setErr('Bitte wählen Sie, ob Sie kaufen/investieren oder verkaufen möchten.'); return; }
@@ -82,6 +91,18 @@ export default function ConsentInvite() {
       <div style={card}>
         <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', color: '#991b1b' }}><AlertCircle size={20} /> <strong>Einladung nicht verfügbar</strong></div>
         <p style={{ color: C.muted, fontSize: '0.88rem', marginTop: '0.75rem' }}>{err}</p>
+        <Link to="/" style={{ color: C.accent, fontSize: '0.85rem', fontWeight: 600 }}>Zur Startseite</Link>
+      </div>
+    </div>
+  );
+
+  if (erased) return (
+    <div style={{ maxWidth: 620, margin: '0 auto', padding: '3rem 1.5rem' }}>
+      <div style={card}>
+        <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', color: '#065f46' }}><CheckCircle size={20} /> <strong>Ihre Daten wurden gelöscht</strong></div>
+        <p style={{ color: C.text, fontSize: '0.88rem', marginTop: '0.75rem', lineHeight: 1.7 }}>
+          Wir haben Ihre bei uns gespeicherten Daten entfernt und werden Sie nicht mehr kontaktieren. Danke, dass Sie uns kurz Bescheid gegeben haben.
+        </p>
         <Link to="/" style={{ color: C.accent, fontSize: '0.85rem', fontWeight: 600 }}>Zur Startseite</Link>
       </div>
     </div>
@@ -156,6 +177,12 @@ export default function ConsentInvite() {
               </button>
               <button onClick={decline} disabled={busy} style={{ background: '#fff', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.75rem 1.25rem', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer' }}>
                 Nicht kontaktieren
+              </button>
+            </div>
+            <div style={{ marginTop: '0.8rem', fontSize: '0.8rem', color: C.muted }}>
+              Kein Interesse mehr an einer Nachfolge?{' '}
+              <button onClick={eraseData} disabled={busy} style={{ background: 'none', border: 'none', padding: 0, color: '#991b1b', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}>
+                Meine Daten löschen
               </button>
             </div>
           </div>

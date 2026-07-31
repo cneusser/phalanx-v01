@@ -135,17 +135,20 @@ export default function SuccessionProfile() {
               {matches.slice(0, 5).map(m => {
                 const sc = Math.round(m.score);
                 const strong = sc >= 55; const mid = sc >= 25 && sc < 55;
-                const badgeBg = strong ? '#22c55e' : mid ? '#38bdf8' : 'rgba(255,255,255,0.18)';
-                const badgeFg = strong || mid ? '#04263f' : '#fff';
+                // Lesbare Kontraste, auch bei niedrigem Wert (Kachel steht auf hellem Grund).
+                const badgeBg = strong ? '#16a34a' : mid ? '#0ea5e9' : '#e2e8f0';
+                const badgeFg = strong || mid ? '#ffffff' : C.navy;
                 return (
                   <Link key={m.id} to={`/projekte/${m.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.9rem', background: 'rgba(255,255,255,0.96)', borderRadius: 10, padding: '0.8rem 0.9rem' }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 800, color: C.text, fontSize: '0.92rem' }}>{m.sector_emoji ? m.sector_emoji + ' ' : ''}{m.codename} <span style={{ fontWeight: 500, color: C.muted, fontSize: '0.8rem' }}>· {m.deal_type}</span></div>
                       <div style={{ fontSize: '0.78rem', color: C.muted, marginTop: 2 }}>{[m.industry, m.region, m.revenue_band].filter(Boolean).join(' · ')}</div>
-                      {m.reasons?.length > 0 && (
+                      {m.reasons?.length > 0 ? (
                         <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: 5 }}>
                           {m.reasons.map(r => <span key={r} style={{ fontSize: '0.68rem', fontWeight: 700, color: '#065f46', background: '#d1fae5', borderRadius: 20, padding: '0.1rem 0.5rem' }}>{r}</span>)}
                         </div>
+                      ) : (
+                        <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: 5 }}>Basiswert. Ergänzen Sie Branche, Region und Umsatz, dann steigt der Wert.</div>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', flexShrink: 0 }}>

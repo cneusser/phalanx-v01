@@ -301,6 +301,20 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Nachfolge-Einstieg: prominent oben, auch für (noch) nicht als Nachfolger markierte Nutzer */}
+      <div style={{ background: `${C.navy}0a`, border: `1px solid ${C.navy}22`, borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <ClipboardList size={19} color={C.navy} />
+          <div>
+            <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.92rem' }}>Suchen Sie ein Unternehmen zur Nachfolge?</div>
+            <div style={{ fontSize: '0.8rem', color: '#666' }}>Füllen Sie das Nachfolge-Profil aus und erhalten Sie passende Mandate.</div>
+          </div>
+        </div>
+        <Link to="/nachfolge-profil" style={{ background: C.navy, color: '#fff', padding: '0.55rem 1.2rem', borderRadius: 7, textDecoration: 'none', fontWeight: 700, fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+          Zum Nachfolge-Profil
+        </Link>
+      </div>
+
       {/* Sprint 17: XP / Level */}
       {xp && (
         <div style={{ background: `linear-gradient(135deg, ${C.navy}, #1d4e89)`, color: '#fff', borderRadius: 12, padding: '1.25rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
@@ -382,20 +396,6 @@ export default function Dashboard() {
         </div>
         <Link to="/profil" style={{ background: C.navy, color: '#fff', padding: '0.55rem 1.25rem', borderRadius: 7, textDecoration: 'none', fontWeight: 600, fontSize: '0.825rem' }}>
           Profil bearbeiten
-        </Link>
-      </div>
-
-      {/* Nachfolge-Einstieg: auch für (noch) nicht als Nachfolger markierte Nutzer auffindbar */}
-      <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 12, padding: '1rem 1.25rem', marginTop: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <ClipboardList size={18} color={C.navy} />
-          <div>
-            <div style={{ fontWeight: 600, color: C.navy, fontSize: '0.9rem' }}>Suchen Sie ein Unternehmen zur Nachfolge?</div>
-            <div style={{ fontSize: '0.8rem', color: '#666' }}>Füllen Sie das Nachfolge-Profil aus und erhalten Sie passende Mandate.</div>
-          </div>
-        </div>
-        <Link to="/nachfolge-profil" style={{ background: '#fff', color: C.navy, border: `1px solid ${C.navy}`, padding: '0.5rem 1.1rem', borderRadius: 7, textDecoration: 'none', fontWeight: 700, fontSize: '0.82rem' }}>
-          Zum Nachfolge-Profil
         </Link>
       </div>
     </div>

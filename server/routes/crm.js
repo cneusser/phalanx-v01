@@ -1644,6 +1644,24 @@ router.post('/invite/:token/decline', wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Ihr Widerspruch wurde vermerkt. Wir kontaktieren Sie nicht erneut.' } });
 }));
 
+// Kein Interesse mehr: der Kontakt wird auf Wunsch vollständig gelöscht (DSGVO).
+router.post('/invite/:token/erase', wrap(async (req, res) => {
+  const inv = await db.get('SELECT * FROM crm_invitations WHERE token = ?', [req.params.token]);
+  if (!inv) return res.status(404).json({ success: false, error: 'Einladung nicht gefunden' });
+  // Zur Nachweisführung vor dem Löschen protokollieren (ohne personenbezogene Restdaten).
+  db.auditLog(null, 'CRM_CONTACT_ERASED', 'crm_contact', inv.contact_id, `Löschung auf eigenen Wunsch über Einladung (${inv.email})`, req.ip);
+  if (inv.contact_id) {
+    // Abhängige Datensätze zuerst entfernen, dann den Kontakt selbst.
+    await db.run('DELETE FROM crm_deal_parties WHERE contact_id = ?', [inv.contact_id]).catch(() => {});
+    await db.run('DELETE FROM crm_campaign_recipients WHERE contact_id = ?', [inv.contact_id]).catch(() => {});
+    await db.run('DELETE FROM crm_company_contacts WHERE contact_id = ?', [inv.contact_id]).catch(() => {});
+    await db.run('DELETE FROM crm_messages WHERE contact_id = ?', [inv.contact_id]).catch(() => {});
+    await db.run('DELETE FROM crm_contacts WHERE id = ?', [inv.contact_id]).catch(() => {});
+  }
+  await db.run(`UPDATE crm_invitations SET status = 'declined', contact_id = NULL WHERE id = ?`, [inv.id]).catch(() => {});
+  res.json({ success: true, data: { erased: true, message: 'Ihre Daten wurden gelöscht. Sie erhalten keine weiteren Nachrichten von uns.' } });
+}));
+
 // Konto anlegen: NUR nach erteilter Einwilligung (Double-Opt-in erfüllt)
 router.post('/invite/:token/register', wrap(async (req, res) => {
   const inv = await db.get('SELECT * FROM crm_invitations WHERE token = ?', [req.params.token]);

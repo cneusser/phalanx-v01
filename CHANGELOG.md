@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.363 · 21.07.2026 · Nachfolge-Einladung mit Löschoption, Match-Kachel lesbar
+- **Reaktivierungs-Einladung**: Neue Vorlage „Nachfolge-Netzwerk (Reaktivierung)" fragt nett nach bestehendem Interesse an einer Nachfolge und erklärt die Professionalisierung von Phalanx. DSGVO-konform mit Double-Opt-in-Button
+- **Kein Interesse, dann Löschung**: Auf der Einladungsseite kann der Empfänger mit einem Klick die Löschung seiner Daten wählen, der Kontakt wird vollständig entfernt (mit revisionssicherem Protokolleintrag)
+- **Lesbarkeit**: Der Match-Wert im Nachfolge-Profil ist auch bei niedrigem Wert gut lesbar (dunkler Text auf hellem Grund). Bei nur Basiswert erscheint ein Hinweis, wie der Wert steigt
+- **Sichtbarkeit**: Der Nachfolge-Hinweis im Käufer-Dashboard steht jetzt oben
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.362 · 21.07.2026 · Nachfolge: Matches prominenter, mit Erklärung, plus Erinnerungs-Vorlage
 - **Matches ganz oben**: Die passenden Nachfolge-Mandate stehen jetzt zuoberst im Profil und sind deutlich hervorgehoben, der Match-Wert als große Kachel mit Farbskala
 - **Erklärung**: Neuer Hilfe-Punkt „Wie wird das berechnet?" erläutert die Übereinstimmung (Basis 10, Branche bis 45, Region bis 30, Umsatz bis 15 Prozentpunkte, es zählen nur ausgefüllte Profilfelder)
