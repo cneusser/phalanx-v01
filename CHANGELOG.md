@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.362 · 21.07.2026 · Nachfolge: Matches prominenter, mit Erklärung, plus Erinnerungs-Vorlage
+- **Matches ganz oben**: Die passenden Nachfolge-Mandate stehen jetzt zuoberst im Profil und sind deutlich hervorgehoben, der Match-Wert als große Kachel mit Farbskala
+- **Erklärung**: Neuer Hilfe-Punkt „Wie wird das berechnet?" erläutert die Übereinstimmung (Basis 10, Branche bis 45, Region bis 30, Umsatz bis 15 Prozentpunkte, es zählen nur ausgefüllte Profilfelder)
+- **Erinnerungs-Vorlage**: Neue Mail-Vorlage „Erinnerung: Nachfolge-Profil ausfüllen" für die freundliche Aufforderung an registrierte Nachfolge-Interessenten
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.361 · 21.07.2026 · Eigener Nachfolge-Bereich statt Käufer-Ansicht
 - **Nachfolge-Dashboard**: Nachfolge-Interessenten sehen unter „Mein Bereich" jetzt einen eigenen Bereich mit Fragebogen-Fortschritt, passenden Nachfolge-Mandaten (mit Match-Wert) und einer Schritt-für-Schritt-Anleitung statt des generischen Käufer-Dashboards
 - **Fragebogen auffindbar**: Einstieg im Dashboard und im Menü (auch mobil); zusätzlich ein Hinweis im Käufer-Dashboard, der ebenfalls dorthin führt

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Save, CheckCircle, UserCog, Target, ArrowRight } from 'lucide-react';
+import { Save, CheckCircle, UserCog, Target, ArrowRight, HelpCircle } from 'lucide-react';
 import { NACE_INDUSTRIES, BUNDESLAENDER } from '../constants/projectOptions';
 
 const C = { navy: '#1A4D8A', accent: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
@@ -70,6 +70,7 @@ export default function SuccessionProfile() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [matches, setMatches] = useState([]);
+  const [showHelp, setShowHelp] = useState(false);
 
   const loadMatches = () => api.get('/succession/matches').then(d => setMatches(d.matches || [])).catch(() => {});
 
@@ -103,9 +104,6 @@ export default function SuccessionProfile() {
           <UserCog size={22} color={C.navy} />
           <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: C.text, margin: 0 }}>Mein Nachfolge-Profil</h1>
         </div>
-        <p style={{ color: C.muted, fontSize: '0.9rem', marginTop: 0, marginBottom: '1.5rem', lineHeight: 1.6 }}>
-          Je klarer Ihr Profil, desto besser passen die Vorschläge. Alle Angaben sind freiwillig und jederzeit änderbar. Sie werden vertraulich behandelt und nicht ohne Ihre Freigabe weitergegeben.
-        </p>
 
         {msg && (
           <div style={{ background: msg.startsWith('Fehler') ? '#fee2e2' : '#d1fae5', color: msg.startsWith('Fehler') ? '#991b1b' : '#065f46', borderRadius: 8, padding: '0.7rem 1rem', fontSize: '0.85rem', marginBottom: '1rem' }}>
@@ -113,37 +111,63 @@ export default function SuccessionProfile() {
           </div>
         )}
 
-        {/* Passende Nachfolge-Mandate */}
+        {/* Passende Nachfolge-Mandate: prominent, ganz oben */}
         {matches.length > 0 && (
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.4rem', marginBottom: '1.1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem' }}>
-              <Target size={18} color={C.navy} />
-              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: C.navy, margin: 0 }}>Passende Nachfolge-Mandate für Sie</h3>
+          <div style={{ background: `linear-gradient(135deg, ${C.navy}, #0d1b36)`, borderRadius: 14, padding: '1.4rem', marginBottom: '1.2rem', color: '#fff', boxShadow: '0 6px 22px rgba(13,27,54,0.18)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.9rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Target size={20} color="#fff" />
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: 0 }}>Passende Nachfolge-Mandate für Sie</h3>
+              </div>
+              <button onClick={() => setShowHelp(v => !v)} title="Wie wird die Übereinstimmung berechnet?"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '0.28rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                <HelpCircle size={14} /> Wie wird das berechnet?
+              </button>
             </div>
-            <div style={{ display: 'grid', gap: '0.7rem' }}>
-              {matches.slice(0, 5).map(m => (
-                <Link key={m.id} to={`/projekte/${m.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.75rem 0.9rem', background: C.bg }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: C.text, fontSize: '0.9rem' }}>{m.sector_emoji ? m.sector_emoji + ' ' : ''}{m.codename} <span style={{ fontWeight: 500, color: C.muted, fontSize: '0.8rem' }}>· {m.deal_type}</span></div>
-                    <div style={{ fontSize: '0.78rem', color: C.muted, marginTop: 2 }}>{[m.industry, m.region, m.revenue_band].filter(Boolean).join(' · ')}</div>
-                    {m.reasons?.length > 0 && (
-                      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: 5 }}>
-                        {m.reasons.map(r => <span key={r} style={{ fontSize: '0.68rem', fontWeight: 600, color: '#065f46', background: '#d1fae5', borderRadius: 20, padding: '0.1rem 0.5rem' }}>{r}</span>)}
+
+            {showHelp && (
+              <div style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10, padding: '0.9rem 1rem', marginBottom: '0.9rem', fontSize: '0.8rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.92)' }}>
+                Die Übereinstimmung ist ein Richtwert. Sie startet bei 10 Prozent, weil es sich um ein Nachfolge-Mandat handelt, und steigt mit jeder Übereinstimmung: Branche bis zu 45, Region bis zu 30 und Umsatzgröße bis zu 15 Prozentpunkte. Es zählen nur die Angaben, die Sie im Profil unten machen. Je vollständiger Ihr Profil, desto genauer der Wert. Die grünen Marker an jedem Mandat zeigen, welche Kriterien konkret gepasst haben.
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gap: '0.6rem' }}>
+              {matches.slice(0, 5).map(m => {
+                const sc = Math.round(m.score);
+                const strong = sc >= 55; const mid = sc >= 25 && sc < 55;
+                const badgeBg = strong ? '#22c55e' : mid ? '#38bdf8' : 'rgba(255,255,255,0.18)';
+                const badgeFg = strong || mid ? '#04263f' : '#fff';
+                return (
+                  <Link key={m.id} to={`/projekte/${m.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.9rem', background: 'rgba(255,255,255,0.96)', borderRadius: 10, padding: '0.8rem 0.9rem' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, color: C.text, fontSize: '0.92rem' }}>{m.sector_emoji ? m.sector_emoji + ' ' : ''}{m.codename} <span style={{ fontWeight: 500, color: C.muted, fontSize: '0.8rem' }}>· {m.deal_type}</span></div>
+                      <div style={{ fontSize: '0.78rem', color: C.muted, marginTop: 2 }}>{[m.industry, m.region, m.revenue_band].filter(Boolean).join(' · ')}</div>
+                      {m.reasons?.length > 0 && (
+                        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: 5 }}>
+                          {m.reasons.map(r => <span key={r} style={{ fontSize: '0.68rem', fontWeight: 700, color: '#065f46', background: '#d1fae5', borderRadius: 20, padding: '0.1rem 0.5rem' }}>{r}</span>)}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', flexShrink: 0 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 62, background: badgeBg, color: badgeFg, borderRadius: 12, padding: '0.4rem 0.2rem' }}>
+                        <span style={{ fontWeight: 900, fontSize: '1.15rem', lineHeight: 1 }}>{sc}%</span>
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.03em', opacity: 0.85 }}>MATCH</span>
                       </div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
-                    <span style={{ fontWeight: 800, fontSize: '0.95rem', color: m.score >= 55 ? '#166534' : C.navy }}>{m.score}%</span>
-                    <ArrowRight size={16} color={C.navy} />
-                  </div>
-                </Link>
-              ))}
+                      <ArrowRight size={16} color={C.navy} />
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
-            <div style={{ fontSize: '0.74rem', color: C.muted, marginTop: '0.7rem' }}>
-              Je vollständiger Ihr Profil unten, desto genauer die Übereinstimmung. Die Prozentzahl ist ein Richtwert nach Branche, Region und Umsatz.
+            <div style={{ fontSize: '0.73rem', color: 'rgba(255,255,255,0.75)', marginTop: '0.8rem' }}>
+              Füllen Sie Ihr Profil unten aus, dann werden die Vorschläge und Prozentwerte genauer.
             </div>
           </div>
         )}
+
+        <p style={{ color: C.muted, fontSize: '0.9rem', marginTop: 0, marginBottom: '1.5rem', lineHeight: 1.6 }}>
+          Je klarer Ihr Profil, desto besser passen die Vorschläge. Alle Angaben sind freiwillig und jederzeit änderbar. Sie werden vertraulich behandelt und nicht ohne Ihre Freigabe weitergegeben.
+        </p>
 
         <Section title="Zur Person">
           <label style={LABEL}>PLZ und Wohnort</label>
