@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.360 · 21.07.2026 · Deploy-Fix: Build der Volltextsuche stabilisiert
+- **Ursache**: Der Docker-Build brach ab, weil pdfjs-dist die optionale native Komponente „canvas" mitzog, die auf dem alpine-Image nicht kompilierbar ist
+- **Fix**: Der Server-Install schließt optionale Abhängigkeiten aus (`npm ci --omit=optional`). „canvas" wird für die reine Textextraktion nicht gebraucht, der Client-Build bleibt unverändert
+- Verifiziert: Server-Install und Textextraktion ohne canvas erfolgreich reproduziert
+
 ## v0.359 · 21.07.2026 · CRM: LinkedIn-Profil ansehen und recherchieren
 - **LinkedIn-Button je Kontakt**: öffnet ein Popup mit Profilkarte. Ist ein Profil hinterlegt, öffnet es per Klick in einem neuen Tab (LinkedIn erlaubt keine Einbettung im Fenster)
 - **Recherche**: Ohne hinterlegtes Profil führt ein Klick zur LinkedIn- oder Google-Suche mit Name und Unternehmen. Die gefundene Profil-URL lässt sich direkt im Popup speichern

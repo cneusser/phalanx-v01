@@ -6,7 +6,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "cd client && npm ci && npm run build && cd ../server && npm ci",
+    "build": "cd client && npm ci && npm run build && cd ../server && npm ci --omit=optional",
     "start": "NODE_ENV=production node server/index.js",
     "check:texts": "node scripts/check-texts.js",
     "test": "for f in server/tests/*.test.js; do echo \"→ $f\"; node \"$f\" || exit 1; done",
