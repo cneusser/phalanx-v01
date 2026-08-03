@@ -15,6 +15,17 @@ const { getStage, hasPermission } = require('../middleware/gates');
 const { stageAllows } = require('../utils/dealStateMachine');
 const { addWatermark } = require('../utils/watermark');
 const { createDownloadToken, verifyDownloadToken, DEFAULT_TTL_MS } = require('../utils/signedLinks');
+const { resolveLevel } = require('../utils/safeAccess');
+const { buildUserCtx } = require('../utils/accessCtx');
+const { SUBJECT_TYPES, BUYER_GROUP_KEYS, BUYER_GROUPS, BUYER_GROUP_LABEL } = require('../utils/grantSubjects');
+
+// Feingranulare Freigabe eines beschränkten Dokuments für einen Nutzer auflösen.
+// Rückgabe: null (kein Zugriff) | 'read' | 'download'.
+async function grantLevelForDoc(user, projectId, docId) {
+  const grants = await db.all('SELECT subject_type, subject_ref, level FROM document_grants WHERE document_id = ?', [docId]).catch(() => []);
+  const ctx = await buildUserCtx(user, projectId);
+  return resolveLevel(grants, ctx);
+}
 
 // Kategorie eines Dokuments (Fallback über access_level für Altbestände)
 function docCategory(doc) {
@@ -36,11 +47,12 @@ async function checkDownloadAccess(user, doc, projectId) {
     return { ok: false, error: 'Kein Download-Recht für den Datenraum, bitte an den Berater wenden' };
   }
   // Feingranular: ist das Dokument beschränkt, braucht der Empfänger eine
-  // ausdrückliche Freigabe. Nur „download" erlaubt den Download, „read" nur Ansicht.
+  // ausdrückliche Freigabe (Person, Käufergruppe, Beteiligte oder eigene Gruppe).
+  // Nur „download" erlaubt den Download, „read" nur die Ansicht.
   if (doc.restricted) {
-    const g = await db.get('SELECT level FROM document_grants WHERE document_id = ? AND user_id = ?', [doc.id, user.id]);
-    if (!g) return { ok: false, error: 'Dieses Dokument ist nicht für Sie freigegeben' };
-    if (g.level !== 'download') return { ok: false, error: 'Für dieses Dokument ist nur die Ansicht freigegeben, kein Download' };
+    const lvl = await grantLevelForDoc(user, projectId, doc.id);
+    if (!lvl) return { ok: false, error: 'Dieses Dokument ist nicht für Sie freigegeben' };
+    if (lvl !== 'download') return { ok: false, error: 'Für dieses Dokument ist nur die Ansicht freigegeben, kein Download' };
   }
   return { ok: true };
 }
@@ -286,14 +298,18 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
   // Datenraum zusätzlich nur mit granularem Lese-Recht (Sprint 4).
   const stage = await getStage(req.user.id, projectId);
   const dataroomRead = await hasPermission(req.user, projectId, 'read');
-  // Beschränkte Dokumente: nur zeigen, wenn der Nutzer eine Freigabe hat.
+  // Beschränkte Dokumente: nur zeigen, wenn eine Freigabe zutrifft (Person,
+  // Käufergruppe, Beteiligte oder eigene Gruppe). Auflösung über den Nutzer-Kontext.
   const restrictedIds = docs.filter(d => d.restricted).map(d => d.id);
   let grantedSet = new Set();
   if (restrictedIds.length) {
+    const ctx = await buildUserCtx(req.user, projectId);
     const gr = await db.all(
-      `SELECT document_id FROM document_grants WHERE user_id = ? AND document_id IN (${restrictedIds.map(() => '?').join(',')})`,
-      [req.user.id, ...restrictedIds]);
-    grantedSet = new Set(gr.map(x => x.document_id));
+      `SELECT document_id, subject_type, subject_ref, level FROM document_grants WHERE document_id IN (${restrictedIds.map(() => '?').join(',')})`,
+      restrictedIds);
+    const byDoc = new Map();
+    for (const g of gr) { if (!byDoc.has(g.document_id)) byDoc.set(g.document_id, []); byDoc.get(g.document_id).push(g); }
+    for (const id of restrictedIds) if (resolveLevel(byDoc.get(id) || [], ctx)) grantedSet.add(id);
   }
   const visible = docs.filter(d => {
     const cat = docCategory(d);
@@ -359,10 +375,13 @@ router.get('/:projectId/search', authenticate, wrap(async (req, res) => {
     const restrictedIds = rows.filter(d => d.restricted).map(d => d.id);
     let grantedSet = new Set();
     if (restrictedIds.length) {
+      const ctx = await buildUserCtx(req.user, projectId);
       const gr = await db.all(
-        `SELECT document_id FROM document_grants WHERE user_id = ? AND document_id IN (${restrictedIds.map(() => '?').join(',')})`,
-        [req.user.id, ...restrictedIds]);
-      grantedSet = new Set(gr.map(x => x.document_id));
+        `SELECT document_id, subject_type, subject_ref, level FROM document_grants WHERE document_id IN (${restrictedIds.map(() => '?').join(',')})`,
+        restrictedIds);
+      const byDoc = new Map();
+      for (const g of gr) { if (!byDoc.has(g.document_id)) byDoc.set(g.document_id, []); byDoc.get(g.document_id).push(g); }
+      for (const id of restrictedIds) if (resolveLevel(byDoc.get(id) || [], ctx)) grantedSet.add(id);
     }
     visible = rows.filter(d => {
       const cat = docCategory(d);
@@ -505,39 +524,67 @@ router.get('/:projectId/:docId/grants', ...isAdmin, wrap(async (req, res) => {
   const { projectId, docId } = req.params;
   const doc = await db.get('SELECT id, filename, COALESCE(restricted,0) AS restricted FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
   if (!doc) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
-  const grants = await db.all(`
-    SELECT g.user_id, g.level, u.first_name || ' ' || u.last_name AS name, u.email
-    FROM document_grants g JOIN users u ON u.id = g.user_id
-    WHERE g.document_id = ? ORDER BY name`, [docId]);
-  // Auswahl: Interessenten dieses Mandats (Datenraum-nah), als mögliche Empfänger.
+  const rows = await db.all('SELECT id, subject_type, subject_ref, level FROM document_grants WHERE document_id = ?', [docId]);
+  // Anzeigenamen je Subjekt auflösen.
+  const userIds = rows.filter(g => g.subject_type === 'user').map(g => Number(g.subject_ref)).filter(Boolean);
+  const groupIds = rows.filter(g => g.subject_type === 'group').map(g => Number(g.subject_ref)).filter(Boolean);
+  const users = userIds.length ? await db.all(`SELECT id, first_name || ' ' || last_name AS name, email FROM users WHERE id IN (${userIds.map(() => '?').join(',')})`, userIds) : [];
+  const groups = groupIds.length ? await db.all(`SELECT id, name FROM safe_groups WHERE id IN (${groupIds.map(() => '?').join(',')})`, groupIds) : [];
+  const uMap = Object.fromEntries(users.map(u => [String(u.id), u]));
+  const gMap = Object.fromEntries(groups.map(g => [String(g.id), g.name]));
+  const grants = rows.map(g => ({
+    id: g.id, subject_type: g.subject_type, subject_ref: g.subject_ref, level: g.level,
+    label: g.subject_type === 'user' ? (uMap[g.subject_ref] ? `${uMap[g.subject_ref].name} (${uMap[g.subject_ref].email})` : `Nutzer ${g.subject_ref}`)
+      : g.subject_type === 'buyer_group' ? (BUYER_GROUP_LABEL[g.subject_ref] || g.subject_ref)
+      : g.subject_type === 'party_all' ? 'Alle Beteiligten des Mandats'
+      : (gMap[g.subject_ref] ? `Gruppe: ${gMap[g.subject_ref]}` : `Gruppe ${g.subject_ref}`),
+  }));
+  // Auswahllisten für die Freigabe.
   const recipients = await db.all(`
     SELECT u.id, u.first_name || ' ' || u.last_name AS name, u.email, i.stage
     FROM interests i JOIN users u ON u.id = i.buyer_id
     WHERE i.project_id = ? AND i.stage <> 'rejected' ORDER BY name`, [projectId]);
-  res.json({ success: true, data: { restricted: doc.restricted === 1, grants, recipients } });
+  const ownGroups = await db.all('SELECT id, name FROM safe_groups WHERE project_id = ? ORDER BY name', [projectId]).catch(() => []);
+  res.json({ success: true, data: { restricted: doc.restricted === 1, grants, recipients, buyer_groups: BUYER_GROUPS.map(([k, l]) => ({ key: k, label: l })), groups: ownGroups } });
 }));
 
 router.post('/:projectId/:docId/grants', ...isAdmin, wrap(async (req, res) => {
   const { projectId, docId } = req.params;
-  const userId = Number(req.body.user_id);
+  const subjectType = SUBJECT_TYPES.includes(req.body.subject_type) ? req.body.subject_type : 'user';
   const level = ['read', 'download'].includes(req.body.level) ? req.body.level : 'read';
-  if (!userId) return res.status(400).json({ success: false, error: 'user_id fehlt' });
   const doc = await db.get('SELECT id FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
   if (!doc) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
+
+  // Subjekt-Referenz je Typ prüfen und normalisieren.
+  let subjectRef = String(req.body.subject_ref == null ? '' : req.body.subject_ref);
+  let userId = null;
+  if (subjectType === 'user') {
+    userId = Number(subjectRef);
+    if (!userId) return res.status(400).json({ success: false, error: 'Person fehlt' });
+    subjectRef = String(userId);
+  } else if (subjectType === 'buyer_group') {
+    if (!BUYER_GROUP_KEYS.includes(subjectRef)) return res.status(400).json({ success: false, error: 'Käufergruppe unbekannt' });
+  } else if (subjectType === 'party_all') {
+    subjectRef = '*';
+  } else if (subjectType === 'group') {
+    const g = await db.get('SELECT id FROM safe_groups WHERE id = ? AND project_id = ?', [Number(subjectRef), projectId]);
+    if (!g) return res.status(400).json({ success: false, error: 'Gruppe nicht gefunden' });
+    subjectRef = String(g.id);
+  }
+
   await db.run(`
-    INSERT INTO document_grants (tenant_id, document_id, user_id, level, created_by)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT (document_id, user_id) DO UPDATE SET level = EXCLUDED.level`,
-    [req.tenantId || 1, docId, userId, level, req.user.id]);
-  // Wird eine Freigabe gesetzt, ist das Dokument automatisch beschränkt.
+    INSERT INTO document_grants (tenant_id, document_id, subject_type, subject_ref, user_id, level, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT (document_id, subject_type, subject_ref) DO UPDATE SET level = EXCLUDED.level`,
+    [req.tenantId || 1, docId, subjectType, subjectRef, userId, level, req.user.id]);
   await db.run('UPDATE documents SET restricted = 1 WHERE id = ?', [docId]);
-  db.auditLog(req.user.id, 'DOC_GRANT_SET', 'document', docId, `user ${userId} (${level})`, req.ip);
-  res.status(201).json({ success: true, data: { user_id: userId, level } });
+  db.auditLog(req.user.id, 'DOC_GRANT_SET', 'document', docId, `${subjectType}:${subjectRef} (${level})`, req.ip);
+  res.status(201).json({ success: true, data: { subject_type: subjectType, subject_ref: subjectRef, level } });
 }));
 
-router.delete('/:projectId/:docId/grants/:userId', ...isAdmin, wrap(async (req, res) => {
-  await db.run('DELETE FROM document_grants WHERE document_id = ? AND user_id = ?', [req.params.docId, req.params.userId]);
-  db.auditLog(req.user.id, 'DOC_GRANT_REMOVED', 'document', req.params.docId, `user ${req.params.userId}`, req.ip);
+router.delete('/:projectId/:docId/grants/:grantId', ...isAdmin, wrap(async (req, res) => {
+  await db.run('DELETE FROM document_grants WHERE id = ? AND document_id = ?', [req.params.grantId, req.params.docId]);
+  db.auditLog(req.user.id, 'DOC_GRANT_REMOVED', 'document', req.params.docId, `grant ${req.params.grantId}`, req.ip);
   res.json({ success: true, data: { message: 'Freigabe entfernt' } });
 }));
 

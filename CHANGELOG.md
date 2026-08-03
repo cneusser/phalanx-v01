@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.366 · 21.07.2026 · Feingranulare Datenraum-Freigabe je Dokument
+- **Gezielte Freigabe**: Dokumente lassen sich an einzelne Personen, an eine Käufergruppe (Strategen, Family Offices, Nachfolger …), an alle Beteiligten eines Mandats oder an eigene Gruppen freigeben, jeweils als Ansicht oder Download
+- **Eigene Gruppen**: Bieterkonsortien und Ähnliches lassen sich im Freigabe-Fenster anlegen und mit Mitgliedern pflegen
+- **Durchsetzung überall**: Liste, Suche, Vorschau und Download prüfen die höchste zutreffende Freigabe des Nutzers (getestete Auflösungslogik)
+- **Bestand**: Bestehende Einzel-Freigaben bleiben gültig, sie werden als Personen-Freigabe migriert
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.365 · 21.07.2026 · CRM-Abgleich: Kontakte vor dem Verknüpfen einsehen
 - **Einzelansicht**: Die noch nicht verknüpften Kontakte werden jetzt einzeln aufgelistet, mit Name, E-Mail und dem zugehörigen Konto (Name und Rolle)
 - **Einzeln handeln**: Jeder Eintrag lässt sich öffnen (zur Prüfung) oder einzeln verknüpfen, neben „Alle verknüpfen"
