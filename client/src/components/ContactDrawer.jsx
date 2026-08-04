@@ -136,6 +136,15 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
     try { await api.post(`/crm/contacts/${contactId}/invite`, {}); show('Einladung (DSGVO) versendet ✓'); await load(); }
     catch (e) { show('Fehler: ' + e.message); }
   }
+  const [succLink, setSuccLink] = useState('');
+  async function inviteSuccession() {
+    try {
+      const d = await api.post(`/crm/contacts/${contactId}/invite-succession`, {});
+      setSuccLink(d.link || '');
+      show('Nachfolge-Einladung versendet ✓');
+      await load(); onChanged && onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
   // Datenraum echt freigeben bzw. entziehen (setzt die serverseitige Stage + Rechte).
   async function grantDataroom(projectId, on) {
     const uid = data.account?.id;
@@ -384,6 +393,11 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                 style={btn(blocked || !k.email || k.consent_status === 'opt_in')}>
                 <Mail size={13} /> Zur Plattform einladen
               </button>
+              <button onClick={inviteSuccession} disabled={blocked || !k.email}
+                title="Ins Nachfolge-Netzwerk einladen (DSGVO). Der Kontakt willigt ein, legt ein Konto an und füllt danach seinen Nachfolge-Fragebogen aus. Funktioniert auch bei bereits eingewilligten Kontakten."
+                style={{ ...btn(blocked || !k.email), color: '#0a66c2', borderColor: '#a9cbec' }}>
+                <Mail size={13} /> Ins Nachfolge-Netzwerk
+              </button>
               {k.email && (
                 <button onClick={() => setMsgOpen(v => !v)} disabled={blocked}
                   title="Nachricht aus der Plattform senden: die Antwort geht direkt an Sie, der Verlauf bleibt hier"
@@ -435,6 +449,16 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
                 </button>
               )}
             </div>
+
+            {succLink && (
+              <div style={{ margin: '0 1.3rem 0.5rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.6rem 0.8rem' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#1e40af', marginBottom: 4 }}>Nachfolge-Einladung versendet. Direktlink zum Weitergeben:</div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input readOnly value={succLink} onClick={e => e.target.select()} style={{ flex: 1, fontSize: '0.74rem', padding: '0.35rem 0.5rem', border: '1px solid #bfdbfe', borderRadius: 6, background: '#fff' }} />
+                  <button onClick={() => { navigator.clipboard?.writeText(succLink); show('Link kopiert'); }} style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>Kopieren</button>
+                </div>
+              </div>
+            )}
 
             {/* Unterlagen-Link: ablaufend, ohne Konto, mit Vertraulichkeits-Bestätigung */}
             {shareOpen && (

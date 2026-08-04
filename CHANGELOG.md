@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.367 · 21.07.2026 · Nachfolge-Einladung je Kontakt, Einladungs-Übersicht
+- **Nachfolge-Einladung je Kontakt**: Neuer Button „Ins Nachfolge-Netzwerk" sendet die DSGVO-Einladung, markiert den Kontakt als Nachfolge-Interessent und zeigt einen kopierbaren Direktlink. Funktioniert auch bei bereits eingewilligten Kontakten
+- **Vorbelegter Fragebogen-Weg**: Über den Link willigt die Person ein, legt ein Konto an (Käufertyp „Nachfolger" ist vorbelegt) und füllt danach ihren Nachfolge-Fragebogen aus
+- **Einladungs-Übersicht**: Neue Ansicht „Einladungen" im CRM zeigt je Einladung den Status (Eingeladen, Geöffnet, Eingewilligt, Registriert, Abgelehnt, Abgelaufen) und den Zweck. Damit ist sichtbar, warum Eingeladene erst nach Registrierung im Netzwerk und Funnel erscheinen
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.366 · 21.07.2026 · Feingranulare Datenraum-Freigabe je Dokument
 - **Gezielte Freigabe**: Dokumente lassen sich an einzelne Personen, an eine Käufergruppe (Strategen, Family Offices, Nachfolger …), an alle Beteiligten eines Mandats oder an eigene Gruppen freigeben, jeweils als Ansicht oder Download
 - **Eigene Gruppen**: Bieterkonsortien und Ähnliches lassen sich im Freigabe-Fenster anlegen und mit Mitgliedern pflegen

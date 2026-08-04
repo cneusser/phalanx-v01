@@ -1365,15 +1365,17 @@ const INVITE_DAYS = 21;
 
 const INVITE_TEMPLATES = ['crm_invite', 'nachfolge_invite'];
 
-async function createInvite(req, contact, templateKey) {
+async function createInvite(req, contact, templateKey, purposeArg) {
   const key = INVITE_TEMPLATES.includes(templateKey) ? templateKey : 'crm_invite';
+  // Zweck ableiten: die Nachfolge-Vorlage lädt ins Nachfolge-Netzwerk ein.
+  const purpose = purposeArg || (key === 'nachfolge_invite' ? 'successor' : 'default');
   const crypto = require('crypto');
   const token = crypto.randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + INVITE_DAYS * 24 * 3600 * 1000);
   const id = await scoped(req, (t) => t.insert(`
-    INSERT INTO crm_invitations (tenant_id, contact_id, email, token, message, invited_by, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [req.tenantId || 1, contact.id, contact.email, token, req.body.message || null, req.user.id, expires]));
+    INSERT INTO crm_invitations (tenant_id, contact_id, email, token, message, invited_by, expires_at, purpose)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [req.tenantId || 1, contact.id, contact.email, token, req.body.message || null, req.user.id, expires, purpose]));
 
   // Text kommt aus der gewählten Vorlage (im Admin änderbar). Fällt die Nachfolge-
   // Vorlage aus, greift die Standard-Einladung.
@@ -1411,8 +1413,28 @@ async function createInvite(req, contact, templateKey) {
   }
 
   db.auditLog(req.user.id, 'CRM_INVITE_SENT', 'crm_contact', contact.id, contact.email, req.ip);
-  return id;
+  return { id, token };
 }
+
+// Nachfolge-Netzwerk: Einladung mit Fragebogen-Weg. Funktioniert auch für bereits
+// eingewilligte Kontakte. Markiert den Kontakt als Nachfolge-Interessent und gibt
+// den Einwilligungs-/Registrierungslink zum Kopieren zurück.
+router.post('/contacts/:id/invite-succession', ...isStaff, canSend, wrap(async (req, res) => {
+  const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [req.params.id]));
+  if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+  if (!contact.email) return res.status(400).json({ success: false, error: 'Kontakt hat keine E-Mail-Adresse.' });
+  if (contact.contact_status === 'do_not_contact' || contact.consent_status === 'opt_out') {
+    return res.status(403).json({ success: false, error: 'Dieser Kontakt hat der Kontaktaufnahme widersprochen.' });
+  }
+  // Als Nachfolge-Interessent markieren (überschreibt keinen bestehenden Käufertyp,
+  // außer er ist leer oder „privat").
+  await scoped(req, (t) => t.run(
+    `UPDATE crm_contacts SET buyer_type = 'successor', updated_at = now() WHERE id = ? AND (buyer_type IS NULL OR buyer_type = '' OR buyer_type = 'private')`,
+    [contact.id])).catch(() => {});
+  const { token } = await createInvite(req, contact, 'nachfolge_invite', 'successor');
+  const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
+  res.status(201).json({ success: true, data: { link: `${base}/einwilligung?token=${token}` } });
+}));
 
 // Einzelne Einladung
 router.post('/contacts/:id/invite', ...isStaff, canSend, wrap(async (req, res) => {
@@ -1426,7 +1448,7 @@ router.post('/contacts/:id/invite', ...isStaff, canSend, wrap(async (req, res) =
     `SELECT id FROM crm_invitations WHERE contact_id = ? AND status IN ('invited','opened','consented')`, [contact.id]));
   if (open) return res.status(409).json({ success: false, error: 'Für diesen Kontakt läuft bereits eine Einladung.' });
 
-  const id = await createInvite(req, contact);
+  const { id } = await createInvite(req, contact);
   res.status(201).json({ success: true, data: { id } });
 }));
 
@@ -1602,6 +1624,8 @@ router.get('/invite/:token', wrap(async (req, res) => {
       consent_version: CONSENT_TEXT_VERSION,
       has_account: !!account,
       suggested_role: suggestedRole,
+      purpose: inv.purpose || 'default',
+      buyer_type: inv.purpose === 'successor' ? 'successor' : null,
       expires_at: inv.expires_at,
     },
   });

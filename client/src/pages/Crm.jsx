@@ -82,6 +82,12 @@ export default function Crm() {
     try { await api.post(`/crm/reconcile-accounts/link/${cid}`, {}); setMsg('Kontakt mit Konto verknüpft.'); await openRecon(); await load(); }
     catch (e) { setMsg('Fehler: ' + e.message); }
   }
+  const [invOpen, setInvOpen] = useState(false);
+  const [inv, setInv] = useState(null);
+  async function openInvitations() {
+    setInvOpen(true); setInv(null);
+    try { setInv(await api.get('/crm/invitations')); } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
 
   const liName = (k) => [k.first_name, k.last_name].filter(Boolean).join(' ') || k.companies || '';
   const normLi = (u) => { const s = String(u || '').trim(); if (!s) return ''; return /^https?:\/\//i.test(s) ? s : `https://${s}`; };
@@ -269,6 +275,9 @@ export default function Crm() {
           </button>
           <button onClick={openRecon} title="CRM-Kontakte mit den registrierten Nutzern abgleichen" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
             <Users size={14} /> Nutzer abgleichen
+          </button>
+          <button onClick={openInvitations} title="Status aller versendeten Einladungen sehen" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+            <Mail size={14} /> Einladungen
           </button>
           <button onClick={() => setImportListOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
             <Upload size={14} /> Liste importieren (Excel)
@@ -529,6 +538,53 @@ export default function Crm() {
       {importListOpen && <ImportListModal onClose={() => setImportListOpen(false)} onDone={() => load()} show={show} />}
       {inviteOpen && <InviteContactsModal onClose={() => setInviteOpen(false)} onDone={() => load()} />}
       {assign && <AssignDealModal contact={assign} projects={projects} stages={stages} onClose={() => setAssign(null)} show={show} />}
+
+      {/* Einladungs-Übersicht (Status je Einladung) */}
+      {invOpen && (
+        <div onClick={() => setInvOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: '1rem' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', maxWidth: 680, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+              <strong style={{ color: C.navy, fontSize: '1.05rem' }}>Einladungen und Status</strong>
+              <button onClick={() => setInvOpen(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+            {!inv ? <div style={{ color: C.muted, padding: '1.5rem', textAlign: 'center' }}>Wird geladen…</div> : (
+              <>
+                <div style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '0.8rem' }}>
+                  Eine Einladung erscheint erst im Netzwerk und Funnel, wenn die Person eingewilligt UND ein Konto angelegt hat (Status „Registriert"). Solange steht sie hier unter „Eingeladen" oder „Geöffnet".
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                  {[['invited', 'Eingeladen', '#64748b'], ['opened', 'Geöffnet', '#0ea5e9'], ['consented', 'Eingewilligt', '#7c3aed'], ['registered', 'Registriert', '#16a34a'], ['declined', 'Abgelehnt', '#ef4444'], ['expired', 'Abgelaufen', '#92400e']].map(([k, l, col]) => (
+                    <div key={k} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.4rem 0.7rem', minWidth: 84 }}>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 800, color: col }}>{inv.funnel?.[k] || 0}</div>
+                      <div style={{ fontSize: '0.68rem', color: C.muted, fontWeight: 600 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                  <thead><tr style={{ textAlign: 'left', color: C.muted }}>
+                    <th style={{ padding: '0.4rem 0.5rem' }}>Name</th><th style={{ padding: '0.4rem 0.5rem' }}>E-Mail</th><th style={{ padding: '0.4rem 0.5rem' }}>Zweck</th><th style={{ padding: '0.4rem 0.5rem' }}>Status</th>
+                  </tr></thead>
+                  <tbody>
+                    {(inv.invitations || []).map(i => {
+                      const map = { invited: ['Eingeladen', '#64748b'], opened: ['Geöffnet', '#0ea5e9'], consented: ['Eingewilligt', '#7c3aed'], registered: ['Registriert', '#16a34a'], declined: ['Abgelehnt', '#ef4444'], expired: ['Abgelaufen', '#92400e'], revoked: ['Zurückgezogen', '#991b1b'] };
+                      const [lbl, col] = map[i.status] || [i.status, C.muted];
+                      return (
+                        <tr key={i.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                          <td style={{ padding: '0.45rem 0.5rem', fontWeight: 600, color: C.text }}>{[i.first_name, i.last_name].filter(Boolean).join(' ') || 'k. A.'}</td>
+                          <td style={{ padding: '0.45rem 0.5rem', color: C.muted }}>{i.email}</td>
+                          <td style={{ padding: '0.45rem 0.5rem', color: C.muted }}>{i.purpose === 'successor' ? 'Nachfolge' : 'Plattform'}</td>
+                          <td style={{ padding: '0.45rem 0.5rem' }}><span style={{ background: `${col}18`, color: col, fontSize: '0.72rem', fontWeight: 700, padding: '0.1rem 0.5rem', borderRadius: 20 }}>{lbl}</span></td>
+                        </tr>
+                      );
+                    })}
+                    {(inv.invitations || []).length === 0 && <tr><td colSpan={4} style={{ padding: '1.5rem', textAlign: 'center', color: C.muted }}>Noch keine Einladungen versendet.</td></tr>}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Abgleich CRM-Kontakte ↔ registrierte Nutzer */}
       {reconOpen && (
