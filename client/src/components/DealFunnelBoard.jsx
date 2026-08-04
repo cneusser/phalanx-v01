@@ -620,9 +620,11 @@ export default function DealFunnelBoard({ show }) {
                         draggable
                         onDragStart={() => setDrag(p.id)}
                         onDragEnd={() => { setDrag(null); setOverStage(null); }}
+                        onClick={() => p.contact_id && setOpenContact(p.contact_id)}
+                        title={p.contact_id ? 'Kontakt öffnen' : 'Kein CRM-Kontakt verknüpft'}
                         style={{
                           background: C.card, border: `1px solid ${p.stagnant ? '#fcd34d' : C.border}`,
-                          borderRadius: 8, padding: '0.55rem 0.6rem', marginBottom: '0.4rem', cursor: 'grab',
+                          borderRadius: 8, padding: '0.55rem 0.6rem', marginBottom: '0.4rem', cursor: p.contact_id ? 'pointer' : 'grab',
                           opacity: p.party_status === 'dropped' ? 0.55 : 1,
                         }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5 }}>

@@ -1431,6 +1431,21 @@ router.post('/contacts/:id/invite-succession', ...isStaff, canSend, wrap(async (
   await scoped(req, (t) => t.run(
     `UPDATE crm_contacts SET buyer_type = 'successor', updated_at = now() WHERE id = ? AND (buyer_type IS NULL OR buyer_type = '' OR buyer_type = 'private')`,
     [contact.id])).catch(() => {});
+
+  // Gibt es bereits ein Nutzerkonto (verknüpft oder per E-Mail)? Dann ist keine
+  // Einladung nötig: das Konto direkt als Nachfolge-Interessent markieren, damit
+  // die Person sofort im Nachfolge-Netzwerk und -Funnel erscheint.
+  const acc = await db.get(
+    `SELECT id, buyer_type FROM users WHERE id = ? OR lower(email) = lower(?) ORDER BY id LIMIT 1`,
+    [contact.user_id || 0, contact.email || '']).catch(() => null);
+  if (acc) {
+    await db.run(
+      `UPDATE users SET buyer_type = 'successor' WHERE id = ? AND (buyer_type IS NULL OR buyer_type = '' OR buyer_type = 'private')`,
+      [acc.id]).catch(() => {});
+    db.auditLog(req.user.id, 'SUCCESSION_MARKED', 'user', acc.id, contact.email, req.ip);
+    return res.json({ success: true, data: { added: true, registered: true } });
+  }
+
   const { token } = await createInvite(req, contact, 'nachfolge_invite', 'successor');
   const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
   res.status(201).json({ success: true, data: { link: `${base}/einwilligung?token=${token}` } });

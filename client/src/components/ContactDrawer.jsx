@@ -140,8 +140,8 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   async function inviteSuccession() {
     try {
       const d = await api.post(`/crm/contacts/${contactId}/invite-succession`, {});
-      setSuccLink(d.link || '');
-      show('Nachfolge-Einladung versendet ✓');
+      if (d.added) { setSuccLink(''); show('Zum Nachfolge-Netzwerk hinzugefügt (Konto vorhanden) ✓'); }
+      else { setSuccLink(d.link || ''); show('Nachfolge-Einladung versendet ✓'); }
       await load(); onChanged && onChanged();
     } catch (e) { show('Fehler: ' + e.message); }
   }

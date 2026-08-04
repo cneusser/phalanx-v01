@@ -128,16 +128,28 @@ export default function Crm() {
   const paginate = (arr) => pageSize === 'all' ? arr : arr.slice((page - 1) * pageSize, page * pageSize);
   const pageCount = (arr) => pageSize === 'all' ? 1 : Math.max(1, Math.ceil(arr.length / pageSize));
 
-  // Kachel-Filter auf die Kontaktliste anwenden (Entscheider, Einwilligung, Widerspruch).
+  // Suchbegriff: Stichworte wirken als Filter (z. B. „Einwilligung" zeigt nur Opt-in),
+  // sonst freie Textsuche über Name, E-Mail und Unternehmen.
+  const qLower = q.trim().toLowerCase();
+  const qSpecial = /einwillig|eingewillig|opt.?in/.test(qLower) ? 'opt_in'
+    : /nicht.?kontakt|widerspruch|opt.?out|gesperrt/.test(qLower) ? 'blocked'
+    : /entscheider|decision/.test(qLower) ? 'decision' : null;
+  const activeSpecial = special || qSpecial;
   const specialMatch = (k) => {
-    if (special === 'decision') return !!k.is_decision_maker;
-    if (special === 'opt_in') return k.consent_status === 'opt_in';
-    if (special === 'blocked') return k.contact_status === 'do_not_contact' || k.consent_status === 'opt_out';
+    if (activeSpecial === 'decision') return !!k.is_decision_maker;
+    if (activeSpecial === 'opt_in') return k.consent_status === 'opt_in';
+    if (activeSpecial === 'blocked') return k.contact_status === 'do_not_contact' || k.consent_status === 'opt_out';
     return true;
+  };
+  const textMatch = (k) => {
+    if (!qLower || qSpecial) return true;  // Stichwort-Suche filtert bereits
+    const hay = [k.first_name, k.last_name, k.email, k.companies, k.responsibility].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(qLower);
   };
   const contactsFiltered = contacts
     .filter(k => (buyerType ? k.buyer_type === buyerType : true))
-    .filter(specialMatch);
+    .filter(specialMatch)
+    .filter(textMatch);
   const SPECIAL_LABEL = { decision: 'Entscheider', opt_in: 'Einwilligung', blocked: 'Nicht kontaktieren' };
   const contactsByLetter = byLetter(contactsFiltered, k => k.last_name || k.first_name || k.companies);
   const pageContacts = paginate(contactsByLetter);
@@ -417,10 +429,10 @@ export default function Crm() {
       {/* Kontakte */}
       {tab === 'contacts' && (
         <>
-        {special && (
+        {activeSpecial && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: '0.6rem', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 20, padding: '0.3rem 0.7rem', fontSize: '0.78rem', color: '#3730a3', fontWeight: 600 }}>
-            Filter: {SPECIAL_LABEL[special]} ({contactsFiltered.length})
-            <button onClick={() => setSpecial('')} title="Filter entfernen" style={{ background: 'none', border: 'none', color: '#3730a3', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem', lineHeight: 1 }}>×</button>
+            Filter: {SPECIAL_LABEL[activeSpecial]} ({contactsFiltered.length})
+            <button onClick={() => { setSpecial(''); if (qSpecial) setQ(''); }} title="Filter entfernen" style={{ background: 'none', border: 'none', color: '#3730a3', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem', lineHeight: 1 }}>×</button>
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.5rem', flexWrap: 'wrap' }}>

@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.368 · 21.07.2026 · Nachfolge markieren, Kontakt-Suche mit Stichwörtern, Funnel-Karte klickbar
+- **Registrierte als Nachfolger**: „Ins Nachfolge-Netzwerk" markiert jetzt auch bereits registrierte Nutzer direkt (ohne neue Einladung), damit sie sofort im Nachfolge-Netzwerk und -Funnel erscheinen. So kommen z. B. bereits angemeldete Kontakte in die Liste
+- **Kontakt-Suche filtert**: Stichwörter wie „Einwilligung", „nicht kontaktieren" oder „Entscheider" zeigen gezielt die passenden Kontakte, sonst freie Suche über Name, E-Mail und Unternehmen (vorher filterte das Suchfeld die Kontaktliste nicht)
+- **Funnel-Karte klickbar**: Im Deal-Funnel öffnet ein Klick auf die ganze Karte den Kontakt, nicht nur der Name
+- Verifiziert: elf Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.367 · 21.07.2026 · Nachfolge-Einladung je Kontakt, Einladungs-Übersicht
 - **Nachfolge-Einladung je Kontakt**: Neuer Button „Ins Nachfolge-Netzwerk" sendet die DSGVO-Einladung, markiert den Kontakt als Nachfolge-Interessent und zeigt einen kopierbaren Direktlink. Funktioniert auch bei bereits eingewilligten Kontakten
 - **Vorbelegter Fragebogen-Weg**: Über den Link willigt die Person ein, legt ein Konto an (Käufertyp „Nachfolger" ist vorbelegt) und füllt danach ihren Nachfolge-Fragebogen aus
