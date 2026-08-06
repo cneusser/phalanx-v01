@@ -647,6 +647,42 @@ router.post('/:projectId/reindex', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { indexed, docsIndexed } });
 }));
 
+// ── Schwärzen (Redaction): Begriffe finden, schwärzen und Text entfernen ─────
+async function redactableItem(req, res) {
+  const item = await scoped(req, (t) => t.get(
+    'SELECT * FROM safe_items WHERE id = ? AND project_id = ? AND deleted_at IS NULL AND is_folder = 0',
+    [req.params.id, req.params.projectId]));
+  if (!item || !item.storage_key) { res.status(404).json({ success: false, error: 'Datei nicht gefunden' }); return null; }
+  const isPdf = (item.mime || '').includes('pdf') || /\.pdf$/i.test(item.name || '');
+  if (!isPdf) { res.status(400).json({ success: false, error: 'Schwärzen ist nur für PDF-Dateien möglich.' }); return null; }
+  return item;
+}
+
+// Vorschau: zählt, wie oft die Begriffe vorkommen (ohne zu speichern).
+router.post('/:projectId/item/:id/redact-preview', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const item = await redactableItem(req, res); if (!item) return;
+  const buf = await getStorage().get(item.storage_key);
+  const r = await require('../utils/redact').countTerms(buf, Array.isArray(req.body.terms) ? req.body.terms : []);
+  res.json({ success: true, data: r });
+}));
+
+// Geschwärzte Kopie erstellen (neue Safe-Datei „(geschwärzt)", Original bleibt).
+router.post('/:projectId/item/:id/redact', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const item = await redactableItem(req, res); if (!item) return;
+  const { redactPdf, normTerms } = require('../utils/redact');
+  const terms = Array.isArray(req.body.terms) ? req.body.terms : [];
+  if (!normTerms(terms).length) return res.status(400).json({ success: false, error: 'Bitte mindestens einen Begriff angeben (mindestens zwei Zeichen).' });
+  const buf = await getStorage().get(item.storage_key);
+  const { buffer, hits } = await redactPdf(buf, terms);
+  const base = String(item.name).replace(/\.pdf$/i, '');
+  const name = `${base} (geschwärzt).pdf`;
+  const created = await putSafeFile(req, req.params.projectId, item.parent_id, name, buffer, 'application/pdf');
+  db.auditLog(req.user.id, 'SAFE_REDACT', 'safe_item', created.id, `${hits} Fundstelle(n) geschwärzt aus ${item.name}`, req.ip);
+  res.json({ success: true, data: { id: created.id, name, hits } });
+}));
+
 // ── Speicherverbrauch (Mandat) ──────────────────────────────────────────────
 router.get('/:projectId/usage', authenticate, wrap(async (req, res) => {
   if (!(await guardRead(req, res))) return;

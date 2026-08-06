@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
-import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell, Search } from 'lucide-react';
+import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell, Search, Eraser } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const fmtBytes = (b) => { b = Number(b) || 0; if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB'; return (b / 1073741824).toFixed(2) + ' GB'; };
@@ -42,6 +42,33 @@ export default function ProjectSafe() {
   const [safeQ, setSafeQ] = useState('');
   const [safeHits, setSafeHits] = useState(null);
   const [reindexing, setReindexing] = useState(false);
+  const [redactItem, setRedactItem] = useState(null);
+  const [redactTerms, setRedactTerms] = useState('');
+  const [redactPreview, setRedactPreview] = useState(null);
+  const [redactBusy, setRedactBusy] = useState(false);
+
+  const redactTermList = () => redactTerms.split(/[\n,;]+/).map(t => t.trim()).filter(t => t.length >= 2);
+  function openRedact(item) { setRedactItem(item); setRedactTerms(''); setRedactPreview(null); }
+  async function runRedactPreview() {
+    const terms = redactTermList();
+    if (!terms.length) { setRedactPreview({ total: 0, per_term: {} }); return; }
+    setRedactBusy(true);
+    try { setRedactPreview(await api.post(`/safe/${pid}/item/${redactItem.id}/redact-preview`, { terms })); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+    finally { setRedactBusy(false); }
+  }
+  async function runRedact() {
+    const terms = redactTermList();
+    if (!terms.length) { setMsg('Bitte mindestens einen Begriff angeben.'); return; }
+    setRedactBusy(true);
+    try {
+      const d = await api.post(`/safe/${pid}/item/${redactItem.id}/redact`, { terms });
+      setRedactItem(null);
+      setMsg(`Geschwärzte Kopie erstellt: „${d.name}" (${d.hits} Fundstelle(n)). Prüfen Sie sie und übernehmen Sie sie dann in den Datenraum.`);
+      load(parent);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+    finally { setRedactBusy(false); }
+  }
 
   // Volltextsuche im Safe (Name + Dateiinhalt), 250ms entprellt.
   useEffect(() => {
@@ -474,6 +501,7 @@ export default function ProjectSafe() {
                         <button title="Umbenennen" onClick={() => { setRenameId(it.id); setRenameVal(displayName(it.name)); }} style={iconBtn}><Edit2 size={15} /></button>
                         {it.is_folder && <button title="Ganzen Ordner in Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button>}
                         {!it.is_folder && <><button title="Vorschau (mit Wasserzeichen)" onClick={() => preview(it)} style={iconBtn}><Eye size={15} /></button><button title="Herunterladen" onClick={() => download(it)} style={iconBtn}><Download size={15} /></button>
+                          {(String(it.mime || '').includes('pdf') || /\.pdf$/i.test(it.name || '')) && <button title="Schwärzen (Begriffe unkenntlich machen)" onClick={() => openRedact(it)} style={iconBtn}><Eraser size={15} /></button>}
                           <button title="In Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button></>}
                         <button title="Löschen" onClick={() => del(it)} style={{ ...iconBtn, color: '#991b1b' }}><Trash2 size={15} /></button>
                       </span>
@@ -516,6 +544,32 @@ export default function ProjectSafe() {
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.9rem', justifyContent: 'flex-end' }}>
               <button onClick={() => setStructOpen(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '0.85rem' }}>Abbrechen</button>
               <button onClick={createStructure} style={btn(C.navy, '#fff')}><FolderPlus size={15} /> Struktur anlegen</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schwärzen-Dialog */}
+      {redactItem && (
+        <div onClick={() => setRedactItem(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', maxWidth: 520, width: '92%' }}>
+            <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.3rem' }}>Schwärzen: {displayName(redactItem.name)}</div>
+            <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: '0.9rem' }}>
+              Begriffe eingeben (einer je Zeile oder mit Komma getrennt). Alle Fundstellen werden geschwärzt und der Text an diesen Stellen wirklich entfernt. Es entsteht eine neue Kopie „(geschwärzt)", das Original bleibt unverändert.
+            </div>
+            <textarea autoFocus value={redactTerms} onChange={e => { setRedactTerms(e.target.value); setRedactPreview(null); }} rows={5}
+              placeholder={'z. B.\nMüller GmbH\nHerr Schmidt\n3,2 Mio'}
+              style={{ width: '100%', boxSizing: 'border-box', fontSize: '0.86rem', padding: '0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, outline: 'none', resize: 'vertical' }} />
+            {redactPreview && (
+              <div style={{ fontSize: '0.8rem', color: redactPreview.total ? '#166534' : '#b91c1c', marginTop: '0.6rem' }}>
+                {redactPreview.total ? `${redactPreview.total} Fundstelle(n) gefunden: ` : 'Keine Fundstellen (bei gescannten Bild-PDFs ohne Textebene findet die Suche nichts).'}
+                {redactPreview.total ? Object.entries(redactPreview.per_term).map(([t, c]) => `„${t}" (${c})`).join(', ') : ''}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button onClick={() => setRedactItem(null)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '0.85rem' }}>Abbrechen</button>
+              <button onClick={runRedactPreview} disabled={redactBusy || !redactTermList().length} style={btn('#fff', C.navy, true)}>{redactBusy ? 'Prüfe…' : 'Vorschau: Fundstellen zählen'}</button>
+              <button onClick={runRedact} disabled={redactBusy || !redactTermList().length} style={btn(C.navy, '#fff')}><Eraser size={15} /> Geschwärzte Kopie erstellen</button>
             </div>
           </div>
         </div>

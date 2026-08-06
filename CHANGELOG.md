@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.369 · 21.07.2026 · Schwärzen: Begriffe in PDFs unkenntlich machen
+- **Echtes Schwärzen**: Neue Funktion „Schwärzen" je PDF im Safe. Begriffe eingeben (Namen, Zahlen), alle Fundstellen werden schwarz überdeckt UND der Text an diesen Stellen wirklich entfernt (mupdf), sodass nichts mehr auslesbar oder kopierbar ist
+- **Vorschau**: zählt vor dem Schwärzen, wie oft jeder Begriff vorkommt
+- **Sicher**: Es entsteht eine neue Kopie „(geschwärzt)", das Original bleibt unverändert. Die Kopie lässt sich prüfen und in den Datenraum übernehmen
+- **Grenze**: In gescannten Bild-PDFs ohne Textebene findet die Stichwortsuche nichts (OCR wäre ein späterer Schritt)
+- Verifiziert: Redaction end-to-end getestet (Zielbegriff entfernt, Rest erhalten), Kern-Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.368 · 21.07.2026 · Nachfolge markieren, Kontakt-Suche mit Stichwörtern, Funnel-Karte klickbar
 - **Registrierte als Nachfolger**: „Ins Nachfolge-Netzwerk" markiert jetzt auch bereits registrierte Nutzer direkt (ohne neue Einladung), damit sie sofort im Nachfolge-Netzwerk und -Funnel erscheinen. So kommen z. B. bereits angemeldete Kontakte in die Liste
 - **Kontakt-Suche filtert**: Stichwörter wie „Einwilligung", „nicht kontaktieren" oder „Entscheider" zeigen gezielt die passenden Kontakte, sonst freie Suche über Name, E-Mail und Unternehmen (vorher filterte das Suchfeld die Kontaktliste nicht)
