@@ -12,6 +12,11 @@ const INDUSTRIES = ['Bau & Baustoffe', 'Industrie & Maschinenbau', 'Handel & Kon
   'Handwerk', 'Immobilien', 'Medien & Marketing'];
 const REGIONS = ['Baden-Württemberg', 'Bayern', 'Berlin/Brandenburg', 'Hessen', 'NRW', 'Niedersachsen',
   'Sachsen', 'Norddeutschland', 'Ostdeutschland', 'Deutschland (bundesweit)', 'Österreich', 'Schweiz', 'DACH'];
+const SPECIALS = ['Seed / Start-up', 'Spin-off', 'Growth / Internationalisierung', 'Buy-out / Buy-in', 'Turnaround', 'IPO'];
+const LAENDER = ['Deutschland', 'Österreich', 'Schweiz'];
+const UMSATZ = [['<1', 'unter 1 Mio.'], ['1-3', '1 bis 3 Mio.'], ['3-10', '3 bis 10 Mio.'], ['10-30', '10 bis 30 Mio.'], ['>30', 'über 30 Mio.']];
+const MBI = [['reine_beteiligung', 'Reine Beteiligung'], ['partnerschaft', 'Strategische Partnerschaft'], ['operative_fuehrung', 'Übernahme der operativen Führung'], ['andere', 'Andere']];
+const SZENARIO = [['mit_beteiligung', 'Mit eigener Beteiligung'], ['ohne_beteiligung', 'Ohne eigene Beteiligung']];
 
 // Mehrfachauswahl als Chips
 function Chips({ label, options, value, onChange }) {
@@ -40,6 +45,9 @@ export default function ContactSelfService() {
   const token = params.get('token');
   const [data, setData] = useState(null);
   const [f, setF] = useState(null);
+  const [sf, setSf] = useState(null);        // Nachfolge-Fragebogen
+  const [succBusy, setSuccBusy] = useState(false);
+  const [succDone, setSuccDone] = useState('');
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [done, setDone] = useState('');
@@ -51,6 +59,14 @@ export default function ContactSelfService() {
       const d = await api.get(`/crm/profile/${token}`);
       setData(d);
       setF({ ...d.profile, focus_industries: d.profile.focus_industries || [], focus_regions: d.profile.focus_regions || [] });
+      const s = d.succession || {};
+      setSf({
+        plz_ort: s.plz_ort || '', branchenerfahrung: s.branchenerfahrung || '', funktionale_erfahrung: s.funktionale_erfahrung || '',
+        fuehrungserfahrung: s.fuehrungserfahrung || '', budgetverantwortung: s.budgetverantwortung || '',
+        umsatz_band: s.umsatz_band || '', mbi_szenario: s.mbi_szenario || '', eigenkapital: s.eigenkapital || '',
+        verfuegbarkeit: s.verfuegbarkeit || '', bemerkungen: s.bemerkungen || '', succession_type: s.succession_type || '',
+        special_situations: s.special_situations || [], ziel_laender: s.ziel_laender || [], ziel_regionen: s.ziel_regionen || [], branchenfokus: s.branchenfokus || [],
+      });
     } catch (e) { setErr(e.message); }
     finally { setLoading(false); }
   }, [token]);
@@ -67,6 +83,18 @@ export default function ContactSelfService() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) { setErr(e.message); }
     finally { setBusy(false); }
+  }
+
+  const setS = (k) => (e) => setSf(s => ({ ...s, [k]: e.target.value }));
+  async function saveSuccession(e) {
+    e.preventDefault();
+    setSuccBusy(true); setErr(''); setSuccDone('');
+    try {
+      const r = await api.put(`/crm/profile/${token}/succession`, sf);
+      setSuccDone(r.message);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) { setErr(e.message); }
+    finally { setSuccBusy(false); }
   }
 
   async function unsubscribe(full) {
@@ -198,6 +226,51 @@ export default function ContactSelfService() {
             <Save size={16} /> {busy ? 'Wird gespeichert…' : 'Angaben speichern'}
           </button>
         </form>
+
+        {/* Nachfolge-Fragebogen (login-frei) */}
+        {sf && (
+          <form onSubmit={saveSuccession} style={{ borderTop: `1px solid ${C.border}`, marginTop: '1.75rem', paddingTop: '1.25rem' }}>
+            <div style={{ fontSize: '0.95rem', fontWeight: 800, color: C.navy, marginBottom: '0.3rem' }}>Nachfolge-Fragebogen</div>
+            <p style={{ fontSize: '0.82rem', color: C.muted, marginTop: 0, marginBottom: '1rem', lineHeight: 1.6 }}>
+              Suchen Sie ein Unternehmen zur Nachfolge? Je klarer Ihr Profil, desto besser die Vorschläge. Alle Angaben sind freiwillig und werden vertraulich behandelt.
+            </p>
+            {succDone && (
+              <div style={{ background: '#d1fae5', color: '#065f46', borderRadius: 8, padding: '0.7rem 1rem', fontSize: '0.85rem', marginBottom: '1rem', display: 'flex', gap: 6, alignItems: 'center' }}><CheckCircle size={15} /> {succDone}</div>
+            )}
+            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>PLZ und Wohnort</label><input value={sf.plz_ort} onChange={setS('plz_ort')} placeholder="z. B. 80333 München" style={INPUT} /></div>
+            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Branchenerfahrung</label><textarea value={sf.branchenerfahrung} onChange={setS('branchenerfahrung')} rows={2} placeholder="In welchen Branchen waren Sie tätig?" style={{ ...INPUT, resize: 'vertical' }} /></div>
+            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Funktionale Erfahrung</label><textarea value={sf.funktionale_erfahrung} onChange={setS('funktionale_erfahrung')} rows={2} placeholder="z. B. Vertrieb, Produktion, Finanzen, Geschäftsführung" style={{ ...INPUT, resize: 'vertical' }} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginBottom: '0.4rem' }}>
+              <div><label style={LABEL}>Führungserfahrung (Mitarbeiterzahl)</label><input value={sf.fuehrungserfahrung} onChange={setS('fuehrungserfahrung')} placeholder="z. B. bis 50 Mitarbeitende" style={INPUT} /></div>
+              <div><label style={LABEL}>Bisher max. Budgetverantwortung</label><input value={sf.budgetverantwortung} onChange={setS('budgetverantwortung')} placeholder="z. B. 10 Mio. Euro" style={INPUT} /></div>
+            </div>
+            <Chips label="Erfahrung in Sondersituationen" options={SPECIALS} value={sf.special_situations} onChange={(v) => setSf(s => ({ ...s, special_situations: v }))} />
+            <Chips label="Zielländer" options={LAENDER} value={sf.ziel_laender} onChange={(v) => setSf(s => ({ ...s, ziel_laender: v }))} />
+            <Chips label="Zielregionen" options={REGIONS} value={sf.ziel_regionen} onChange={(v) => setSf(s => ({ ...s, ziel_regionen: v }))} />
+            <Chips label="Branchenfokus" options={INDUSTRIES} value={sf.branchenfokus} onChange={(v) => setSf(s => ({ ...s, branchenfokus: v }))} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginBottom: '0.8rem' }}>
+              <div><label style={LABEL}>Gesuchte Umsatzgröße</label>
+                <select value={sf.umsatz_band} onChange={setS('umsatz_band')} style={INPUT}><option value="">k. A.</option>{UMSATZ.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+              </div>
+              <div><label style={LABEL}>Rolle im Unternehmen</label>
+                <select value={sf.mbi_szenario} onChange={setS('mbi_szenario')} style={INPUT}><option value="">k. A.</option>{MBI.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+              </div>
+              <div><label style={LABEL}>Verfügbares Eigenkapital</label><input value={sf.eigenkapital} onChange={setS('eigenkapital')} placeholder="z. B. 0,5 bis 1 Mio. Euro" style={INPUT} /></div>
+              <div><label style={LABEL}>Verfügbarkeit</label><input value={sf.verfuegbarkeit} onChange={setS('verfuegbarkeit')} placeholder="z. B. ab sofort, in 3 Monaten" style={INPUT} /></div>
+            </div>
+            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Nachfolge mit oder ohne eigene Beteiligung?</label>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                {SZENARIO.map(([v, l]) => (
+                  <button key={v} type="button" onClick={() => setSf(s => ({ ...s, succession_type: v }))} style={{ border: `1.5px solid ${sf.succession_type === v ? C.navy : C.border}`, background: sf.succession_type === v ? C.navy : '#fff', color: sf.succession_type === v ? '#fff' : C.muted, borderRadius: 8, padding: '0.45rem 0.9rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: '0.4rem' }}><label style={LABEL}>Bemerkungen</label><textarea value={sf.bemerkungen} onChange={setS('bemerkungen')} rows={2} style={{ ...INPUT, resize: 'vertical' }} /></div>
+            <button type="submit" disabled={succBusy} style={{ marginTop: '0.8rem', width: '100%', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              <Save size={16} /> {succBusy ? 'Wird gespeichert…' : 'Nachfolge-Angaben speichern'}
+            </button>
+          </form>
+        )}
 
         {/* DSGVO: Abmeldung */}
         <div style={{ borderTop: `1px solid ${C.border}`, marginTop: '1.75rem', paddingTop: '1rem' }}>

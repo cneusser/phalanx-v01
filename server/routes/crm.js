@@ -1765,6 +1765,22 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
       [userId, salutation, title || null, first_name, last_name, mobile, linkedin_url || null,
        buyerType, succType, role === 'buyer' ? focus : null, noteAdd, noteAdd, inv.contact_id]).catch(() => {});
   }
+  // Login-frei ausgefüllten Nachfolge-Fragebogen ins Nachfolge-Profil übernehmen.
+  if (role === 'buyer' && inv.contact_id) {
+    const intake = await db.get('SELECT * FROM succession_intake WHERE contact_id = ?', [inv.contact_id]).catch(() => null);
+    if (intake) {
+      const SP_TEXTS = ['plz_ort', 'branchenerfahrung', 'funktionale_erfahrung', 'fuehrungserfahrung', 'budgetverantwortung', 'umsatz_band', 'mbi_szenario', 'eigenkapital', 'verfuegbarkeit', 'bemerkungen'];
+      const SP_ARRAYS = ['special_situations', 'ziel_laender', 'ziel_regionen', 'branchenfokus'];
+      const cols = ['user_id']; const vals = [userId]; const ph = ['?'];
+      for (const f of SP_TEXTS) if (intake[f] != null) { cols.push(f); vals.push(intake[f]); ph.push('?'); }
+      for (const f of SP_ARRAYS) { cols.push(f); vals.push(intake[f] || '[]'); ph.push('?'); }
+      await db.run(`INSERT INTO succession_profiles (${cols.join(', ')}) VALUES (${ph.join(', ')})`, vals).catch(() => {});
+      await db.run(`UPDATE users SET buyer_type = 'successor' WHERE id = ? AND (buyer_type IS NULL OR buyer_type = '' OR buyer_type = 'private')`, [userId]).catch(() => {});
+      if (['mit_beteiligung', 'ohne_beteiligung'].includes(intake.succession_type)) {
+        await db.run('UPDATE users SET succession_type = ? WHERE id = ? AND succession_type IS NULL', [intake.succession_type, userId]).catch(() => {});
+      }
+    }
+  }
   db.auditLog(userId, 'REGISTER_VIA_CRM_INVITE', 'user', userId, `${inv.email} · Einwilligung ${inv.consent_text_version}`, req.ip);
 
   // Automatik nur für Käufer: War die Einladung zu einem Mandat, geht direkt die
@@ -1932,6 +1948,7 @@ router.get('/profile/:token', wrap(async (req, res) => {
     SELECT c.name, cc.position FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
     WHERE cc.contact_id = ? AND cc.ended_on IS NULL`, [link.contact_id]).catch(() => []);
 
+  const intake = await db.get('SELECT * FROM succession_intake WHERE contact_id = ?', [link.contact_id]).catch(() => null);
   res.json({
     success: true,
     data: {
@@ -1941,8 +1958,39 @@ router.get('/profile/:token', wrap(async (req, res) => {
       consent_status: contact.consent_status,
       requires_approval: !!link.requires_approval,
       expires_at: link.expires_at,
+      succession: intake ? parseIntake(intake) : null,
+      is_successor: contact.buyer_type === 'successor',
     },
   });
+}));
+
+// Nachfolge-Fragebogen (login-frei) über den Pflege-Link speichern.
+const INTAKE_TEXTS = ['plz_ort', 'branchenerfahrung', 'funktionale_erfahrung', 'fuehrungserfahrung',
+  'budgetverantwortung', 'umsatz_band', 'mbi_szenario', 'eigenkapital', 'verfuegbarkeit', 'bemerkungen', 'succession_type'];
+const INTAKE_ARRAYS = ['special_situations', 'ziel_laender', 'ziel_regionen', 'branchenfokus'];
+function parseIntake(row) {
+  if (!row) return null;
+  const out = { ...row };
+  for (const a of INTAKE_ARRAYS) out[a] = safeJson(row[a], []);
+  return out;
+}
+router.put('/profile/:token/succession', wrap(async (req, res) => {
+  const { link, error } = await loadLink(req.params.token);
+  if (error) return res.status(404).json({ success: false, error });
+  const b = req.body || {};
+  const cols = ['contact_id']; const vals = [link.contact_id]; const ph = ['?'];
+  const setParts = [];
+  for (const f of INTAKE_TEXTS) if (b[f] !== undefined) { cols.push(f); vals.push(b[f] == null ? null : String(b[f]).slice(0, 4000)); ph.push('?'); setParts.push(`${f} = EXCLUDED.${f}`); }
+  for (const f of INTAKE_ARRAYS) if (b[f] !== undefined) { cols.push(f); vals.push(JSON.stringify(Array.isArray(b[f]) ? b[f].map(String) : [])); ph.push('?'); setParts.push(`${f} = EXCLUDED.${f}`); }
+  if (cols.length === 1) return res.status(400).json({ success: false, error: 'Keine Angaben übermittelt.' });
+  cols.push('tenant_id'); vals.push(link.tenant_id || 1); ph.push('?');
+  await db.run(
+    `INSERT INTO succession_intake (${cols.join(', ')}) VALUES (${ph.join(', ')})
+     ON CONFLICT (contact_id) DO UPDATE SET ${setParts.join(', ')}, updated_at = now()`, vals);
+  // Kontakt als Nachfolge-Interessent markieren (überschreibt keinen echten Käufertyp).
+  await db.run(`UPDATE crm_contacts SET buyer_type = 'successor', updated_at = now() WHERE id = ? AND (buyer_type IS NULL OR buyer_type = '' OR buyer_type = 'private')`, [link.contact_id]).catch(() => {});
+  db.auditLog(null, 'SUCCESSION_INTAKE_SAVED', 'crm_contact', link.contact_id, 'Selbstpflege Nachfolge-Fragebogen', req.ip);
+  res.json({ success: true, data: { message: 'Vielen Dank! Ihre Angaben zum Nachfolge-Profil wurden gespeichert.' } });
 }));
 
 router.put('/profile/:token', wrap(async (req, res) => {

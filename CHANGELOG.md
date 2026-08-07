@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.370 · 21.07.2026 · Login-freier Nachfolge-Fragebogen über den Pflege-Link
+- **Ohne Konto ausfüllen**: Eingeladene können ihren Nachfolge-Fragebogen jetzt direkt über den persönlichen Pflege-Link ausfüllen, ohne sich anzumelden (Erfahrung, Zielbranchen, Region, Umsatzgröße, Eigenkapital, Szenario mit oder ohne Beteiligung)
+- **Automatische Übernahme**: Bei einer späteren Registrierung wandern die Angaben von selbst ins Nachfolge-Profil, und der Kontakt wird als Nachfolge-Interessent geführt
+- Verifiziert: Kern-Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.369 · 21.07.2026 · Schwärzen: Begriffe in PDFs unkenntlich machen
 - **Echtes Schwärzen**: Neue Funktion „Schwärzen" je PDF im Safe. Begriffe eingeben (Namen, Zahlen), alle Fundstellen werden schwarz überdeckt UND der Text an diesen Stellen wirklich entfernt (mupdf), sodass nichts mehr auslesbar oder kopierbar ist
 - **Vorschau**: zählt vor dem Schwärzen, wie oft jeder Begriff vorkommt
