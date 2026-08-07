@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.371 · 21.07.2026 · Geteilter Team-Posteingang
+- **Zentrale Übersicht**: Neuer Button „Posteingang" im CRM zeigt alle E-Mail-Konversationen über alle Kontakte an einem Ort, mit Vorschau, Richtung und Zeitpunkt
+- **Antwort offen**: Filter zeigt Konversationen, bei denen zuletzt etwas eingegangen ist und noch keine Antwort folgte, ein roter Punkt markiert sie
+- **Direkt antworten**: Ein Klick öffnet den Kontakt direkt in der Konversationsansicht
+- Verifiziert: Kern-Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.370 · 21.07.2026 · Login-freier Nachfolge-Fragebogen über den Pflege-Link
 - **Ohne Konto ausfüllen**: Eingeladene können ihren Nachfolge-Fragebogen jetzt direkt über den persönlichen Pflege-Link ausfüllen, ohne sich anzumelden (Erfahrung, Zielbranchen, Region, Umsatzgröße, Eigenkapital, Szenario mit oder ohne Beteiligung)
 - **Automatische Übernahme**: Bei einer späteren Registrierung wandern die Angaben von selbst ins Nachfolge-Profil, und der Kontakt wird als Nachfolge-Interessent geführt

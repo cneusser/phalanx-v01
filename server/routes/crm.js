@@ -1610,6 +1610,44 @@ router.get('/invitations', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { invitations: list, funnel } });
 }));
 
+// ── Geteilter Team-Posteingang: Konversationen über alle Kontakte ───────────
+router.get('/inbox', ...isStaff, wrap(async (req, res) => {
+  const filter = req.query.filter === 'open' ? 'open' : 'all';
+  // Kennzahlen je Kontakt (ein-/ausgehend, letzter Zeitpunkt).
+  const agg = await scoped(req, (t) => t.all(`
+    SELECT m.contact_id,
+           k.first_name, k.last_name, k.email, k.buyer_type,
+           COUNT(*) FILTER (WHERE m.direction = 'in')::int  AS in_count,
+           COUNT(*) FILTER (WHERE m.direction = 'out')::int AS out_count,
+           MAX(COALESCE(m.sent_at, m.created_at)) AS last_ts
+    FROM crm_messages m JOIN crm_contacts k ON k.id = m.contact_id
+    GROUP BY m.contact_id, k.first_name, k.last_name, k.email, k.buyer_type
+    ORDER BY last_ts DESC LIMIT 300`)).catch(() => []);
+  // Letzte Nachricht je Kontakt (für Vorschau + „Antwort offen").
+  const last = await scoped(req, (t) => t.all(`
+    SELECT DISTINCT ON (m.contact_id) m.contact_id, m.direction, m.subject, m.body,
+           COALESCE(m.sent_at, m.created_at) AS ts, p.codename
+    FROM crm_messages m LEFT JOIN projects p ON p.id = m.project_id
+    ORDER BY m.contact_id, COALESCE(m.sent_at, m.created_at) DESC`)).catch(() => []);
+  const lastBy = new Map(last.map((l) => [l.contact_id, l]));
+  let conversations = agg.map((c) => {
+    const l = lastBy.get(c.contact_id) || {};
+    const body = String(l.body || '').replace(/\s+/g, ' ').trim();
+    return {
+      contact_id: c.contact_id,
+      name: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email,
+      email: c.email, buyer_type: c.buyer_type,
+      in_count: c.in_count, out_count: c.out_count, last_ts: c.last_ts,
+      last_direction: l.direction || null, last_subject: l.subject || '',
+      last_snippet: body.slice(0, 140), codename: l.codename || null,
+      needs_reply: l.direction === 'in',
+    };
+  });
+  if (filter === 'open') conversations = conversations.filter((c) => c.needs_reply);
+  const openCount = agg.reduce((n, c) => n + ((lastBy.get(c.contact_id) || {}).direction === 'in' ? 1 : 0), 0);
+  res.json({ success: true, data: { conversations, total: agg.length, open: openCount } });
+}));
+
 // ── Öffentlich: Einwilligungsseite (Double-Opt-in) ──────────────────────────
 router.get('/invite/:token', wrap(async (req, res) => {
   const inv = await db.get('SELECT * FROM crm_invitations WHERE token = ?', [req.params.token]);

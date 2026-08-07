@@ -88,6 +88,15 @@ export default function Crm() {
     setInvOpen(true); setInv(null);
     try { setInv(await api.get('/crm/invitations')); } catch (e) { setMsg('Fehler: ' + e.message); }
   }
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inbox, setInbox] = useState(null);
+  const [inboxFilter, setInboxFilter] = useState('all');
+  const [drawerTab, setDrawerTab] = useState(undefined);
+  async function openInbox(filter = 'all') {
+    setInboxOpen(true); setInboxFilter(filter); setInbox(null);
+    try { setInbox(await api.get(`/crm/inbox?filter=${filter}`)); } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+  function openConversation(cid) { setInboxOpen(false); setDrawerTab('konversation'); setDrawerContact(cid); }
 
   const liName = (k) => [k.first_name, k.last_name].filter(Boolean).join(' ') || k.companies || '';
   const normLi = (u) => { const s = String(u || '').trim(); if (!s) return ''; return /^https?:\/\//i.test(s) ? s : `https://${s}`; };
@@ -290,6 +299,9 @@ export default function Crm() {
           </button>
           <button onClick={openInvitations} title="Status aller versendeten Einladungen sehen" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
             <Mail size={14} /> Einladungen
+          </button>
+          <button onClick={() => openInbox('all')} title="Geteilter Posteingang: alle Konversationen über alle Kontakte" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+            <Mail size={14} /> Posteingang
           </button>
           <button onClick={() => setImportListOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
             <Upload size={14} /> Liste importieren (Excel)
@@ -542,7 +554,7 @@ export default function Crm() {
         />
       )}
       {drawerContact && (
-        <ContactDrawer contactId={drawerContact} onClose={() => setDrawerContact(null)} onChanged={load} show={show} />
+        <ContactDrawer contactId={drawerContact} initialTab={drawerTab} onClose={() => { setDrawerContact(null); setDrawerTab(undefined); }} onChanged={load} show={show} />
       )}
       {editCompany && <CompanyForm company={editCompany} companies={companies} onClose={() => setEditCompany(null)} onSaved={() => { setEditCompany(null); load(); show('Gespeichert ✓'); }} />}
       {editContact && <ContactForm contact={editContact} companies={companies} projects={projects} onClose={() => setEditContact(null)} onSaved={() => { setEditContact(null); load(); show('Gespeichert ✓'); }} />}
@@ -550,6 +562,43 @@ export default function Crm() {
       {importListOpen && <ImportListModal onClose={() => setImportListOpen(false)} onDone={() => load()} show={show} />}
       {inviteOpen && <InviteContactsModal onClose={() => setInviteOpen(false)} onDone={() => load()} />}
       {assign && <AssignDealModal contact={assign} projects={projects} stages={stages} onClose={() => setAssign(null)} show={show} />}
+
+      {/* Geteilter Posteingang: Konversationen über alle Kontakte */}
+      {inboxOpen && (
+        <div onClick={() => setInboxOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: '1rem' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', maxWidth: 700, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+              <strong style={{ color: C.navy, fontSize: '1.05rem' }}>Posteingang</strong>
+              <button onClick={() => setInboxOpen(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+            <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.9rem' }}>
+              <button onClick={() => openInbox('all')} style={{ background: inboxFilter === 'all' ? C.navy : '#fff', color: inboxFilter === 'all' ? '#fff' : C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.35rem 0.8rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>Alle{inbox ? ` (${inbox.total})` : ''}</button>
+              <button onClick={() => openInbox('open')} style={{ background: inboxFilter === 'open' ? C.navy : '#fff', color: inboxFilter === 'open' ? '#fff' : C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.35rem 0.8rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>Antwort offen{inbox ? ` (${inbox.open})` : ''}</button>
+            </div>
+            {!inbox ? <div style={{ color: C.muted, padding: '1.5rem', textAlign: 'center' }}>Wird geladen…</div> : (
+              inbox.conversations.length === 0 ? <div style={{ color: C.muted, padding: '1.5rem', textAlign: 'center' }}>Keine Konversationen.</div> : (
+                <div>
+                  {inbox.conversations.map(c => (
+                    <div key={c.contact_id} onClick={() => openConversation(c.contact_id)} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '0.6rem 0.5rem', borderBottom: `1px solid ${C.border}`, cursor: 'pointer' }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', marginTop: 6, flexShrink: 0, background: c.needs_reply ? '#ef4444' : '#cbd5e1' }} title={c.needs_reply ? 'Antwort offen' : 'Beantwortet'} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontWeight: 700, color: C.text, fontSize: '0.86rem' }}>{c.name}</span>
+                          <span style={{ fontSize: '0.7rem', color: C.muted, whiteSpace: 'nowrap' }}>{c.last_ts ? new Date(c.last_ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontWeight: 700, color: c.last_direction === 'in' ? '#065f46' : C.accent }}>{c.last_direction === 'in' ? 'Eingang' : 'Ausgang'}</span>
+                          {c.codename ? ` · ${c.codename}` : ''}{c.last_subject ? ` · ${c.last_subject}` : ''}{c.last_snippet ? ` · ${c.last_snippet}` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Einladungs-Übersicht (Status je Einladung) */}
       {invOpen && (

@@ -38,7 +38,7 @@ const FIELDS = [
 
 const fmt = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'k. A.';
 
-export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
+export default function ContactDrawer({ contactId, onClose, onChanged, show, initialTab }) {
   const { startBirdview } = useAuth();
   const [data, setData] = useState(null);
   // Unterlagen-Link
@@ -78,7 +78,7 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show }) {
   const [mdStage, setMdStage] = useState(0);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState('stamm');
+  const [tab, setTab] = useState(initialTab || 'stamm');
   const [tplFor, setTplFor] = useState(null);   // Prozess-Mail zu einem Mandat des Kontakts
   const [reply, setReply] = useState('');       // eingegangene Antwort manuell erfassen
   const [replySubject, setReplySubject] = useState('');
