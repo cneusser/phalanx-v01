@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Send, UserPlus, Check, X, MessageSquare } from 'lucide-react';
+import { Send, UserPlus, Check, X, MessageSquare, ShieldCheck, ArrowUpRight } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 
 export default function Messages() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [threads, setThreads] = useState([]);
   const [connections, setConnections] = useState([]);
   const [active, setActive] = useState(null); // partner_id
@@ -40,6 +41,17 @@ export default function Messages() {
       setBody(''); openThread(active);
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }
+  // Mandatsbezug der Konversation: jüngste Nachricht mit Mandat (für Berater-Aktionen).
+  const mandateCtx = thread && [...thread.messages].reverse().find(m => m.project_id);
+  async function approveNda(projectId) {
+    setMsg('');
+    try {
+      const d = await api.post(`/admin/projects/${projectId}/interests/${active}/approve-nda`, {});
+      setMsg(d.nda ? 'NDA freigegeben, Datenraum geöffnet ✓' : 'Datenraum freigegeben ✓');
+      openThread(active);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+
   async function addContact() {
     if (!addEmail.trim()) return;
     setMsg('');
@@ -116,6 +128,21 @@ export default function Messages() {
           ) : (
             <>
               <div style={{ padding: '0.9rem 1.1rem', borderBottom: `1px solid ${C.border}`, fontWeight: 700, color: C.navy }}>{thread.partner.name}{thread.partner.company ? ` · ${thread.partner.company}` : ''}</div>
+              {isAdmin && mandateCtx && (
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', padding: '0.55rem 1.1rem', borderBottom: `1px solid ${C.border}`, background: '#f8fbff' }}>
+                  <span style={{ fontSize: '0.72rem', color: C.muted, fontWeight: 600 }}>Mandat {mandateCtx.project_codename || `#${mandateCtx.project_id}`}:</span>
+                  <button onClick={() => approveNda(mandateCtx.project_id)} title="NDA freigeben und Datenraum für diesen Kontakt öffnen" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#065f46', color: '#fff', border: 'none', borderRadius: 7, padding: '0.35rem 0.75rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
+                    <ShieldCheck size={13} /> NDA freigeben und Datenraum
+                  </button>
+                  <button onClick={() => navigate(`/projekte/${mandateCtx.project_id}`)} title="Zum Mandat" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.35rem 0.75rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
+                    <ArrowUpRight size={13} /> Zum Mandat
+                  </button>
+                  <button onClick={() => navigate('/funnel')} title="Zum Deal-Funnel" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.35rem 0.75rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
+                    <ArrowUpRight size={13} /> Deal-Funnel
+                  </button>
+                </div>
+              )}
+              {isAdmin && msg && <div style={{ padding: '0.4rem 1.1rem', fontSize: '0.78rem', color: msg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{msg}</div>}
               <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', maxHeight: 440 }}>
                 {thread.messages.length === 0 ? <div style={{ color: C.muted, fontSize: '0.83rem', textAlign: 'center', marginTop: '2rem' }}>Noch keine Nachrichten. Schreiben Sie die erste.</div>
                   : thread.messages.map(m => {

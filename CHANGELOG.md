@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.372 · 21.07.2026 · Chat: NDA freigeben und zum Mandat springen
+- **Aktionen im Chat**: Berater und Admins sehen bei einer Konversation mit Mandatsbezug jetzt eine Aktionsleiste: „NDA freigeben und Datenraum", „Zum Mandat" und „Deal-Funnel"
+- **Ein Klick**: „NDA freigeben und Datenraum" gibt für genau diesen Kontakt und dieses Mandat die NDA frei und öffnet den Datenraum, ohne Umweg über die Admin-Liste (neuer Endpoint approve-nda, der die NDA-Anfrage selbst auflöst)
+- Verifiziert: Kern-Testsuites grün, Client-Build sauber, Textwächter ohne Befund
+
 ## v0.371 · 21.07.2026 · Geteilter Team-Posteingang
 - **Zentrale Übersicht**: Neuer Button „Posteingang" im CRM zeigt alle E-Mail-Konversationen über alle Kontakte an einem Ort, mit Vorschau, Richtung und Zeitpunkt
 - **Antwort offen**: Filter zeigt Konversationen, bei denen zuletzt etwas eingegangen ist und noch keine Antwort folgte, ein roter Punkt markiert sie

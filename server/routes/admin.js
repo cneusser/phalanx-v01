@@ -923,6 +923,35 @@ router.post('/projects/:projectId/interests/:userId/grant-dataroom', ...isAdmin,
   res.json({ success: true, data: { stage: 'dataroom_granted', notified: req.body.notify !== false } });
 }));
 
+// NDA für (Nutzer, Mandat) freigeben, ohne die nda_request-Id zu kennen (z. B.
+// direkt aus dem Chat). Markiert eine vorhandene NDA als „approved" und öffnet
+// den Datenraum. Liegt keine NDA vor, wird der Datenraum trotzdem freigegeben.
+router.post('/projects/:projectId/interests/:userId/approve-nda', ...isAdmin, wrap(async (req, res) => {
+  const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.projectId]);
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  const buyer = await db.get('SELECT id, email, first_name FROM users WHERE id = ?', [req.params.userId]);
+  if (!buyer) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+
+  const nda = await db.get(
+    `SELECT id FROM nda_requests WHERE project_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1`,
+    [project.id, buyer.id]).catch(() => null);
+  if (nda) {
+    await db.run(`UPDATE nda_requests SET status = 'approved', approved_at = now(), approved_by = ? WHERE id = ?`, [req.user.id, nda.id]);
+  }
+  const { setStage } = require('../middleware/gates');
+  await setStage(buyer.id, project.id, 'dataroom_granted', req.user.id, req.ip);
+  db.auditLog(req.user.id, nda ? 'NDA_APPROVED' : 'DATAROOM_GRANTED_DIRECT', nda ? 'nda_request' : 'project', nda ? nda.id : project.id, `Freigabe aus Chat für ${buyer.email}`, req.ip);
+  require('../utils/xp').award(buyer.id, 'DATAROOM_GRANTED', { refType: 'project', refId: project.id }).catch(() => {});
+  require('../utils/email').sendProcessUpdateEmail({
+    to: buyer.email, firstName: buyer.first_name,
+    title: `Datenraum freigeschaltet: ${project.codename}`,
+    message: `Ihr Zugang für das Mandat <strong>${project.codename}</strong> wurde freigegeben. Sie haben ab sofort Zugriff auf den Datenraum.`,
+    ctaLabel: 'Zum Datenraum', ctaPath: `/projekte/${project.id}`,
+    meta: { type: 'process', projectId: project.id, userId: buyer.id, actorId: req.user.id },
+  }).catch(() => {});
+  res.json({ success: true, data: { stage: 'dataroom_granted', nda: !!nda } });
+}));
+
 // Datenraum-Zugang wieder entziehen (Rechte löschen, Stage zurücksetzen)
 router.post('/projects/:projectId/interests/:userId/revoke-dataroom', ...isAdmin, wrap(async (req, res) => {
   const pid = req.params.projectId; const uid = req.params.userId;
