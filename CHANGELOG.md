@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.375 · 21.07.2026 · Newsletter über aktuelle Mandate
+- **Newsletter-Button im CRM**: eine Rundmail über alle aktuellen Mandate, wahlweise an eingewilligte Kontakte (Button führt in den Marktplatz) oder an alle Kontakte als Bitte um Bestätigung des Zugangs (persönlicher Registrierungslink, Double-Opt-in)
+- **Vorschau vor dem Versand**: gerenderte Mail plus Empfängerzahl; Widersprüche (Opt-out) werden immer ausgeschlossen
+- **Editierbar im Admin**: Betreff und Einleitungstext liegen als Mailvorlagen vor (newsletter_mandate, newsletter_reregister); die Mandatsliste und der passende Button werden beim Versand automatisch ergänzt
+
 ## v0.374 · 21.07.2026 · Suchprofil für eingeladene Käufer, automatisch beim Anmelden
 - **Vorbereitetes Suchprofil**: Berater können einem eingeladenen Käufer ein Suchprofil am Kontakt hinterlegen; bei der Registrierung wird daraus ein echtes Suchprofil des Kontos, das automatisch gegen neue Mandate matcht (Sofort-Benachrichtigung bei Publish, Digest bei täglich/wöchentlich)
 - **Listen im Abgleich**: Der Mandatsabgleich versteht jetzt auch mehrere Branchen oder Regionen je Profil, nicht nur einzelne Werte (gemeinsamer Matcher für Publish und Digest)

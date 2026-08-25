@@ -2296,6 +2296,112 @@ router.post('/deals/:projectId/campaign', ...isStaff, canSend, wrap(async (req, 
   });
 }));
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Newsletter / Rundmail über ALLE aktuellen Mandate (mandatsübergreifend).
+//   audience 'consented' : nur eingewilligte Kontakte, CTA in den Marktplatz.
+//   audience 'reconsent' : alle ohne Widerspruch, Bitte um Bestätigung des
+//                          Zugangs (Double-Opt-in-Token je Kontakt).
+// Widerspruch (opt_out / do_not_contact) wird immer ausgeschlossen.
+// ═══════════════════════════════════════════════════════════════════════════
+const newsletter = require('../utils/newsletter');
+
+// Text + Betreff aus der (im Admin editierbaren) Vorlage, sonst Standardtext.
+async function newsletterCopy(req, audience) {
+  const key = audience === 'reconsent' ? 'newsletter_reregister' : 'newsletter_mandate';
+  const tpl = await scoped(req, (t) => t.get(`SELECT subject, body FROM mail_templates WHERE key = ? AND is_active = 1`, [key])).catch(() => null);
+  const def = newsletter.DEFAULTS[audience] || newsletter.DEFAULTS.consented;
+  return { subject: (tpl && tpl.subject) || def.subject, intro: (tpl && tpl.body) || def.intro };
+}
+
+// Vorschau: Empfängerzahl (Senden vs. übersprungen) + gerenderte Beispielmail.
+router.post('/newsletter/preview', ...isStaff, wrap(async (req, res) => {
+  const audience = newsletter.AUDIENCES.includes(req.body.audience) ? req.body.audience : 'consented';
+  const where = newsletter.recipientWhere(audience);
+  const eligible = await scoped(req, (t) => t.get(`SELECT COUNT(*)::int AS n FROM crm_contacts WHERE ${where}`)).catch(() => ({ n: 0 }));
+  const total = await scoped(req, (t) => t.get(`SELECT COUNT(*)::int AS n FROM crm_contacts`)).catch(() => ({ n: 0 }));
+  const mandates = await newsletter.activeMandates();
+  const { subject, intro } = await newsletterCopy(req, audience);
+  const sample = await scoped(req, (t) => t.get(`SELECT * FROM crm_contacts WHERE ${where} ORDER BY id LIMIT 1`)).catch(() => null);
+  const mail = newsletter.buildNewsletterMail({
+    contact: sample || { salutation: 'Herr', last_name: 'Mustermann', email: 'name@beispiel.de' },
+    mandates, inviter: req.user, audience, subject, introText: intro,
+    consentToken: 'VORSCHAU', profileToken: 'VORSCHAU',
+  });
+  const previewHtml = `<p style="margin:0 0 12px;">${mail.salutation}</p>${mail.bodyHtml}`;
+  res.json({ success: true, data: {
+    audience, subject: mail.subject, send: eligible.n, total: total.n, skip: Math.max(0, total.n - eligible.n),
+    mandates: mandates.length, previewHtml,
+  } });
+}));
+
+// Versand
+router.post('/newsletter/send', ...isStaff, canSend, wrap(async (req, res) => {
+  const audience = newsletter.AUDIENCES.includes(req.body.audience) ? req.body.audience : 'consented';
+  const where = newsletter.recipientWhere(audience);
+  const mandates = await newsletter.activeMandates();
+  const { subject, intro } = await newsletterCopy(req, audience);
+  const tenant = req.tenantId || 1;
+
+  const recips = await scoped(req, (t) => t.all(`SELECT * FROM crm_contacts WHERE ${where} ORDER BY id LIMIT 2000`)).catch(() => []);
+  if (!recips.length) return res.status(400).json({ success: false, error: 'Keine passenden Empfänger.' });
+
+  const crypto = require('crypto');
+  const { sendCampaignEmail } = require('../utils/email');
+  const campaignId = await scoped(req, (t) => t.insert(`
+    INSERT INTO crm_campaigns (tenant_id, project_id, name, purpose, subject, reminders_enabled, status, created_by, sent_at)
+    VALUES (?, NULL, ?, 'newsletter', ?, 0, 'sent', ?, now())`,
+    [tenant, audience === 'reconsent' ? 'Newsletter Re-Registrierung' : 'Newsletter aktuelle Mandate', subject, req.user.id]));
+
+  let sent = 0, skipped = 0;
+  for (const k of recips) {
+    if (!k.email || k.consent_status === 'opt_out' || k.contact_status === 'do_not_contact') { skipped++; continue; }
+
+    // Re-Registrierung: Einwilligungs-Token je Kontakt (offenen wiederverwenden).
+    let inviteId = null, consentToken = null;
+    if (audience === 'reconsent' && k.consent_status !== 'opt_in') {
+      const open = await scoped(req, (t) => t.get(
+        `SELECT id, token FROM crm_invitations WHERE contact_id = ? AND status IN ('invited','opened')
+          AND (expires_at IS NULL OR expires_at > now()) ORDER BY id DESC LIMIT 1`, [k.id])).catch(() => null);
+      if (open) { inviteId = open.id; consentToken = open.token; }
+      else {
+        consentToken = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + INVITE_DAYS * 24 * 3600 * 1000);
+        inviteId = await scoped(req, (t) => t.insert(`
+          INSERT INTO crm_invitations (tenant_id, contact_id, email, token, invited_by, expires_at, purpose)
+          VALUES (?, ?, ?, ?, ?, ?, 'default')`, [tenant, k.id, k.email, consentToken, req.user.id, expires])).catch(() => null);
+      }
+    }
+
+    // Pflege-/Abmeldelink immer beilegen (aktiven wiederverwenden).
+    let profileId = null, profileToken = null;
+    const active = await scoped(req, (t) => t.get(
+      `SELECT id, token FROM crm_profile_links WHERE contact_id = ? AND status = 'active'
+        AND (expires_at IS NULL OR expires_at > now()) ORDER BY id DESC LIMIT 1`, [k.id])).catch(() => null);
+    if (active) { profileId = active.id; profileToken = active.token; }
+    else {
+      profileToken = crypto.randomBytes(32).toString('hex');
+      const pExp = new Date(Date.now() + PROFILE_DAYS * 24 * 3600 * 1000);
+      profileId = await scoped(req, (t) => t.insert(`
+        INSERT INTO crm_profile_links (tenant_id, contact_id, token, requires_approval, created_by, expires_at)
+        VALUES (?, ?, ?, 0, ?, ?)`, [tenant, k.id, profileToken, req.user.id, pExp])).catch(() => null);
+    }
+
+    sendCampaignEmail({ ...newsletter.buildNewsletterMail({
+      contact: k, mandates, inviter: req.user, audience, subject, introText: intro, consentToken, profileToken,
+    }), meta: { type: 'campaign', templateKey: 'newsletter', contactId: k.id, actorId: req.user.id, tenantId: tenant } }).catch(() => {});
+
+    await scoped(req, (t) => t.run(`
+      INSERT INTO crm_campaign_recipients (tenant_id, campaign_id, contact_id, email, invitation_id, profile_link_id, status, sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'sent', now()) ON CONFLICT (campaign_id, contact_id) DO NOTHING`,
+      [tenant, campaignId, k.id, k.email, inviteId, profileId])).catch(() => {});
+    sent++;
+  }
+
+  db.auditLog(req.user.id, 'CRM_NEWSLETTER_SENT', 'campaign', campaignId,
+    `Newsletter (${audience}) · ${sent} versendet · ${skipped} übersprungen`, req.ip);
+  res.status(201).json({ success: true, data: { campaign_id: campaignId, sent, skipped } });
+}));
+
 // Kampagnen eines Mandats (mit Reaktionsquote)
 router.get('/deals/:projectId/campaigns', ...isStaff, wrap(async (req, res) => {
   const rows = await scoped(req, (t) => t.all(`

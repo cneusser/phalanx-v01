@@ -88,6 +88,28 @@ export default function Crm() {
     setInvOpen(true); setInv(null);
     try { setInv(await api.get('/crm/invitations')); } catch (e) { setMsg('Fehler: ' + e.message); }
   }
+  const [nlOpen, setNlOpen] = useState(false);
+  const [nlAudience, setNlAudience] = useState('consented');
+  const [nlPreview, setNlPreview] = useState(null);
+  const [nlBusy, setNlBusy] = useState(false);
+  async function openNewsletter() { setNlOpen(true); setNlPreview(null); setNlAudience('consented'); await loadNlPreview('consented'); }
+  async function loadNlPreview(aud) {
+    setNlBusy(true);
+    try { setNlPreview(await api.post('/crm/newsletter/preview', { audience: aud })); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+    finally { setNlBusy(false); }
+  }
+  async function sendNewsletter() {
+    if (!window.confirm(`Newsletter jetzt an ${nlPreview ? nlPreview.send : '?'} Kontakt(e) senden?`)) return;
+    setNlBusy(true);
+    try {
+      const r = await api.post('/crm/newsletter/send', { audience: nlAudience });
+      setMsg(`Newsletter versendet: ${r.sent} gesendet, ${r.skipped} übersprungen.`);
+      setNlOpen(false);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+    finally { setNlBusy(false); }
+  }
+
   const [inboxOpen, setInboxOpen] = useState(false);
   const [inbox, setInbox] = useState(null);
   const [inboxFilter, setInboxFilter] = useState('all');
@@ -302,6 +324,9 @@ export default function Crm() {
           </button>
           <button onClick={() => openInbox('all')} title="Geteilter Posteingang: alle Konversationen über alle Kontakte" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
             <Mail size={14} /> Posteingang
+          </button>
+          <button onClick={openNewsletter} title="Rundmail über alle aktuellen Mandate an eingewilligte oder alle Kontakte" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+            <Mail size={14} /> Newsletter
           </button>
           <button onClick={() => setImportListOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
             <Upload size={14} /> Liste importieren (Excel)
@@ -564,6 +589,50 @@ export default function Crm() {
       {assign && <AssignDealModal contact={assign} projects={projects} stages={stages} onClose={() => setAssign(null)} show={show} />}
 
       {/* Geteilter Posteingang: Konversationen über alle Kontakte */}
+      {nlOpen && (
+        <div onClick={() => setNlOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: '1rem' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', maxWidth: 640, width: '100%', maxHeight: '88vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+              <strong style={{ color: C.navy, fontSize: '1.05rem' }}>Newsletter über aktuelle Mandate</strong>
+              <button onClick={() => setNlOpen(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+            <p style={{ color: C.muted, fontSize: '0.82rem', margin: '0 0 0.9rem' }}>Widersprüche (Opt-out) werden immer ausgeschlossen. Text und Betreff sind im Admin unter Mailvorlagen editierbar.</p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.9rem' }}>
+              {[
+                ['consented', 'Eingewilligte Kontakte', 'Hinweis auf die aktuellen Mandate, Button führt in den Marktplatz.'],
+                ['reconsent', 'Alle Kontakte: Zugang bestätigen', 'Bitte um (erneute) Einwilligung mit persönlichem Registrierungslink (DSGVO-Double-Opt-in).'],
+              ].map(([val, title, desc]) => (
+                <label key={val} onClick={() => { setNlAudience(val); loadNlPreview(val); }} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '0.7rem 0.9rem', border: `1px solid ${nlAudience === val ? C.accent : C.border}`, background: nlAudience === val ? '#f8fbff' : '#fff', borderRadius: 10, cursor: 'pointer' }}>
+                  <input type="radio" checked={nlAudience === val} readOnly style={{ marginTop: 3 }} />
+                  <div>
+                    <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.88rem' }}>{title}</div>
+                    <div style={{ fontSize: '0.78rem', color: C.muted }}>{desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {nlBusy && !nlPreview ? <div style={{ color: C.muted, padding: '1rem', textAlign: 'center' }}>Vorschau wird geladen…</div> : nlPreview && (
+              <div>
+                <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+                  <span style={{ fontSize: '0.82rem', color: C.text }}><strong>{nlPreview.send}</strong> Empfänger</span>
+                  <span style={{ fontSize: '0.82rem', color: C.muted }}>{nlPreview.skip} ohne Ansprache</span>
+                  <span style={{ fontSize: '0.82rem', color: C.muted }}>{nlPreview.mandates} Mandate</span>
+                </div>
+                <div style={{ fontSize: '0.82rem', color: C.navy, marginBottom: '0.4rem' }}><strong>Betreff:</strong> {nlPreview.subject}</div>
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.9rem', maxHeight: '34vh', overflowY: 'auto', background: '#fff' }} dangerouslySetInnerHTML={{ __html: nlPreview.previewHtml }} />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+              <button onClick={() => setNlOpen(false)} style={{ background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 1rem', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>Abbrechen</button>
+              <button onClick={sendNewsletter} disabled={nlBusy || !nlPreview || !nlPreview.send} style={{ background: (nlBusy || !nlPreview || !nlPreview.send) ? '#9ca3af' : '#166534', color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 1.1rem', fontSize: '0.85rem', fontWeight: 700, cursor: (nlBusy || !nlPreview || !nlPreview.send) ? 'default' : 'pointer' }}>{nlBusy ? 'Bitte warten…' : `An ${nlPreview ? nlPreview.send : 0} senden`}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {inboxOpen && (
         <div onClick={() => setInboxOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: '1rem' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', maxWidth: 700, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
