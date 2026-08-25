@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.373 · 21.07.2026 · Neue Kandidaten: Bihrer (Cudd) und Motus / Kernfels
+- **Thomas Bihrer** (Privatperson) als Interessent für das Mandat Cudd aufgenommen (Quelle DUB.de) und im Deal-Funnel auf Stufe „Rückmeldung" gesetzt
+- **Christoph Giesen** mit Unternehmen Motus Unternehmerkapital (Marke Kernfels Gruppe) als Buy-Side-Suchmandat aufgenommen; das vollständige Suchprofil (Gewerke, Größe, Region, Konstellationen) liegt in den Notizen des Kontakts
+- Beide mit Einwilligungsstatus „unbekannt" angelegt; die Einladung mit Registrierungslink verschickt der Berater per Klick aus dem CRM (DSGVO-Double-Opt-in)
+
 ## v0.372 · 21.07.2026 · Chat: NDA freigeben und zum Mandat springen
 - **Aktionen im Chat**: Berater und Admins sehen bei einer Konversation mit Mandatsbezug jetzt eine Aktionsleiste: „NDA freigeben und Datenraum", „Zum Mandat" und „Deal-Funnel"
 - **Ein Klick**: „NDA freigeben und Datenraum" gibt für genau diesen Kontakt und dieses Mandat die NDA frei und öffnet den Datenraum, ohne Umweg über die Admin-Liste (neuer Endpoint approve-nda, der die NDA-Anfrage selbst auflöst)
