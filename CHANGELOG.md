@@ -3,6 +3,10 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.376 · 21.07.2026 · DSGVO-Löschung eines Kontakts wieder möglich
+- **Fehler behoben**: Das Anonymisieren eines Kontakts (Recht auf Vergessenwerden, Art. 17) brach mit „Interner Serverfehler" ab, weil zwei Pflichtfelder (Suchbranchen, Suchregionen) auf NULL statt auf einen gültigen Leerwert gesetzt wurden
+- Diese Felder werden jetzt korrekt geleert; die Löschung läuft wieder durch, die Prozesshistorie bleibt als Nachweis erhalten
+
 ## v0.375 · 21.07.2026 · Newsletter über aktuelle Mandate
 - **Newsletter-Button im CRM**: eine Rundmail über alle aktuellen Mandate, wahlweise an eingewilligte Kontakte (Button führt in den Marktplatz) oder an alle Kontakte als Bitte um Bestätigung des Zugangs (persönlicher Registrierungslink, Double-Opt-in)
 - **Vorschau vor dem Versand**: gerenderte Mail plus Empfängerzahl; Widersprüche (Opt-out) werden immer ausgeschlossen

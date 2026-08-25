@@ -2833,7 +2833,7 @@ router.post('/contacts/:id/anonymize', ...isStaff, requirePermission('crm.delete
       salutation = NULL, title = NULL, first_name = NULL, last_name = 'Gelöschter Kontakt',
       email = NULL, phone = NULL, mobile = NULL, linkedin_url = NULL, location = NULL,
       responsibility = NULL, notes = NULL, tags_json = '[]',
-      focus_industries = NULL, focus_regions = NULL, investment_focus = NULL,
+      focus_industries = '[]', focus_regions = '[]', investment_focus = NULL,
       consent_status = 'opt_out', contact_status = 'do_not_contact',
       anonymized_at = now(), anonymized_by = ?, updated_at = now()
     WHERE id = ?`, [req.user.id, id]));
