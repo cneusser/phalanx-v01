@@ -10,16 +10,7 @@ const WINDOW = { daily: 24 * 3600 * 1000, weekly: 7 * 24 * 3600 * 1000 };
 // Etwas Toleranz, damit ein knapp verfehlter Lauf nicht einen ganzen Zyklus wartet.
 const DUE = { daily: 20 * 3600 * 1000, weekly: 6.5 * 24 * 3600 * 1000 };
 
-function matches(c, p) {
-  if (c.industry && c.industry !== p.industry) return false;
-  if (c.region && c.region !== p.region) return false;
-  if (c.deal_type && c.deal_type !== p.deal_type) return false;
-  if (c.mandate_type && c.mandate_type !== p.mandate_type) return false;
-  if (c.revenue_band && c.revenue_band !== p.revenue_band) return false;
-  if (c.ebitda_band && c.ebitda_band !== p.ebitda_band) return false;
-  if (c.search) { const s = String(c.search).toLowerCase(); if (!(`${p.codename} ${p.short_description || ''}`.toLowerCase().includes(s))) return false; }
-  return true;
-}
+const { matchesProfile: matches } = require('./profileMatch');
 
 async function runDigests() {
   const now = Date.now();

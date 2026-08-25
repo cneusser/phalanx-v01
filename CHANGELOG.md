@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.374 · 21.07.2026 · Suchprofil für eingeladene Käufer, automatisch beim Anmelden
+- **Vorbereitetes Suchprofil**: Berater können einem eingeladenen Käufer ein Suchprofil am Kontakt hinterlegen; bei der Registrierung wird daraus ein echtes Suchprofil des Kontos, das automatisch gegen neue Mandate matcht (Sofort-Benachrichtigung bei Publish, Digest bei täglich/wöchentlich)
+- **Listen im Abgleich**: Der Mandatsabgleich versteht jetzt auch mehrere Branchen oder Regionen je Profil, nicht nur einzelne Werte (gemeinsamer Matcher für Publish und Digest)
+- **Motus / Kernfels**: Für Christoph Giesen ist das Buy-Side-Suchprofil vorbereitet und greift ab seiner Anmeldung
+
 ## v0.373 · 21.07.2026 · Neue Kandidaten: Bihrer (Cudd) und Motus / Kernfels
 - **Thomas Bihrer** (Privatperson) als Interessent für das Mandat Cudd aufgenommen (Quelle DUB.de) und im Deal-Funnel auf Stufe „Rückmeldung" gesetzt
 - **Christoph Giesen** mit Unternehmen Motus Unternehmerkapital (Marke Kernfels Gruppe) als Buy-Side-Suchmandat aufgenommen; das vollständige Suchprofil (Gewerke, Größe, Region, Konstellationen) liegt in den Notizen des Kontakts

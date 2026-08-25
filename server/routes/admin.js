@@ -74,14 +74,8 @@ async function notifyMatchingBuyers(projectId) {
     SELECT sp.id, sp.name, sp.criteria_json, u.id AS user_id, u.email, u.first_name, u.buyer_type
     FROM search_profiles sp JOIN users u ON u.id = sp.user_id
     WHERE sp.notify_frequency = 'instant' AND u.is_active = 1`);
-  const matches = (c) => {
-    if (c.industry && c.industry !== p.industry) return false;
-    if (c.region && c.region !== p.region) return false;
-    if (c.deal_type && c.deal_type !== p.deal_type) return false;
-    if (c.mandate_type && c.mandate_type !== p.mandate_type) return false;
-    if (c.search) { const s = (c.search || '').toLowerCase(); if (!(`${p.codename} ${p.short_description || ''}`.toLowerCase().includes(s))) return false; }
-    return true;
-  };
+  const { matchesProfile } = require('../utils/profileMatch');
+  const matches = (c) => matchesProfile(c, p);
   const { sendProcessUpdateEmail } = require('../utils/email');
   for (const prof of profiles) {
     let c = {}; try { c = JSON.parse(prof.criteria_json || '{}'); } catch {}

@@ -1788,6 +1788,28 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
       [inv.tenant_id || 1, userId, JSON.stringify(industries), JSON.stringify(regions), JSON.stringify(deal_types)]).catch(() => {});
   }
 
+  // Vom Berater vorbereitetes Suchprofil (am Kontakt hinterlegt) in ein echtes
+  // Suchprofil des neuen Kontos überführen. Es matcht danach automatisch gegen
+  // neue Mandate (Sofort-Benachrichtigung bei Publish, Digest bei daily/weekly).
+  if (role === 'buyer' && inv.contact_id) {
+    const cRow = await db.get('SELECT pending_search_profile_json FROM crm_contacts WHERE id = ?', [inv.contact_id]).catch(() => null);
+    if (cRow && cRow.pending_search_profile_json) {
+      try {
+        const pend = JSON.parse(cRow.pending_search_profile_json);
+        const name = String(pend.name || 'Mein Suchprofil').slice(0, 200);
+        const criteria = pend.criteria && typeof pend.criteria === 'object' ? pend.criteria : {};
+        const freq = ['instant', 'daily', 'weekly', 'off'].includes(pend.notify_frequency) ? pend.notify_frequency : 'instant';
+        const already = await db.get('SELECT id FROM search_profiles WHERE user_id = ? AND name = ?', [userId, name]).catch(() => null);
+        if (!already) {
+          await db.run(
+            `INSERT INTO search_profiles (tenant_id, user_id, name, criteria_json, notify_frequency) VALUES (?, ?, ?, ?, ?)`,
+            [inv.tenant_id || 1, userId, name, JSON.stringify(criteria), freq]).catch(() => {});
+        }
+        await db.run('UPDATE crm_contacts SET pending_search_profile_json = NULL WHERE id = ?', [inv.contact_id]).catch(() => {});
+      } catch { /* ungültiges JSON ignorieren */ }
+    }
+  }
+
   await db.run(`UPDATE crm_invitations SET status = 'registered', registered_at = now(), user_id = ? WHERE id = ?`, [userId, inv.id]);
   // Die vom Onboarding erfassten Angaben ins CRM zurückschreiben, damit die Daten
   // dort vollständig vorliegen (Stammdaten, Käufertyp, Fokus, Interesse).
