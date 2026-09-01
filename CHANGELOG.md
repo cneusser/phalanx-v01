@@ -3,6 +3,10 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.378 · 21.07.2026 · Neuer Kontakt: Alexander Kubald (Betongold)
+- **Alexander Kubald** (M&A-Berater mit Suchmandat, Quelle DUB.de) als Interessent für das Mandat Betongold aufgenommen und im Deal-Funnel auf Stufe „Rückmeldung" gesetzt
+- Angelegt mit Einwilligungsstatus „unbekannt"; die Einladung mit Registrierungslink verschickt der Berater per Klick aus dem CRM (Double-Opt-in)
+
 ## v0.377 · 21.07.2026 · Neues Mandat: Cavendish (Green-Hydrogen Seed)
 - **Neues Fundraising-Mandat „Cavendish"** (anonymisiert): Deep-Tech-Seed für neuartige PEM-Elektrolyse-Stacks; Seed I (0,75 Mio. € bei 7,5 Mio. € Post-Money) plus Seed II (10 Mio. € bei 30 Mio. €)
 - Als Entwurf angelegt; Teaser (öffentlich) und Investment Memorandum (hinter Zugang) werden in den Datenraum geladen, danach kann das Mandat veröffentlicht werden
