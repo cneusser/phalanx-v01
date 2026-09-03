@@ -61,7 +61,17 @@ const ALL_TABS = [
 // Tabs die immer zugänglich sind (ohne NDA)
 const PUBLIC_TABS = ['overview', 'contact'];
 
-function LockedTabPlaceholder({ onRequestNDA, user, ndaStatus, navigate }) {
+function LockedTabPlaceholder({ onRequestNDA, onSign, user, ndaStatus, navigate }) {
+  // Nach dem Anfordern muss der Käufer die NDA selbst digital zeichnen. Deshalb
+  // hier NICHT nur „wird geprüft" zeigen, sondern aktiv zum Unterzeichnen führen.
+  const needsSign = ndaStatus === 'requested' || ndaStatus === 'sent';
+  const message = !user
+    ? 'Registrieren Sie sich, um Zugang zu vertraulichen Informationen anzufordern.'
+    : ndaStatus === 'signed'
+      ? 'Ihre Vertraulichkeitsvereinbarung ist unterzeichnet und wird kurz geprüft. Danach schalten wir Datenraum und Q&A frei.'
+      : needsSign
+        ? 'Nur noch ein Schritt: Zeichnen Sie die Vertraulichkeitsvereinbarung digital, das dauert zwei Minuten. Danach sind Kurzprofil, Unterlagen und Datenraum sofort für Sie frei.'
+        : 'Fordern Sie Zugang an, dann können Sie die Vertraulichkeitsvereinbarung direkt digital zeichnen und erhalten die Unterlagen.';
   return (
     <div style={{
       background: C.bg,
@@ -80,12 +90,8 @@ function LockedTabPlaceholder({ onRequestNDA, user, ndaStatus, navigate }) {
       <h3 style={{ fontWeight: 700, color: C.text, marginBottom: '0.5rem', fontSize: '1rem' }}>
         NDA erforderlich
       </h3>
-      <p style={{ color: C.muted, fontSize: '0.83rem', lineHeight: 1.6, marginBottom: '1.25rem', maxWidth: 280, margin: '0 auto 1.25rem' }}>
-        {!user
-          ? 'Registrieren Sie sich, um Zugang zu vertraulichen Informationen anzufordern.'
-          : ndaStatus
-            ? 'Ihr NDA wird geprüft. Nach Freigabe erhalten Sie vollständigen Zugang.'
-            : 'Fordern Sie eine NDA an, um Zugang zu diesen Informationen zu erhalten.'}
+      <p style={{ color: C.muted, fontSize: '0.83rem', lineHeight: 1.6, marginBottom: '1.25rem', maxWidth: 320, margin: '0 auto 1.25rem' }}>
+        {message}
       </p>
       {!user ? (
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
@@ -96,9 +102,13 @@ function LockedTabPlaceholder({ onRequestNDA, user, ndaStatus, navigate }) {
             Anmelden
           </Link>
         </div>
+      ) : needsSign ? (
+        <button onClick={onSign} style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '0.7rem 1.6rem', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem' }}>
+          NDA jetzt digital zeichnen
+        </button>
       ) : !ndaStatus ? (
         <button onClick={onRequestNDA} style={{ background: C.navy, color: '#fff', border: 'none', padding: '0.65rem 1.5rem', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
-          NDA anfordern
+          Zugang anfordern
         </button>
       ) : null}
     </div>
@@ -403,7 +413,7 @@ export default function ProjectDetail() {
 
     // Unternehmen: NDA-geschützt
     if (activeTab === 'company') {
-      if (!canViewTab('company')) return <LockedTabPlaceholder onRequestNDA={requestNDA} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
+      if (!canViewTab('company')) return <LockedTabPlaceholder onRequestNDA={requestNDA} onSign={() => setShowNDAModal(true)} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
       return (
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
@@ -469,7 +479,7 @@ export default function ProjectDetail() {
 
     // Markt & Potenzial: NDA-geschützt
     if (activeTab === 'market') {
-      if (!canViewTab('market')) return <LockedTabPlaceholder onRequestNDA={requestNDA} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
+      if (!canViewTab('market')) return <LockedTabPlaceholder onRequestNDA={requestNDA} onSign={() => setShowNDAModal(true)} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
       return (
         <div>
           {teaser.tam_band && (
@@ -496,7 +506,7 @@ export default function ProjectDetail() {
 
     // Finanzen: NDA-geschützt
     if (activeTab === 'financials') {
-      if (!canViewTab('financials')) return <LockedTabPlaceholder onRequestNDA={requestNDA} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
+      if (!canViewTab('financials')) return <LockedTabPlaceholder onRequestNDA={requestNDA} onSign={() => setShowNDAModal(true)} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
 
       if (isStartup) {
         // Startup: Mittelverwendung + Meilensteine
@@ -694,7 +704,7 @@ export default function ProjectDetail() {
 
     // Sprint 4: Q&A: nach Datenraum-Freigabe
     if (activeTab === 'qa') {
-      if (!approved) return <LockedTabPlaceholder onRequestNDA={requestNDA} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
+      if (!approved) return <LockedTabPlaceholder onRequestNDA={requestNDA} onSign={() => setShowNDAModal(true)} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
 
       const askQuestion = async () => {
         if (!newQuestion.trim()) return;

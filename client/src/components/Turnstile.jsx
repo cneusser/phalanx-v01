@@ -27,12 +27,23 @@ function loadScript() {
   return scriptLoading;
 }
 
-export default function Turnstile({ onToken }) {
+export default function Turnstile({ onToken, resetKey = 0 }) {
   const ref = useRef(null);
   const widgetId = useRef(null);
   const solved = useRef(false);
   const [siteKey, setSiteKey] = useState(undefined);   // undefined = noch laden
   const [status, setStatus] = useState('loading');     // loading | ready | unavailable
+
+  // Nach einem Fehlversuch (resetKey ändert sich) ein frisches Token holen.
+  // Turnstile-Token sind einmalig gültig und laufen ab: ohne Reset schickt der
+  // zweite Versuch ein verbrauchtes Token, und der Server lehnt trotz sichtbarem
+  // „Erfolg" ab. Der Reset holt sauber ein neues Token.
+  useEffect(() => {
+    if (!resetKey) return;
+    solved.current = false;
+    if (onToken) onToken('');
+    try { if (widgetId.current && window.turnstile) window.turnstile.reset(widgetId.current); } catch { /* egal */ }
+  }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let alive = true;

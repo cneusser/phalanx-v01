@@ -51,6 +51,7 @@ export default function Register() {
   const [agreed, setAgreed] = useState(false);
   const [success, setSuccess] = useState(false);
   const [tsToken, setTsToken] = useState('');
+  const [tsReset, setTsReset] = useState(0);   // frisches Turnstile-Token nach Fehlversuch
 
   const set = (k) => (e) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
@@ -66,6 +67,7 @@ export default function Register() {
       }
     } catch (err) {
       setError(err.message);
+      setTsToken(''); setTsReset(k => k + 1);
     } finally {
       setLoading(false);
     }
@@ -281,7 +283,7 @@ export default function Register() {
           </div>
 
           {/* Roboter-Test (nur sichtbar, wenn Cloudflare Turnstile konfiguriert ist) */}
-          <Turnstile onToken={setTsToken} />
+          <Turnstile onToken={setTsToken} resetKey={tsReset} />
 
           <button
             type="submit"

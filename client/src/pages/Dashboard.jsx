@@ -119,6 +119,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [succProfile, setSuccProfile] = useState(null);
   const [succMatches, setSuccMatches] = useState([]);
+  const [guideOpen, setGuideOpen] = useState(() => { try { return localStorage.getItem('cm_guide_collapsed') !== '1'; } catch { return true; } });
+  const toggleGuide = () => setGuideOpen(v => { const nv = !v; try { localStorage.setItem('cm_guide_collapsed', nv ? '0' : '1'); } catch { /* egal */ } return nv; });
 
   // Verkäufer haben einen eigenen, fokussierten Bereich (nur eigene Mandate + Funnel).
   useEffect(() => {
@@ -272,9 +274,46 @@ export default function Dashboard() {
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
       {/* Welcome */}
-      <div style={{ marginBottom: '2rem' }}>
+      <div style={{ marginBottom: '1.25rem' }}>
         <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.navy }}>Willkommen, {user?.first_name}</h1>
         <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>Ihr persönlicher M&A-Bereich</p>
+      </div>
+
+      {/* So funktioniert's: jederzeit sichtbare Schritt-für-Schritt-Anleitung */}
+      <div style={{ background: '#fff', border: `1px solid ${C.navy}22`, borderRadius: 12, marginBottom: '1.5rem', overflow: 'hidden' }}>
+        <button onClick={toggleGuide} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: C.lightBg, border: 'none', padding: '0.8rem 1.2rem', cursor: 'pointer' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, color: C.navy, fontSize: '0.95rem' }}>
+            <Target size={17} /> So funktioniert's in 4 Schritten
+          </span>
+          <span style={{ fontSize: '0.8rem', color: C.navy, fontWeight: 700 }}>{guideOpen ? 'ausblenden' : 'anzeigen'}</span>
+        </button>
+        {guideOpen && (
+          <div style={{ padding: '1.1rem 1.2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.9rem' }}>
+              {[
+                ['1', 'Mandat auswählen', 'Öffnen Sie im Marktplatz ein anonymes Kurzprofil, das zu Ihnen passt.', FileText],
+                ['2', 'NDA digital zeichnen', 'Fordern Sie den Zugang an und zeichnen Sie die Vertraulichkeitsvereinbarung direkt online. Das dauert zwei Minuten.', FileCheck],
+                ['3', 'Unterlagen & Datenraum', 'Nach der Unterschrift schalten wir Exposé, Information Memorandum und den Datenraum für Sie frei.', Database],
+                ['4', 'Gespräch & Angebot', 'Stellen Sie Fragen über Q&A, dann folgen Management-Gespräch und indikatives Angebot.', MessageSquare],
+              ].map(([n, title, desc, Icon]) => (
+                <div key={n} style={{ background: C.bg, borderRadius: 10, padding: '0.85rem 0.9rem', position: 'relative' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                    <span style={{ width: 22, height: 22, borderRadius: '50%', background: C.navy, color: '#fff', fontSize: '0.72rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{n}</span>
+                    <Icon size={15} color={C.navy} />
+                    <span style={{ fontWeight: 700, color: C.navy, fontSize: '0.86rem' }}>{title}</span>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#555', lineHeight: 1.5 }}>{desc}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: '1rem', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Link to="/projekte" style={{ background: C.navy, color: '#fff', padding: '0.6rem 1.3rem', borderRadius: 8, textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                Mandate ansehen <ArrowRight size={15} />
+              </Link>
+              <span style={{ fontSize: '0.78rem', color: '#888' }}>Ihren aktuellen Stand je Mandat sehen Sie unten unter „Meine Deals".</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Plattform-NDA: Gütesiegel (Stufe C) */}

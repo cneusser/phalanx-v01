@@ -31,6 +31,7 @@ export default function Login() {
   const [unverified, setUnverified] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
   const [tsToken, setTsToken] = useState('');
+  const [tsReset, setTsReset] = useState(0);   // erzwingt ein frisches Turnstile-Token nach Fehlversuch
 
   // Wohin nach erfolgreichem Login? (Rücksprung nur auf interne Pfade, kein Open Redirect)
   const goAfterLogin = (user) => {
@@ -64,6 +65,9 @@ export default function Login() {
     } catch (err) {
       setError(err.message);
       if ((err.message || '').includes('bestätigen Sie zuerst Ihre E-Mail')) setUnverified(true);
+      // Frisches Token holen: das verbrauchte/abgelaufene würde sonst beim nächsten
+      // Versuch erneut abgelehnt, obwohl das Kästchen „Erfolg" zeigt.
+      setTsToken(''); setTsReset(k => k + 1);
     } finally {
       setLoading(false);
     }
@@ -213,7 +217,7 @@ export default function Login() {
           </div>
 
           {/* Roboter-Test (nur sichtbar, wenn Cloudflare Turnstile konfiguriert ist) */}
-          <Turnstile onToken={setTsToken} />
+          <Turnstile onToken={setTsToken} resetKey={tsReset} />
 
           <button
             type="submit"

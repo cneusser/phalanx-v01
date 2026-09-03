@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.379 · 21.07.2026 · Anmeldung, Onboarding und NDA-Führung
+- **Anmeldefehler behoben**: Der Cloudflare-Sicherheitscheck wird nach einem Fehlversuch zurückgesetzt; die Anmeldung bleibt nicht mehr mit „Bitte bestätigen Sie den Sicherheitscheck" hängen, obwohl das Kästchen „Erfolg" zeigt (Token war einmalig verbraucht)
+- **Onboarding**: Neue, jederzeit sichtbare Anleitung „So funktioniert's in 4 Schritten" auf dem Käufer-Dashboard mit direktem Weg in den Marktplatz
+- **NDA-Führung**: Wer den Zugang angefordert hat, wird jetzt aktiv zum digitalen Zeichnen geführt („NDA jetzt digital zeichnen") statt nur auf eine Prüfung zu warten. Das war eine Hauptursache für abbrechende Interessenten
+
 ## v0.378 · 21.07.2026 · Neuer Kontakt: Alexander Kubald (Betongold)
 - **Alexander Kubald** (M&A-Berater mit Suchmandat, Quelle DUB.de) als Interessent für das Mandat Betongold aufgenommen und im Deal-Funnel auf Stufe „Rückmeldung" gesetzt
 - Angelegt mit Einwilligungsstatus „unbekannt"; die Einladung mit Registrierungslink verschickt der Berater per Klick aus dem CRM (Double-Opt-in)
