@@ -1859,6 +1859,8 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
 
   const token = jwt.sign({ userId }, require('../utils/jwtSecret').getJwtSecret(), { expiresIn: '7d' });
   const user = await db.get('SELECT id, email, role, salutation, title, first_name, last_name, company FROM users WHERE id = ?', [userId]);
+  // Willkommensmail mit den vier Schritten, damit direkt klar ist, wie es weitergeht.
+  require('../utils/email').sendWelcomeSteps({ to: String(inv.email).toLowerCase(), firstName: first_name, person: user }).catch(() => {});
   res.status(201).json({ success: true, data: { token, user } });
 }));
 
@@ -2316,7 +2318,8 @@ async function newsletterCopy(req, audience) {
 // Vorschau: Empfängerzahl (Senden vs. übersprungen) + gerenderte Beispielmail.
 router.post('/newsletter/preview', ...isStaff, wrap(async (req, res) => {
   const audience = newsletter.AUDIENCES.includes(req.body.audience) ? req.body.audience : 'consented';
-  const where = newsletter.recipientWhere(audience);
+  const sinceDays = Number(req.body.since_days) > 0 ? Math.floor(Number(req.body.since_days)) : 0;
+  const where = newsletter.recipientWhere(audience, sinceDays);
   const eligible = await scoped(req, (t) => t.get(`SELECT COUNT(*)::int AS n FROM crm_contacts WHERE ${where}`)).catch(() => ({ n: 0 }));
   const total = await scoped(req, (t) => t.get(`SELECT COUNT(*)::int AS n FROM crm_contacts`)).catch(() => ({ n: 0 }));
   const mandates = await newsletter.activeMandates();
@@ -2337,7 +2340,8 @@ router.post('/newsletter/preview', ...isStaff, wrap(async (req, res) => {
 // Versand
 router.post('/newsletter/send', ...isStaff, canSend, wrap(async (req, res) => {
   const audience = newsletter.AUDIENCES.includes(req.body.audience) ? req.body.audience : 'consented';
-  const where = newsletter.recipientWhere(audience);
+  const sinceDays = Number(req.body.since_days) > 0 ? Math.floor(Number(req.body.since_days)) : 0;
+  const where = newsletter.recipientWhere(audience, sinceDays);
   const mandates = await newsletter.activeMandates();
   const { subject, intro } = await newsletterCopy(req, audience);
   const tenant = req.tenantId || 1;

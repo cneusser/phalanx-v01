@@ -27,12 +27,18 @@ async function activeMandates() {
 }
 
 // Empfänger je Zielgruppe. Widerspruch wird immer ausgeschlossen.
-function recipientWhere(audience) {
-  if (audience === 'consented') {
-    return `email IS NOT NULL AND consent_status = 'opt_in' AND COALESCE(contact_status,'') <> 'do_not_contact'`;
+// sinceDays (optional): nur Kontakte, die in den letzten N Tagen neu angelegt wurden
+// (z. B. 42 = letzte 6 Wochen). 0/leer = keine Zeitgrenze.
+function recipientWhere(audience, sinceDays) {
+  let base = audience === 'consented'
+    ? `email IS NOT NULL AND consent_status = 'opt_in' AND COALESCE(contact_status,'') <> 'do_not_contact'`
+    // reconsent: alle ohne ausdrücklichen Widerspruch (unknown + opt_in)
+    : `email IS NOT NULL AND COALESCE(consent_status,'unknown') <> 'opt_out' AND COALESCE(contact_status,'') <> 'do_not_contact'`;
+  const n = Number(sinceDays);
+  if (Number.isFinite(n) && n > 0) {
+    base += ` AND created_at >= now() - interval '${Math.floor(n)} days'`;
   }
-  // reconsent: alle ohne ausdrücklichen Widerspruch (unknown + opt_in)
-  return `email IS NOT NULL AND COALESCE(consent_status,'unknown') <> 'opt_out' AND COALESCE(contact_status,'') <> 'do_not_contact'`;
+  return base;
 }
 
 const trunc = (s, n) => {

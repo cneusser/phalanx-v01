@@ -399,6 +399,41 @@ async function sendRegistrationNotification({ firstName, lastName, email, compan
 }
 
 // Generische Prozess-Benachrichtigung an den Investor (jeder Funnel-Schritt)
+// Willkommensmail direkt nach der Registrierung: nennt die vier Schritte, damit
+// klar ist, wie es weitergeht (Marktplatz, NDA zeichnen, Unterlagen, Gespräch).
+async function sendWelcomeSteps({ to, firstName, person }) {
+  const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
+  const greet = greetingLine(await resolvePerson(person || { first_name: firstName }, to));
+  const steps = [
+    ['1', 'Mandat auswählen', 'Öffnen Sie im Marktplatz ein anonymes Kurzprofil, das zu Ihnen passt.'],
+    ['2', 'NDA digital zeichnen', 'Fordern Sie den Zugang an und zeichnen Sie die Vertraulichkeitsvereinbarung direkt online. Das dauert zwei Minuten.'],
+    ['3', 'Unterlagen und Datenraum', 'Nach der Unterschrift schalten wir Exposé, Information Memorandum und den Datenraum für Sie frei.'],
+    ['4', 'Gespräch und Angebot', 'Stellen Sie Fragen über Q&A, dann folgen Management-Gespräch und indikatives Angebot.'],
+  ].map(([n, t, d]) => `
+    <tr>
+      <td style="vertical-align:top;padding:6px 10px 6px 0;width:30px;">
+        <div style="width:24px;height:24px;border-radius:12px;background:#1A4D8A;color:#fff;font-weight:700;font-size:13px;text-align:center;line-height:24px;">${n}</div>
+      </td>
+      <td style="vertical-align:top;padding:6px 0;">
+        <div style="font-weight:700;color:#14314F;font-size:14px;">${t}</div>
+        <div style="font-size:13px;color:#555;line-height:1.5;">${d}</div>
+      </td>
+    </tr>`).join('');
+  return sendMail({
+    to,
+    subject: '[CapitalMatch] Willkommen: so geht es in vier Schritten weiter',
+    html: mailShell('Willkommen bei CapitalMatch', `
+      <p>${greet}</p>
+      <p>willkommen bei CapitalMatch, der Mandatsplattform der Phalanx GmbH. Ihr Konto ist aktiv. So kommen Sie in vier Schritten zu den vertraulichen Unterlagen:</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;">${steps}</table>
+      <p style="text-align:center; margin: 24px 0;">
+        <a href="${base}/projekte" style="background:#1A4D8A;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;">Mandate ansehen</a>
+      </p>
+      <p style="font-size:13px;color:#555;">Ihren aktuellen Stand je Mandat sehen Sie jederzeit in Ihrem Dashboard unter „Meine Deals". Bei Fragen antworten Sie einfach auf diese E-Mail.</p>
+    `),
+  });
+}
+
 async function sendProcessUpdateEmail({ to, firstName, person, title, message, ctaLabel, ctaPath, meta }) {
   const url = `${process.env.FRONTEND_URL || 'https://www.capitalmatch.de'}${ctaPath || ''}`;
   const greet = greetingLine(await resolvePerson(person || { first_name: firstName }, to));
@@ -448,6 +483,7 @@ module.exports = {
   logMail,
   greetingLine,
   resolvePerson,
+  sendWelcomeSteps,
   sendCampaignEmail,
   sendMail,
   sendPasswordResetEmail,

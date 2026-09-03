@@ -3,6 +3,10 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.380 · 21.07.2026 · Willkommensmail und Re-Invite neuer Kontakte
+- **Willkommensmail**: Nach der Registrierung erklärt eine automatische E-Mail in vier Schritten, wie es weitergeht (Marktplatz, NDA zeichnen, Unterlagen und Datenraum, Gespräch), mit Button in den Marktplatz
+- **Newsletter-Filter**: Der Newsletter lässt sich jetzt auf neue Kontakte der letzten 6 Wochen eingrenzen, um frische Leads gezielt erneut auf die offenen Projekte hinzuweisen
+
 ## v0.379 · 21.07.2026 · Anmeldung, Onboarding und NDA-Führung
 - **Anmeldefehler behoben**: Der Cloudflare-Sicherheitscheck wird nach einem Fehlversuch zurückgesetzt; die Anmeldung bleibt nicht mehr mit „Bitte bestätigen Sie den Sicherheitscheck" hängen, obwohl das Kästchen „Erfolg" zeigt (Token war einmalig verbraucht)
 - **Onboarding**: Neue, jederzeit sichtbare Anleitung „So funktioniert's in 4 Schritten" auf dem Käufer-Dashboard mit direktem Weg in den Marktplatz
