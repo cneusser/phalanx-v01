@@ -41,7 +41,7 @@ export default function Register() {
   const [roleType, setRoleType] = useState('buyer'); // 'buyer' or 'seller'
   const [form, setForm] = useState({
     email: '', password: '', salutation: '', title: '', first_name: '', last_name: '',
-    company: '', position: '', buyer_type: 'strategic', succession_type: '', mobile: '', phone: '',
+    company: '', position: '', linkedin_url: '', buyer_type: 'strategic', succession_type: '', mobile: '', phone: '',
   });
   // Käufer-Segment: Nachfolge-Interessent oder professioneller Käufer
   const [buyerSegment, setBuyerSegment] = useState('succession');
@@ -204,6 +204,10 @@ export default function Register() {
             placeholder={roleType === 'seller' ? 'Müller GmbH' : 'Müller Holding GmbH'}
           />
           <Field label="Position" value={form.position} onChange={set('position')} placeholder="Geschäftsführer" />
+          <Field label="LinkedIn-Profil (optional)" value={form.linkedin_url} onChange={set('linkedin_url')} placeholder="https://linkedin.com/in/..." />
+          <div style={{ fontSize: '0.74rem', color: C.gray, marginTop: '-0.5rem', marginBottom: '0.9rem' }}>
+            Wenn wir Sie über LinkedIn angesprochen haben, erleichtert Ihr Profillink die Zuordnung Ihres bereits vorbereiteten Zugangs.
+          </div>
 
           {/* Käufer-Segment: Nachfolge-Interessent vs professioneller Käufer */}
           {roleType === 'buyer' && (
@@ -278,6 +282,8 @@ export default function Register() {
               <Link to="/datenschutz" style={{ color: C.navy, fontWeight: 600 }}>Datenschutzhinweise</Link>{' '}
               und willige ein, dass meine Angaben zur Verwaltung meines Zugangs gespeichert und für die
               projektbezogene Ansprache (z.&nbsp;B. Informationen zu Mandaten und Prozessschritten) genutzt werden.
+              Sofern die Phalanx GmbH mich zuvor persönlich (etwa über LinkedIn) kontaktiert hat, dürfen bereits
+              zu mir vorbereitete Kontaktdaten mit diesem Konto zusammengeführt werden (Art. 13 DSGVO).
               Die Einwilligung kann ich jederzeit mit Wirkung für die Zukunft widerrufen.
             </label>
           </div>

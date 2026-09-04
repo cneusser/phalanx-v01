@@ -282,3 +282,36 @@ phalanx-v01/
 - **Sprint 3** NDA-Automatik + E-Signatur-Provider-Interface + gestufter Zugang
 - **Sprint 4** Sicherer Datenraum (Wasserzeichen, signierte Links) + Admin-CRM
 - **Sprint 5** Multi-Tenant (RLS), Branding je Tenant, Billing-Interface
+
+## LinkedIn-Kandidaten importieren
+
+Kandidaten aus dem LinkedIn-Netzwerk werden je Mandat als Excel-Liste importiert
+(Spalten u. a. Vorname, Nachname, E-Mail, Firma, Position, LinkedIn, Standort,
+Käufertyp, Mandat, Passung, Quelle, Notiz, Prio). Es werden keine E-Mails und keine
+Einladungstokens erzeugt; die Ansprache läuft manuell über LinkedIn mit dem
+allgemeinen Registrierungslink.
+
+Ablauf:
+1. Dubletten werden in der Reihenfolge E-Mail, LinkedIn-URL, eindeutiger
+   Namensschlüssel erkannt; bei Treffer wird der Kontakt angereichert statt neu
+   angelegt. Je Mandat entsteht ein Funnel-Eintrag auf Stufe 2 (Ansprache) mit
+   Quelle `linkedin_import`. Kontakte mit Plattformkonto werden als „Konto
+   vorhanden" markiert und bekommen keinen Funnel-Eintrag.
+2. Registriert sich die Person später über den allgemeinen Link, wird der
+   vorbereitete CRM-Kontakt automatisch verknüpft (E-Mail, dann LinkedIn-Feld,
+   dann eindeutiger Name); Käufertyp und vorbereitetes Suchprofil werden übernommen.
+
+Import über die CLI (empfohlen für die Erstbefüllung):
+
+```
+cd server
+npm i exceljs
+DATABASE_URL=... node scripts/linkedin-kandidaten-import.js \
+  --dir ~/Downloads/linkedin-import/outreach
+# Trockenlauf ohne Schreiben:  ... --dry
+```
+
+Das Skript schreibt je Mandat eine Ergebnis-CSV nach `<dir>/ergebnisse/` und
+aktualisiert, falls vorhanden, die Outreach-Excel (`Registriert`, `NDA`), ohne die
+Formatierung zu verändern. Alternativ steht der Import über die Admin-Oberfläche
+(Excel-Upload mit Vorschau) bereit.

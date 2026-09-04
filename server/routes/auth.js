@@ -21,7 +21,7 @@ router.get('/config', (req, res) => {
 });
 
 router.post('/register', wrap(async (req, res) => {
-  const { email, password, first_name, last_name, company, position, buyer_type, succession_type, mobile, phone, role, privacy_consent, salutation, title, turnstile_token } = req.body;
+  const { email, password, first_name, last_name, company, position, buyer_type, succession_type, mobile, phone, role, privacy_consent, salutation, title, turnstile_token, linkedin_url } = req.body;
   // Bot-Test (Cloudflare Turnstile), sofern konfiguriert
   if (!(await require('../utils/turnstile').verifyTurnstile(turnstile_token, req.ip))) {
     return res.status(400).json({ success: false, error: 'Bitte bestätigen Sie den Sicherheitscheck (kein Roboter).' });
@@ -76,6 +76,43 @@ router.post('/register', wrap(async (req, res) => {
   const userId = result.userId;
 
   db.auditLog(userId, 'REGISTER', 'user', userId, `role=${userRole}`, req.ip);
+
+  // ── Vorbereiteten CRM-Kontakt automatisch verknüpfen (LinkedIn-Vorregistrierung) ──
+  // Reihenfolge: (1) E-Mail, (2) LinkedIn-Profil aus dem Formular, (3) eindeutiger
+  // Namensschlüssel. Nur bei genau einem Treffer verknüpfen; mehrdeutige Namen bleiben
+  // offen und werden protokolliert (Admin prüft manuell).
+  try {
+    const li = require('../utils/linkedinImport');
+    const linkedin = li.normalizeLinkedin(linkedin_url);
+    let contact = await db.get('SELECT * FROM crm_contacts WHERE lower(email) = ? AND user_id IS NULL', [email.toLowerCase()]).catch(() => null);
+    if (!contact && linkedin) contact = await db.get('SELECT * FROM crm_contacts WHERE user_id IS NULL AND (linkedin_url = ? OR lower(linkedin_url) = ?)', [linkedin, linkedin]).catch(() => null);
+    let ambiguous = false;
+    if (!contact) {
+      const key = li.nameKey(first_name, last_name);
+      const cands = await db.all('SELECT id, first_name, last_name FROM crm_contacts WHERE user_id IS NULL').catch(() => []);
+      const matches = cands.filter((c) => li.nameKey(c.first_name, c.last_name) === key);
+      if (matches.length === 1) contact = await db.get('SELECT * FROM crm_contacts WHERE id = ?', [matches[0].id]).catch(() => null);
+      else if (matches.length > 1) ambiguous = true;
+    }
+    if (contact) {
+      await db.run('UPDATE crm_contacts SET user_id = ?, updated_at = now() WHERE id = ?', [userId, contact.id]).catch(() => {});
+      if (contact.buyer_type) await db.run("UPDATE users SET buyer_type = ? WHERE id = ? AND (buyer_type IS NULL OR buyer_type = '')", [contact.buyer_type, userId]).catch(() => {});
+      // Vorbereitetes Suchprofil (v0.374) aktivieren
+      if (contact.pending_search_profile_json) {
+        try {
+          const pend = JSON.parse(contact.pending_search_profile_json);
+          const name = String(pend.name || 'Mein Suchprofil').slice(0, 200);
+          const already = await db.get('SELECT id FROM search_profiles WHERE user_id = ? AND name = ?', [userId, name]).catch(() => null);
+          if (!already) await db.run('INSERT INTO search_profiles (tenant_id, user_id, name, criteria_json, notify_frequency) VALUES (?, ?, ?, ?, ?)',
+            [tenantId, userId, name, JSON.stringify(pend.criteria || {}), ['instant', 'daily', 'weekly', 'off'].includes(pend.notify_frequency) ? pend.notify_frequency : 'instant']).catch(() => {});
+          await db.run('UPDATE crm_contacts SET pending_search_profile_json = NULL WHERE id = ?', [contact.id]).catch(() => {});
+        } catch { /* ungültiges JSON ignorieren */ }
+      }
+      db.auditLog(userId, 'contact.linked_on_selfregister', 'crm_contact', contact.id, `${email} automatisch verknüpft`, req.ip);
+    } else if (ambiguous) {
+      db.auditLog(userId, 'contact.link_ambiguous', 'user', userId, `Mehrere CRM-Kontakte mit gleichem Namen wie ${first_name} ${last_name}, Zuordnung offen`, req.ip);
+    }
+  } catch (e) { console.warn('Selbstregistrierung-Verknüpfung fehlgeschlagen:', e.message); }
 
   console.log(`\n📬 Neue Registrierung: ${first_name} ${last_name} <${email}>: E-Mail-Bestätigung ausstehend`);
   // Verifizierungs-Mail an den Nutzer (Registrierung erst nach Bestätigung abgeschlossen).

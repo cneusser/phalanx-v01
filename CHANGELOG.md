@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.381 · 21.07.2026 · LinkedIn-Kandidaten: Import und automatische Verknüpfung
+- **Import erweitert**: erkennt LinkedIn, Käufertyp, Mandat, Passung, Prio, Quelle, Notiz; Dublettenprüfung über E-Mail, LinkedIn-URL und eindeutigen Namensschlüssel, Anreicherung statt Doppelanlage
+- **Funnel**: je Mandat ein Eintrag auf Stufe „Ansprache" mit Quelle linkedin_import; Kontakte mit Konto als „Konto vorhanden" markiert, ohne Funnel-Eintrag
+- **Selbstregistrierung**: vorbereiteter CRM-Kontakt wird automatisch verknüpft (E-Mail, LinkedIn-Feld, eindeutiger Name); Käufertyp und vorbereitetes Suchprofil werden übernommen, mehrdeutige Namen bleiben offen
+- **Registrierung**: neues optionales Feld „LinkedIn-Profil" plus Art.-13-Hinweis; CLI-Skript `scripts/linkedin-kandidaten-import.js` und README-Abschnitt für die Erstbefüllung
+
 ## v0.380 · 21.07.2026 · Willkommensmail und Re-Invite neuer Kontakte
 - **Willkommensmail**: Nach der Registrierung erklärt eine automatische E-Mail in vier Schritten, wie es weitergeht (Marktplatz, NDA zeichnen, Unterlagen und Datenraum, Gespräch), mit Button in den Marktplatz
 - **Newsletter-Filter**: Der Newsletter lässt sich jetzt auf neue Kontakte der letzten 6 Wochen eingrenzen, um frische Leads gezielt erneut auf die offenen Projekte hinzuweisen

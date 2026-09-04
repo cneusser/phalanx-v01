@@ -849,50 +849,134 @@ router.post('/import/companies', ...isStaff, canWrite, wrap(async (req, res) => 
   res.json({ success: true, data: { created, skipped, total: rows.length } });
 }));
 
+const li = require('../utils/linkedinImport');
+
+// Kontakt-Import (CSV). Erkennt zusätzlich LinkedIn, Käufertyp, Mandat, Passung,
+// Prio, Quelle, Notiz. Dublettenprüfung in der Reihenfolge E-Mail, LinkedIn-URL,
+// eindeutiger Namensschlüssel; bei Treffer wird angereichert statt neu angelegt.
+// Je Zeile mit Mandat entsteht ein Funnel-Eintrag (Stufe 2 Ansprache, Quelle
+// linkedin_import), außer der Kontakt hat bereits ein Plattformkonto.
 router.post('/import/contacts', ...isStaff, canWrite, wrap(async (req, res) => {
   const rows = parseCsv(req.body.csv);
   if (!rows.length) return res.status(400).json({ success: false, error: 'Keine Datenzeilen gefunden.' });
-  let created = 0, skipped = 0, linked = 0;
-  for (const r of rows) {
-    const last = pick(r, 'nachname', 'lastname', 'name');
-    if (!last) { skipped++; continue; }
-    const email = (pick(r, 'email', 'mail', 'emailadresse') || '').toLowerCase() || null;
-    if (email) {
-      const dup = await scoped(req, (t) => t.get('SELECT id FROM crm_contacts WHERE lower(email) = ?', [email]));
-      if (dup) { skipped++; continue; }
-    }
-    const contactId = await scoped(req, (t) => t.insert(`
-      INSERT INTO crm_contacts (tenant_id, salutation, title, first_name, last_name, email, phone, mobile,
-        linkedin_url, location, responsibility, notes, is_decision_maker, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.tenantId || 1, pick(r, 'anrede', 'salutation'), pick(r, 'titel', 'title'),
-       pick(r, 'vorname', 'firstname'), last, email,
-       pick(r, 'telefon', 'phone', 'tel'), pick(r, 'mobil', 'mobile', 'handy'),
-       pick(r, 'linkedin', 'linkedinurl'), pick(r, 'standort', 'location'),
-       pick(r, 'verantwortung', 'responsibility'), pick(r, 'notizen', 'notes'),
-       /ja|yes|1|true/i.test(pick(r, 'entscheider', 'decisionmaker') || '') ? 1 : 0,
-       req.user.id]));
-    created++;
+  const tenant = req.tenantId || 1;
+  const results = [];
+  let created = 0, enriched = 0, registered = 0, parties = 0, skipped = 0;
 
-    // Unternehmen aus der Zeile anlegen/zuordnen, falls angegeben
+  // Namensschlüssel-Index einmal laden (nur bei genau einem Treffer verknüpfen)
+  const allNames = await scoped(req, (t) => t.all('SELECT id, first_name, last_name FROM crm_contacts')).catch(() => []);
+
+  for (const r of rows) {
+    const first = pick(r, 'vorname', 'firstname');
+    const last = pick(r, 'nachname', 'lastname', 'name');
+    if (!last) { skipped++; results.push({ first, last, linkedin: null, result: 'übersprungen (kein Name)', account: '', mandat: pick(r, 'mandat', 'codename') || '', contact_id: '' }); continue; }
+    const email = (pick(r, 'email', 'mail', 'emailadresse') || '').toLowerCase() || null;
+    const linkedin = li.normalizeLinkedin(pick(r, 'linkedin', 'linkedinurl'));
+    const buyerType = li.mapBuyerType(pick(r, 'käufertyp', 'kaeufertyp', 'buyertype'));
+    const buyerTypeRaw = pick(r, 'käufertyp', 'kaeufertyp', 'buyertype');
+    const source = pick(r, 'quelle', 'source') || 'linkedin_import';
+    const note = pick(r, 'notiz', 'notizen', 'notes');
+    const passung = pick(r, 'passung');
+    const prio = pick(r, 'prio', 'priority');
+    const codename = pick(r, 'mandat', 'codename', 'projekt');
+
+    // ── Dublettenprüfung: (1) E-Mail (2) LinkedIn (3) eindeutiger Name ──
+    let contact = null;
+    if (email) contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE lower(email) = ?', [email])).catch(() => null);
+    if (!contact && linkedin) {
+      contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE linkedin_url = ? OR lower(linkedin_url) = ?', [linkedin, linkedin])).catch(() => null);
+    }
+    if (!contact && first && last) {
+      const key = li.nameKey(first, last);
+      const matches = allNames.filter((c) => li.nameKey(c.first_name, c.last_name) === key);
+      if (matches.length === 1) contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [matches[0].id])).catch(() => null);
+    }
+
+    let contactId, outcome;
+    if (contact) {
+      // Anreichern: nur leere Felder füllen, Tags zusammenführen, Notiz anhängen.
+      contactId = contact.id;
+      let tags = []; try { tags = JSON.parse(contact.tags_json || '[]'); } catch { tags = []; }
+      tags = li.buildTags({ passung, prio, buyerTypeRaw, existing: tags });
+      const mergedNote = note && !(contact.notes || '').includes(note)
+        ? ((contact.notes ? contact.notes + '\n' : '') + note) : contact.notes;
+      await scoped(req, (t) => t.run(`
+        UPDATE crm_contacts SET
+          linkedin_url = COALESCE(linkedin_url, ?),
+          buyer_type = COALESCE(NULLIF(buyer_type, ''), ?),
+          relationship = COALESCE(NULLIF(relationship, ''), ?),
+          source = COALESCE(NULLIF(source, ''), ?),
+          location = COALESCE(NULLIF(location, ''), ?),
+          responsibility = COALESCE(NULLIF(responsibility, ''), ?),
+          tags_json = ?, notes = ?, updated_at = now()
+        WHERE id = ?`,
+        [linkedin, buyerType, 'LinkedIn-Kontakt', source, pick(r, 'standort', 'location'),
+         pick(r, 'position', 'funktion', 'verantwortung', 'responsibility'),
+         JSON.stringify(tags), mergedNote, contactId])).catch(() => {});
+      enriched++; outcome = 'angereichert';
+    } else {
+      const tags = li.buildTags({ passung, prio, buyerTypeRaw });
+      contactId = await scoped(req, (t) => t.insert(`
+        INSERT INTO crm_contacts (tenant_id, salutation, title, first_name, last_name, email, phone, mobile,
+          linkedin_url, location, responsibility, notes, buyer_type, relationship, source, tags_json,
+          consent_status, contact_status, is_decision_maker, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unknown', 'active', ?, ?)`,
+        [tenant, pick(r, 'anrede', 'salutation'), pick(r, 'titel', 'title'), first, last, email,
+         pick(r, 'telefon', 'phone', 'tel'), pick(r, 'mobil', 'mobile', 'handy'), linkedin,
+         pick(r, 'standort', 'location'), pick(r, 'position', 'funktion', 'verantwortung', 'responsibility'),
+         note, buyerType, 'LinkedIn-Kontakt', source, JSON.stringify(tags),
+         /ja|yes|1|true/i.test(pick(r, 'entscheider', 'decisionmaker') || '') ? 1 : 0, req.user.id]));
+      created++; outcome = 'neu angelegt';
+      allNames.push({ id: contactId, first_name: first, last_name: last });
+    }
+
+    // Unternehmen zuordnen (falls angegeben und noch nicht verknüpft)
     const companyName = pick(r, 'unternehmen', 'firma', 'company', 'firmenname');
     if (companyName) {
       const norm = normalizeName(companyName);
-      let comp = await scoped(req, (t) => t.get('SELECT id FROM crm_companies WHERE name_normalized = ?', [norm]));
+      let comp = await scoped(req, (t) => t.get('SELECT id FROM crm_companies WHERE name_normalized = ?', [norm])).catch(() => null);
       if (!comp) {
         const newId = await scoped(req, (t) => t.insert(
           `INSERT INTO crm_companies (tenant_id, name, name_normalized, created_by) VALUES (?, ?, ?, ?)`,
-          [req.tenantId || 1, companyName, norm, req.user.id]));
+          [tenant, companyName, norm, req.user.id]));
         comp = { id: newId };
       }
-      await scoped(req, (t) => t.run(
+      const linkExists = await scoped(req, (t) => t.get('SELECT id FROM crm_company_contacts WHERE company_id = ? AND contact_id = ?', [comp.id, contactId])).catch(() => null);
+      if (!linkExists) await scoped(req, (t) => t.run(
         `INSERT INTO crm_company_contacts (tenant_id, company_id, contact_id, position) VALUES (?, ?, ?, ?)`,
-        [req.tenantId || 1, comp.id, contactId, pick(r, 'position', 'funktion')]));
-      linked++;
+        [tenant, comp.id, contactId, pick(r, 'position', 'funktion')])).catch(() => {});
     }
+
+    // Konto vorhanden? (verknüpft oder per E-Mail auffindbar)
+    const acc = await db.get('SELECT id, created_at FROM users WHERE id = ? OR lower(email) = lower(?) ORDER BY id LIMIT 1',
+      [contact && contact.user_id ? contact.user_id : 0, email || '___none___']).catch(() => null);
+    const hasAccount = !!acc;
+    if (hasAccount) { registered++; if (outcome === 'neu angelegt') outcome = 'neu angelegt (Konto vorhanden)'; }
+
+    // Funnel-Eintrag am Mandat (nur wenn Mandat existiert und kein Konto vorhanden)
+    let project = null;
+    if (codename) project = await scoped(req, (t) => t.get('SELECT id FROM projects WHERE codename = ?', [codename])).catch(() => null);
+    if (project && !hasAccount) {
+      const existP = await scoped(req, (t) => t.get('SELECT id FROM crm_deal_parties WHERE project_id = ? AND contact_id = ?', [project.id, contactId])).catch(() => null);
+      if (!existP) {
+        await scoped(req, (t) => t.run(`
+          INSERT INTO crm_deal_parties (tenant_id, project_id, contact_id, party_role, funnel_stage, party_status, source, next_step, stage_changed_at, created_by)
+          VALUES (?, ?, ?, 'buyer', 2, 'open', 'linkedin_import', ?, now(), ?)`,
+          [tenant, project.id, contactId, 'Über LinkedIn angesprochen, wartet auf Selbstregistrierung', req.user.id])).catch(() => {});
+        parties++;
+      }
+    }
+
+    results.push({
+      first: first || '', last, linkedin: linkedin || '',
+      result: outcome, account: hasAccount ? 'Konto vorhanden' : '',
+      mandat: codename || '', contact_id: contactId,
+    });
   }
-  db.auditLog(req.user.id, 'CRM_IMPORT_CONTACTS', 'crm_contact', null, `${created} angelegt, ${skipped} übersprungen`, req.ip);
-  res.json({ success: true, data: { created, skipped, linked, total: rows.length } });
+
+  db.auditLog(req.user.id, 'CRM_IMPORT_CONTACTS', 'crm_contact', null,
+    `${created} neu, ${enriched} angereichert, ${registered} mit Konto, ${parties} Funnel-Einträge`, req.ip);
+  res.json({ success: true, data: { created, enriched, registered, parties, skipped, total: rows.length, results } });
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
