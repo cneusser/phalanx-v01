@@ -3,6 +3,10 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.382 · 21.07.2026 · Vorbereitete Mandate direkt nach der Anmeldung
+- **Dashboard-Kachel „Für Sie vorbereitete Mandate"**: zeigt dem angemeldeten Käufer genau die für ihn vorbereiteten Mandate mit Button „Ansehen und NDA zeichnen" bzw. „Ansehen und Zugang anfragen" (Startup-Finanzierung); nur veröffentlichte Mandate, Entwürfe bleiben unsichtbar
+- **Funnel-Kennzeichen**: über LinkedIn angesprochene Kontakte sind im Deal-Funnel mit „LinkedIn" markiert
+
 ## v0.381 · 21.07.2026 · LinkedIn-Kandidaten: Import und automatische Verknüpfung
 - **Import erweitert**: erkennt LinkedIn, Käufertyp, Mandat, Passung, Prio, Quelle, Notiz; Dublettenprüfung über E-Mail, LinkedIn-URL und eindeutigen Namensschlüssel, Anreicherung statt Doppelanlage
 - **Funnel**: je Mandat ein Eintrag auf Stufe „Ansprache" mit Quelle linkedin_import; Kontakte mit Konto als „Konto vorhanden" markiert, ohne Funnel-Eintrag

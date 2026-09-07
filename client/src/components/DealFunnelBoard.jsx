@@ -675,6 +675,12 @@ export default function DealFunnelBoard({ show }) {
                               Eingang{p.inbound_signal && INBOUND_LABEL[p.inbound_signal] ? ` · ${INBOUND_LABEL[p.inbound_signal]}` : ''}
                             </span>
                           )}
+                          {p.source === 'linkedin_import' && (
+                            <span title="Über LinkedIn angesprochen, wartet auf Selbstregistrierung"
+                              style={{ background: '#E0E7FF', color: '#3730a3', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 700 }}>
+                              LinkedIn
+                            </span>
+                          )}
                           {(() => {
                             const eff = (p.nda_status === 'signed' || p.nda_online === 'signed') ? 'signed'
                               : (p.nda_status === 'open' || p.nda_online === 'open') ? 'open' : null;

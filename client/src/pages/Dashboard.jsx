@@ -119,6 +119,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [succProfile, setSuccProfile] = useState(null);
   const [succMatches, setSuccMatches] = useState([]);
+  const [prepared, setPrepared] = useState([]);
   const [guideOpen, setGuideOpen] = useState(() => { try { return localStorage.getItem('cm_guide_collapsed') !== '1'; } catch { return true; } });
   const toggleGuide = () => setGuideOpen(v => { const nv = !v; try { localStorage.setItem('cm_guide_collapsed', nv ? '0' : '1'); } catch { /* egal */ } return nv; });
 
@@ -139,6 +140,7 @@ export default function Dashboard() {
     api.get('/gamification/me').then(setXp).catch(() => {});
     api.get('/auth/platform-nda').then(setPlatformNda).catch(() => {});
     api.get('/projects/my-deals').then(d => setMyDeals(d || [])).catch(() => {});
+    api.get('/crm/my-prepared-mandates').then(d => setPrepared(d || [])).catch(() => {});
     // Nachfolge-Kontext (harmlos auch für Käufer): eigenes Profil + passende Mandate
     api.get('/succession/profile').then(setSuccProfile).catch(() => {});
     api.get('/succession/matches').then(d => setSuccMatches((d && d.matches) || [])).catch(() => {});
@@ -315,6 +317,35 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Für Sie vorbereitete Mandate (aus dem Import/CRM-Funnel) */}
+      {prepared.length > 0 && (
+        <div style={{ background: '#fff', border: `2px solid ${C.navy}`, borderRadius: 12, padding: '1.1rem 1.25rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.7rem' }}>
+            <Target size={18} color={C.navy} />
+            <span style={{ fontWeight: 800, color: C.navy, fontSize: '1.02rem' }}>Für Sie vorbereitete Mandate</span>
+          </div>
+          <p style={{ fontSize: '0.82rem', color: '#555', margin: '0 0 0.9rem' }}>Diese Mandate haben wir für Sie vorbereitet. Zeichnen Sie die Vertraulichkeitserklärung, dann schalten wir die Unterlagen frei.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.8rem' }}>
+            {prepared.map(m => {
+              const signed = m.nda_status === 'approved' || m.nda_status === 'signed';
+              const isFund = m.mandate_type === 'fundraising';
+              return (
+                <div key={m.id} style={{ border: `1px solid ${C.steel}`, borderRadius: 10, padding: '0.85rem 0.9rem', background: C.lightBg, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontWeight: 800, color: C.navy, fontSize: '0.95rem' }}>{m.sector_emoji ? m.sector_emoji + ' ' : ''}{m.codename}</span>
+                    <span style={{ background: isFund ? '#ede9fe' : '#fff', color: isFund ? '#5b21b6' : C.navy, border: `1px solid ${C.steel}`, padding: '0.1rem 0.5rem', borderRadius: 10, fontSize: '0.64rem', fontWeight: 700 }}>{isFund ? 'Startup' : 'M&A'}</span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#666' }}>{[m.industry, m.region].filter(Boolean).join(' · ')}</div>
+                  <Link to={`/projekte/${m.id}`} style={{ marginTop: 4, textAlign: 'center', background: signed ? '#10b981' : C.navy, color: '#fff', padding: '0.5rem 0.8rem', borderRadius: 8, textDecoration: 'none', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    {signed ? 'Unterlagen ansehen' : isFund ? 'Ansehen und Zugang anfragen' : 'Ansehen und NDA zeichnen'} <ArrowRight size={14} />
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Plattform-NDA: Gütesiegel (Stufe C) */}
       {platformNda && (

@@ -1948,6 +1948,24 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
   res.status(201).json({ success: true, data: { token, user } });
 }));
 
+// ── Für den angemeldeten Nutzer vorbereitete Mandate (aus dem CRM-Funnel) ────
+// Zeigt die Mandate, für die der verknüpfte CRM-Kontakt eine Deal-Partei hat,
+// also die im Import oder per Hand vorbereiteten Mandate. Nur veröffentlichte
+// Mandate (status 'active'); Entwürfe bleiben unsichtbar. Mit NDA-Status.
+router.get('/my-prepared-mandates', authenticate, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT DISTINCT p.id, p.codename, p.industry, p.region, p.deal_type, p.revenue_band,
+           p.sector_emoji, p.mandate_type,
+           (SELECT status FROM nda_requests nr WHERE nr.project_id = p.id AND nr.user_id = ? ORDER BY nr.id DESC LIMIT 1) AS nda_status,
+           (SELECT stage FROM interests i WHERE i.project_id = p.id AND i.buyer_id = ?) AS interest_stage
+    FROM crm_deal_parties dp
+    JOIN crm_contacts k ON k.id = dp.contact_id
+    JOIN projects p ON p.id = dp.project_id
+    WHERE k.user_id = ? AND p.status = 'active'
+    ORDER BY p.codename`, [req.user.id, req.user.id, req.user.id])).catch(() => []);
+  res.json({ success: true, data: rows });
+}));
+
 // ═══════════════════════════════════════════════════════════════════════════
 // CRM IV: Kontakt-Selbstpflege-Portal
 //
