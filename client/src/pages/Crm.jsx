@@ -91,12 +91,14 @@ export default function Crm() {
   const [nlOpen, setNlOpen] = useState(false);
   const [nlAudience, setNlAudience] = useState('consented');
   const [nlSince, setNlSince] = useState(0);        // 0 = alle, 42 = letzte 6 Wochen
+  const [nlFocus, setNlFocus] = useState(false);    // Cavendish im Fokus, FARADAY und CUDD anteasern
   const [nlPreview, setNlPreview] = useState(null);
   const [nlBusy, setNlBusy] = useState(false);
-  async function openNewsletter() { setNlOpen(true); setNlPreview(null); setNlAudience('consented'); setNlSince(0); await loadNlPreview('consented', 0); }
-  async function loadNlPreview(aud, since) {
+  const nlFocusArgs = (on) => on ? { featured: 'Cavendish', tease: 'FARADAY,Cudd' } : {};
+  async function openNewsletter() { setNlOpen(true); setNlPreview(null); setNlAudience('consented'); setNlSince(0); setNlFocus(false); await loadNlPreview('consented', 0, false); }
+  async function loadNlPreview(aud, since, focus) {
     setNlBusy(true);
-    try { setNlPreview(await api.post('/crm/newsletter/preview', { audience: aud, since_days: since })); }
+    try { setNlPreview(await api.post('/crm/newsletter/preview', { audience: aud, since_days: since, ...nlFocusArgs(focus) })); }
     catch (e) { setMsg('Fehler: ' + e.message); }
     finally { setNlBusy(false); }
   }
@@ -104,7 +106,7 @@ export default function Crm() {
     if (!window.confirm(`Newsletter jetzt an ${nlPreview ? nlPreview.send : '?'} Kontakt(e) senden?`)) return;
     setNlBusy(true);
     try {
-      const r = await api.post('/crm/newsletter/send', { audience: nlAudience, since_days: nlSince });
+      const r = await api.post('/crm/newsletter/send', { audience: nlAudience, since_days: nlSince, ...nlFocusArgs(nlFocus) });
       setMsg(`Newsletter versendet: ${r.sent} gesendet, ${r.skipped} übersprungen.`);
       setNlOpen(false);
     } catch (e) { setMsg('Fehler: ' + e.message); }
@@ -604,7 +606,7 @@ export default function Crm() {
                 ['consented', 'Eingewilligte Kontakte', 'Hinweis auf die aktuellen Mandate, Button führt in den Marktplatz.'],
                 ['reconsent', 'Alle Kontakte: Zugang bestätigen', 'Bitte um (erneute) Einwilligung mit persönlichem Registrierungslink (DSGVO-Double-Opt-in).'],
               ].map(([val, title, desc]) => (
-                <label key={val} onClick={() => { setNlAudience(val); loadNlPreview(val, nlSince); }} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '0.7rem 0.9rem', border: `1px solid ${nlAudience === val ? C.accent : C.border}`, background: nlAudience === val ? '#f8fbff' : '#fff', borderRadius: 10, cursor: 'pointer' }}>
+                <label key={val} onClick={() => { setNlAudience(val); loadNlPreview(val, nlSince, nlFocus); }} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '0.7rem 0.9rem', border: `1px solid ${nlAudience === val ? C.accent : C.border}`, background: nlAudience === val ? '#f8fbff' : '#fff', borderRadius: 10, cursor: 'pointer' }}>
                   <input type="radio" checked={nlAudience === val} readOnly style={{ marginTop: 3 }} />
                   <div>
                     <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.88rem' }}>{title}</div>
@@ -614,10 +616,16 @@ export default function Crm() {
               ))}
             </div>
 
-            <label onClick={() => { const nv = nlSince ? 0 : 42; setNlSince(nv); loadNlPreview(nlAudience, nv); }} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '0.6rem 0.9rem', marginBottom: '0.9rem', border: `1px solid ${nlSince ? C.accent : C.border}`, background: nlSince ? '#f8fbff' : '#fff', borderRadius: 10, cursor: 'pointer' }}>
+            <label onClick={() => { const nv = nlSince ? 0 : 42; setNlSince(nv); loadNlPreview(nlAudience, nv, nlFocus); }} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '0.6rem 0.9rem', marginBottom: '0.6rem', border: `1px solid ${nlSince ? C.accent : C.border}`, background: nlSince ? '#f8fbff' : '#fff', borderRadius: 10, cursor: 'pointer' }}>
               <input type="checkbox" checked={!!nlSince} readOnly />
               <span style={{ fontSize: '0.82rem', color: C.navy, fontWeight: 700 }}>Nur neue Kontakte der letzten 6 Wochen</span>
               <span style={{ fontSize: '0.76rem', color: C.muted }}>(für ein Re-Invite frischer Leads)</span>
+            </label>
+
+            <label onClick={() => { const nv = !nlFocus; setNlFocus(nv); loadNlPreview(nlAudience, nlSince, nv); }} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '0.6rem 0.9rem', marginBottom: '0.9rem', border: `1px solid ${nlFocus ? C.accent : C.border}`, background: nlFocus ? '#f8fbff' : '#fff', borderRadius: 10, cursor: 'pointer' }}>
+              <input type="checkbox" checked={nlFocus} readOnly />
+              <span style={{ fontSize: '0.82rem', color: C.navy, fontWeight: 700 }}>Cavendish im Fokus</span>
+              <span style={{ fontSize: '0.76rem', color: C.muted }}>(Cavendish als Aufmacher, FARADAY und CUDD anteasern)</span>
             </label>
 
             {nlBusy && !nlPreview ? <div style={{ color: C.muted, padding: '1rem', textAlign: 'center' }}>Vorschau wird geladen…</div> : nlPreview && (

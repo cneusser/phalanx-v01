@@ -41,6 +41,18 @@ function recipientWhere(audience, sinceDays) {
   return base;
 }
 
+// Mandate in eine Reihenfolge bringen: erst das Fokus-Mandat, dann die
+// angeteaserten. Nur Mandate, die es (aktiv) gibt. Ist kein Fokus gesetzt,
+// wird die Liste unverändert zurückgegeben.
+function orderMandates(all, featuredCode, teaseCodes) {
+  if (!featuredCode) return all;
+  const byCode = (c) => all.find((m) => String(m.codename).toLowerCase() === String(c).toLowerCase());
+  const out = [];
+  const f = byCode(featuredCode); if (f) out.push(f);
+  (teaseCodes || []).forEach((c) => { const m = byCode(c); if (m && !out.includes(m)) out.push(m); });
+  return out.length ? out : all;
+}
+
 const trunc = (s, n) => {
   const t = String(s || '').replace(/\s+/g, ' ').trim();
   return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t;
@@ -140,4 +152,4 @@ const DEFAULTS = {
   },
 };
 
-module.exports = { AUDIENCES, activeMandates, recipientWhere, buildNewsletterMail, DEFAULTS, mandateCard };
+module.exports = { AUDIENCES, activeMandates, recipientWhere, buildNewsletterMail, DEFAULTS, mandateCard, orderMandates };

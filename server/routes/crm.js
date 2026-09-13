@@ -2410,10 +2410,19 @@ router.post('/deals/:projectId/campaign', ...isStaff, canSend, wrap(async (req, 
 const newsletter = require('../utils/newsletter');
 
 // Text + Betreff aus der (im Admin editierbaren) Vorlage, sonst Standardtext.
-async function newsletterCopy(req, audience) {
-  const key = audience === 'reconsent' ? 'newsletter_reregister' : 'newsletter_mandate';
+// Ist ein Fokus-Mandat gesetzt, wird die Fokus-Vorlage bevorzugt.
+async function newsletterCopy(req, audience, featured) {
+  const key = featured ? 'newsletter_cavendish' : (audience === 'reconsent' ? 'newsletter_reregister' : 'newsletter_mandate');
   const tpl = await scoped(req, (t) => t.get(`SELECT subject, body FROM mail_templates WHERE key = ? AND is_active = 1`, [key])).catch(() => null);
-  const def = newsletter.DEFAULTS[audience] || newsletter.DEFAULTS.consented;
+  let def = newsletter.DEFAULTS[audience] || newsletter.DEFAULTS.consented;
+  if (featured) def = {
+    subject: '[CapitalMatch] Neu: Seed-Beteiligung an einem Green-Hydrogen-Deep-Tech',
+    intro: 'auf CapitalMatch ist ein neues Mandat live, das wir Ihnen besonders ans Herz legen: eine Seed-Beteiligung an einem '
+      + 'deutschen Deep-Tech-Unternehmen für Grün-Wasserstoff. Die Technologie liefert bei gleichem Platz- und Gewichtsbedarf bis zu '
+      + '260 Prozent mehr Leistung als der Marktführer, es liegen elf Absichtserklärungen von Systemintegratoren vor und ein '
+      + 'Förderbescheid ist bewilligt. Seed I: 0,75 Mio. Euro bei 7,5 Mio. Euro Post-Money.\n\n'
+      + 'Ebenfalls offen und einen Blick wert: zwei Nachfolge-Mandate im Mittelstand. Die anonymen Kurzprofile finden Sie unten.',
+  };
   return { subject: (tpl && tpl.subject) || def.subject, intro: (tpl && tpl.body) || def.intro };
 }
 
@@ -2422,10 +2431,13 @@ router.post('/newsletter/preview', ...isStaff, wrap(async (req, res) => {
   const audience = newsletter.AUDIENCES.includes(req.body.audience) ? req.body.audience : 'consented';
   const sinceDays = Number(req.body.since_days) > 0 ? Math.floor(Number(req.body.since_days)) : 0;
   const where = newsletter.recipientWhere(audience, sinceDays);
+  const featured = req.body.featured ? String(req.body.featured) : '';
+  const tease = (req.body.tease ? String(req.body.tease).split(',') : []).map((s) => s.trim()).filter(Boolean);
   const eligible = await scoped(req, (t) => t.get(`SELECT COUNT(*)::int AS n FROM crm_contacts WHERE ${where}`)).catch(() => ({ n: 0 }));
   const total = await scoped(req, (t) => t.get(`SELECT COUNT(*)::int AS n FROM crm_contacts`)).catch(() => ({ n: 0 }));
-  const mandates = await newsletter.activeMandates();
-  const { subject, intro } = await newsletterCopy(req, audience);
+  const allM = await newsletter.activeMandates();
+  const mandates = featured ? newsletter.orderMandates(allM, featured, tease) : allM;
+  const { subject, intro } = await newsletterCopy(req, audience, featured);
   const sample = await scoped(req, (t) => t.get(`SELECT * FROM crm_contacts WHERE ${where} ORDER BY id LIMIT 1`)).catch(() => null);
   const mail = newsletter.buildNewsletterMail({
     contact: sample || { salutation: 'Herr', last_name: 'Mustermann', email: 'name@beispiel.de' },
@@ -2444,8 +2456,11 @@ router.post('/newsletter/send', ...isStaff, canSend, wrap(async (req, res) => {
   const audience = newsletter.AUDIENCES.includes(req.body.audience) ? req.body.audience : 'consented';
   const sinceDays = Number(req.body.since_days) > 0 ? Math.floor(Number(req.body.since_days)) : 0;
   const where = newsletter.recipientWhere(audience, sinceDays);
-  const mandates = await newsletter.activeMandates();
-  const { subject, intro } = await newsletterCopy(req, audience);
+  const featured = req.body.featured ? String(req.body.featured) : '';
+  const tease = (req.body.tease ? String(req.body.tease).split(',') : []).map((s) => s.trim()).filter(Boolean);
+  const allM = await newsletter.activeMandates();
+  const mandates = featured ? newsletter.orderMandates(allM, featured, tease) : allM;
+  const { subject, intro } = await newsletterCopy(req, audience, featured);
   const tenant = req.tenantId || 1;
 
   const recips = await scoped(req, (t) => t.all(`SELECT * FROM crm_contacts WHERE ${where} ORDER BY id LIMIT 2000`)).catch(() => []);
