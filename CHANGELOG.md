@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.385 · 22.07.2026 · Vorschaubild für geteilte Links (LinkedIn, WhatsApp und Co.)
+- **Vorschaugrafik**: wird ein CapitalMatch-Link auf LinkedIn, in WhatsApp, per Mail oder auf X geteilt, erscheint eine gebrandete Grafik mit Logo und Einladung zur kostenlosen Registrierung (client/public/og-capitalmatch.png)
+- **Open-Graph-Metadaten**: og:- und twitter:-Tags in index.html, die auch ohne JavaScript von den Vorschau-Robots gelesen werden
+- **Hinweis**: LinkedIn speichert Vorschauen zwischen; über den LinkedIn Post Inspector lässt sich die Vorschau je URL neu einlesen
+
 ## v0.384 · 21.07.2026 · Mitmachen-Landingpage mit Herkunfts-Tracking
 - **Landingpage /mitmachen**: öffentliche, werbliche Seite, die zur Registrierung führt, zum Teilen auf LinkedIn
 - **Herkunft erfassen**: der Link kann eine Quelle tragen (/mitmachen?src=linkedin); sie wird bis in die Registrierung durchgereicht und am Konto gespeichert (users.signup_source)
