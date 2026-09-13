@@ -95,6 +95,18 @@ async function notifyMatchingBuyers(projectId) {
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────
+// Registrierungen nach Herkunft (Tracking, z. B. wie viele von LinkedIn kommen)
+router.get('/signup-sources', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(`
+    SELECT COALESCE(NULLIF(signup_source, ''), 'direct') AS source,
+           COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE created_at >= now() - interval '30 days')::int AS last_30d
+    FROM users
+    WHERE role NOT IN ('super_admin', 'advisor')
+    GROUP BY 1 ORDER BY total DESC`).catch(() => []);
+  res.json({ success: true, data: rows });
+}));
+
 router.get('/stats', ...isAdmin, wrap(async (req, res) => {
   const p = await db.get(`
     SELECT COUNT(*)::int AS total,

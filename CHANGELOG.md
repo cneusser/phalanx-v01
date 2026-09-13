@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.384 · 21.07.2026 · Mitmachen-Landingpage mit Herkunfts-Tracking
+- **Landingpage /mitmachen**: öffentliche, werbliche Seite, die zur Registrierung führt, zum Teilen auf LinkedIn
+- **Herkunft erfassen**: der Link kann eine Quelle tragen (/mitmachen?src=linkedin); sie wird bis in die Registrierung durchgereicht und am Konto gespeichert (users.signup_source)
+- **Auswertung**: im Admin unter Nutzer zeigt „Registrierungen nach Herkunft", wie viele z. B. von LinkedIn kommen (gesamt und letzte 30 Tage)
+
 ## v0.383 · 21.07.2026 · Cavendish veröffentlicht, Fokus-Newsletter
 - **Cavendish aktualisiert und veröffentlicht**: Rückmeldung des Mandanten eingearbeitet (11 Absichtserklärungen, Team ohne CFO, 2.700-Stunden-Test), Status auf aktiv
 - **Fokus-Newsletter**: Ein Mandat lässt sich als Aufmacher voranstellen, weitere anteasern; Option „Cavendish im Fokus" stellt Cavendish voran und teasert FARADAY und CUDD an; editierbare Vorlage newsletter_cavendish

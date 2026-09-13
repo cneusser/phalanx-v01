@@ -106,6 +106,7 @@ export default function Admin() {
   const { startBirdview, user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
+  const [signupSources, setSignupSources] = useState([]);
   const [projects, setProjects] = useState([]);
   const [reviewQueue, setReviewQueue] = useState([]);
   const [ndas, setNdas] = useState([]);
@@ -483,7 +484,10 @@ export default function Admin() {
     if (activeTab === 'feedback') loadFeedback();
     if (activeTab === 'contacts') loadCrmContacts();
     if (activeTab === 'qa') loadQuestions();
-    if (activeTab === 'users') api.get('/admin/roles').then(d => setRoleList(d.roles || [])).catch(() => {});
+    if (activeTab === 'users') {
+      api.get('/admin/roles').then(d => setRoleList(d.roles || [])).catch(() => {});
+      api.get('/admin/signup-sources').then(d => setSignupSources(d || [])).catch(() => {});
+    }
     if (activeTab === 'succession') {
       const p = new URLSearchParams();
       if (succFilter.umsatz) p.set('umsatz', succFilter.umsatz);
@@ -1732,6 +1736,23 @@ export default function Admin() {
         />
       )}
 
+      {activeTab === 'users' && signupSources.length > 0 && (
+        <div style={{ background: C.card, borderRadius: 6, border: `1px solid ${C.border}`, padding: '0.9rem 1rem', marginBottom: '1rem' }}>
+          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.6rem' }}>Registrierungen nach Herkunft</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+            {signupSources.map(s => {
+              const isLi = s.source === 'linkedin';
+              return (
+                <div key={s.source} style={{ border: `1px solid ${isLi ? '#1A4D8A' : C.border}`, background: isLi ? '#EDF4FA' : '#fff', borderRadius: 8, padding: '0.5rem 0.8rem', minWidth: 110 }}>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'capitalize' }}>{s.source}</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#14314F' }}>{s.total}</div>
+                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{s.last_30d} in 30 Tagen</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {activeTab === 'users' && (
         <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
           {/* Nutzer-Suche */}

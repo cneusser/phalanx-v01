@@ -28,6 +28,7 @@ import ContactSelfService from './pages/ContactSelfService';
 import Messages from './pages/Messages';
 import Register from './pages/Register';
 import Login from './pages/Login';
+import Mitmachen from './pages/Mitmachen';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
@@ -101,6 +102,7 @@ function AppRoutes() {
           <Route path="/merkliste" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
           <Route path="/nachrichten" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
           <Route path="/registrieren" element={<Register />} />
+          <Route path="/mitmachen" element={<Mitmachen />} />
           <Route path="/login" element={<Login />} />
           <Route path="/passwort-vergessen" element={<ForgotPassword />} />
           <Route path="/passwort-reset" element={<ResetPassword />} />

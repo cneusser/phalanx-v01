@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Search, Building2 } from 'lucide-react';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
@@ -39,6 +39,9 @@ const Field = ({ label, type = 'text', value, onChange, placeholder, required, c
 export default function Register() {
   const { register } = useAuth();
   const [roleType, setRoleType] = useState('buyer'); // 'buyer' or 'seller'
+  const [params] = useSearchParams();
+  // Herkunft der Registrierung (z. B. ?src=linkedin), fürs Tracking.
+  const signupSource = (params.get('src') || params.get('utm_source') || 'direct').toLowerCase();
   const [form, setForm] = useState({
     email: '', password: '', salutation: '', title: '', first_name: '', last_name: '',
     company: '', position: '', linkedin_url: '', buyer_type: 'strategic', succession_type: '', mobile: '', phone: '',
@@ -61,7 +64,7 @@ export default function Register() {
     setLoading(true);
     setError('');
     try {
-      const result = await register({ ...form, role: roleType, privacy_consent: agreed, turnstile_token: tsToken });
+      const result = await register({ ...form, role: roleType, privacy_consent: agreed, turnstile_token: tsToken, signup_source: signupSource });
       if (result.pending) {
         setSuccess(true);
       }
