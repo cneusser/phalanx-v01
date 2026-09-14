@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.387 · 23.07.2026 · NDA: Unterschrift vor Datenraum-Freigabe
+- **Unterschrift erzwungen**: „Freigeben" (Datenraum) erscheint erst nach unterschriebenem NDA; für M&A-Mandate keine Direktfreigabe ohne Unterschrift mehr
+- **Klarer Ablauf**: „Versenden" schickt die Signier-Mail, Käufer zeichnet online (§10), dann Freigabe möglich; Status „Wartet auf Unterschrift" macht den Zwischenschritt sichtbar
+- **Unterschrift anfordern**: für Altfälle ohne Unterschrift lässt sich die Signatur nachträglich einholen, ohne den bestehenden Zugang zurückzustufen
+- **Ausnahme Startup-Finanzierung**: dort ersetzt die ausdrückliche Freigabe die Unterschrift wie bisher
+
 ## v0.386 · 22.07.2026 · Cavendish: WebExposé befüllt und veröffentlicht
 - **WebExposé Cavendish**: Eckdaten (DUB-Raster) und alle Sektionen gefüllt (Unternehmen, Geschäftsmodell, Markt, Organisation, Finanzen, Stärken, Investorenprofil, Prozess), aus IM und Teaser abgeleitet
 - **Anonymisiert und veröffentlicht**: Gründername bleibt verdeckt; Status veröffentlicht, sichtbar für Käufer nach unterzeichnetem NDA; Feinschliff jederzeit im Exposé-Editor möglich

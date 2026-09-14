@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { generateNDA, saveNDA, NDA_DIR } = require('../utils/ndaGenerator');
 const wrap = require('../utils/asyncHandler');
-const { setStage } = require('../middleware/gates');
+const { setStage, getStage } = require('../middleware/gates');
 const { getSignatureProvider } = require('../providers/signature');
 const router = express.Router();
 
@@ -209,9 +209,19 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
     `, [now, consent_name.trim(), consentIp, pdfFilename, req.user.id, req.params.projectId]);
 
     // 4. Zustandsautomat: nda_signed erreicht → IM/Exposé automatisch
-    //    freischalten (im_granted, Sprint 3)
-    await setStage(req.user.id, req.params.projectId, 'nda_signed', req.user.id, consentIp);
-    await setStage(req.user.id, req.params.projectId, 'im_granted', req.user.id, consentIp);
+    //    freischalten (im_granted, Sprint 3). Beim nachträglichen Signieren eines
+    //    bereits freigegebenen Zugangs (Altfall) darf die Stage NICHT zurückfallen:
+    //    nur vorwärts setzen, wenn die aktuelle Stage niedriger ist.
+    {
+      const { stageRank } = require('../utils/dealStateMachine');
+      const cur = await getStage(req.user.id, req.params.projectId);
+      if (stageRank(cur) < stageRank('nda_signed')) {
+        await setStage(req.user.id, req.params.projectId, 'nda_signed', req.user.id, consentIp);
+      }
+      if (stageRank(cur) < stageRank('im_granted')) {
+        await setStage(req.user.id, req.params.projectId, 'im_granted', req.user.id, consentIp);
+      }
+    }
     db.auditLog(req.user.id, 'NDA_SIGNED_ONLINE', 'nda_request', nda.id,
       `Online §10 (${providerName}/FES): ${consent_name.trim()} | IP: ${consentIp} | PDF: ${pdfFilename} | SHA-256: ${auditRef.slice(0, 16)}…`, consentIp);
 

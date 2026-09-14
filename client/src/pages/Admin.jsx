@@ -634,10 +634,19 @@ export default function Admin() {
   }
 
   async function sendNDA(nda) {
-    if (!confirm(`NDA für ${nda.user_name} (${nda.project_codename}) als "Versendet" markieren?`)) return;
+    if (!confirm(`NDA an ${nda.user_name} (${nda.project_codename}) zur Unterschrift senden?\n\nDer Käufer erhält eine E-Mail und kann online (§10) unterzeichnen.`)) return;
     try {
       await api.put(`/ndas/${nda.project_id}/send`, { user_id: nda.user_id });
-      showMsg('NDA als "Versendet" markiert');
+      showMsg('NDA zur Unterschrift versendet');
+      loadAll();
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
+  async function requestSignatureNDA(nda) {
+    if (!confirm(`Unterschrift für ${nda.user_name} (${nda.project_codename}) nachträglich anfordern?\n\nDer Käufer bekommt eine E-Mail und kann online unterzeichnen. Sein bestehender Zugang bleibt erhalten.`)) return;
+    try {
+      await api.put(`/admin/ndas/${nda.id}/request-signature`, {});
+      showMsg('Unterschrift angefordert');
       loadAll();
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
@@ -1456,19 +1465,36 @@ export default function Admin() {
                       ) : <span style={{ fontSize: '0.72rem', color: '#ccc' }}>–</span>}
                     </td>
                     <td style={{ padding: '0.75rem 1rem' }}>
-                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                        {n.status === 'requested' && (
-                          <button onClick={() => sendNDA(n)} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#dbeafe', color: '#1d4ed8', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
-                            <Send size={10} /> Versenden
-                          </button>
-                        )}
-                        {!['approved', 'rejected'].includes(n.status) && (
-                          <>
-                            <button onClick={() => approveNDA(n.id)} style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>Freigeben</button>
-                            <button onClick={() => rejectNDA(n.id)} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>Ablehnen</button>
-                          </>
-                        )}
-                      </div>
+                      {(() => {
+                        const isFundraising = n.project_mandate_type === 'fundraising';
+                        const isSigned = n.status === 'signed' || !!n.online_consent_at;
+                        const canApprove = !['approved', 'rejected'].includes(n.status) && (isSigned || isFundraising);
+                        // Altfall: direkt freigegeben, aber ohne Unterschrift
+                        const needsSignature = n.status === 'approved' && !n.online_consent_at && !isFundraising;
+                        return (
+                          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {n.status === 'requested' && (
+                              <button onClick={() => sendNDA(n)} title="NDA an den Käufer zur Online-Unterschrift senden" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#dbeafe', color: '#1d4ed8', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                                <Send size={10} /> Versenden
+                              </button>
+                            )}
+                            {n.status === 'sent' && !isSigned && (
+                              <span style={{ fontSize: '0.7rem', color: '#b45309', fontWeight: 600 }}>Wartet auf Unterschrift</span>
+                            )}
+                            {canApprove && (
+                              <button onClick={() => approveNDA(n.id)} title="Datenraum vollständig freigeben" style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>Freigeben</button>
+                            )}
+                            {needsSignature && (
+                              <button onClick={() => requestSignatureNDA(n)} title="Unterschrift nachträglich anfordern (Zugang bleibt erhalten)" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#fef3c7', color: '#92400e', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                                <Send size={10} /> Unterschrift anfordern
+                              </button>
+                            )}
+                            {!['approved', 'rejected'].includes(n.status) && (
+                              <button onClick={() => rejectNDA(n.id)} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>Ablehnen</button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );

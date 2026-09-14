@@ -972,6 +972,15 @@ router.post('/projects/:projectId/interests/:userId/revoke-dataroom', ...isAdmin
 router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {
   const nda = await db.get('SELECT * FROM nda_requests WHERE id = ?', [req.params.id]);
   if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });
+  // Datenraum-Freigabe setzt eine Unterschrift voraus. Ausnahme: Startup-
+  // Finanzierungen, bei denen institutionelle Investoren regelmäßig kein NDA
+  // zeichnen und eine ausdrückliche Freigabe die Unterschrift ersetzt.
+  const proj0 = await db.get('SELECT mandate_type FROM projects WHERE id = ?', [nda.project_id]);
+  const isFundraising = proj0 && proj0.mandate_type === 'fundraising';
+  const isSigned = nda.status === 'signed' || !!nda.online_consent_at;
+  if (!isSigned && !isFundraising) {
+    return res.status(400).json({ success: false, error: 'Der NDA ist noch nicht unterschrieben. Bitte zuerst „Versenden" und den Käufer online unterzeichnen lassen; erst danach kann der Datenraum freigegeben werden.' });
+  }
   await db.run(`UPDATE nda_requests SET status='approved', approved_at=now(), approved_by=? WHERE id=?`, [req.user.id, req.params.id]);
   // Zustandsautomat: Datenraum-Gate öffnen
   await setStage(nda.user_id, nda.project_id, 'dataroom_granted', req.user.id, req.ip);
@@ -1016,6 +1025,35 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
     }
   }
   res.json({ success: true, data: { message: 'NDA abgelehnt' } });
+}));
+
+// Altfälle: Ein NDA wurde ohne Unterschrift direkt freigegeben. Diese Route
+// fordert die Unterschrift nachträglich an: Status zurück auf 'sent', damit der
+// Käufer online (§10) zeichnen kann. Der bereits gewährte Zugriff (Stage) bleibt
+// unangetastet; das Nachsignieren stuft ihn nicht zurück (siehe ndas.js).
+router.put('/ndas/:id/request-signature', ...isAdmin, wrap(async (req, res) => {
+  const nda = await db.get('SELECT * FROM nda_requests WHERE id = ?', [req.params.id]);
+  if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });
+  if (nda.online_consent_at) {
+    return res.status(400).json({ success: false, error: 'Dieser NDA ist bereits unterschrieben.' });
+  }
+  const proj = await db.get('SELECT id, codename, mandate_type FROM projects WHERE id = ?', [nda.project_id]);
+  if (proj && proj.mandate_type === 'fundraising') {
+    return res.status(400).json({ success: false, error: 'Bei Startup-Finanzierungen ist keine NDA-Unterschrift vorgesehen.' });
+  }
+  await db.run(`UPDATE nda_requests SET status='sent', sent_at=now() WHERE id=?`, [req.params.id]);
+  db.auditLog(req.user.id, 'NDA_SIGNATURE_REQUESTED', 'nda_request', nda.id, 'Nachträgliche Unterschrift angefordert', req.ip);
+  const buyer = await db.get('SELECT email, first_name, last_name FROM users WHERE id = ?', [nda.user_id]);
+  if (buyer) {
+    const { sendProcessUpdateEmail } = require('../utils/email');
+    sendProcessUpdateEmail({
+      to: buyer.email, firstName: buyer.first_name, person: buyer,
+      title: `Unterschrift erforderlich: ${proj ? proj.codename : 'Mandat'}`,
+      message: `Für das Mandat <strong>${proj ? proj.codename : ''}</strong> fehlt noch Ihre Unterschrift. Bitte zeichnen Sie die Vertraulichkeitsvereinbarung jetzt online. Ihr bestehender Zugang bleibt unverändert.`,
+      ctaLabel: 'NDA jetzt unterzeichnen', ctaPath: `/projekte/${nda.project_id}`,
+    }).catch(() => {});
+  }
+  res.json({ success: true, data: { message: 'Unterschrift angefordert' } });
 }));
 
 // ── Sprint 13: Rollen & Rechte ────────────────────────────────────────────
