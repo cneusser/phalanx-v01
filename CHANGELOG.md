@@ -3,6 +3,10 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.386 · 22.07.2026 · Cavendish: WebExposé befüllt und veröffentlicht
+- **WebExposé Cavendish**: Eckdaten (DUB-Raster) und alle Sektionen gefüllt (Unternehmen, Geschäftsmodell, Markt, Organisation, Finanzen, Stärken, Investorenprofil, Prozess), aus IM und Teaser abgeleitet
+- **Anonymisiert und veröffentlicht**: Gründername bleibt verdeckt; Status veröffentlicht, sichtbar für Käufer nach unterzeichnetem NDA; Feinschliff jederzeit im Exposé-Editor möglich
+
 ## v0.385 · 22.07.2026 · Vorschaubild für geteilte Links (LinkedIn, WhatsApp und Co.)
 - **Vorschaugrafik**: wird ein CapitalMatch-Link auf LinkedIn, in WhatsApp, per Mail oder auf X geteilt, erscheint eine gebrandete Grafik mit Logo und Einladung zur kostenlosen Registrierung (client/public/og-capitalmatch.png)
 - **Open-Graph-Metadaten**: og:- und twitter:-Tags in index.html, die auch ohne JavaScript von den Vorschau-Robots gelesen werden
