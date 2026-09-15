@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.388 · 24.07.2026 · Phalanx-OS-Anbindung: SSO und Datenpool-Sync
+- **SSO „Mit Phalanx OS anmelden"**: Admin- und Staff-Konten melden sich über Phalanx OS an (OpenID Connect mit PKCE S256, Verknüpfung über die stabile OIDC-Kennung, kein automatisches Anlegen neuer Konten); Käufer- und Verkäufer-Logins unverändert
+- **Datenpool-Sync (lesen)**: zieht die Segmente Investor/Kapital, Unternehmer/GF und StB/WP/RA/Insolvenz aus dem Phalanx-OS-CRM, gleicht dublettenfrei ab (E-Mail, LinkedIn, eindeutiger Name), reichert Treffer an, legt fehlende neu an; alle 30 Minuten (ENV) und per Knopf „Jetzt synchronisieren"
+- **Rückmeldung (schreiben)**: erhält ein Kontakt ein Plattformkonto, meldet die Plattform das per Upsert an den Pool zurück (Warteschlange mit Wiederholung, blockiert den Nutzerfluss nie)
+- **UWG-konform**: Adressen ohne Werbeeinwilligung landen in einem eigenen Feld, nie in der Versand-Adresse, und bleiben so von Newsletter und Kampagnen ausgenommen; der Sync legt keine Funnel-Einträge an Mandaten an
+- **Verwaltung „Phalanx OS"**: Verbindungsstatus, letzter Sync mit Zahlen, konfigurierte Segmente, Warteliste „Zuordnung prüfen"; Pool-Kontakte tragen in der Kontaktliste das Kennzeichen „Phalanx-Netzwerk" mit LinkedIn-Link
+
 ## v0.387 · 23.07.2026 · NDA: Unterschrift vor Datenraum-Freigabe
 - **Unterschrift erzwungen**: „Freigeben" (Datenraum) erscheint erst nach unterschriebenem NDA; für M&A-Mandate keine Direktfreigabe ohne Unterschrift mehr
 - **Klarer Ablauf**: „Versenden" schickt die Signier-Mail, Käufer zeichnet online (§10), dann Freigabe möglich; Status „Wartet auf Unterschrift" macht den Zwischenschritt sichtbar

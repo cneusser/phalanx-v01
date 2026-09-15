@@ -1056,6 +1056,37 @@ router.put('/ndas/:id/request-signature', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Unterschrift angefordert' } });
 }));
 
+// ── Phalanx-OS-Anbindung (Datenpool) ──────────────────────────────────────
+const phalanxPool = require('../sync/phalanxpool');
+
+router.get('/phalanx/status', ...isAdmin, wrap(async (req, res) => {
+  res.json({ success: true, data: await phalanxPool.status() });
+}));
+
+router.get('/phalanx/ping', ...isAdmin, wrap(async (req, res) => {
+  res.json({ success: true, data: await phalanxPool.ping() });
+}));
+
+router.post('/phalanx/sync', ...isAdmin, wrap(async (req, res) => {
+  if (!phalanxPool.isConfigured()) return res.status(503).json({ success: false, error: 'Phalanx OS ist nicht konfiguriert.' });
+  const stats = await phalanxPool.syncNow('manual');
+  db.auditLog(req.user.id, 'PHALANX_SYNC_MANUAL', 'system', null, JSON.stringify(stats), req.ip);
+  res.json({ success: true, data: stats });
+}));
+
+router.get('/phalanx/reviews', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(
+    `SELECT id, pool_contact_id, display_name, email, linkedin_url, reason, created_at
+       FROM phalanx_pool_review WHERE resolved_at IS NULL ORDER BY created_at DESC LIMIT 200`
+  ).catch(() => []);
+  res.json({ success: true, data: rows });
+}));
+
+router.post('/phalanx/reviews/:id/resolve', ...isAdmin, wrap(async (req, res) => {
+  await db.run(`UPDATE phalanx_pool_review SET resolved_at = now(), resolved_by = ? WHERE id = ?`, [req.user.id, req.params.id]).catch(() => {});
+  res.json({ success: true, data: { message: 'Erledigt' } });
+}));
+
 // ── Sprint 13: Rollen & Rechte ────────────────────────────────────────────
 // Die Matrix liegt bewusst im Code (middleware/permissions.js) und nicht in der
 // Datenbank: Sie ist Teil des Audits und soll nicht still per SQL änderbar sein.

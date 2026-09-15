@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n';
@@ -32,6 +32,12 @@ export default function Login() {
   const [resendMsg, setResendMsg] = useState('');
   const [tsToken, setTsToken] = useState('');
   const [tsReset, setTsReset] = useState(0);   // erzwingt ein frisches Turnstile-Token nach Fehlversuch
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+  const ssoError = params.get('sso_error');
+
+  useEffect(() => {
+    api.get('/auth/config').then((c) => setSsoEnabled(!!c.phalanx_sso_enabled)).catch(() => {});
+  }, []);
 
   // Wohin nach erfolgreichem Login? (Rücksprung nur auf interne Pfade, kein Open Redirect)
   const goAfterLogin = (user) => {
@@ -238,6 +244,30 @@ export default function Login() {
             {loading ? t('auth.submitting', 'Anmelden…') : t('nav.login', 'Anmelden')}
           </button>
         </form>
+        )}
+
+        {ssoEnabled && !challenge && (
+          <div style={{ marginTop: '1.1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.5rem 0 0.9rem', color: C.gray, fontSize: '0.78rem' }}>
+              <span style={{ flex: 1, height: 1, background: C.border }} /> oder <span style={{ flex: 1, height: 1, background: C.border }} />
+            </div>
+            {ssoError && (
+              <div style={{ background: '#fef2f2', color: '#991b1b', borderRadius: 8, padding: '0.55rem 0.8rem', fontSize: '0.8rem', marginBottom: '0.7rem' }}>
+                Anmeldung über Phalanx OS nicht möglich ({ssoError}). Bitte melden Sie sich mit E-Mail und Passwort an.
+              </div>
+            )}
+            <a href="/api/auth/phalanx/start" style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+              width: '100%', boxSizing: 'border-box', background: '#fff', color: C.navy,
+              border: `1.5px solid ${C.navy}`, padding: '0.8rem', borderRadius: 8, fontWeight: 700,
+              fontSize: '0.9rem', textDecoration: 'none',
+            }}>
+              Mit Phalanx OS anmelden
+            </a>
+            <div style={{ textAlign: 'center', marginTop: '0.5rem', fontSize: '0.72rem', color: C.gray }}>
+              Für Mitarbeitende der Phalanx GmbH
+            </div>
+          </div>
         )}
 
         <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.85rem', color: C.gray }}>

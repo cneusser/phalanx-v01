@@ -642,6 +642,36 @@ export default function Admin() {
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
 
+  // ── Phalanx-OS-Anbindung ──────────────────────────────────────────────
+  const [phalanx, setPhalanx] = useState(null);
+  const [phalanxPing, setPhalanxPing] = useState(null);
+  const [phalanxReviews, setPhalanxReviews] = useState([]);
+  const [phalanxBusy, setPhalanxBusy] = useState(false);
+
+  async function loadPhalanx() {
+    try {
+      const [st, rev] = await Promise.all([api.get('/admin/phalanx/status'), api.get('/admin/phalanx/reviews')]);
+      setPhalanx(st); setPhalanxReviews(rev || []);
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+  async function runPhalanxSync() {
+    setPhalanxBusy(true);
+    try { const s = await api.post('/admin/phalanx/sync', {}); showMsg(`Sync: gelesen ${s.read}, neu ${s.created}, angereichert ${s.enriched}, mehrdeutig ${s.ambiguous}, Fehler ${s.errors}`); await loadPhalanx(); }
+    catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+    finally { setPhalanxBusy(false); }
+  }
+  async function pingPhalanx() {
+    setPhalanxBusy(true);
+    try { setPhalanxPing(await api.get('/admin/phalanx/ping')); }
+    catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+    finally { setPhalanxBusy(false); }
+  }
+  async function resolveReview(id) {
+    try { await api.post(`/admin/phalanx/reviews/${id}/resolve`, {}); setPhalanxReviews(rs => rs.filter(r => r.id !== id)); }
+    catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+  useEffect(() => { if (activeTab === 'phalanx') loadPhalanx(); }, [activeTab]);
+
   async function requestSignatureNDA(nda) {
     if (!confirm(`Unterschrift für ${nda.user_name} (${nda.project_codename}) nachträglich anfordern?\n\nDer Käufer bekommt eine E-Mail und kann online unterzeichnen. Sein bestehender Zugang bleibt erhalten.`)) return;
     try {
@@ -812,7 +842,7 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'succession', 'roles', 'contacts', 'tasks', 'qa', 'templates', 'mails', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'succession', 'roles', 'contacts', 'phalanx', 'tasks', 'qa', 'templates', 'mails', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
@@ -822,6 +852,7 @@ export default function Admin() {
     succession: 'Nachfolge',
     roles: 'Rollen & Rechte',
     contacts: 'Kontakte',
+    phalanx: 'Phalanx OS',
     tasks: 'Wiedervorlagen',
     qa: 'Q&A',
     templates: 'Mailvorlagen',
@@ -1501,6 +1532,81 @@ export default function Admin() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {activeTab === 'phalanx' && (
+        <div style={{ maxWidth: 900 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <h3 style={{ margin: 0, color: C.navy }}>Phalanx-OS-Anbindung</h3>
+              <div style={{ fontSize: '0.8rem', color: C.muted }}>Datenpool-Sync und SSO. Kontakte aus dem Pool ohne Werbeeinwilligung bleiben von Kampagnen ausgenommen.</div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button onClick={pingPhalanx} disabled={phalanxBusy} style={{ background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: phalanxBusy ? 'default' : 'pointer' }}>Verbindung prüfen</button>
+              <button onClick={runPhalanxSync} disabled={phalanxBusy || !phalanx?.configured} style={{ background: (phalanxBusy || !phalanx?.configured) ? '#9ca3af' : '#166534', color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: (phalanxBusy || !phalanx?.configured) ? 'default' : 'pointer' }}>{phalanxBusy ? 'Bitte warten…' : 'Jetzt synchronisieren'}</button>
+            </div>
+          </div>
+
+          {!phalanx ? <div style={{ color: C.muted }}>Laden…</div> : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: C.muted, textTransform: 'uppercase' }}>Status</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: phalanx.configured ? '#166534' : '#b45309' }}>{phalanx.configured ? 'Konfiguriert' : 'Nicht konfiguriert (ENV fehlt)'}</div>
+                  <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 4, wordBreak: 'break-all' }}>{phalanx.base_url || 'keine Basis-URL'}</div>
+                </div>
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: C.muted, textTransform: 'uppercase' }}>Letzter Sync</div>
+                  {phalanx.last_sync ? (
+                    <>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 700, color: phalanx.last_sync.status === 'ok' ? '#166534' : (phalanx.last_sync.status === 'error' ? '#b91c1c' : '#b45309') }}>{phalanx.last_sync.status}</div>
+                      <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 4 }}>gelesen {phalanx.last_sync.read_count} · neu {phalanx.last_sync.new_count} · angereichert {phalanx.last_sync.enriched_count} · mehrdeutig {phalanx.last_sync.ambiguous_count} · Fehler {phalanx.last_sync.error_count}</div>
+                      {phalanx.last_sync.finished_at && <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: 2 }}>{new Date(phalanx.last_sync.finished_at).toLocaleString('de-DE')}</div>}
+                    </>
+                  ) : <div style={{ fontSize: '0.85rem', color: C.muted }}>noch kein Lauf</div>}
+                </div>
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: C.muted, textTransform: 'uppercase' }}>Warteschlange / Prüfung</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: C.navy }}>{phalanx.pending_writeback} Rückmeldungen offen</div>
+                  <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 4 }}>{phalanx.open_reviews} Zuordnungen zu prüfen · Intervall {phalanx.interval_min} min</div>
+                </div>
+              </div>
+
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.72rem', color: C.muted, textTransform: 'uppercase', marginBottom: 6 }}>Konfigurierte Segmente</div>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {(phalanx.tags || []).map(tg => <span key={tg} style={{ background: '#eef2ff', color: '#3730a3', borderRadius: 6, padding: '0.2rem 0.55rem', fontSize: '0.72rem', fontWeight: 600 }}>{tg}</span>)}
+                </div>
+              </div>
+
+              {phalanxPing && (
+                <div style={{ background: phalanxPing.ok ? '#f0fdf4' : '#fef2f2', border: `1px solid ${phalanxPing.ok ? '#bbf7d0' : '#fecaca'}`, borderRadius: 10, padding: '0.9rem', marginBottom: '1rem' }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: phalanxPing.ok ? '#166534' : '#b91c1c', marginBottom: 6 }}>{phalanxPing.ok ? 'Verbindung ok' : `Verbindung fehlgeschlagen: ${phalanxPing.error || ''}`}</div>
+                  {(phalanxPing.segments || []).map(s => (
+                    <div key={s.tag} style={{ fontSize: '0.78rem', color: C.text }}>{s.tag}: {s.reachable ? (s.total != null ? `${s.total} Kontakte` : 'erreichbar') : `nicht erreichbar (${s.error || ''})`}</div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ marginTop: '0.5rem' }}>
+                <h4 style={{ margin: '0 0 0.5rem', color: C.navy, fontSize: '0.9rem' }}>Zuordnung prüfen ({phalanxReviews.length})</h4>
+                {phalanxReviews.length === 0 ? <div style={{ fontSize: '0.82rem', color: C.muted }}>Keine offenen Fälle.</div> : (
+                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
+                    {phalanxReviews.map(r => (
+                      <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 0.8rem', borderBottom: `1px solid ${C.border}` }}>
+                        <div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: C.text }}>{r.display_name || '(ohne Namen)'}</div>
+                          <div style={{ fontSize: '0.72rem', color: C.muted }}>{r.email || 'keine E-Mail'}{r.linkedin_url ? ' · ' + r.linkedin_url : ''} · mehrdeutiger Name</div>
+                        </div>
+                        <button onClick={() => resolveReview(r.id)} style={{ background: '#e0f2fe', color: '#0369a1', border: 'none', padding: '0.3rem 0.7rem', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>Erledigt</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 

@@ -28,6 +28,7 @@ import ContactSelfService from './pages/ContactSelfService';
 import Messages from './pages/Messages';
 import Register from './pages/Register';
 import Login from './pages/Login';
+import SsoCallback from './pages/SsoCallback';
 import Mitmachen from './pages/Mitmachen';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -104,6 +105,7 @@ function AppRoutes() {
           <Route path="/registrieren" element={<Register />} />
           <Route path="/mitmachen" element={<Mitmachen />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/sso" element={<SsoCallback />} />
           <Route path="/passwort-vergessen" element={<ForgotPassword />} />
           <Route path="/passwort-reset" element={<ResetPassword />} />
           <Route path="/email-bestaetigen" element={<VerifyEmail />} />

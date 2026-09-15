@@ -17,8 +17,15 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 // No token is returned: user sees a "pending" message.
 // Öffentliche Anmelde-Konfiguration (z. B. Turnstile-Site-Key fürs Frontend)
 router.get('/config', (req, res) => {
-  res.json({ success: true, data: { turnstile_site_key: process.env.TURNSTILE_SITE_KEY || null } });
+  let phalanxSso = false;
+  try { phalanxSso = require('../sync/phalanxpool').isConfigured(); } catch { phalanxSso = false; }
+  res.json({ success: true, data: { turnstile_site_key: process.env.TURNSTILE_SITE_KEY || null, phalanx_sso_enabled: phalanxSso } });
 });
+
+// ── SSO „Mit Phalanx OS anmelden" (OIDC, nur Admin/Staff) ────────────────────
+const phalanxSso = require('../utils/phalanxsso');
+router.get('/phalanx/start', wrap(phalanxSso.start));
+router.get('/phalanx/callback', wrap(phalanxSso.callback));
 
 router.post('/register', wrap(async (req, res) => {
   const { email, password, first_name, last_name, company, position, buyer_type, succession_type, mobile, phone, role, privacy_consent, salutation, title, turnstile_token, linkedin_url, signup_source } = req.body;
@@ -111,6 +118,7 @@ router.post('/register', wrap(async (req, res) => {
         } catch { /* ungültiges JSON ignorieren */ }
       }
       db.auditLog(userId, 'contact.linked_on_selfregister', 'crm_contact', contact.id, `${email} automatisch verknüpft`, req.ip);
+      try { require('../sync/phalanxpool').enqueueWriteback(contact.id); } catch { /* Rückmeldung best-effort */ }
     } else if (ambiguous) {
       db.auditLog(userId, 'contact.link_ambiguous', 'user', userId, `Mehrere CRM-Kontakte mit gleichem Namen wie ${first_name} ${last_name}, Zuordnung offen`, req.ip);
     }

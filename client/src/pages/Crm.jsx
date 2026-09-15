@@ -507,6 +507,15 @@ export default function Crm() {
                     {k.buyer_type && BUYER_TYPE[k.buyer_type] && (
                       <span style={{ display: 'inline-block', marginTop: 3, background: BUYER_TYPE[k.buyer_type].bg, color: BUYER_TYPE[k.buyer_type].color, padding: '0.05rem 0.45rem', borderRadius: 20, fontSize: '0.66rem', fontWeight: 700 }}>{BUYER_TYPE[k.buyer_type].short}</span>
                     )}
+                    {(k.source === 'phalanx-pool' || k.pool_contact_id) && (
+                      k.linkedin_url ? (
+                        <a href={/^https?:\/\//.test(k.linkedin_url) ? k.linkedin_url : `https://${k.linkedin_url}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                          title="Aus dem Phalanx-Netzwerk · LinkedIn-Profil öffnen"
+                          style={{ display: 'inline-block', marginTop: 3, marginLeft: 4, background: '#eef2ff', color: '#3730a3', padding: '0.05rem 0.45rem', borderRadius: 20, fontSize: '0.66rem', fontWeight: 700, textDecoration: 'none' }}>Phalanx-Netzwerk</a>
+                      ) : (
+                        <span title="Aus dem Phalanx-Netzwerk" style={{ display: 'inline-block', marginTop: 3, marginLeft: 4, background: '#eef2ff', color: '#3730a3', padding: '0.05rem 0.45rem', borderRadius: 20, fontSize: '0.66rem', fontWeight: 700 }}>Phalanx-Netzwerk</span>
+                      )
+                    )}
                   </td>
                   {/* Klick auf die Firma springt direkt in das Unternehmen */}
                   <td style={{ padding: '0.7rem 0.5rem', color: C.text }} onClick={e => e.stopPropagation()}>

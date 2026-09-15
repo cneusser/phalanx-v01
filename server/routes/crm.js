@@ -447,6 +447,7 @@ router.put('/contacts/:id/account', ...isStaff, canWrite, wrap(async (req, res) 
   await scoped(req, (t) => t.run('UPDATE crm_contacts SET user_id = ? WHERE id = ?', [userId, contact.id]));
   db.auditLog(req.user.id, userId ? 'CRM_ACCOUNT_LINKED' : 'CRM_ACCOUNT_UNLINKED', 'crm_contact', contact.id,
     `${[contact.first_name, contact.last_name].filter(Boolean).join(' ')} ${userId ? `→ Konto #${userId}` : '(Verknüpfung gelöst)'}`, req.ip);
+  if (userId) { try { require('../sync/phalanxpool').enqueueWriteback(contact.id); } catch { /* Rückmeldung best-effort */ } }
   res.json({ success: true, data: { user_id: userId } });
 }));
 
@@ -715,6 +716,7 @@ router.get('/contacts/search', ...isStaff, wrap(async (req, res) => {
   const rows = await scoped(req, (t) => t.all(`
     SELECT k.id, k.salutation, k.title, k.first_name, k.last_name, k.email, k.phone, k.mobile,
            k.consent_status, k.contact_status, k.is_decision_maker, k.user_id, k.profile_updated_at,
+           k.linkedin_url, k.source, k.pool_contact_id,
            (SELECT string_agg(c.name, ', ') FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
              WHERE cc.contact_id = k.id AND cc.ended_on IS NULL) AS companies,
            (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.contact_id = k.id) AS deals,
@@ -1908,6 +1910,7 @@ router.post('/invite/:token/register', wrap(async (req, res) => {
                     updated_at = now() WHERE id = ?`,
       [userId, salutation, title || null, first_name, last_name, mobile, linkedin_url || null,
        buyerType, succType, role === 'buyer' ? focus : null, noteAdd, noteAdd, inv.contact_id]).catch(() => {});
+    try { require('../sync/phalanxpool').enqueueWriteback(inv.contact_id); } catch { /* Rückmeldung best-effort */ }
   }
   // Login-frei ausgefüllten Nachfolge-Fragebogen ins Nachfolge-Profil übernehmen.
   if (role === 'buyer' && inv.contact_id) {

@@ -315,3 +315,54 @@ Das Skript schreibt je Mandat eine Ergebnis-CSV nach `<dir>/ergebnisse/` und
 aktualisiert, falls vorhanden, die Outreach-Excel (`Registriert`, `NDA`), ohne die
 Formatierung zu verändern. Alternativ steht der Import über die Admin-Oberfläche
 (Excel-Upload mit Vorschau) bereit.
+
+## Phalanx-OS-Anbindung
+
+Die Plattform ist an den Datenpool und die Anmeldung von Phalanx OS angebunden.
+Alle Zugangsdaten liegen ausschließlich als Railway-Umgebungsvariablen vor, nie im
+Code oder Repository.
+
+Umgebungsvariablen:
+
+```
+PHALANX_OS_BASE_URL        Basis-URL von Phalanx OS (z. B. https://phalanx-os-production.up.railway.app)
+PHALANX_OS_CLIENT_ID       OIDC-/Pool-Client-ID (aus Phalanx OS, Verwaltung → SSO-Clients)
+PHALANX_OS_CLIENT_SECRET   Client-Secret (nur ENV, nie loggen, nie ins Repo)
+PHALANX_OS_REDIRECT_URI    optional; Standard: <FRONTEND_URL>/api/auth/phalanx/callback
+PHALANX_SYNC_TAGS          optional; Standard: LI:Investor/Kapital,LI:Unternehmer/GF,LI:StB/WP/RA/Insolvenz
+PHALANX_SYNC_INTERVALL_MIN optional; Standard 30, 0 schaltet den Scheduler aus
+```
+
+**SSO „Mit Phalanx OS anmelden"** (nur Admin/Staff): OpenID Connect mit
+Authorization Code Flow und PKCE (S256). Die Verknüpfung erfolgt über die stabile
+OIDC-Kennung (`sub`); bei der ersten Anmeldung wird ein bestehendes Admin-/Staff-
+Konto mit übereinstimmender, verifizierter E-Mail verknüpft. Es werden keine neuen
+Konten angelegt. Käufer- und Verkäufer-Logins bleiben unverändert. Der Knopf
+erscheint auf der Anmeldung nur, wenn die drei Pflicht-ENV gesetzt sind. Die exakt
+zu registrierende Redirect-URI ist `PHALANX_OS_REDIRECT_URI` (Standard oben).
+
+**Datenpool-Sync (lesen)**: `server/sync/phalanxpool.js` holt per
+`client_credentials`-Token die konfigurierten Segmente (Polling über
+`updated_since`) und gleicht sie gegen `crm_contacts` ab, in genau der Dubletten-
+Reihenfolge des LinkedIn-Imports: (1) E-Mail, (2) normalisierte LinkedIn-URL,
+(3) eindeutiger Namensschlüssel; zusätzlich vorab die eigene `pool_contact_id` für
+Idempotenz. Treffer werden angereichert (LinkedIn, Firma, Position, Tags,
+`pool_contact_id`), fehlende neu angelegt (`relationship = 'LinkedIn-Kontakt'`,
+`source = 'phalanx-pool'`, `buyer_type` heuristisch aus dem Segment). Mehrdeutige
+Namen kommen auf die Warteliste „Zuordnung prüfen". Der Sync legt bewusst **keine**
+Funnel-Einträge an Mandaten an und löscht nichts. Scheduler alle
+`PHALANX_SYNC_INTERVALL_MIN` Minuten, zusätzlich Knopf „Jetzt synchronisieren".
+
+**Rückmeldung (schreiben)**: erhält ein CRM-Kontakt ein Plattformkonto (Einladung,
+Selbstregistrierung oder Zuordnung), wird er per idempotentem Upsert
+(`source_id = crm-<id>`) an den Pool gemeldet. Fehlversuche landen in einer
+Warteschlange mit Wiederholung und blockieren den Nutzerfluss nie.
+
+**UWG § 7**: Adressen aus `emails_ohne_werbeeinwilligung` werden in der Spalte
+`pool_email` abgelegt, nie in `email`. Da alle Massenversände `email IS NOT NULL`
+verlangen, sind diese Kontakte automatisch von Newsletter und Kampagnen
+ausgenommen; Einzelkorrespondenz bleibt möglich, `consent_status` bleibt `unknown`.
+
+Verwaltung: Admin → **Phalanx OS** zeigt Verbindungsstatus (Ping mit Token),
+letzten Sync mit Zahlen, die konfigurierten Segmente und die Warteliste. Kontakte
+aus dem Pool tragen in der Kontaktliste das Kennzeichen „Phalanx-Netzwerk".
