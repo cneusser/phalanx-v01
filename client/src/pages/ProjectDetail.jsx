@@ -7,6 +7,7 @@ import { api, getToken } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import NDASignModal from '../components/NDASignModal';
 import DataRoomBrowser from '../components/DataRoomBrowser';
+import { kpiWert } from '../utils/kpi';
 import {
   Lock, CheckCircle, Clock, FileText, MapPin, Building2,
   ChevronRight, AlertCircle, Download, PenLine, TrendingUp,
@@ -513,9 +514,9 @@ export default function ProjectDetail() {
         return (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <KpiCard label="RUNDEN-VOLUMEN" value={teaser.investment_needed} icon={Euro} />
-              <KpiCard label="INVESTOR-STAKE" value={teaser.equity_stake} icon={Percent} />
-              <KpiCard label="POST-MONEY" value={teaser.post_money_valuation} icon={TrendingUp} />
+              <KpiCard label="RUNDEN-VOLUMEN" value={kpiWert(teaser.investment_needed, 'geld')} icon={Euro} />
+              <KpiCard label="INVESTOR-STAKE" value={kpiWert(teaser.equity_stake, 'prozent')} icon={Percent} />
+              <KpiCard label="POST-MONEY" value={kpiWert(teaser.post_money_valuation, 'geld')} icon={TrendingUp} />
               <KpiCard label="TAM" value={teaser.tam_band} icon={BarChart3} />
             </div>
 
@@ -917,9 +918,9 @@ export default function ProjectDetail() {
               {isStartup ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
                   {[
-                    { label: 'RUNDE', value: teaser.investment_needed, icon: Euro },
-                    { label: 'STAKE',  value: teaser.equity_stake,      icon: Percent },
-                    { label: 'POST-MONEY', value: teaser.post_money_valuation, icon: TrendingUp },
+                    { label: 'RUNDE', value: kpiWert(teaser.investment_needed, 'geld'), icon: Euro },
+                    { label: 'STAKE',  value: kpiWert(teaser.equity_stake, 'prozent'), icon: Percent },
+                    { label: 'POST-MONEY', value: kpiWert(teaser.post_money_valuation, 'geld'), icon: TrendingUp },
                   ].map(({ label, value, icon: Icon }) => (
                     <div key={label} style={{ background: C.bg, borderRadius: 6, padding: '0.85rem', border: `1px solid ${C.border}` }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.2rem' }}>

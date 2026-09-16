@@ -3,6 +3,11 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.389 · 25.07.2026 · Kennzahlen-Kacheln sauber formatiert
+- **Cavendish korrigiert**: Die Kacheln zeigten „STAKE 10" und „POST-MONEY 7500000", weil die Werte beim Anlegen als nackte Zahlen gespeichert wurden; jetzt stehen dort „10 %", „€ 7,5 Mio." und „€ 0,75 Mio."
+- **Sicherheitsnetz in der Anzeige**: Steht in einem Kennzahlen-Feld versehentlich eine reine Zahl, wird sie automatisch als Prozentwert oder Eurobetrag dargestellt; formatierte Werte und Bandbreiten wie „~26 %" oder „€ 1 bis 2 Mio." bleiben unangetastet
+- **Anonymisierung nachgezogen**: Der Ortsbezug „Baltic coast" ist aus dem Cavendish-Inserat entfernt, der Sitz wird nur noch als „Germany" genannt
+
 ## v0.388 · 24.07.2026 · Phalanx-OS-Anbindung: SSO und Datenpool-Sync
 - **SSO „Mit Phalanx OS anmelden"**: Admin- und Staff-Konten melden sich über Phalanx OS an (OpenID Connect mit PKCE S256, Verknüpfung über die stabile OIDC-Kennung, kein automatisches Anlegen neuer Konten); Käufer- und Verkäufer-Logins unverändert
 - **Datenpool-Sync (lesen)**: zieht die Segmente Investor/Kapital, Unternehmer/GF und StB/WP/RA/Insolvenz aus dem Phalanx-OS-CRM, gleicht dublettenfrei ab (E-Mail, LinkedIn, eindeutiger Name), reichert Treffer an, legt fehlende neu an; alle 30 Minuten (ENV) und per Knopf „Jetzt synchronisieren"

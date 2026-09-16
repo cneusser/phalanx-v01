@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { useT } from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import useIsMobile from '../hooks/useIsMobile';
+import { kpiWert } from '../utils/kpi';
 import {
   Search, Filter, Building2, MapPin, ChevronRight, Lock,
   CheckCircle, Clock, TrendingUp, Euro, Percent, BarChart3,
@@ -190,9 +191,9 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched,
       {/* Metriken */}
       {isStartup ? (
         <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.85rem' }}>
-          <MetricBox label="RUNDE" value={p.investment_needed} />
-          <MetricBox label="STAKE" value={p.equity_stake} />
-          <MetricBox label="POST-MONEY" value={p.post_money_valuation} />
+          <MetricBox label="RUNDE" value={kpiWert(p.investment_needed, 'geld')} />
+          <MetricBox label="STAKE" value={kpiWert(p.equity_stake, 'prozent')} />
+          <MetricBox label="POST-MONEY" value={kpiWert(p.post_money_valuation, 'geld')} />
         </div>
       ) : (
         <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.85rem' }}>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Lock, Users, FileText, ChevronRight, Building2, TrendingUp, Eye } from 'lucide-react';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
+import { kpiWert } from '../utils/kpi';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -74,7 +75,7 @@ function ProjectAvatar({ name, color }) {
 function MandateTile({ p }) {
   const isStartup = p.mandate_type === 'fundraising';
   const metrics = isStartup
-    ? [['RUNDE', p.investment_needed], ['STAKE', p.equity_stake], ['POST-M.', p.post_money_valuation]]
+    ? [['RUNDE', kpiWert(p.investment_needed, 'geld')], ['STAKE', kpiWert(p.equity_stake, 'prozent')], ['POST-M.', kpiWert(p.post_money_valuation, 'geld')]]
     : [['UMSATZ', p.revenue_band], ['EBITDA', p.ebitda_band]];
 
   return (
