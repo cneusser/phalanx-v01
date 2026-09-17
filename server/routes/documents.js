@@ -158,6 +158,10 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
 
   const { description = '', access_level = 'nda' } = req.body;
   const displayName = req.body.display_name || req.file.originalname;
+  // Ordnerpfad im Datenraum (z. B. "1.3 Finanzen/1.3.2 BWA"). Der Käufer-Datenraum
+  // baut seinen Baum aus diesem Feld. Führende und doppelte Schrägstriche raus.
+  const folder = String(req.body.folder || '').trim()
+    .replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/^\/+|\/+$/g, '').slice(0, 500) || null;
 
   // Volltext für die Suche extrahieren (nur PDF, Fehler stören den Upload nicht)
   let contentText = null;
@@ -166,15 +170,19 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
     contentText = (await extractIfPdf(fs.readFileSync(req.file.path), req.file.mimetype, displayName)) || null;
   } catch { /* ignore */ }
 
+  const level = ['public', 'nda', 'approved'].includes(access_level) ? access_level : 'nda';
+  const kategorie = { public: 'teaser', nda: 'im', approved: 'dataroom' }[level];
   const docId = await db.insert(`
-    INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, file_path, content_text)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO documents (project_id, filename, file_type, file_size, access_level, category, folder, description, uploaded_by, file_path, content_text)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [
     projectId,
     displayName,
     req.file.mimetype,
     req.file.size,
-    ['public', 'nda', 'approved'].includes(access_level) ? access_level : 'nda',
+    level,
+    kategorie,
+    folder,
     description,
     req.user.id,
     req.file.path,

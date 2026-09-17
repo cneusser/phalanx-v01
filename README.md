@@ -316,6 +316,38 @@ aktualisiert, falls vorhanden, die Outreach-Excel (`Registriert`, `NDA`), ohne d
 Formatierung zu verändern. Alternativ steht der Import über die Admin-Oberfläche
 (Excel-Upload mit Vorschau) bereit.
 
+## Datenraum aus einem Ordnerbaum befüllen
+
+Für die Erstbefüllung eines Datenraums gibt es ein Import-Skript. Es liest einen
+vorbereiteten Ordnerbaum ein und legt jede Datei als Dokument des Mandats an, mit
+Ordnerpfad, sprechendem Anzeigenamen und Zugriffsstufe. Der Import läuft über die
+HTTP-Schnittstelle, nicht über die Datenbank: So legt der Server die Dateien
+selbst in seinem Volume ab, und das Skript funktioniert vom eigenen Rechner aus.
+
+```
+cd server
+CM_EMAIL=... CM_PASSWORD=... node scripts/datenraum-import.js \
+  --dir "/Users/<du>/Downloads/Dokumente/1 Datenraum" \
+  --projekt FARADAY --dry
+# danach ohne --dry für den echten Lauf
+```
+
+Optionen: `--dry` (Trockenlauf), `--stufe public|nda|approved` (Standard
+`approved`, also erst nach persönlicher Freigabe je Interessent sichtbar),
+`--clean-team` (Abschnitt Clean Team mit importieren, Standard aus),
+`--basis <URL>`.
+
+Der Import ist idempotent: Gleicher Ordner plus gleicher Anzeigename wird
+übersprungen, ein zweiter Lauf legt also keine Doubletten an. Ordner, deren Name
+mit `0 ` beginnt, werden übersprungen (gedacht für Klärfälle und Doubletten),
+ebenso der Clean-Team-Abschnitt, solange `--clean-team` nicht gesetzt ist.
+Zugangsdaten werden ausschließlich als Umgebungsvariablen gelesen, nie als
+Argument, und nirgends gespeichert.
+
+Der Ordnerbaum landet unverändert im Käufer-Datenraum: Die Ansicht baut ihre
+Navigation aus dem Feld `folder`, die Nummerierung im Datei- und Ordnernamen
+sorgt für die Sortierung.
+
 ## Phalanx-OS-Anbindung
 
 Die Plattform ist an den Datenpool und die Anmeldung von Phalanx OS angebunden.

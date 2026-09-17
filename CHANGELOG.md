@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.390 · 26.07.2026 · Datenraum: Ordnerstruktur und Import aus einem Ordnerbaum
+- **Ordner beim Upload**: Dokumente können jetzt mit Ordnerpfad hochgeladen werden; der Käufer-Datenraum baut daraus seine Navigation, statt alles in einer langen Liste zu zeigen
+- **Import-Skript** `server/scripts/datenraum-import.js`: liest einen vorbereiteten Ordnerbaum ein und legt jede Datei mit Ordnerpfad, sprechendem Namen und Zugriffsstufe an; läuft über die HTTP-Schnittstelle, Trockenlauf möglich, idempotent (zweiter Lauf legt keine Doubletten an)
+- **Clean Team**: Der Clean-Team-Abschnitt wird beim Import standardmäßig ausgenommen und kann später separat mit `--clean-team` eingelesen werden
+- **Kategorie**: wird beim Upload passend zur Zugriffsstufe gesetzt (teaser, im, dataroom), statt nur hergeleitet zu werden
+
 ## v0.389 · 25.07.2026 · Kennzahlen-Kacheln sauber formatiert
 - **Cavendish korrigiert**: Die Kacheln zeigten „STAKE 10" und „POST-MONEY 7500000", weil die Werte beim Anlegen als nackte Zahlen gespeichert wurden; jetzt stehen dort „10 %", „€ 7,5 Mio." und „€ 0,75 Mio."
 - **Sicherheitsnetz in der Anzeige**: Steht in einem Kennzahlen-Feld versehentlich eine reine Zahl, wird sie automatisch als Prozentwert oder Eurobetrag dargestellt; formatierte Werte und Bandbreiten wie „~26 %" oder „€ 1 bis 2 Mio." bleiben unangetastet
