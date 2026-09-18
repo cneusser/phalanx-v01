@@ -324,9 +324,16 @@ Ordnerpfad, sprechendem Anzeigenamen und Zugriffsstufe. Der Import läuft über 
 HTTP-Schnittstelle, nicht über die Datenbank: So legt der Server die Dateien
 selbst in seinem Volume ab, und das Skript funktioniert vom eigenen Rechner aus.
 
+Die Anmeldung läuft über das eigene Sitzungs-Token: Der Login per Passwort ist
+durch den Cloudflare-Sicherheitscheck geschützt, den ein Skript nicht lösen kann
+und auch nicht umgehen soll. Man meldet sich also im Browser an (löst den Check
+dort als Mensch), kopiert aus dem Local Storage den Wert `phalanx_token` und
+übergibt ihn als `CM_TOKEN`.
+
 ```
 cd server
-CM_EMAIL=... CM_PASSWORD=... node scripts/datenraum-import.js \
+export CM_TOKEN=<phalanx_token aus dem Local Storage>
+node scripts/datenraum-import.js \
   --dir "/Users/<du>/Downloads/Dokumente/1 Datenraum" \
   --projekt FARADAY --dry
 # danach ohne --dry für den echten Lauf
