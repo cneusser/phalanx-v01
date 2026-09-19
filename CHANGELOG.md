@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.395 · 31.07.2026 · Struktur aufräumen: zwei Gliederungen zu einer zusammenführen
+- **Knopf „Struktur aufräumen"** im Safe: Plan mit Zeilen „Quelle => Ziel", der Inhalt der Quelle wandert ins Ziel, der leere Quellordner in den Papierkorb
+- **Tolerante Namen**: Nummernpräfixe und Groß- und Kleinschreibung werden ignoriert, „1.3 Finanzen" trifft also auf „Finanzen"
+- **Automatisch verschlankt**: nichts tiefer als zwei Ebenen, Unterordner mit weniger als drei Dateien lösen sich auf
+- **Vorschau zuerst**: jede geplante Aktion und die künftige Zahl der obersten Ordner sind sichtbar, bevor etwas verschoben wird
+
 ## v0.394 · 30.07.2026 · Ordner zusammenführen auf allen Ebenen
 - **„Bereinigen" wirkt jetzt rekursiv**: gleichnamige Ordner verschmelzen auf jeder Ebene, nicht nur auf der obersten. Inhalte wandern mit, gelöscht wird nichts
 - **Nummerierung**: Positionen werden je Ebene neu vergeben, die Nummern sind danach wieder lückenlos

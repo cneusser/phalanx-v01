@@ -155,6 +155,41 @@ export default function ProjectSafe() {
       load(parent);
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }
+  // Struktur zusammenführen: Vorschlag, den man vor dem Anwenden anpassen kann.
+  const PLAN_VORSCHLAG = [
+    'Gesellschaftsrechtliche Unterlagen => Rechtliche Situation im Unternehmen',
+    'Recht und Compliance => Rechtliche Situation im Unternehmen',
+    'Versicherungen => Rechtliche Situation im Unternehmen',
+    'Personal und HR => Mitarbeiter und Management',
+    'Finanzen => Wirtschaftliche Entwicklung (GuV, Bilanz, Cash Flow)',
+    'Steuern => Finanz- und Rechnungswesen, IT',
+    'IT und Datenschutz => Finanz- und Rechnungswesen, IT',
+    'Vertrieb und Kunden => Leistungswirtschaftliche Entwicklung (Produkte, Kunden, Markt, Wettbewerb, Fertigung)',
+    'Einkauf und Lieferanten => Leistungswirtschaftliche Entwicklung (Produkte, Kunden, Markt, Wettbewerb, Fertigung)',
+    'Immobilien und Anlagen => Entwicklung und Übersicht des Unternehmens',
+  ].join('\n');
+  const [planOffen, setPlanOffen] = useState(false);
+  const [planText, setPlanText] = useState(PLAN_VORSCHLAG);
+  const [planVorschau, setPlanVorschau] = useState(null);
+  const [planBusy, setPlanBusy] = useState(false);
+
+  async function planPruefen() {
+    setPlanBusy(true);
+    try { setPlanVorschau(await api.post(`/safe/${pid}/umstrukturieren`, { plan: planText, dry: true })); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+    setPlanBusy(false);
+  }
+  async function planAnwenden() {
+    if (!window.confirm('Struktur jetzt umbauen?\n\nOrdner werden zusammengeführt, zu tiefe Ebenen hochgezogen und sehr kleine Unterordner aufgelöst. Dateien gehen nicht verloren, geleerte Ordner wandern in den Papierkorb.')) return;
+    setPlanBusy(true);
+    try {
+      const d = await api.post(`/safe/${pid}/umstrukturieren`, { plan: planText });
+      setMsg(`Struktur umgebaut: ${d.anzahl} Aktion(en), jetzt ${d.ordner_oben} Ordner auf oberster Ebene.`);
+      setPlanOffen(false); setPlanVorschau(null); load(null);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+    setPlanBusy(false);
+  }
+
   // Speicher-Umzug nach Cloudflare R2, in Stapeln bis alles drüben ist.
   const [umzug, setUmzug] = useState(null);
   async function speicherUmzug() {
@@ -410,6 +445,7 @@ export default function ProjectSafe() {
           <button onClick={() => setPublishItem({ all: true, name: 'Alle Dateien' })} title="Alle Dateien dieses Mandats in den Datenraum übernehmen" style={btn('#fff', C.navy, true)}><Share2 size={15} /> Alles in Datenraum</button>
           <button onClick={uebernehmeDokumente} title="Einmalig: Dokumente aus der alten, flachen Datenraum-Liste mit ihrem Ordnerpfad in den Safe holen" style={btn('#fff', C.navy, true)}><Package size={15} /> Alte Dokumente übernehmen</button>
           <button onClick={speicherUmzug} disabled={!!umzug} title="Dateien dieses Mandats in den Cloudflare-Speicher kopieren (nichts wird gelöscht)" style={btn('#fff', C.navy, true)}><HardDrive size={15} /> {umzug || 'Speicher-Umzug'}</button>
+          <button onClick={() => { setPlanOffen(true); setPlanVorschau(null); }} title="Zwei Gliederungen zu einer zusammenführen und die Tiefe begrenzen" style={btn('#fff', C.navy, true)}><Folder size={15} /> Struktur aufräumen</button>
           <button onClick={() => showReport ? setShowReport(false) : loadReport()} style={btn('#fff', showReport ? C.accent : C.muted, true)}><BarChart3 size={15} /> Zugriffe</button>
           <button onClick={() => showTrash ? setShowTrash(false) : loadTrash()} style={btn('#fff', showTrash ? '#991b1b' : C.muted, true)}><Trash2 size={15} /> Papierkorb</button>
           <input ref={fileInput} type="file" multiple hidden onChange={e => doUpload(Array.from(e.target.files), false)} />
@@ -632,6 +668,40 @@ export default function ProjectSafe() {
               <button onClick={runRedactPreview} disabled={redactBusy || !redactTermList().length} style={btn('#fff', C.navy, true)}>{redactBusy ? 'Prüfe…' : 'Vorschau: Fundstellen zählen'}</button>
               <button onClick={runRedact} disabled={redactBusy || !redactTermList().length} style={btn(C.navy, '#fff')}><Eraser size={15} /> Geschwärzte Kopie erstellen</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Struktur aufräumen */}
+      {planOffen && (
+        <div onClick={() => setPlanOffen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 320, padding: '1rem' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.3rem', width: '100%', maxWidth: 760, maxHeight: '88vh', overflowY: 'auto' }}>
+            <div style={{ fontWeight: 700, color: C.navy, fontSize: '1.02rem', marginBottom: '0.3rem' }}>Struktur aufräumen</div>
+            <p style={{ fontSize: '0.82rem', color: C.muted, marginTop: 0 }}>
+              Je Zeile „Quelle =&gt; Ziel". Der Inhalt der Quelle wandert in das Ziel, der leere Quellordner geht in den Papierkorb.
+              Nummernpräfixe und Groß- und Kleinschreibung spielen keine Rolle. Danach wird automatisch aufgeräumt:
+              nichts tiefer als zwei Ebenen, und Unterordner mit weniger als drei Dateien lösen sich in ihren Ordner auf.
+            </p>
+            <textarea value={planText} onChange={e => setPlanText(e.target.value)} rows={12}
+              style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'ui-monospace, monospace', fontSize: '0.79rem', padding: '0.6rem', border: `1px solid ${C.border}`, borderRadius: 8 }} />
+            <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.7rem', flexWrap: 'wrap' }}>
+              <button onClick={planPruefen} disabled={planBusy} style={btn('#fff', C.navy, true)}>{planBusy ? 'Prüfe…' : 'Vorschau'}</button>
+              <button onClick={planAnwenden} disabled={planBusy || !planVorschau} style={btn(planVorschau ? '#166534' : '#9ca3af', '#fff')}>Umbauen</button>
+              <span style={{ flex: 1 }} />
+              <button onClick={() => setPlanOffen(false)} style={btn('#fff', C.muted, true)}>Abbrechen</button>
+            </div>
+            {planVorschau && (
+              <div style={{ marginTop: '0.9rem', border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.7rem', background: C.bg }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: C.navy, marginBottom: '0.4rem' }}>
+                  {planVorschau.anzahl} Aktion(en), danach {planVorschau.ordner_oben} Ordner auf oberster Ebene
+                </div>
+                {planVorschau.aktionen.length === 0
+                  ? <div style={{ fontSize: '0.8rem', color: C.muted }}>Nichts zu tun.</div>
+                  : planVorschau.aktionen.map((a, i) => (
+                    <div key={i} style={{ fontSize: '0.78rem', color: /nicht gefunden|übersprungen/.test(a) ? '#b91c1c' : C.text }}>{a}</div>
+                  ))}
+              </div>
+            )}
           </div>
         </div>
       )}

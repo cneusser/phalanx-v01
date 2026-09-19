@@ -359,6 +359,112 @@ router.get('/:projectId/item/:id/preview', authenticate, wrap(async (req, res) =
   res.send(buf);
 }));
 
+// ── Struktur umbauen (v0.395) ───────────────────────────────────────────────
+// Führt zwei nebeneinander gewachsene Gliederungen wieder zu einer zusammen und
+// hält die Tiefe klein. Der Plan kommt als Text, je Zeile „Quelle => Ziel";
+// verglichen wird ohne Nummernpräfix und ohne Groß- und Kleinschreibung.
+// Anschließend wird aufgeräumt: nichts tiefer als zwei Ebenen, und Unterordner
+// mit sehr wenigen Dateien lösen sich in ihren übergeordneten Ordner auf.
+router.post('/:projectId/umstrukturieren', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = Number(req.params.projectId);
+  const trocken = (req.body || {}).dry === true;
+  const minDateien = Math.max(0, Number((req.body || {}).min_dateien ?? 3));
+  const maxTiefe = Math.max(1, Number((req.body || {}).max_tiefe ?? 2));
+  const aktionen = [];
+
+  const schluessel = (n) => String(n || '').replace(/^\s*\d+(\.\d+)*[.)]?\s+/, '').trim().toLowerCase();
+
+  const alle = await scoped(req, (t) => t.all(
+    'SELECT id, parent_id, name, is_folder FROM safe_items WHERE project_id = ? AND deleted_at IS NULL', [projectId]));
+  const oben = alle.filter((i) => i.parent_id == null && Number(i.is_folder) === 1);
+
+  async function verschiebe(id, zielId) {
+    const pos = await nextPosition(req, projectId, zielId);
+    if (!trocken) await scoped(req, (t) => t.run('UPDATE safe_items SET parent_id = ?, position = ? WHERE id = ?', [zielId, pos, id]));
+  }
+  async function inPapierkorb(id) {
+    if (!trocken) await scoped(req, (t) => t.run('UPDATE safe_items SET deleted_at = now() WHERE id = ?', [id]));
+  }
+  const kinderVon = (pid) => alle.filter((i) => Number(i.parent_id) === Number(pid));
+
+  // 1. Plan anwenden: Inhalte der Quelle in das Ziel überführen, Quelle leeren.
+  const zeilen = String((req.body || {}).plan || '').split('\n').map((z) => z.trim()).filter(Boolean);
+  for (const z of zeilen) {
+    const teile = z.split(/=>|->/);
+    if (teile.length !== 2) { aktionen.push(`übersprungen (kein Pfeil): ${z}`); continue; }
+    const q = schluessel(teile[0]); const zi = schluessel(teile[1]);
+    const quelle = oben.find((f) => schluessel(f.name) === q);
+    const ziel = oben.find((f) => schluessel(f.name) === zi);
+    if (!quelle) { aktionen.push(`Quelle nicht gefunden: ${teile[0].trim()}`); continue; }
+    if (!ziel) { aktionen.push(`Ziel nicht gefunden: ${teile[1].trim()}`); continue; }
+    if (quelle.id === ziel.id) continue;
+    for (const k of kinderVon(quelle.id)) {
+      await verschiebe(k.id, ziel.id);
+      k.parent_id = ziel.id;
+    }
+    await inPapierkorb(quelle.id);
+    quelle.parent_id = -1;   // gilt ab jetzt als entfernt
+    aktionen.push(`„${quelle.name}" aufgelöst nach „${ziel.name}"`);
+  }
+
+  // 2. Tiefe begrenzen: Was tiefer als maxTiefe liegt, wandert nach oben.
+  const lebend = () => alle.filter((i) => Number(i.parent_id) !== -1);
+  function tiefeVon(item) {
+    let t = 1; let p = item.parent_id;
+    const proId = new Map(alle.map((i) => [Number(i.id), i]));
+    while (p != null && proId.has(Number(p)) && t < 20) { t += 1; p = proId.get(Number(p)).parent_id; }
+    return t;
+  }
+  for (const it of lebend().slice().sort((a, b) => tiefeVon(b) - tiefeVon(a))) {
+    if (tiefeVon(it) <= maxTiefe) continue;
+    const proId = new Map(alle.map((i) => [Number(i.id), i]));
+    // So weit hochziehen, bis die erlaubte Tiefe erreicht ist.
+    let ziel = proId.get(Number(it.parent_id));
+    while (ziel && tiefeVon(ziel) >= maxTiefe) ziel = proId.get(Number(ziel.parent_id));
+    const zielId = ziel ? ziel.id : null;
+    if (Number(it.is_folder) === 1) {
+      // Ordner dieser Tiefe werden nicht behalten: Inhalte hoch, Hülle weg.
+      for (const k of kinderVon(it.id)) { await verschiebe(k.id, zielId); k.parent_id = zielId; }
+      await inPapierkorb(it.id);
+      it.parent_id = -1;
+      aktionen.push(`zu tiefer Ordner „${it.name}" aufgelöst`);
+    } else {
+      await verschiebe(it.id, zielId);
+      it.parent_id = zielId;
+    }
+  }
+
+  // 3. Sehr kleine Unterordner auflösen, damit die Darstellung ruhig bleibt.
+  for (const f of lebend().filter((i) => Number(i.is_folder) === 1 && i.parent_id != null)) {
+    const inhalt = kinderVon(f.id);
+    if (inhalt.some((k) => Number(k.is_folder) === 1)) continue;      // enthält noch Ordner
+    if (inhalt.length >= minDateien) continue;                        // groß genug
+    for (const k of inhalt) { await verschiebe(k.id, f.parent_id); k.parent_id = f.parent_id; }
+    await inPapierkorb(f.id);
+    f.parent_id = -1;
+    aktionen.push(`kleiner Ordner „${f.name}" (${inhalt.length}) aufgelöst`);
+  }
+
+  // 4. Positionen je Ebene neu vergeben, Ordner zuerst.
+  if (!trocken) {
+    const ebenen = new Set(lebend().map((i) => (i.parent_id == null ? 'null' : String(i.parent_id))));
+    for (const e of ebenen) {
+      const pid = e === 'null' ? null : Number(e);
+      const rows = await scoped(req, (t) => t.all(
+        `SELECT id FROM safe_items WHERE project_id = ? AND deleted_at IS NULL
+          AND ${pid == null ? 'parent_id IS NULL' : 'parent_id = ?'}
+          ORDER BY is_folder DESC, position ASC, id ASC`,
+        pid == null ? [projectId] : [projectId, pid]));
+      let p = 1;
+      for (const r of rows) await scoped(req, (t) => t.run('UPDATE safe_items SET position = ? WHERE id = ?', [p++, r.id]));
+    }
+    db.auditLog(req.user.id, 'SAFE_UMSTRUKTURIERT', 'project', projectId, `${aktionen.length} Aktion(en)`, req.ip);
+  }
+  const verbleibendOben = lebend().filter((i) => i.parent_id == null && Number(i.is_folder) === 1).length;
+  res.json({ success: true, data: { aktionen, anzahl: aktionen.length, ordner_oben: verbleibendOben, trocken } });
+}));
+
 // ── Speicher-Umzug auf Cloudflare R2 (v0.393) ───────────────────────────────
 // Kopiert die Dateien des Mandats vom Volume in den S3-kompatiblen Speicher,
 // in Stapeln, damit nichts in eine Zeitüberschreitung läuft. Nichts wird
