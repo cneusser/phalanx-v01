@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
-import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell, Search, Eraser, Lock, Unlock, Package } from 'lucide-react';
+import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell, Search, Eraser, Lock, Unlock, Package, KeyRound } from 'lucide-react';
+import GrantsDialog from '../components/GrantsDialog';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const fmtBytes = (b) => { b = Number(b) || 0; if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB'; return (b / 1073741824).toFixed(2) + ' GB'; };
@@ -32,6 +33,7 @@ export default function ProjectSafe() {
   const [showTrash, setShowTrash] = useState(false);
   const [trash, setTrash] = useState([]);
   const [publishItem, setPublishItem] = useState(null);
+  const [grantItem, setGrantItem] = useState(null);   // Objekt, dessen Freigaben bearbeitet werden
   const [uploading, setUploading] = useState(false);
   const [drag, setDrag] = useState(false);
   const [denied, setDenied] = useState(false);
@@ -152,6 +154,26 @@ export default function ProjectSafe() {
       setMsg(an ? 'Als vertraulich gekennzeichnet (Clean Team).' : 'Vertraulichkeit aufgehoben.');
       load(parent);
     } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+  // Speicher-Umzug nach Cloudflare R2, in Stapeln bis alles drüben ist.
+  const [umzug, setUmzug] = useState(null);
+  async function speicherUmzug() {
+    try {
+      const probe = await api.post(`/safe/${pid}/speicher-umzug`, { dry: true, limit: 200 });
+      if (!probe.offen) { setMsg(`Alle ${probe.gesamt} Datei(en) liegen bereits im Zielspeicher.`); return; }
+      if (!window.confirm(`${probe.offen} von ${probe.gesamt} Datei(en) sind noch nicht umgezogen.\n\nJetzt kopieren? Es wird nichts gelöscht, die Dateien im Volume bleiben vorerst liegen.`)) return;
+      let gesamtKopiert = 0; let runden = 0;
+      for (;;) {
+        const d = await api.post(`/safe/${pid}/speicher-umzug`, { limit: 25 });
+        gesamtKopiert += d.kopiert;
+        runden += 1;
+        setUmzug(`${gesamtKopiert} von ${d.gesamt} kopiert…`);
+        if (d.fehler && d.probleme.length) { setMsg(`Umzug gestoppt: ${d.probleme[0]}`); setUmzug(null); return; }
+        if (!d.kopiert || runden > 200) break;
+      }
+      setUmzug(null);
+      setMsg(`Speicher-Umzug fertig: ${gesamtKopiert} Datei(en) kopiert.`);
+    } catch (e) { setUmzug(null); setMsg('Fehler: ' + e.message); }
   }
   // Einmalige Überführung der alten Datenraum-Dokumente in den Safe-Baum.
   async function uebernehmeDokumente() {
@@ -387,6 +409,7 @@ export default function ProjectSafe() {
           <button onClick={notifyDataroom} title="Käufer mit Datenraum-Zugang über neue Unterlagen per E-Mail informieren" style={btn('#fff', C.navy, true)}><Bell size={15} /> Käufer benachrichtigen</button>
           <button onClick={() => setPublishItem({ all: true, name: 'Alle Dateien' })} title="Alle Dateien dieses Mandats in den Datenraum übernehmen" style={btn('#fff', C.navy, true)}><Share2 size={15} /> Alles in Datenraum</button>
           <button onClick={uebernehmeDokumente} title="Einmalig: Dokumente aus der alten, flachen Datenraum-Liste mit ihrem Ordnerpfad in den Safe holen" style={btn('#fff', C.navy, true)}><Package size={15} /> Alte Dokumente übernehmen</button>
+          <button onClick={speicherUmzug} disabled={!!umzug} title="Dateien dieses Mandats in den Cloudflare-Speicher kopieren (nichts wird gelöscht)" style={btn('#fff', C.navy, true)}><HardDrive size={15} /> {umzug || 'Speicher-Umzug'}</button>
           <button onClick={() => showReport ? setShowReport(false) : loadReport()} style={btn('#fff', showReport ? C.accent : C.muted, true)}><BarChart3 size={15} /> Zugriffe</button>
           <button onClick={() => showTrash ? setShowTrash(false) : loadTrash()} style={btn('#fff', showTrash ? '#991b1b' : C.muted, true)}><Trash2 size={15} /> Papierkorb</button>
           <input ref={fileInput} type="file" multiple hidden onChange={e => doUpload(Array.from(e.target.files), false)} />
@@ -532,6 +555,10 @@ export default function ProjectSafe() {
                           style={{ ...iconBtn, color: it.confidential ? '#b45309' : C.muted }}>
                           {it.confidential ? <Lock size={15} /> : <Unlock size={15} />}
                         </button>
+                        <button title="Einzelfreigaben verwalten (wer darf dieses Objekt sehen oder laden)"
+                          onClick={() => setGrantItem(it)} style={{ ...iconBtn, color: C.muted }}>
+                          <KeyRound size={15} />
+                        </button>
                         <button title="Umbenennen" onClick={() => { setRenameId(it.id); setRenameVal(displayName(it.name)); }} style={iconBtn}><Edit2 size={15} /></button>
                         {it.is_folder && <button title="Ganzen Ordner in Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button>}
                         {!it.is_folder && <><button title="Vorschau (mit Wasserzeichen)" onClick={() => preview(it)} style={iconBtn}><Eye size={15} /></button><button title="Herunterladen" onClick={() => download(it)} style={iconBtn}><Download size={15} /></button>
@@ -607,6 +634,13 @@ export default function ProjectSafe() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Einzelfreigaben (Clean Team) */}
+      {grantItem && (
+        <GrantsDialog projectId={pid} item={grantItem} C={C}
+          onClose={() => setGrantItem(null)}
+          onChanged={() => load(parent)} />
       )}
 
       {/* Publish-Dialog */}

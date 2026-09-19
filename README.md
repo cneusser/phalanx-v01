@@ -316,6 +316,52 @@ aktualisiert, falls vorhanden, die Outreach-Excel (`Registriert`, `NDA`), ohne d
 Formatierung zu verändern. Alternativ steht der Import über die Admin-Oberfläche
 (Excel-Upload mit Vorschau) bereit.
 
+## Datenraum (Safe)
+
+Der Safe ist zugleich der Datenraum: Käufer lesen nach persönlicher Freigabe
+denselben Ordnerbaum, den das Mandatsteam pflegt. Eine zweite, flache Kopie gibt
+es dafür nicht mehr.
+
+**Zugang.** Käufer brauchen die Funnel-Stufe `dataroom_granted`, also Ihre
+ausdrückliche Freigabe je Interessent. Das Mandatsteam (Pflegende und Betrachter)
+sieht den Safe unabhängig davon vollständig.
+
+**Clean Team.** Ordner und Dateien lassen sich als vertraulich kennzeichnen
+(Schloss-Symbol im Safe, Spalte `safe_items.confidential`). Für Käufer erscheinen
+sie dann nur als gesperrter Eintrag. Erst eine Einzelfreigabe öffnet sie. Regeln:
+
+- Vertraulichkeit vererbt sich nach unten: Was unter einem vertraulichen Ordner
+  liegt, ist ebenfalls vertraulich.
+- Eine Freigabe vererbt sich ebenfalls nach unten.
+- Eine Freigabe tief im Zweig macht nur den Weg dorthin sichtbar; die übrigen
+  Objekte dieses Zweigs bleiben verborgen, nicht bloß gesperrt.
+- Empfänger: eine Person, ein Käufertyp, eine Gruppe oder alle Beteiligten.
+  Umfang: nur ansehen oder ansehen und herunterladen.
+
+**Nachvollziehbarkeit.** Jede Ansicht und jeder Download landet in
+`safe_access_log`. Der Zugriffsbericht im Safe zeigt es je Person, je Dokument
+und als Verlauf. Beim Archiv-Download eines Ordners wird **jede enthaltene Datei
+einzeln** vermerkt, nicht nur das Archiv. PDF-Vorschauen tragen ein persönliches
+Wasserzeichen.
+
+**Speicher.** Über `STORAGE_PROVIDER` wird zwischen Volume (`local`) und
+S3-kompatibel (`s3`, damit auch Cloudflare R2) umgeschaltet:
+
+```
+STORAGE_PROVIDER=s3
+S3_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+S3_BUCKET=<bucket>
+S3_KEY=<access key id>
+S3_SECRET=<secret access key>
+S3_REGION=auto
+```
+
+Für den Umzug gibt es im Safe den Knopf „Speicher-Umzug": Er kopiert die Dateien
+des Mandats in Stapeln zum Zielspeicher und prüft jede Datei per Gegenprobe.
+Gelöscht wird nichts. Solange der Umzug läuft, greift beim Lesen ein Rückfall auf
+das Volume, damit nichts ins Leere läuft; nach Abschluss lässt er sich mit
+`STORAGE_FALLBACK_LOCAL=0` abschalten.
+
 ## Datenraum aus einem Ordnerbaum befüllen
 
 Für die Erstbefüllung eines Datenraums gibt es ein Import-Skript. Es liest einen

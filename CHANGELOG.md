@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.393 · 29.07.2026 · Einzelfreigaben für Clean Team und Umzug auf Cloudflare
+- **Freigabe-Dialog** je Ordner und Datei: gezielt öffnen für eine Person, einen Käufertyp, eine Gruppe oder alle Beteiligten, wahlweise nur ansehen oder mit Download; bestehende Freigaben sichtbar und einzeln entziehbar
+- **Speicher-Umzug auf Cloudflare R2** per Knopfdruck: kopiert in Stapeln, prüft jede Datei per Gegenprobe, löscht nichts
+- **Rückfall während des Umzugs**: Solange eine Datei noch nicht drüben ist, wird sie weiterhin aus dem bisherigen Speicher gelesen; abschaltbar über `STORAGE_FALLBACK_LOCAL=0`
+- **Behoben**: Die Freigabe „alle Beteiligten" legte sich bei jedem Speichern neu an, statt aktualisiert zu werden (NULL greift in einem Unique-Index nicht)
+
 ## v0.392 · 28.07.2026 · Der Safe ist der Datenraum
 - **Echter Ordnerbaum für Käufer**: Nach persönlicher Freigabe lesen Käufer den Safe direkt, mit Pfadleiste, Volltextsuche und Vorschau mit persönlichem Wasserzeichen. Die flache Dokumentenliste entfällt für diesen Zweck
 - **Ordner als Archiv laden**: ein Klick statt fünfzig; jede enthaltene Datei wird dabei **einzeln** im Zugriffsprotokoll vermerkt

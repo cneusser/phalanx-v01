@@ -359,6 +359,52 @@ router.get('/:projectId/item/:id/preview', authenticate, wrap(async (req, res) =
   res.send(buf);
 }));
 
+// ── Speicher-Umzug auf Cloudflare R2 (v0.393) ───────────────────────────────
+// Kopiert die Dateien des Mandats vom Volume in den S3-kompatiblen Speicher,
+// in Stapeln, damit nichts in eine Zeitüberschreitung läuft. Nichts wird
+// gelöscht: Die Ursprungsdatei bleibt liegen, bis Sie den Umzug abschließen.
+router.post('/:projectId/speicher-umzug', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = Number(req.params.projectId);
+  const grenze = Math.min(Math.max(Number((req.body || {}).limit) || 25, 1), 200);
+  const trocken = (req.body || {}).dry === true;
+
+  let paar;
+  try { paar = require('../providers/storage').getProviderPaar(); }
+  catch (e) { return res.status(400).json({ success: false, error: `Zielspeicher nicht konfiguriert: ${e.message}` }); }
+
+  const items = await scoped(req, (t) => t.all(
+    `SELECT id, name, storage_key, size FROM safe_items
+      WHERE project_id = ? AND is_folder = 0 AND storage_key IS NOT NULL AND deleted_at IS NULL
+      ORDER BY id`, [projectId]));
+
+  let offen = 0, kopiert = 0, schonDa = 0, fehler = 0;
+  const probleme = [];
+  for (const it of items) {
+    if (kopiert >= grenze) { offen++; continue; }
+    try {
+      if (await paar.s3.exists(it.storage_key).catch(() => false)) { schonDa++; continue; }
+      if (trocken) { offen++; continue; }
+      const buf = await paar.lokal.get(it.storage_key);
+      if (!buf) { fehler++; probleme.push(`${it.name}: im Volume nicht gefunden`); continue; }
+      await paar.s3.put(it.storage_key, buf, null);
+      // Gegenprobe: Größe muss stimmen, sonst gilt die Datei als nicht umgezogen.
+      const kontrolle = await paar.s3.get(it.storage_key).catch(() => null);
+      if (!kontrolle || kontrolle.length !== buf.length) {
+        fehler++; probleme.push(`${it.name}: Gegenprobe fehlgeschlagen`);
+        continue;
+      }
+      kopiert++;
+    } catch (e) {
+      fehler++; probleme.push(`${it.name}: ${String(e.message).slice(0, 120)}`);
+    }
+  }
+  if (!trocken && kopiert) {
+    db.auditLog(req.user.id, 'SAFE_SPEICHER_UMZUG', 'project', projectId, `${kopiert} Datei(en) nach R2 kopiert`, req.ip);
+  }
+  res.json({ success: true, data: { gesamt: items.length, kopiert, schon_da: schonDa, offen, fehler, probleme: probleme.slice(0, 10), trocken } });
+}));
+
 // ── Datenraum-Dokumente in den Safe-Baum übernehmen (v0.392) ────────────────
 // Einmalige Überführung: Dokumente aus der flachen Datenraum-Tabelle wandern mit
 // ihrem Ordnerpfad in den Safe. Idempotent: Was im Zielordner schon gleich heißt,
@@ -960,7 +1006,10 @@ router.post('/:projectId/item/:id/grants', authenticate, wrap(async (req, res) =
   if (!SUBJECT_TYPES.includes(subject_type)) return res.status(400).json({ success: false, error: 'Ungültiger Empfängertyp' });
   const item = await scoped(req, (t) => t.get('SELECT id FROM safe_items WHERE id = ? AND project_id = ?', [req.params.id, req.params.projectId]));
   if (!item) return res.status(404).json({ success: false, error: 'Objekt nicht gefunden' });
-  const ref = subject_type === 'party_all' ? null : String(req.body.subject_ref || '');
+  // Bei „alle Beteiligten" bewusst der Leerstring statt NULL: In Postgres greift
+  // ein Unique-Index bei NULL nicht, die Freigabe würde sich sonst bei jedem
+  // Speichern erneut anlegen statt aktualisiert zu werden.
+  const ref = subject_type === 'party_all' ? '' : String(req.body.subject_ref || '');
   if (subject_type !== 'party_all' && !ref) return res.status(400).json({ success: false, error: 'Empfänger fehlt' });
   await scoped(req, (t) => t.run(`
     INSERT INTO safe_grants (tenant_id, project_id, item_id, subject_type, subject_ref, level, created_by)
