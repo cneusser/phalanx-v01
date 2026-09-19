@@ -33,13 +33,60 @@ async function guard(req, res) {
   }
   return true;
 }
-// Lesezugriff (Liste, Baum, Download, Speicherverbrauch), auch Betrachter.
+// ── Datenraum-Zugang (v0.392) ───────────────────────────────────────────────
+// Der Safe ist zugleich der Datenraum. Neben dem Mandatsteam lesen ihn auch
+// Käufer, sobald ihr Zugang persönlich freigegeben wurde (Stufe dataroom).
+// Für Käufer entscheidet zusätzlich die Sichtbarkeitslogik, was sie sehen.
+const sichtbarkeit = require('../utils/safeVisibility');
+
+async function leseKontext(req, projectId) {
+  if (await access.canView(getFn(req), req.user, projectId)) return { pfleger: true };
+  const { getStage } = require('../middleware/gates');
+  const { stageAllows } = require('../utils/dealStateMachine');
+  const stage = await getStage(req.user.id, projectId);
+  if (!stageAllows(stage, 'dataroom')) return null;
+  const u = await db.get('SELECT buyer_type FROM users WHERE id = ?', [req.user.id]).catch(() => null);
+  const gruppen = await scoped(req, (t) => t.all(
+    'SELECT group_id FROM safe_group_members WHERE user_id = ?', [req.user.id])).catch(() => []);
+  return {
+    pfleger: false,
+    userId: req.user.id,
+    buyerType: (u && u.buyer_type) || null,
+    groupIds: gruppen.map((g) => g.group_id),
+  };
+}
+
+// Bewertung des gesamten Baums für einen Käufer. Für Pflegende: null (keine Grenzen).
+async function bewertungFuer(req, projectId, ktx) {
+  if (!ktx || ktx.pfleger) return null;
+  const items = await scoped(req, (t) => t.all(
+    'SELECT id, parent_id, is_folder, confidential FROM safe_items WHERE project_id = ? AND deleted_at IS NULL', [projectId]));
+  const grants = await scoped(req, (t) => t.all(
+    'SELECT item_id, subject_type, subject_ref, level FROM safe_grants WHERE project_id = ?', [projectId])).catch(() => []);
+  return sichtbarkeit.bewerteBaum({
+    items, grants, userId: ktx.userId, buyerType: ktx.buyerType, groupIds: ktx.groupIds,
+  });
+}
+
+// Lesezugriff (Liste, Baum, Download, Speicherverbrauch): Team, Betrachter und
+// freigegebene Käufer. Legt req.safeKtx und req.safeBew für die Route bereit.
 async function guardRead(req, res) {
-  if (!(await access.canView(getFn(req), req.user, req.params.projectId))) {
-    res.status(403).json({ success: false, error: 'Kein Zugriff auf den Safe dieses Mandats' });
+  const ktx = await leseKontext(req, req.params.projectId);
+  if (!ktx) {
+    res.status(403).json({ success: false, error: 'Kein Zugriff auf den Datenraum dieses Mandats' });
     return false;
   }
+  req.safeKtx = ktx;
+  req.safeBew = await bewertungFuer(req, req.params.projectId, ktx);
   return true;
+}
+
+// Darf dieses Objekt gesehen bzw. geladen werden? Für Pflegende immer ja.
+function darfObjekt(req, itemId, aktion = 'view') {
+  if (!req.safeBew) return true;
+  const b = req.safeBew.get(Number(itemId));
+  if (!b || b.gesperrt) return false;
+  return aktion === 'download' ? b.download === true : true;
 }
 
 // Revisionssichere Zugriffs-Dokumentation (Ansicht/Download) je Datei.
@@ -121,9 +168,17 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
     const o = rowOut(r);
     o.number = prefix ? `${prefix}.${idx}` : String(idx);
     o.published_level = r.is_folder ? null : (pubMap.get(r.name) || null);
+    o.confidential = Number(r.confidential || 0) === 1;
     return o;
-  });
-  res.json({ success: true, data: { items: out, breadcrumb: crumbs, parent_id: pid, project } });
+  })
+    // Käufer: nur sichtbare Objekte, mit Sperr- und Download-Kennzeichen.
+    .filter((o) => !req.safeBew || req.safeBew.has(Number(o.id)))
+    .map((o) => {
+      if (!req.safeBew) return { ...o, gesperrt: false, darf_download: true };
+      const b = req.safeBew.get(Number(o.id));
+      return { ...o, gesperrt: b.gesperrt, darf_download: b.download };
+    });
+  res.json({ success: true, data: { items: out, breadcrumb: crumbs, parent_id: pid, project, nur_lesend: !!req.safeBew } });
 }));
 
 // ── Umsortieren (Position tauschen), Nummerierung ergibt sich neu ────────────
@@ -152,7 +207,8 @@ router.get('/:projectId/tree', authenticate, wrap(async (req, res) => {
   const folders = await scoped(req, (t) => t.all(
     `SELECT id, name, parent_id FROM safe_items WHERE project_id = ? AND is_folder = 1 AND deleted_at IS NULL ORDER BY name`,
     [req.params.projectId]));
-  res.json({ success: true, data: folders });
+  const sichtbar = req.safeBew ? folders.filter((f) => req.safeBew.has(Number(f.id))) : folders;
+  res.json({ success: true, data: sichtbar });
 }));
 
 // ── Ordner anlegen ──────────────────────────────────────────────────────────
@@ -246,13 +302,31 @@ router.patch('/:projectId/item/:id', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { name: clean } });
 }));
 
+// ── Als vertraulich kennzeichnen (Clean Team) ───────────────────────────────
+// Wirkt auf den ganzen Teilbaum: Was darunter liegt, ist ebenfalls vertraulich
+// und damit für Käufer nur nach ausdrücklicher Einzelfreigabe sichtbar.
+router.post('/:projectId/item/:id/vertraulich', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const item = await scoped(req, (t) => t.get(
+    'SELECT id, name, is_folder FROM safe_items WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
+    [req.params.id, req.params.projectId]));
+  if (!item) return res.status(404).json({ success: false, error: 'Objekt nicht gefunden' });
+  const an = (req.body || {}).vertraulich !== false;
+  await scoped(req, (t) => t.run('UPDATE safe_items SET confidential = ? WHERE id = ?', [an ? 1 : 0, item.id]));
+  db.auditLog(req.user.id, an ? 'SAFE_CONFIDENTIAL_ON' : 'SAFE_CONFIDENTIAL_OFF', 'safe_item', item.id, item.name, req.ip);
+  res.json({ success: true, data: { vertraulich: an } });
+}));
+
 // ── Download / Inline-Vorschau ──────────────────────────────────────────────
 router.get('/:projectId/item/:id/download', authenticate, wrap(async (req, res) => {
   if (!(await guardRead(req, res))) return;
   const item = await scoped(req, (t) => t.get('SELECT * FROM safe_items WHERE id = ? AND project_id = ?', [req.params.id, req.params.projectId]));
   if (!item || item.is_folder || !item.storage_key) return res.status(404).json({ success: false, error: 'Datei nicht gefunden' });
-  const buf = await getStorage().get(item.storage_key);
   const inline = !!req.query.inline;
+  if (!darfObjekt(req, item.id, inline ? 'view' : 'download')) {
+    return res.status(403).json({ success: false, error: 'Für dieses Dokument liegt keine Freigabe vor.' });
+  }
+  const buf = await getStorage().get(item.storage_key);
   db.activityLog(req.user.id, inline ? 'SAFE_VIEW' : 'SAFE_DOWNLOAD', 'safe_item', item.id, req.ip);
   await logSafeAccess(req, Number(req.params.projectId), item.id, inline ? 'view' : 'download');
   res.setHeader('Content-Type', item.mime || 'application/octet-stream');
@@ -267,6 +341,9 @@ router.get('/:projectId/item/:id/preview', authenticate, wrap(async (req, res) =
   if (!(await guardRead(req, res))) return;
   const item = await scoped(req, (t) => t.get('SELECT * FROM safe_items WHERE id = ? AND project_id = ?', [req.params.id, req.params.projectId]));
   if (!item || item.is_folder || !item.storage_key) return res.status(404).json({ success: false, error: 'Datei nicht gefunden' });
+  if (!darfObjekt(req, item.id, 'view')) {
+    return res.status(403).json({ success: false, error: 'Für dieses Dokument liegt keine Freigabe vor.' });
+  }
   let buf = await getStorage().get(item.storage_key);
   const isPdf = (item.mime || '').includes('pdf') || /\.pdf$/i.test(item.name || '');
   if (isPdf) {
@@ -280,6 +357,150 @@ router.get('/:projectId/item/:id/preview', authenticate, wrap(async (req, res) =
   res.setHeader('Content-Type', item.mime || 'application/octet-stream');
   res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(item.name)}"`);
   res.send(buf);
+}));
+
+// ── Datenraum-Dokumente in den Safe-Baum übernehmen (v0.392) ────────────────
+// Einmalige Überführung: Dokumente aus der flachen Datenraum-Tabelle wandern mit
+// ihrem Ordnerpfad in den Safe. Idempotent: Was im Zielordner schon gleich heißt,
+// wird übersprungen. Die Ursprungsdokumente bleiben unangetastet.
+router.post('/:projectId/uebernehme-dokumente', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = Number(req.params.projectId);
+  const trocken = (req.body || {}).dry === true;
+
+  const docs = await scoped(req, (t) => t.all(
+    `SELECT id, filename, folder, file_path, file_type, file_size, description, access_level
+       FROM documents WHERE project_id = ? AND file_path IS NOT NULL ORDER BY folder NULLS FIRST, filename`,
+    [projectId]));
+  if (!docs.length) return res.json({ success: true, data: { uebernommen: 0, uebersprungen: 0, fehler: 0, hinweis: 'Keine Dokumente mit Datei vorhanden.' } });
+
+  // Ordner im Safe anlegen oder finden (Pfad "1.3 Finanzen/1.3.2 BWA").
+  const ordnerCache = new Map();
+  async function ordnerFuer(pfad) {
+    const rein = String(pfad || '').replace(/\\/g, '/').split('/').map((s) => s.trim()).filter(Boolean);
+    let parent = null;
+    let bisher = '';
+    for (const teil of rein) {
+      bisher = bisher ? `${bisher}/${teil}` : teil;
+      if (ordnerCache.has(bisher)) { parent = ordnerCache.get(bisher); continue; }
+      let vorhanden = await scoped(req, (t) => t.get(
+        `SELECT id FROM safe_items WHERE project_id = ? AND is_folder = 1 AND deleted_at IS NULL AND name = ?
+           AND ${parent == null ? 'parent_id IS NULL' : 'parent_id = ?'}`,
+        parent == null ? [projectId, teil] : [projectId, teil, parent]));
+      if (!vorhanden && !trocken) {
+        const pos = await nextPosition(req, projectId, parent);
+        const id = await scoped(req, (t) => t.insert(
+          `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, position, uploaded_by)
+           VALUES (?, ?, ?, ?, 1, ?, ?)`,
+          [req.tenantId || 1, projectId, parent, teil, pos, req.user.id]));
+        vorhanden = { id };
+      }
+      parent = vorhanden ? vorhanden.id : null;
+      ordnerCache.set(bisher, parent);
+    }
+    return parent;
+  }
+
+  let uebernommen = 0, uebersprungen = 0, fehler = 0;
+  for (const d of docs) {
+    try {
+      const zielOrdner = await ordnerFuer(d.folder);
+      const schonDa = await scoped(req, (t) => t.get(
+        `SELECT id FROM safe_items WHERE project_id = ? AND is_folder = 0 AND deleted_at IS NULL AND name = ?
+           AND ${zielOrdner == null ? 'parent_id IS NULL' : 'parent_id = ?'}`,
+        zielOrdner == null ? [projectId, d.filename] : [projectId, d.filename, zielOrdner]));
+      if (schonDa) { uebersprungen++; continue; }
+      if (trocken) { uebernommen++; continue; }
+
+      const buf = fs.readFileSync(d.file_path);
+      const key = `project_${projectId}/${uuidv4()}${path.extname(d.filename).toLowerCase()}`;
+      await getStorage().put(key, buf, d.file_type || 'application/octet-stream');
+      const pruef = crypto.createHash('sha256').update(buf).digest('hex');
+      const text = (await require('../utils/pdfText').extractIfPdf(buf, d.file_type, d.filename).catch(() => null)) || null;
+      const pos = await nextPosition(req, projectId, zielOrdner);
+      await scoped(req, (t) => t.insert(
+        `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, storage_key, size, mime, checksum_sha256, position, uploaded_by, content_text)
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.tenantId || 1, projectId, zielOrdner, d.filename, key, buf.length, d.file_type, pruef, pos, req.user.id, text]));
+      uebernommen++;
+    } catch (e) {
+      console.warn(`Übernahme fehlgeschlagen (Dokument ${d.id}):`, e.message);
+      fehler++;
+    }
+  }
+  if (!trocken) {
+    db.auditLog(req.user.id, 'SAFE_UEBERNAHME_DOKUMENTE', 'project', projectId,
+      `${uebernommen} übernommen, ${uebersprungen} übersprungen, ${fehler} Fehler`, req.ip);
+  }
+  res.json({ success: true, data: { uebernommen, uebersprungen, fehler, trocken } });
+}));
+
+// ── Ordner als ZIP herunterladen (v0.392) ───────────────────────────────────
+// Niemand soll fünfzig Dateien einzeln ziehen müssen. Für die Nachvollziehbarkeit
+// wird trotzdem JEDE enthaltene Datei einzeln protokolliert, nicht nur das Archiv.
+// Gesperrte und nicht freigegebene Objekte bleiben draußen.
+router.get('/:projectId/folder/:id/zip', authenticate, wrap(async (req, res) => {
+  if (!(await guardRead(req, res))) return;
+  const projectId = Number(req.params.projectId);
+  const ordner = await scoped(req, (t) => t.get(
+    'SELECT * FROM safe_items WHERE id = ? AND project_id = ? AND deleted_at IS NULL', [req.params.id, projectId]));
+  if (!ordner || !ordner.is_folder) return res.status(404).json({ success: false, error: 'Ordner nicht gefunden' });
+  if (!darfObjekt(req, ordner.id, 'view')) {
+    return res.status(403).json({ success: false, error: 'Für diesen Ordner liegt keine Freigabe vor.' });
+  }
+
+  const alle = await scoped(req, (t) => t.all(
+    'SELECT id, parent_id, name, is_folder, storage_key, mime, confidential FROM safe_items WHERE project_id = ? AND deleted_at IS NULL',
+    [projectId]));
+
+  // Welche Dateien dürfen mit? Für Pflegende alles unterhalb, für Käufer die
+  // Bewertung entscheiden lassen.
+  let dateien;
+  if (req.safeBew) {
+    dateien = sichtbarkeit.ladbareDateienUnter(alle, req.safeBew, ordner.id);
+  } else {
+    const ids = new Set(await descendantIds(req, projectId, ordner.id));
+    dateien = alle.filter((i) => Number(i.is_folder) === 0 && i.storage_key && ids.has(Number(i.id)));
+  }
+  if (!dateien.length) return res.status(404).json({ success: false, error: 'Keine freigegebenen Dateien in diesem Ordner.' });
+
+  // Pfad innerhalb des Archivs aufbauen (Ordnerstruktur bleibt erhalten).
+  const proId = new Map(alle.map((i) => [Number(i.id), i]));
+  const pfadVon = (item) => {
+    const teile = [item.name];
+    let p = item.parent_id == null ? null : Number(item.parent_id);
+    while (p && p !== Number(ordner.id)) {
+      const el = proId.get(p);
+      if (!el) break;
+      teile.unshift(el.name);
+      p = el.parent_id == null ? null : Number(el.parent_id);
+    }
+    return teile.join('/');
+  };
+
+  const archiver = require('archiver');
+  const archiv = archiver('zip', { zlib: { level: 6 } });
+  const dateiname = `${String(ordner.name).replace(/[^\p{L}\p{N}._ -]/gu, '_')}.zip`;
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(dateiname)}"`);
+  archiv.on('error', (e) => { console.error('ZIP fehlgeschlagen:', e.message); try { res.destroy(); } catch { /* egal */ } });
+  archiv.pipe(res);
+
+  for (const f of dateien) {
+    try {
+      const buf = await getStorage().get(f.storage_key);
+      archiv.append(buf, { name: pfadVon(f) });
+      // Jede Datei einzeln ins Zugriffsprotokoll, mit Hinweis auf das Archiv.
+      await scoped(req, (t) => t.run(
+        `INSERT INTO safe_access_log (tenant_id, project_id, item_id, user_id, action, detail) VALUES (?, ?, ?, ?, 'download', ?)`,
+        [req.tenantId || 1, projectId, f.id, req.user.id, `im Archiv "${ordner.name}"`])).catch(() => {});
+    } catch (e) {
+      console.warn(`ZIP: Datei ${f.id} übersprungen:`, e.message);
+    }
+  }
+  db.activityLog(req.user.id, 'SAFE_DOWNLOAD_ZIP', 'safe_item', ordner.id, req.ip);
+  db.auditLog(req.user.id, 'SAFE_DOWNLOAD_ZIP', 'safe_item', ordner.id, `${dateien.length} Datei(en) aus "${ordner.name}"`, req.ip);
+  await archiv.finalize();
 }));
 
 // Zugriffsbericht (nur Pflegende/Admin): wer hat welche Datei wie oft angesehen
@@ -606,8 +827,14 @@ router.get('/:projectId/search', authenticate, wrap(async (req, res) => {
       LIMIT 40`, [q, q, projectId, q, like]));
   const results = [];
   for (const r of rows) {
+    // Käufer bekommen nur, was sie auch sehen dürfen. Sonst würden Namen und
+    // Textausschnitte aus gesperrten Clean-Team-Bereichen durchscheinen.
+    if (!darfObjekt(req, r.id, 'view')) continue;
     const folder = await folderPathOf(req, projectId, r.parent_id);
-    results.push({ id: r.id, name: r.name, parent_id: r.parent_id, folder, mime: r.mime, snippet: r.snippet || '' });
+    results.push({
+      id: r.id, name: r.name, parent_id: r.parent_id, folder, mime: r.mime, snippet: r.snippet || '',
+      darf_download: req.safeBew ? !!(req.safeBew.get(Number(r.id)) || {}).download : true,
+    });
   }
   res.json({ success: true, data: { results } });
 }));

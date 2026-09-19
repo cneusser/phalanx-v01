@@ -7,6 +7,7 @@ import { api, getToken } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import NDASignModal from '../components/NDASignModal';
 import DataRoomBrowser from '../components/DataRoomBrowser';
+import SafeDataRoom from '../components/SafeDataRoom';
 import { kpiWert } from '../utils/kpi';
 import {
   Lock, CheckCircle, Clock, FileText, MapPin, Building2,
@@ -692,6 +693,10 @@ export default function ProjectDetail() {
                 </div>
                 <span style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: 600 }}>NDA erforderlich</span>
               </div>
+            ) : approved ? (
+              /* Nach persönlicher Freigabe: der echte Datenraum (Safe) mit Ordnerbaum,
+                 Suche, Archiv-Download und gesperrten Clean-Team-Bereichen. */
+              <SafeDataRoom projectId={id} C={C} />
             ) : ndaDocs.length === 0 ? (
               <p style={{ color: C.muted, fontSize: '0.83rem' }}>Noch keine vertraulichen Dokumente hochgeladen.</p>
             ) : (

@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.392 · 28.07.2026 · Der Safe ist der Datenraum
+- **Echter Ordnerbaum für Käufer**: Nach persönlicher Freigabe lesen Käufer den Safe direkt, mit Pfadleiste, Volltextsuche und Vorschau mit persönlichem Wasserzeichen. Die flache Dokumentenliste entfällt für diesen Zweck
+- **Ordner als Archiv laden**: ein Klick statt fünfzig; jede enthaltene Datei wird dabei **einzeln** im Zugriffsprotokoll vermerkt
+- **Clean Team**: Ordner und Dateien als vertraulich kennzeichnen. Für Käufer gesperrt, bis eine Einzelfreigabe vorliegt. Freigaben vererben sich nach unten; eine Freigabe tief im Zweig öffnet nur den Weg dorthin, nicht die Nachbarschaft
+- **Freigabe-Adressaten**: Person, Käufertyp, Gruppe oder alle Beteiligten, wahlweise nur Ansicht oder mit Download
+- **Suche dicht**: Käufer erhalten nur Treffer aus freigegebenen Bereichen, keine Namen oder Textausschnitte aus gesperrten
+- **Übernahme**: neuer Knopf holt Unterlagen aus der alten flachen Datenraum-Liste mit ihrem Ordnerpfad in den Safe
+
 ## v0.391 · 27.07.2026 · Erinnerung an ausstehende NDA-Unterschriften
 - **Automatisch nach 3 und 7 Tagen**: Bleibt die Unterschrift aus, erinnert die Plattform den Käufer zweimal, danach endet die Serie
 - **Knopf „Erinnern"**: in der NDA-Liste jederzeit von Hand auslösbar, mit Anzeige, seit wie vielen Tagen die Unterschrift aussteht und wie oft schon erinnert wurde

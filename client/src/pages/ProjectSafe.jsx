@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
-import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell, Search, Eraser } from 'lucide-react';
+import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell, Search, Eraser, Lock, Unlock, Package } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 const fmtBytes = (b) => { b = Number(b) || 0; if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB'; return (b / 1073741824).toFixed(2) + ' GB'; };
@@ -141,6 +141,28 @@ export default function ProjectSafe() {
   async function moveItem(item, dir) {
     try { await api.post(`/safe/${pid}/item/${item.id}/move`, { dir }); load(parent); }
     catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+  // Clean Team: Ordner oder Datei als vertraulich kennzeichnen. Wirkt auf alles
+  // darunter; Käufer sehen solche Bereiche nur mit ausdrücklicher Einzelfreigabe.
+  async function setzeVertraulich(item) {
+    const an = !item.confidential;
+    if (an && !window.confirm(`„${displayName(item.name)}" als vertraulich kennzeichnen?\n\nKäufer sehen diesen Bereich dann nur noch gesperrt. Erst eine Einzelfreigabe je Person öffnet ihn.`)) return;
+    try {
+      await api.post(`/safe/${pid}/item/${item.id}/vertraulich`, { vertraulich: an });
+      setMsg(an ? 'Als vertraulich gekennzeichnet (Clean Team).' : 'Vertraulichkeit aufgehoben.');
+      load(parent);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+  // Einmalige Überführung der alten Datenraum-Dokumente in den Safe-Baum.
+  async function uebernehmeDokumente() {
+    try {
+      const probe = await api.post(`/safe/${pid}/uebernehme-dokumente`, { dry: true });
+      if (!probe.uebernommen && !probe.uebersprungen) { setMsg('Keine Datenraum-Dokumente zum Übernehmen gefunden.'); return; }
+      if (!window.confirm(`${probe.uebernommen} Dokument(e) würden in den Safe übernommen, ${probe.uebersprungen} sind schon da.\n\nJetzt übernehmen?`)) return;
+      const d = await api.post(`/safe/${pid}/uebernehme-dokumente`, {});
+      setMsg(`${d.uebernommen} übernommen, ${d.uebersprungen} übersprungen${d.fehler ? `, ${d.fehler} Fehler` : ''}.`);
+      load(parent);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
   }
   const fmtDate = (d) => d ? new Date(d).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'k. A.';
   const fileInput = useRef(); const dirInput = useRef();
@@ -364,6 +386,7 @@ export default function ProjectSafe() {
           <button onClick={buildTeaserIm} title="Teaser und IM als PDF bereitstellen (Master bevorzugt, sonst generiert)" style={btn('#fff', C.navy, true)}><File size={15} /> Teaser & IM</button>
           <button onClick={notifyDataroom} title="Käufer mit Datenraum-Zugang über neue Unterlagen per E-Mail informieren" style={btn('#fff', C.navy, true)}><Bell size={15} /> Käufer benachrichtigen</button>
           <button onClick={() => setPublishItem({ all: true, name: 'Alle Dateien' })} title="Alle Dateien dieses Mandats in den Datenraum übernehmen" style={btn('#fff', C.navy, true)}><Share2 size={15} /> Alles in Datenraum</button>
+          <button onClick={uebernehmeDokumente} title="Einmalig: Dokumente aus der alten, flachen Datenraum-Liste mit ihrem Ordnerpfad in den Safe holen" style={btn('#fff', C.navy, true)}><Package size={15} /> Alte Dokumente übernehmen</button>
           <button onClick={() => showReport ? setShowReport(false) : loadReport()} style={btn('#fff', showReport ? C.accent : C.muted, true)}><BarChart3 size={15} /> Zugriffe</button>
           <button onClick={() => showTrash ? setShowTrash(false) : loadTrash()} style={btn('#fff', showTrash ? '#991b1b' : C.muted, true)}><Trash2 size={15} /> Papierkorb</button>
           <input ref={fileInput} type="file" multiple hidden onChange={e => doUpload(Array.from(e.target.files), false)} />
@@ -493,11 +516,22 @@ export default function ProjectSafe() {
                           {displayName(it.name)}{!it.is_folder && it.version > 1 && <span style={{ marginLeft: 6, fontSize: '0.68rem', background: C.bg, color: C.muted, padding: '0.05rem 0.4rem', borderRadius: 10 }}>v{it.version}</span>}
                         </span>
                       )}
+                      {it.confidential && (
+                        <span title="Vertraulich: für Käufer nur mit Einzelfreigabe sichtbar"
+                          style={{ background: '#fef3c7', color: '#92400e', borderRadius: 20, padding: '1px 8px', fontSize: '0.66rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          Clean Team
+                        </span>
+                      )}
                       {!it.is_folder && <span style={{ fontSize: '0.74rem', color: C.muted, minWidth: 60, textAlign: 'right' }}>{fmtBytes(it.size)}</span>}
                       {!it.is_folder && pubDot(it.published_level)}
                       <span style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                         <button title="Nach oben" disabled={i === 0} onClick={() => moveItem(it, 'up')} style={{ ...iconBtn, color: i === 0 ? '#cbd5e1' : C.muted }}><ChevronUp size={15} /></button>
                         <button title="Nach unten" disabled={i === listItems.length - 1} onClick={() => moveItem(it, 'down')} style={{ ...iconBtn, color: i === listItems.length - 1 ? '#cbd5e1' : C.muted }}><ChevronDown size={15} /></button>
+                        <button title={it.confidential ? 'Vertraulichkeit aufheben' : 'Als vertraulich kennzeichnen (Clean Team, nur mit Einzelfreigabe sichtbar)'}
+                          onClick={() => setzeVertraulich(it)}
+                          style={{ ...iconBtn, color: it.confidential ? '#b45309' : C.muted }}>
+                          {it.confidential ? <Lock size={15} /> : <Unlock size={15} />}
+                        </button>
                         <button title="Umbenennen" onClick={() => { setRenameId(it.id); setRenameVal(displayName(it.name)); }} style={iconBtn}><Edit2 size={15} /></button>
                         {it.is_folder && <button title="Ganzen Ordner in Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button>}
                         {!it.is_folder && <><button title="Vorschau (mit Wasserzeichen)" onClick={() => preview(it)} style={iconBtn}><Eye size={15} /></button><button title="Herunterladen" onClick={() => download(it)} style={iconBtn}><Download size={15} /></button>
