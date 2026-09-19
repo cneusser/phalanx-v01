@@ -68,6 +68,18 @@ function frage(text) {
   return new Promise((res) => rl.question(text, (a) => { rl.close(); res(a.trim()); }));
 }
 
+// Verdeckte Eingabe: Die Zeichen erscheinen nicht auf dem Bildschirm, damit ein
+// Token weder im Fenster noch auf einem Bildschirmfoto landet.
+function frageVerdeckt(text) {
+  return new Promise((res) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+    let still = false;
+    rl._writeToOutput = (s) => { if (!still) rl.output.write(s); };
+    rl.question(text, (a) => { rl.output.write('\n'); rl.close(); res(String(a).trim()); });
+    still = true;
+  });
+}
+
 async function api(pfad, { method = 'GET', token, body, form } = {}) {
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -82,6 +94,12 @@ async function api(pfad, { method = 'GET', token, body, form } = {}) {
   return json && json.data !== undefined ? json.data : json;
 }
 
+const TOKEN_HILFE_KURZ = `
+Sitzungs-Token benötigt. In CapitalMatch im Browser anmelden, dann
+Entwicklerwerkzeuge (Wahltaste + Command + I) -> "Application" bzw. "Speicher"
+-> Local Storage -> https://www.capitalmatch.de -> Wert von "phalanx_token" kopieren.
+`;
+
 const TOKEN_HILFE = `
 So kommst du an das Sitzungs-Token:
   1. In CapitalMatch im Browser normal anmelden (dort loest du den Sicherheitscheck als Mensch).
@@ -91,16 +109,44 @@ So kommst du an das Sitzungs-Token:
   4. Im Terminal setzen:   export CM_TOKEN=<eingefuegter Wert>
 Das Token ist zeitlich begrenzt. Laeuft es ab, einfach ein frisches holen.`;
 
+function tokenPlausibel(t) {
+  // Ein JWT besteht aus drei durch Punkte getrennten Teilen und beginnt mit "ey".
+  return /^ey[\w-]+\.[\w-]+\.[\w-]+$/.test(String(t || '').trim());
+}
+
 async function anmelden() {
   // Bevorzugt: bestehendes Sitzungs-Token. Der Login ist durch den
   // Cloudflare-Sicherheitscheck geschuetzt, den ein Skript nicht loesen kann
   // (und auch nicht umgehen soll). Die Anmeldung machst du daher im Browser.
-  if (process.env.CM_TOKEN) return process.env.CM_TOKEN.trim();
+  if (process.env.CM_TOKEN) {
+    const t = process.env.CM_TOKEN.trim();
+    if (!tokenPlausibel(t)) {
+      console.error(`\nCM_TOKEN sieht nicht wie ein Sitzungs-Token aus: "${t.slice(0, 24)}"`);
+      console.error('Das ist vermutlich noch der Platzhalter. Lassen Sie CM_TOKEN einfach weg,');
+      console.error('dann fragt das Skript den Token gleich selbst ab.\n');
+      process.exit(1);
+    }
+    return t;
+  }
 
   const email = process.env.CM_EMAIL;
   const passwort = process.env.CM_PASSWORD;
+
+  // Nichts gesetzt: Token direkt hier abfragen. So muss niemand etwas in der
+  // Befehlszeile ersetzen, und der Token landet nicht in der Shell-History.
+  if (!email && !passwort) {
+    console.log(TOKEN_HILFE_KURZ);
+    for (let versuch = 1; versuch <= 3; versuch++) {
+      const t = await frageVerdeckt('Sitzungs-Token einfügen und Enter drücken (Eingabe bleibt unsichtbar): ');
+      if (tokenPlausibel(t)) return t;
+      console.error(t ? 'Das sieht nicht wie ein Token aus (erwartet wird ein Wert, der mit "ey" beginnt).' : 'Nichts eingegeben.');
+    }
+    console.error(`\nAbgebrochen.\n${TOKEN_HILFE}`);
+    process.exit(1);
+  }
+
   if (!email || !passwort) {
-    console.error(`Kein Zugang gesetzt. Bitte CM_TOKEN setzen (empfohlen).\n${TOKEN_HILFE}`);
+    console.error(`Unvollständiger Zugang.\n${TOKEN_HILFE}`);
     process.exit(1);
   }
   let d;
