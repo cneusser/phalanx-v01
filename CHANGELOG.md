@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.396 · 01.08.2026 · Hinweise auf neue Unterlagen werden gebündelt
+- **Keine Mail je Datei mehr**: Hinweise werden gesammelt und je Mandat zu einer Nachricht zusammengefasst
+- **Rhythmus im Profil**: sofort, einmal am Tag, einmal in der Woche oder gar nicht; Voreinstellung ist einmal am Tag
+- **Keine Dateinamen in der Mail**: genannt werden nur Mandat und Anzahl. Ein Name wie „Gehaltserhöhung Geschäftsführer" verrät sonst schon im Postfach zu viel
+- **Vertrauliches löst keinen Hinweis aus**: Clean-Team-Unterlagen werden nicht angekündigt, dort entscheidet die Einzelfreigabe
+- **Sicherheitsmaßnahme**: Unterlagen in Clean-Team-Ordnern wurden auf „nur mit Einzelfreigabe sichtbar" gesetzt
+
 ## v0.395 · 31.07.2026 · Struktur aufräumen: zwei Gliederungen zu einer zusammenführen
 - **Knopf „Struktur aufräumen"** im Safe: Plan mit Zeilen „Quelle => Ziel", der Inhalt der Quelle wandert ins Ziel, der leere Quellordner in den Papierkorb
 - **Tolerante Namen**: Nummernpräfixe und Groß- und Kleinschreibung werden ignoriert, „1.3 Finanzen" trifft also auf „Finanzen"

@@ -4,7 +4,7 @@ const db = require('../db/database');
 const { getJwtSecret } = require('../utils/jwtSecret');
 const JWT_SECRET = getJwtSecret();
 
-const USER_FIELDS = 'id, tenant_id, email, role, salutation, title, first_name, last_name, company, buyer_type, succession_type, token_version, is_active';
+const USER_FIELDS = 'id, tenant_id, email, role, salutation, title, first_name, last_name, company, buyer_type, succession_type, token_version, is_active, doc_notify_frequency';
 
 // Passt die Token-Version zum aktuellen Stand des Nutzers? Ältere Tokens ohne
 // den Claim gelten als Version 0 (kein Massen-Logout beim Einführen).

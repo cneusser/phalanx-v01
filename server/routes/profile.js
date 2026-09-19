@@ -52,6 +52,18 @@ async function loadOwnActivity(userId) {
 }
 
 // Sprachpräferenz (de|en): wird beim Umschalten in der Oberfläche mitgeschrieben
+// Wie oft möchte der Empfänger über neue Unterlagen informiert werden?
+router.put('/benachrichtigungen', authenticate, wrap(async (req, res) => {
+  const { RHYTHMEN, rhythmusOder } = require('../utils/docNotify');
+  const wunsch = String((req.body || {}).doc_notify_frequency || '');
+  if (!RHYTHMEN.includes(wunsch)) {
+    return res.status(400).json({ success: false, error: `Ungültiger Rhythmus (erlaubt: ${RHYTHMEN.join(', ')})` });
+  }
+  await db.run('UPDATE users SET doc_notify_frequency = ? WHERE id = ?', [rhythmusOder(wunsch), req.user.id]).catch(() => {});
+  db.auditLog(req.user.id, 'PROFILE_NOTIFY_UPDATED', 'user', req.user.id, wunsch, req.ip);
+  res.json({ success: true, data: { doc_notify_frequency: rhythmusOder(wunsch) } });
+}));
+
 router.put('/language', authenticate, wrap(async (req, res) => {
   const lang = req.body.language === 'en' ? 'en' : 'de';
   await db.run('UPDATE users SET language = ? WHERE id = ?', [lang, req.user.id]).catch(() => {});

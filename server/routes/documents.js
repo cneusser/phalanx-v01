@@ -192,25 +192,26 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
   db.auditLog(req.user.id, 'UPLOAD_DOCUMENT', 'document', docId,
     `${displayName} → Projekt ${projectId}`, req.ip);
 
-  // Berechtigte Interessenten über neue Unterlagen informieren:
-  // nur diejenigen, deren Interest-Stage das Kategorie-Gate bereits passiert hat
+  // Berechtigte Interessenten über neue Unterlagen informieren. Seit v0.396
+  // gebündelt: Der Hinweis wandert in eine Warteschlange und wird nach dem
+  // Wunsch des Empfängers versendet (sofort, täglich, wöchentlich oder gar
+  // nicht). Der Dateiname taucht dabei bewusst nicht auf.
   {
     const levelToCategory = { public: 'teaser', nda: 'im', approved: 'dataroom' };
-    const category = levelToCategory[access_level] || 'im';
-    const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [projectId]);
+    const category = levelToCategory[level] || 'im';
     const interested = await db.all(`
-      SELECT u.email, u.first_name, u.last_name, i.stage FROM interests i
+      SELECT u.id, i.stage FROM interests i
       JOIN users u ON u.id = i.buyer_id
       WHERE i.project_id = ? AND i.stage != 'rejected' AND u.is_active = 1
     `, [projectId]);
-    const { sendProcessUpdateEmail } = require('../utils/email');
-    for (const b of interested.filter(b => stageAllows(b.stage, category))) {
-      sendProcessUpdateEmail({
-        to: b.email, firstName: b.first_name, person: b,
-        title: `Neue Unterlagen verfügbar: ${proj ? proj.codename : 'Mandat'}`,
-        message: `Für das Mandat <strong>${proj ? proj.codename : ''}</strong> wurden neue Unterlagen bereitgestellt: <strong>${displayName}</strong>.`,
-        ctaLabel: 'Unterlagen ansehen', ctaPath: `/projekte/${projectId}`,
-      }).catch(() => {});
+    // Als vertraulich eingestufte Unterlagen lösen gar keinen Hinweis aus:
+    // Wer sie sehen soll, bekommt eine Einzelfreigabe und wird dabei informiert.
+    const vertraulich = req.body.restricted === '1' || req.body.restricted === true;
+    if (!vertraulich) {
+      const docNotify = require('../utils/docNotify');
+      for (const b of interested.filter(x => stageAllows(x.stage, category))) {
+        docNotify.einreihen({ tenantId: req.tenantId || 1, userId: b.id, projectId: Number(projectId) }).catch(() => {});
+      }
     }
   }
 

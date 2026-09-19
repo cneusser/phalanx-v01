@@ -133,6 +133,7 @@ initialize().then(() => {
     try { require('./utils/campaigns').startScheduler(); } catch (e) { console.warn('Kampagnen-Scheduler nicht gestartet:', e.message); }
     try { require('./sync/phalanxpool').startScheduler(); } catch (e) { console.warn('Phalanx-OS-Sync-Scheduler nicht gestartet:', e.message); }
     try { require('./utils/ndaReminders').startScheduler(); } catch (e) { console.warn('NDA-Erinnerungen nicht gestartet:', e.message); }
+    try { require('./utils/docNotify').startScheduler(); } catch (e) { console.warn('Unterlagen-Hinweise nicht gestartet:', e.message); }
   });
 }).catch(err => {
   console.error('Failed to initialize database:', err);

@@ -48,10 +48,14 @@ export default function Profile() {
   const [msg, setMsg] = useState('');
   // Sprint 18: Benachrichtigungs-Einstellungen (eigener Endpoint, echtes Opt-out möglich)
   const [notif, setNotif] = useState({ newsletter: true, newsletter_freq: 'instant', follow_updates: true, similar_suggestions: true });
+  // Rhythmus für Hinweise auf neue Unterlagen (v0.396)
+  const [notifyRhythmus, setNotifyRhythmus] = useState('taeglich');
+  const [notifyMsg, setNotifyMsg] = useState('');
 
   const isBuyer = user?.role === 'buyer';
 
   useEffect(() => { api.get('/community/notifications').then(setNotif).catch(() => {}); }, []);
+  useEffect(() => { if (user && user.doc_notify_frequency) setNotifyRhythmus(user.doc_notify_frequency); }, [user]);
 
   useEffect(() => {
     api.get('/profile').then(d => {
@@ -229,6 +233,30 @@ export default function Profile() {
           <p style={{ color: '#888', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
             Sie entscheiden, worüber wir Sie per E-Mail informieren. Alle Optionen sind jederzeit abwählbar.
           </p>
+
+          {/* Rhythmus für Hinweise auf neue Unterlagen (v0.396) */}
+          <div style={{ borderTop: '1px solid #eef4f9', paddingTop: '0.9rem', marginBottom: '0.5rem' }}>
+            <label style={{ display: 'block', fontSize: '0.87rem', fontWeight: 600, color: '#333', marginBottom: 3 }}>
+              Hinweise auf neue Unterlagen im Datenraum
+            </label>
+            <p style={{ fontSize: '0.76rem', color: '#888', lineHeight: 1.5, margin: '0 0 0.5rem' }}>
+              Werden mehrere Unterlagen eingestellt, fassen wir die Hinweise zusammen, statt jede Datei einzeln zu melden.
+            </p>
+            <select value={notifyRhythmus}
+              onChange={async (e) => {
+                const wert = e.target.value;
+                setNotifyRhythmus(wert);
+                try { await api.put('/profile/benachrichtigungen', { doc_notify_frequency: wert }); setNotifyMsg('Gespeichert.'); }
+                catch (err) { setNotifyMsg('Fehler: ' + err.message); }
+              }}
+              style={{ padding: '0.5rem 0.6rem', border: '1px solid #C8E4F4', borderRadius: 7, fontSize: '0.85rem', minWidth: 260 }}>
+              <option value="sofort">Sofort, sobald etwas eingestellt wird</option>
+              <option value="taeglich">Einmal am Tag, gesammelt</option>
+              <option value="woechentlich">Einmal in der Woche, gesammelt</option>
+              <option value="aus">Gar nicht</option>
+            </select>
+            {notifyMsg && <span style={{ marginLeft: 10, fontSize: '0.78rem', color: notifyMsg.startsWith('Fehler') ? '#c00' : '#166534' }}>{notifyMsg}</span>}
+          </div>
           {[
             ['newsletter', 'Newsletter: neue Mandate', 'Ein Hinweis, sobald ein neues Mandat im Marktplatz veröffentlicht wird.'],
             ['follow_updates', 'Updates zu Mandaten, denen ich folge', 'Änderungen, neue Unterlagen, Exposé und Statuswechsel (Due Diligence, LOI, Abschluss). Sie folgen einem Mandat automatisch, sobald Sie Interesse bekunden, oder manuell über den Stern.'],
