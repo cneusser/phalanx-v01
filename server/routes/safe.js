@@ -435,10 +435,13 @@ router.post('/:projectId/uebernehme-dokumente', authenticate, wrap(async (req, r
         parent == null ? [projectId, teil] : [projectId, teil, parent]));
       if (!vorhanden && !trocken) {
         const pos = await nextPosition(req, projectId, parent);
+        // Ein Clean-Team-Ordner ist von Anfang an vertraulich, damit er nie
+        // versehentlich offen steht.
+        const vertraulich = /clean.?team/i.test(teil) ? 1 : 0;
         const id = await scoped(req, (t) => t.insert(
-          `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, position, uploaded_by)
-           VALUES (?, ?, ?, ?, 1, ?, ?)`,
-          [req.tenantId || 1, projectId, parent, teil, pos, req.user.id]));
+          `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, position, uploaded_by, confidential)
+           VALUES (?, ?, ?, ?, 1, ?, ?, ?)`,
+          [req.tenantId || 1, projectId, parent, teil, pos, req.user.id, vertraulich]));
         vorhanden = { id };
       }
       parent = vorhanden ? vorhanden.id : null;
@@ -823,33 +826,53 @@ router.post('/:projectId/notify-dataroom', authenticate, wrap(async (req, res) =
 router.post('/:projectId/dedupe-structure', authenticate, wrap(async (req, res) => {
   if (!(await guard(req, res))) return;
   const projectId = req.params.projectId;
-  const folders = await scoped(req, (t) => t.all(
-    `SELECT id, name, position FROM safe_items
-      WHERE project_id = ? AND parent_id IS NULL AND is_folder = 1 AND deleted_at IS NULL
-      ORDER BY position ASC, id ASC`, [projectId]));
-  const seen = new Map();   // name -> behaltene id
   let removed = 0; let moved = 0;
-  for (const f of folders) {
-    const key = String(f.name).trim().toLowerCase();
-    if (!seen.has(key)) { seen.set(key, f.id); continue; }
-    const keepId = seen.get(key);
-    // Dublette: vorhandene Inhalte in den behaltenen Ordner verschieben, dann leeren
-    // Ordner in den Papierkorb. So geht nichts verloren, auch wenn Dateien drinliegen.
-    const children = await scoped(req, (t) => t.all(
-      `SELECT id FROM safe_items WHERE project_id = ? AND parent_id = ? AND deleted_at IS NULL`, [projectId, f.id]));
-    for (const c of children) {
-      const pos = await nextPosition(req, projectId, keepId);
-      await scoped(req, (t) => t.run(`UPDATE safe_items SET parent_id = ?, position = ? WHERE id = ?`, [keepId, pos, c.id]));
-      moved += 1;
+
+  // Gleichnamige Ordner auf EINER Ebene verschmelzen und danach in die
+  // behaltenen Ordner absteigen. Rekursiv, weil eine Struktur aus mehreren
+  // Importen auf jeder Ebene Dubletten haben kann, nicht nur ganz oben.
+  async function ebeneZusammenfuehren(parentId, tiefe = 0) {
+    if (tiefe > 12) return;                       // Schutz vor entarteten Bäumen
+    const ordner = await scoped(req, (t) => t.all(
+      `SELECT id, name FROM safe_items
+        WHERE project_id = ? AND is_folder = 1 AND deleted_at IS NULL
+          AND ${parentId == null ? 'parent_id IS NULL' : 'parent_id = ?'}
+        ORDER BY position ASC, id ASC`,
+      parentId == null ? [projectId] : [projectId, parentId]));
+
+    const behalten = new Map();                   // Name (normalisiert) -> id
+    for (const f of ordner) {
+      const key = String(f.name).trim().toLowerCase();
+      if (!behalten.has(key)) { behalten.set(key, f.id); continue; }
+      const zielId = behalten.get(key);
+      // Inhalte der Dublette in den behaltenen Ordner umhängen, dann die leere
+      // Dublette in den Papierkorb. Es geht nichts verloren.
+      const kinder = await scoped(req, (t) => t.all(
+        `SELECT id FROM safe_items WHERE project_id = ? AND parent_id = ? AND deleted_at IS NULL`, [projectId, f.id]));
+      for (const c of kinder) {
+        const pos = await nextPosition(req, projectId, zielId);
+        await scoped(req, (t) => t.run(`UPDATE safe_items SET parent_id = ?, position = ? WHERE id = ?`, [zielId, pos, c.id]));
+        moved += 1;
+      }
+      await scoped(req, (t) => t.run(`UPDATE safe_items SET deleted_at = now() WHERE id = ?`, [f.id]));
+      removed += 1;
     }
-    await scoped(req, (t) => t.run(`UPDATE safe_items SET deleted_at = now() WHERE id = ?`, [f.id]));
-    removed += 1;
+
+    // Positionen dieser Ebene neu vergeben (1..N), damit die Nummern stimmen.
+    const rest = await scoped(req, (t) => t.all(
+      `SELECT id FROM safe_items WHERE project_id = ? AND deleted_at IS NULL
+        AND ${parentId == null ? 'parent_id IS NULL' : 'parent_id = ?'}
+        ORDER BY is_folder DESC, position ASC, id ASC`,
+      parentId == null ? [projectId] : [projectId, parentId]));
+    let pos = 1;
+    for (const r of rest) await scoped(req, (t) => t.run(`UPDATE safe_items SET position = ? WHERE id = ?`, [pos++, r.id]));
+
+    // Erst jetzt absteigen: Durch das Umhängen können in den behaltenen Ordnern
+    // frische Dubletten entstanden sein.
+    for (const zielId of behalten.values()) await ebeneZusammenfuehren(zielId, tiefe + 1);
   }
-  // Positionen der verbleibenden Ordner neu vergeben (1..N), damit die Nummern sauber sind.
-  const rest = await scoped(req, (t) => t.all(
-    `SELECT id FROM safe_items WHERE project_id = ? AND parent_id IS NULL AND deleted_at IS NULL ORDER BY position ASC, id ASC`, [projectId]));
-  let pos = 1;
-  for (const r of rest) { await scoped(req, (t) => t.run(`UPDATE safe_items SET position = ? WHERE id = ?`, [pos++, r.id])); }
+
+  await ebeneZusammenfuehren(null);
   db.auditLog(req.user.id, 'SAFE_DEDUPE_STRUCTURE', 'project', projectId, `${removed} Dubletten zusammengeführt, ${moved} Objekte verschoben`, req.ip);
   res.json({ success: true, data: { removed, moved } });
 }));

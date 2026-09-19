@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.394 · 30.07.2026 · Ordner zusammenführen auf allen Ebenen
+- **„Bereinigen" wirkt jetzt rekursiv**: gleichnamige Ordner verschmelzen auf jeder Ebene, nicht nur auf der obersten. Inhalte wandern mit, gelöscht wird nichts
+- **Nummerierung**: Positionen werden je Ebene neu vergeben, die Nummern sind danach wieder lückenlos
+- **Clean Team**: Ein Ordner mit diesem Namen wird beim Anlegen automatisch als vertraulich gekennzeichnet
+- **Korrigiert**: Die Safe-Überschrift sprach noch von „nur für Pfleger, kein Investor-Zugriff". Das gilt seit v0.392 nicht mehr
+
 ## v0.393 · 29.07.2026 · Einzelfreigaben für Clean Team und Umzug auf Cloudflare
 - **Freigabe-Dialog** je Ordner und Datei: gezielt öffnen für eine Person, einen Käufertyp, eine Gruppe oder alle Beteiligten, wahlweise nur ansehen oder mit Download; bestehende Freigaben sichtbar und einzeln entziehbar
 - **Speicher-Umzug auf Cloudflare R2** per Knopfdruck: kopiert in Stapeln, prüft jede Datei per Gegenprobe, löscht nichts
