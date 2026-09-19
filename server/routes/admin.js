@@ -1027,6 +1027,15 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'NDA abgelehnt' } });
 }));
 
+// Erinnerung an eine ausstehende NDA-Unterschrift von Hand auslösen.
+router.put('/ndas/:id/erinnern', ...isAdmin, wrap(async (req, res) => {
+  const r = await require('../utils/ndaReminders').erinnereEinzeln(parseInt(req.params.id, 10), {
+    actorId: req.user.id, ip: req.ip, force: (req.body || {}).force === true,
+  });
+  if (!r.ok) return res.status(400).json({ success: false, error: r.error });
+  res.json({ success: true, data: { message: 'Erinnerung versendet' } });
+}));
+
 // Altfälle: Ein NDA wurde ohne Unterschrift direkt freigegeben. Diese Route
 // fordert die Unterschrift nachträglich an: Status zurück auf 'sent', damit der
 // Käufer online (§10) zeichnen kann. Der bereits gewährte Zugriff (Stage) bleibt

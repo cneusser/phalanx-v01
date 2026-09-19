@@ -672,6 +672,20 @@ export default function Admin() {
   }
   useEffect(() => { if (activeTab === 'phalanx') loadPhalanx(); }, [activeTab]);
 
+  async function erinnereNDA(nda) {
+    if (!confirm(`Erinnerung an ${nda.user_name} (${nda.project_codename}) senden?\n\nDer Käufer bekommt eine E-Mail mit dem Hinweis, dass der NDA noch zur Unterschrift bereitliegt.`)) return;
+    try {
+      await api.put(`/admin/ndas/${nda.id}/erinnern`, {});
+      showMsg('Erinnerung versendet');
+      loadAll();
+    } catch (e) {
+      if (/Heute wurde bereits erinnert/.test(e.message) && confirm(`${e.message}\n\nTrotzdem jetzt senden?`)) {
+        try { await api.put(`/admin/ndas/${nda.id}/erinnern`, { force: true }); showMsg('Erinnerung versendet'); loadAll(); }
+        catch (e2) { showMsg('Fehler: ' + e2.message, 'error'); }
+      } else showMsg('Fehler: ' + e.message, 'error');
+    }
+  }
+
   async function requestSignatureNDA(nda) {
     if (!confirm(`Unterschrift für ${nda.user_name} (${nda.project_codename}) nachträglich anfordern?\n\nDer Käufer bekommt eine E-Mail und kann online unterzeichnen. Sein bestehender Zugang bleibt erhalten.`)) return;
     try {
@@ -1510,7 +1524,19 @@ export default function Admin() {
                               </button>
                             )}
                             {n.status === 'sent' && !isSigned && (
-                              <span style={{ fontSize: '0.7rem', color: '#b45309', fontWeight: 600 }}>Wartet auf Unterschrift</span>
+                              <>
+                                <span style={{ fontSize: '0.7rem', color: '#b45309', fontWeight: 600 }}>
+                                  Wartet auf Unterschrift
+                                  {n.sent_at && <> · seit {Math.max(0, Math.floor((Date.now() - new Date(n.sent_at).getTime()) / 86400000))} Tg.</>}
+                                </span>
+                                <button onClick={() => erinnereNDA(n)}
+                                  title={n.last_reminder_at
+                                    ? `Zuletzt erinnert am ${new Date(n.last_reminder_at).toLocaleDateString('de-DE')} (${n.reminder_count || 0}x)`
+                                    : 'Erinnerung an die Unterschrift senden'}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#fef3c7', color: '#92400e', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                                  <Send size={10} /> Erinnern{n.reminder_count ? ` (${n.reminder_count}x)` : ''}
+                                </button>
+                              </>
                             )}
                             {canApprove && (
                               <button onClick={() => approveNDA(n.id)} title="Datenraum vollständig freigeben" style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>Freigeben</button>

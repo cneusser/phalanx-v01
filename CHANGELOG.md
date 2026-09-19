@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.391 · 27.07.2026 · Erinnerung an ausstehende NDA-Unterschriften
+- **Automatisch nach 3 und 7 Tagen**: Bleibt die Unterschrift aus, erinnert die Plattform den Käufer zweimal, danach endet die Serie
+- **Knopf „Erinnern"**: in der NDA-Liste jederzeit von Hand auslösbar, mit Anzeige, seit wie vielen Tagen die Unterschrift aussteht und wie oft schon erinnert wurde
+- **Höflicher Ausstieg**: Die letzte Erinnerung bietet an, den Empfänger aus dem Prozess zu nehmen
+- **Schutz gegen Überdruck**: keine zwei Erinnerungen am selben Tag; sobald unterschrieben, abgelehnt oder freigegeben ist, hören sie auf. Rhythmus über `NDA_REMINDER_TAGE`, Abschalten über `NDA_REMINDERS_ENABLED=0`
+
 ## v0.390 · 26.07.2026 · Datenraum: Ordnerstruktur und Import aus einem Ordnerbaum
 - **Ordner beim Upload**: Dokumente können jetzt mit Ordnerpfad hochgeladen werden; der Käufer-Datenraum baut daraus seine Navigation, statt alles in einer langen Liste zu zeigen
 - **Import-Skript** `server/scripts/datenraum-import.js`: liest einen vorbereiteten Ordnerbaum ein und legt jede Datei mit Ordnerpfad, sprechendem Namen und Zugriffsstufe an; läuft über die HTTP-Schnittstelle, Trockenlauf möglich, idempotent (zweiter Lauf legt keine Doubletten an)
