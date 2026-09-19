@@ -203,6 +203,7 @@ router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, r
       SELECT u.id, i.stage FROM interests i
       JOIN users u ON u.id = i.buyer_id
       WHERE i.project_id = ? AND i.stage != 'rejected' AND u.is_active = 1
+        AND COALESCE(i.notifications_muted, 0) = 0
     `, [projectId]);
     // Als vertraulich eingestufte Unterlagen lösen gar keinen Hinweis aus:
     // Wer sie sehen soll, bekommt eine Einzelfreigabe und wird dabei informiert.

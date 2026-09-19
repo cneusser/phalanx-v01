@@ -45,12 +45,18 @@ async function autoFollow(userId, projectId, tenantId = 1) {
 // Alle Follower eines Mandats: Watchlist + alle mit Interesse (ohne Absagen).
 async function followerIds(projectId) {
   try {
+    // Stummgeschaltete Interessenten bleiben außen vor: Der Zugang besteht
+    // weiter, es gehen nur keine Benachrichtigungen zu diesem Mandat hinaus.
     const rows = await db.all(`
       SELECT DISTINCT uid FROM (
         SELECT user_id AS uid FROM watchlist WHERE project_id = ?
         UNION
         SELECT buyer_id AS uid FROM interests WHERE project_id = ? AND stage <> 'rejected'
-      ) q`, [projectId, projectId]);
+      ) q
+      WHERE NOT EXISTS (
+        SELECT 1 FROM interests m
+         WHERE m.project_id = ? AND m.buyer_id = q.uid AND COALESCE(m.notifications_muted, 0) = 1
+      )`, [projectId, projectId, projectId]);
     return rows.map(r => r.uid).filter(Boolean);
   } catch { return []; }
 }

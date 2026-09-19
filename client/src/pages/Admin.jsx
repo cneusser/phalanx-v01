@@ -672,6 +672,20 @@ export default function Admin() {
   }
   useEffect(() => { if (activeTab === 'phalanx') loadPhalanx(); }, [activeTab]);
 
+  // Interessent für ein Mandat stummschalten (Zugang bleibt, keine Mails mehr).
+  async function stummNDA(nda) {
+    const an = !nda.notifications_muted;
+    const frage = an
+      ? `Benachrichtigungen für ${nda.user_name} zum Mandat ${nda.project_codename} abschalten?\n\nDer Zugang bleibt bestehen, es gehen nur keine Hinweise mehr an ihn raus.`
+      : `Benachrichtigungen für ${nda.user_name} zum Mandat ${nda.project_codename} wieder einschalten?`;
+    if (!confirm(frage)) return;
+    try {
+      await api.put(`/admin/interests/${nda.project_id}/${nda.user_id}/stumm`, { stumm: an });
+      showMsg(an ? 'Benachrichtigungen abgeschaltet' : 'Benachrichtigungen wieder aktiv');
+      loadAll();
+    } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
   async function erinnereNDA(nda) {
     if (!confirm(`Erinnerung an ${nda.user_name} (${nda.project_codename}) senden?\n\nDer Käufer bekommt eine E-Mail mit dem Hinweis, dass der NDA noch zur Unterschrift bereitliegt.`)) return;
     try {
@@ -1546,6 +1560,13 @@ export default function Admin() {
                                 <Send size={10} /> Unterschrift anfordern
                               </button>
                             )}
+                            <button onClick={() => stummNDA(n)}
+                              title={n.notifications_muted
+                                ? 'Bekommt derzeit keine Hinweise zu diesem Mandat. Klicken, um sie wieder einzuschalten.'
+                                : 'Keine Hinweise mehr zu diesem Mandat an diese Person senden (Zugang bleibt bestehen)'}
+                              style={{ background: n.notifications_muted ? '#e5e7eb' : 'transparent', color: n.notifications_muted ? '#374151' : '#6b7280', border: `1px solid ${C.border}`, padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                              {n.notifications_muted ? 'Stumm' : 'Stummschalten'}
+                            </button>
                             {!['approved', 'rejected'].includes(n.status) && (
                               <button onClick={() => rejectNDA(n.id)} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>Ablehnen</button>
                             )}

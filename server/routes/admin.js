@@ -848,6 +848,7 @@ router.get('/ndas', ...isAdmin, wrap(async (req, res) => {
       p.codename as project_codename, p.industry as project_industry,
       p.mandate_type as project_mandate_type,
       (SELECT i.stage FROM interests i WHERE i.project_id = nr.project_id AND i.buyer_id = nr.user_id) AS interest_stage,
+      COALESCE((SELECT i.notifications_muted FROM interests i WHERE i.project_id = nr.project_id AND i.buyer_id = nr.user_id), 0) AS notifications_muted,
       a.first_name || ' ' || a.last_name as approved_by_name
     FROM nda_requests nr
     JOIN users u ON u.id = nr.user_id JOIN projects p ON p.id = nr.project_id
@@ -1025,6 +1026,26 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
     }
   }
   res.json({ success: true, data: { message: 'NDA abgelehnt' } });
+}));
+
+// Interessent für ein Mandat stummschalten: Zugang bleibt, Benachrichtigungen
+// zu diesem Mandat gehen nicht mehr an ihn hinaus. Für Fälle, in denen jemand
+// ausdrücklich darum bittet.
+router.put('/interests/:projectId/:userId/stumm', ...isAdmin, wrap(async (req, res) => {
+  const projectId = parseInt(req.params.projectId, 10);
+  const userId = parseInt(req.params.userId, 10);
+  const stumm = (req.body || {}).stumm !== false;
+  const vorhanden = await db.get('SELECT id FROM interests WHERE project_id = ? AND buyer_id = ?', [projectId, userId]);
+  if (!vorhanden) return res.status(404).json({ success: false, error: 'Interessent für dieses Mandat nicht gefunden.' });
+  await db.run('UPDATE interests SET notifications_muted = ? WHERE project_id = ? AND buyer_id = ?',
+    [stumm ? 1 : 0, projectId, userId]);
+  // Offene, noch nicht versendete Sammelmeldungen gleich mit abräumen.
+  if (stumm) {
+    await db.run("UPDATE doc_notify_queue SET sent_at = now() WHERE user_id = ? AND project_id = ? AND sent_at IS NULL",
+      [userId, projectId]).catch(() => {});
+  }
+  db.auditLog(req.user.id, stumm ? 'INTEREST_MUTED' : 'INTEREST_UNMUTED', 'project', projectId, `Nutzer ${userId}`, req.ip);
+  res.json({ success: true, data: { stumm } });
 }));
 
 // Erinnerung an eine ausstehende NDA-Unterschrift von Hand auslösen.

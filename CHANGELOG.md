@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.397 · 02.08.2026 · Interessent je Mandat stummschalten
+- **Knopf „Stummschalten"** in der NDA-Liste: keine Hinweise mehr an diese Person zu diesem Mandat
+- **Zugang bleibt bestehen**: Unterlagen, Datenraum und Q&A stehen weiter offen, es gehen nur keine Mails mehr raus
+- **Wirkt auf alle Wege**: Hinweise auf neue Unterlagen ebenso wie Mandats-Updates an Folgende; bereits eingereihte Sammelmeldungen werden abgeräumt
+- Jederzeit mit einem weiteren Klick wieder einschaltbar
+
 ## v0.396 · 01.08.2026 · Hinweise auf neue Unterlagen werden gebündelt
 - **Keine Mail je Datei mehr**: Hinweise werden gesammelt und je Mandat zu einer Nachricht zusammengefasst
 - **Rhythmus im Profil**: sofort, einmal am Tag, einmal in der Woche oder gar nicht; Voreinstellung ist einmal am Tag
