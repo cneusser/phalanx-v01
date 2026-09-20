@@ -464,6 +464,17 @@ async function status() {
   const review = await db.get(`SELECT COUNT(*)::int AS n FROM phalanx_pool_review WHERE resolved_at IS NULL`).catch(() => ({ n: 0 }));
   return {
     configured: isConfigured(),
+    // Welche der drei Pflichtvariablen fehlt? Nur ja/nein, nie der Wert selbst.
+    env: {
+      PHALANX_OS_BASE_URL: !!c.baseUrl,
+      PHALANX_OS_CLIENT_ID: !!c.clientId,
+      PHALANX_OS_CLIENT_SECRET: !!c.clientSecret,
+    },
+    fehlend: [
+      !c.baseUrl && 'PHALANX_OS_BASE_URL',
+      !c.clientId && 'PHALANX_OS_CLIENT_ID',
+      !c.clientSecret && 'PHALANX_OS_CLIENT_SECRET',
+    ].filter(Boolean),
     base_url: c.baseUrl || null,
     tags: c.tags,
     interval_min: c.intervalMin,

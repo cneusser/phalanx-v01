@@ -1600,8 +1600,18 @@ export default function Admin() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem' }}>
                   <div style={{ fontSize: '0.72rem', color: C.muted, textTransform: 'uppercase' }}>Status</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: phalanx.configured ? '#166534' : '#b45309' }}>{phalanx.configured ? 'Konfiguriert' : 'Nicht konfiguriert (ENV fehlt)'}</div>
-                  <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 4, wordBreak: 'break-all' }}>{phalanx.base_url || 'keine Basis-URL'}</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: phalanx.configured ? '#166534' : '#b45309' }}>{phalanx.configured ? 'Konfiguriert' : 'Nicht konfiguriert'}</div>
+                  {phalanx.configured ? (
+                    <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 4, wordBreak: 'break-all' }}>{phalanx.base_url}</div>
+                  ) : (
+                    <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 4 }}>
+                      Es fehlt in Railway:
+                      <ul style={{ margin: '4px 0 0', paddingLeft: '1.1rem' }}>
+                        {(phalanx.fehlend || []).map(v => <li key={v} style={{ fontFamily: 'ui-monospace, monospace', color: '#b45309' }}>{v}</li>)}
+                      </ul>
+                      {(phalanx.fehlend || []).length === 0 && <span>Alle Variablen gesetzt, aber noch nicht neu gestartet?</span>}
+                    </div>
+                  )}
                 </div>
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem' }}>
                   <div style={{ fontSize: '0.72rem', color: C.muted, textTransform: 'uppercase' }}>Letzter Sync</div>
