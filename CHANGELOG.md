@@ -4,8 +4,8 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
 ## v0.398 · 03.08.2026 · Eigenes Symbol im Browser-Tab
-- **Monogramm „CM"** in den Markenfarben: Navy mit dem Cyan des Schriftzugs, als Symbol im Tab, im Lesezeichen und auf dem Homescreen
-- **Alle Größen mitgeliefert**: 16, 32, 180, 192 und 512 Bildpunkte sowie eine ICO-Datei für ältere Browser
+- **Das CapitalMatch-Logo** steht jetzt im Browser-Tab, im Lesezeichen und auf dem Homescreen, statt des grauen Platzhalters
+- **Alle Größen mitgeliefert**: 16, 32, 180, 192 und 512 Bildpunkte sowie eine ICO-Datei für ältere Browser. Die kleinen Fassungen sind nachgeschärft
 - **Web-Manifest** ergänzt, damit die Seite auf dem Handy als App abgelegt werden kann
 - **Phalanx-OS-Anbindung**: die Adresse der Phalanx-OS-Instanz ist jetzt fest hinterlegt und muss nicht mehr als Variable gesetzt werden
 

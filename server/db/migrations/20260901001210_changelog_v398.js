@@ -3,7 +3,7 @@ const ENTRY = {
   version: 'v0.398', released_on: '2026-08-03',
   title: 'Eigenes Symbol im Browser-Tab',
   items: [
-    'Das Monogramm „CM" in den Markenfarben erscheint jetzt im Browser-Tab, im Lesezeichen und auf dem Homescreen',
+    'Das CapitalMatch-Logo erscheint jetzt im Browser-Tab, im Lesezeichen und auf dem Homescreen, statt des grauen Platzhalters',
     'Alle gängigen Größen sind hinterlegt: 16, 32, 180, 192 und 512 Bildpunkte sowie eine ICO-Datei für ältere Browser',
     'Ein Web-Manifest kam dazu, damit die Seite auf dem Handy wie eine App abgelegt werden kann',
     'Phalanx-OS-Anbindung: die Adresse der Phalanx-OS-Instanz ist fest hinterlegt und muss nicht mehr als Variable gesetzt werden',
