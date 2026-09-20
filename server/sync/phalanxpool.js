@@ -21,9 +21,13 @@ const li = require('../utils/linkedinImport');
 // ── ENV / Konfiguration ──────────────────────────────────────────────────────
 const DEFAULT_TAGS = ['LI:Investor/Kapital', 'LI:Unternehmer/GF', 'LI:StB/WP/RA/Insolvenz'];
 
+// Adresse der Phalanx-OS-Instanz. Kein Geheimnis, daher als Standard hinterlegt.
+// PHALANX_OS_BASE_URL sticht den Standard, sobald die Variable einen Wert hat.
+const STANDARD_BASE_URL = 'https://phalanx-os-production.up.railway.app';
+
 function config() {
   return {
-    baseUrl: (process.env.PHALANX_OS_BASE_URL || '').replace(/\/+$/, ''),
+    baseUrl: (process.env.PHALANX_OS_BASE_URL || STANDARD_BASE_URL).replace(/\/+$/, ''),
     clientId: process.env.PHALANX_OS_CLIENT_ID || '',
     clientSecret: process.env.PHALANX_OS_CLIENT_SECRET || '',
     tags: (process.env.PHALANX_SYNC_TAGS

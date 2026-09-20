@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.398 · 03.08.2026 · Eigenes Symbol im Browser-Tab
+- **Monogramm „CM"** in den Markenfarben: Navy mit dem Cyan des Schriftzugs, als Symbol im Tab, im Lesezeichen und auf dem Homescreen
+- **Alle Größen mitgeliefert**: 16, 32, 180, 192 und 512 Bildpunkte sowie eine ICO-Datei für ältere Browser
+- **Web-Manifest** ergänzt, damit die Seite auf dem Handy als App abgelegt werden kann
+- **Phalanx-OS-Anbindung**: die Adresse der Phalanx-OS-Instanz ist jetzt fest hinterlegt und muss nicht mehr als Variable gesetzt werden
+
 ## v0.397 · 02.08.2026 · Interessent je Mandat stummschalten
 - **Knopf „Stummschalten"** in der NDA-Liste: keine Hinweise mehr an diese Person zu diesem Mandat
 - **Zugang bleibt bestehen**: Unterlagen, Datenraum und Q&A stehen weiter offen, es gehen nur keine Mails mehr raus
