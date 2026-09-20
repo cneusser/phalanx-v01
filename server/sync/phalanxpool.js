@@ -502,8 +502,21 @@ async function ping() {
 }
 
 // ── Scheduler (Muster wie utils/campaigns) ───────────────────────────────────
+// Nennt beim Start, welche PHALANX-Variablen im Container ankommen. Es werden
+// ausschliesslich Namen und der Zustand leer/gefuellt ausgegeben, niemals Werte.
+function logEnvDiagnose() {
+  const namen = Object.keys(process.env).filter((k) => k.startsWith('PHALANX')).sort();
+  if (!namen.length) {
+    console.log('🔎 PHALANX-ENV: keine einzige Variable mit diesem Praefix im Container angekommen.');
+    return;
+  }
+  const liste = namen.map((k) => `${k}=${String(process.env[k] || '').length ? 'gefuellt' : 'LEER'}`).join(', ');
+  console.log(`🔎 PHALANX-ENV: ${liste}`);
+}
+
 function startScheduler() {
   const c = config();
+  logEnvDiagnose();
   if (!isConfigured()) { console.log('ℹ️  Phalanx-OS-Sync: nicht konfiguriert, Scheduler aus.'); return; }
   if (!c.intervalMin || c.intervalMin <= 0) { console.log('ℹ️  Phalanx-OS-Sync: Intervall 0, Scheduler aus.'); return; }
   const tick = () => syncNow('auto')
