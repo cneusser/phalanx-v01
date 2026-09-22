@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Send, UserPlus, Check, X, MessageSquare, ShieldCheck, ArrowUpRight } from 'lucide-react';
+import { Send, UserPlus, Check, X, MessageSquare, ShieldCheck, ArrowUpRight, Pencil, Trash2, Clock } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
 
@@ -17,7 +17,22 @@ export default function Messages() {
   const [body, setBody] = useState('');
   const [addEmail, setAddEmail] = useState('');
   const [msg, setMsg] = useState('');
+  // v0.399: Nachbessern im Zustellfenster
+  const [bearbeitet, setBearbeitet] = useState(null);   // id der Nachricht in Bearbeitung
+  const [entwurf, setEntwurf] = useState('');
+  const [jetzt, setJetzt] = useState(Date.now());       // laesst die Restzeit herunterzaehlen
   const endRef = useRef();
+  const feldRef = useRef();
+
+  // Einmal pro Sekunde neu rechnen, damit „noch 7:12" wirklich laeuft.
+  useEffect(() => { const t = setInterval(() => setJetzt(Date.now()), 1000); return () => clearInterval(t); }, []);
+  // Das Textfeld waechst mit dem Text, bis zu einer Obergrenze.
+  useEffect(() => {
+    const el = feldRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+  }, [body]);
 
   const loadThreads = useCallback(() => { api.get('/messages/threads').then(setThreads).catch(() => {}); }, []);
   const loadConnections = useCallback(() => { api.get('/messages/connections').then(setConnections).catch(() => {}); }, []);
@@ -40,6 +55,36 @@ export default function Messages() {
       await api.post('/messages/send', { recipient_id: active, body });
       setBody(''); openThread(active);
     } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+
+  // Enter macht eine neue Zeile. Gesendet wird über den Knopf oder mit
+  // Befehlstaste beziehungsweise Strg zusammen mit Enter.
+  function tastendruck(e) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
+  }
+
+  // Restzeit einer eigenen, noch nicht zugestellten Nachricht in Sekunden.
+  function rest(m) {
+    if (!m.zustellung_ab || m.benachrichtigt_am) return 0;
+    const s2 = Math.ceil((new Date(m.zustellung_ab).getTime() - jetzt) / 1000);
+    return s2 > 0 ? s2 : 0;
+  }
+  const mmss = (s2) => `${Math.floor(s2 / 60)}:${String(s2 % 60).padStart(2, '0')}`;
+
+  async function speichereAenderung(id) {
+    if (!entwurf.trim()) return;
+    setMsg('');
+    try {
+      await api.put(`/messages/${id}`, { body: entwurf });
+      setBearbeitet(null); setEntwurf(''); openThread(active);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+
+  async function nimmZurueck(id) {
+    if (!window.confirm('Diese Nachricht zurücknehmen? Sie wurde noch nicht zugestellt.')) return;
+    setMsg('');
+    try { await api.delete(`/messages/${id}`); openThread(active); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
   }
   // Mandatsbezug der Konversation: jüngste Nachricht mit Mandat (für Berater-Aktionen).
   const mandateCtx = thread && [...thread.messages].reverse().find(m => m.project_id);
@@ -158,22 +203,53 @@ export default function Messages() {
                       );
                     }
                     const mine = m.sender_id === user.id;
+                    const offen = mine ? rest(m) : 0;        // Restzeit bis zur Zustellung
+                    const inArbeit = bearbeitet === m.id;
                     return (
-                      <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: '0.5rem' }}>
-                        <div style={{ maxWidth: '75%', background: mine ? C.navy : C.bg, color: mine ? '#fff' : C.text, padding: '0.5rem 0.8rem', borderRadius: 10, fontSize: '0.85rem', lineHeight: 1.45 }}>
+                      <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start', marginBottom: '0.5rem' }}>
+                        <div style={{ maxWidth: '75%', background: mine ? C.navy : C.bg, color: mine ? '#fff' : C.text, padding: '0.5rem 0.8rem', borderRadius: 10, fontSize: '0.85rem', lineHeight: 1.45, opacity: offen ? 0.82 : 1, border: offen ? '1px dashed rgba(255,255,255,0.45)' : 'none' }}>
                           {m.project_codename && <div style={{ fontSize: '0.64rem', fontWeight: 700, opacity: 0.75, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{m.project_codename}</div>}
-                          {m.body}
-                          <div style={{ fontSize: '0.62rem', opacity: 0.7, marginTop: 2, textAlign: 'right' }}>{new Date(m.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                          {inArbeit ? (
+                            <>
+                              <textarea value={entwurf} onChange={e => setEntwurf(e.target.value)} rows={Math.min(8, entwurf.split('\n').length + 1)}
+                                style={{ width: 'min(420px, 60vw)', background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 7, padding: '0.45rem 0.6rem', fontSize: '0.85rem', lineHeight: 1.45, resize: 'vertical', fontFamily: 'inherit' }} />
+                              <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
+                                <button onClick={() => { setBearbeitet(null); setEntwurf(''); }} style={{ background: 'transparent', color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, padding: '0.22rem 0.6rem', fontSize: '0.72rem', cursor: 'pointer' }}>Abbrechen</button>
+                                <button onClick={() => speichereAenderung(m.id)} style={{ background: '#fff', color: C.navy, border: 'none', borderRadius: 6, padding: '0.22rem 0.7rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>Übernehmen</button>
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{ whiteSpace: 'pre-wrap' }}>{m.body}</div>
+                          )}
+                          <div style={{ fontSize: '0.62rem', opacity: 0.7, marginTop: 2, textAlign: 'right' }}>
+                            {m.bearbeitet_am && <span style={{ marginRight: 5 }}>bearbeitet</span>}
+                            {new Date(m.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </div>
                         </div>
+                        {offen > 0 && !inArbeit && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, fontSize: '0.68rem', color: C.muted }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Clock size={11} /> wird in {mmss(offen)} zugestellt</span>
+                            <button onClick={() => { setBearbeitet(m.id); setEntwurf(m.body); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: C.accent, fontSize: '0.68rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}><Pencil size={11} /> Bearbeiten</button>
+                            <button onClick={() => nimmZurueck(m.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: '#991b1b', fontSize: '0.68rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}><Trash2 size={11} /> Zurücknehmen</button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 <div ref={endRef} />
               </div>
               {thread.allowed ? (
-                <div style={{ padding: '0.75rem', borderTop: `1px solid ${C.border}`, display: 'flex', gap: '0.5rem' }}>
-                  <input value={body} onChange={e => setBody(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="Nachricht…" style={{ flex: 1, padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', outline: 'none' }} />
-                  <button onClick={send} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0 1rem', cursor: 'pointer' }}><Send size={16} /></button>
+                <div style={{ padding: '0.75rem', borderTop: `1px solid ${C.border}` }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+                    <textarea ref={feldRef} value={body} onChange={e => setBody(e.target.value)} onKeyDown={tastendruck} rows={1}
+                      placeholder="Nachricht…  Enter macht eine neue Zeile."
+                      style={{ flex: 1, padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', lineHeight: 1.45, outline: 'none', resize: 'none', overflowY: 'auto', maxHeight: 200, fontFamily: 'inherit' }} />
+                    <button onClick={send} disabled={!body.trim()} title="Senden (Cmd oder Strg + Enter)"
+                      style={{ background: body.trim() ? C.navy : '#94a3b8', color: '#fff', border: 'none', borderRadius: 8, padding: '0.62rem 1rem', cursor: body.trim() ? 'pointer' : 'default' }}><Send size={16} /></button>
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 5 }}>
+                    Enter macht eine neue Zeile. Senden mit dem Knopf oder Cmd beziehungsweise Strg und Enter. Nach dem Senden bleiben einige Minuten, um den Text noch zu ändern.
+                  </div>
                 </div>
               ) : (
                 <div style={{ padding: '0.9rem', borderTop: `1px solid ${C.border}`, fontSize: '0.8rem', color: C.muted, textAlign: 'center' }}>Nachrichten sind möglich, sobald die Kontaktanfrage angenommen wurde.</div>

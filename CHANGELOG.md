@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.399 · 04.08.2026 · Nachrichten mehrzeilig schreiben und noch nachbessern
+- **Enter macht eine neue Zeile**: Das Eingabefeld im Nachrichtenbereich ist jetzt mehrzeilig und wächst mit dem Text. Gesendet wird über den Knopf oder mit Cmd beziehungsweise Strg und Enter
+- **Zeilenumbrüche bleiben erhalten**, in der Anzeige und in der Hinweis-Mail
+- **Zehn Minuten zum Nachbessern**: Nach dem Senden bleibt die Nachricht zunächst beim Absender. In dieser Zeit lässt sie sich ändern oder ganz zurücknehmen
+- **Der Empfänger sieht sie erst nach Ablauf des Fensters**, und erst dann geht die Hinweis-Mail hinaus. Was einmal zugestellt ist, bleibt unveränderlich
+- Die Blase zeigt währenddessen „wird in 7:12 zugestellt" mit den Knöpfen zum Bearbeiten und Zurücknehmen; geänderte Nachrichten tragen den Vermerk „bearbeitet"
+- Länge des Fensters über `NACHRICHT_FENSTER_MIN` einstellbar, 0 stellt wie früher sofort zu
+
 ## v0.398 · 03.08.2026 · Eigenes Symbol im Browser-Tab
 - **Das CapitalMatch-Logo** steht jetzt im Browser-Tab, im Lesezeichen und auf dem Homescreen, statt des grauen Platzhalters
 - **Alle Größen mitgeliefert**: 16, 32, 180, 192 und 512 Bildpunkte sowie eine ICO-Datei für ältere Browser. Die kleinen Fassungen sind nachgeschärft
