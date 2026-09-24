@@ -178,7 +178,31 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
       const b = req.safeBew.get(Number(o.id));
       return { ...o, gesperrt: b.gesperrt, darf_download: b.download };
     });
-  res.json({ success: true, data: { items: out, breadcrumb: crumbs, parent_id: pid, project, nur_lesend: !!req.safeBew } });
+  // v0.401: Zwei Angaben, die der Datenraum oben anzeigt, damit sofort klar ist,
+  // wie viel hier liegt und dass man alles in einem Zug holen kann. Dazu je
+  // Ordner die Anzahl der Objekte darunter, wie im Dateimanager.
+  const alleItems = await scoped(req, (t) => t.all(
+    'SELECT id, parent_id, is_folder, storage_key, size FROM safe_items WHERE project_id = ? AND deleted_at IS NULL',
+    [req.params.projectId]));
+  const sichtbar = (i) => !req.safeBew || req.safeBew.has(Number(i.id));
+  const ladbarF = (i) => (!req.safeBew ? true : (req.safeBew.get(Number(i.id)) || {}).download);
+  const dateienAlle = alleItems.filter((i) => Number(i.is_folder) === 0 && i.storage_key && sichtbar(i) && ladbarF(i));
+  const gesamtDateien = dateienAlle.length;
+  const gesamtGroesse = dateienAlle.reduce((n, i) => n + Number(i.size || 0), 0);
+
+  // Anzahl der Objekte je Ordner auf dieser Ebene (nur die sichtbaren).
+  const kinderVon = new Map();
+  for (const i of alleItems) {
+    if (!sichtbar(i)) continue;
+    const e = i.parent_id == null ? 0 : Number(i.parent_id);
+    kinderVon.set(e, (kinderVon.get(e) || 0) + 1);
+  }
+  for (const o of out) if (o.is_folder) o.anzahl = kinderVon.get(Number(o.id)) || 0;
+
+  res.json({ success: true, data: {
+    items: out, breadcrumb: crumbs, parent_id: pid, project, nur_lesend: !!req.safeBew,
+    gesamt_dateien: gesamtDateien, gesamt_groesse: gesamtGroesse,
+  } });
 }));
 
 // ── Umsortieren (Position tauschen), Nummerierung ergibt sich neu ────────────
@@ -594,6 +618,110 @@ router.post('/:projectId/uebernehme-dokumente', authenticate, wrap(async (req, r
 // Niemand soll fünfzig Dateien einzeln ziehen müssen. Für die Nachvollziehbarkeit
 // wird trotzdem JEDE enthaltene Datei einzeln protokolliert, nicht nur das Archiv.
 // Gesperrte und nicht freigegebene Objekte bleiben draußen.
+// ── Archiv ausliefern ───────────────────────────────────────────────────────
+// Gemeinsame Mechanik fuer drei Faelle: ein Ordner, eine Auswahl aus der Liste
+// und der ganze Datenraum. Zusammengefasst, weil Protokollierung und
+// Rechtepruefung in allen drei Faellen dieselben sein muessen.
+//
+// `wurzelId` = null bedeutet: ab der Wurzel, also der gesamte sichtbare Bestand.
+// `nurIds` (optional) schraenkt auf ausgewaehlte Objekte ein; ein ausgewaehlter
+// Ordner nimmt alles Freigegebene darunter mit.
+async function archivAusgeben(req, res, { wurzelId = null, nurIds = null, titel = 'Datenraum' }) {
+  const projectId = Number(req.params.projectId);
+  const alle = await scoped(req, (t) => t.all(
+    'SELECT id, parent_id, name, is_folder, storage_key, mime, confidential FROM safe_items WHERE project_id = ? AND deleted_at IS NULL',
+    [projectId]));
+
+  // Welche Dateien duerfen mit? Fuer Pflegende alles, fuer Kaeufer entscheidet
+  // die Sichtbarkeitsbewertung.
+  const ladbar = (ordnerId) => {
+    if (req.safeBew) return sichtbarkeit.ladbareDateienUnter(alle, req.safeBew, ordnerId);
+    // Pflegende duerfen alles unterhalb des Startpunkts.
+    const drin = new Set();
+    const unter = (pid) => {
+      const ziel = pid == null ? null : Number(pid);
+      for (const i of alle) {
+        const eltern = i.parent_id == null ? null : Number(i.parent_id);
+        if (eltern !== ziel) continue;
+        if (Number(i.is_folder) === 1) unter(Number(i.id));
+        else if (i.storage_key) drin.add(Number(i.id));
+      }
+    };
+    unter(ordnerId);
+    return alle.filter((i) => drin.has(Number(i.id)));
+  };
+
+  let dateien;
+  if (Array.isArray(nurIds) && nurIds.length) {
+    const gewaehlt = new Set(nurIds.map(Number));
+    const gesammelt = new Map();
+    for (const i of alle) {
+      if (!gewaehlt.has(Number(i.id))) continue;
+      if (Number(i.is_folder) === 1) for (const f of ladbar(Number(i.id))) gesammelt.set(Number(f.id), f);
+      else if (i.storage_key) gesammelt.set(Number(i.id), i);
+    }
+    // Einzeln gewaehlte Dateien noch gegen die Freigabe pruefen.
+    const erlaubt = new Set(ladbar(wurzelId).map((f) => Number(f.id)));
+    dateien = [...gesammelt.values()].filter((f) => erlaubt.has(Number(f.id)) || !req.safeBew);
+  } else {
+    dateien = ladbar(wurzelId);
+  }
+
+  if (!dateien.length) return res.status(404).json({ success: false, error: 'Keine freigegebenen Dateien zum Herunterladen.' });
+
+  // Pfad im Archiv: Ordnerstruktur ab der Wurzel des Archivs erhalten.
+  const proId = new Map(alle.map((i) => [Number(i.id), i]));
+  const grenze = wurzelId == null ? null : Number(wurzelId);
+  const pfadVon = (item) => {
+    const teile = [item.name];
+    let p = item.parent_id == null ? null : Number(item.parent_id);
+    while (p && p !== grenze) {
+      const el = proId.get(p);
+      if (!el) break;
+      teile.unshift(el.name);
+      p = el.parent_id == null ? null : Number(el.parent_id);
+    }
+    return teile.join('/');
+  };
+
+  const archiver = require('archiver');
+  const archiv = archiver('zip', { zlib: { level: 6 } });
+  const dateiname = `${String(titel).replace(/[^\p{L}\p{N}._ -]/gu, '_')}.zip`;
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(dateiname)}"`);
+  archiv.on('error', (e) => { console.error('ZIP fehlgeschlagen:', e.message); try { res.destroy(); } catch { /* egal */ } });
+  archiv.pipe(res);
+
+  for (const f of dateien) {
+    try {
+      const buf = await getStorage().get(f.storage_key);
+      archiv.append(buf, { name: pfadVon(f) });
+      await scoped(req, (t) => t.run(
+        `INSERT INTO safe_access_log (tenant_id, project_id, item_id, user_id, action, detail) VALUES (?, ?, ?, ?, 'download', ?)`,
+        [req.tenantId || 1, projectId, f.id, req.user.id, `im Archiv "${titel}"`])).catch(() => {});
+    } catch (e) {
+      console.warn(`ZIP: Datei ${f.id} uebersprungen:`, e.message);
+    }
+  }
+  db.activityLog(req.user.id, 'SAFE_DOWNLOAD_ZIP', 'safe_item', wurzelId || 0, req.ip);
+  db.auditLog(req.user.id, 'SAFE_DOWNLOAD_ZIP', 'safe_item', wurzelId || 0, `${dateien.length} Datei(en) aus "${titel}"`, req.ip);
+  await archiv.finalize();
+  return null;
+}
+
+// Auswahl oder ganzer Datenraum als Archiv (v0.401).
+// Ohne `ids` wird alles gepackt, was die Person sehen und laden darf. Genau das
+// hat bisher gefehlt: Auf der obersten Ebene gab es keinen Weg, alles zu holen.
+router.post('/:projectId/zip', authenticate, wrap(async (req, res) => {
+  if (!(await guardRead(req, res))) return;
+  const ids = Array.isArray(req.body && req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : null;
+  const projekt = await scoped(req, (t) => t.get('SELECT codename FROM projects WHERE id = ?', [Number(req.params.projectId)])).catch(() => null);
+  const titel = ids && ids.length
+    ? `Auswahl ${projekt ? projekt.codename : 'Datenraum'}`
+    : `Datenraum ${projekt ? projekt.codename : ''}`.trim();
+  await archivAusgeben(req, res, { wurzelId: null, nurIds: ids, titel });
+}));
+
 router.get('/:projectId/folder/:id/zip', authenticate, wrap(async (req, res) => {
   if (!(await guardRead(req, res))) return;
   const projectId = Number(req.params.projectId);

@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.401 · 06.08.2026 · Datenraum bedient sich wie ein Dateimanager
+- **„Alles herunterladen" steht jetzt ganz oben**, zusammen mit der Anzahl der freigegebenen Dokumente und der Gesamtgröße. Bisher gab es auf der obersten Ebene gar keinen Weg, den Datenraum am Stück zu bekommen
+- **Mehrfachauswahl**: Zeilen ankreuzen, mit gedrückter Umschalttaste ganze Bereiche, dann „Auswahl herunterladen". Ein markierter Ordner nimmt alles Freigegebene darunter mit
+- **Tabelle statt Liste**: Name, Größe, Änderungsdatum und Dateityp in Spalten, sortierbar durch Klick auf die Überschrift. Ordner stehen oben
+- **Bedienung wie gewohnt**: Doppelklick öffnet einen Ordner, die Rücktaste geht eine Ebene zurück, ein Pfeil neben der Pfadleiste ebenso
+- **Ehrlicher Hinweis statt toter Knopf**: Ist für einen Zugang nur das Ansehen freigegeben, steht das oben, anstatt dass ein Download-Knopf mit einer Fehlermeldung antwortet
+- Jede Datei aus einem Archiv wird weiterhin einzeln im Zugriffsprotokoll vermerkt, mit dem Hinweis, aus welchem Archiv sie stammt
+
 ## v0.400 · 05.08.2026 · Anfragen aus Marktplätzen landen vollständig im CRM
 - **Der Investortyp ging bisher verloren**: Das Feld im Dialog „Anfrage einfügen" war Freitext und passte auf kein Feld der Datenbank. Jetzt ist es ein Auswahlfeld mit denselben Käufertypen wie in der Kontaktakte, und der Wert wird gespeichert
 - **Was das Portal geschrieben hat, wird zugeordnet**: „Privatperson", „Private Equity Fonds" oder „MBI-Kandidat" werden automatisch auf den passenden Käufertyp abgebildet. Der ursprüngliche Wortlaut bleibt sichtbar. Lässt sich nichts sicher zuordnen, bleibt das Feld leer statt falsch
