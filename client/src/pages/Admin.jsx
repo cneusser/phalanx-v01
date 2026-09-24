@@ -1743,7 +1743,28 @@ export default function Admin() {
                     <div key={s.tag} style={{ fontSize: '0.78rem', color: C.text }}>{s.tag}: {s.reachable ? (s.total != null ? `${s.total} Kontakte` : 'erreichbar') : `nicht erreichbar (${s.error || ''})`}</div>
                   ))}
                   {phalanxPing.hinweis && (
-                    <div style={{ fontSize: '0.78rem', color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '0.5rem 0.7rem', marginTop: 6 }}>{phalanxPing.hinweis}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '0.5rem 0.7rem', marginTop: 6 }}>
+                      {phalanxPing.hinweis}
+                      {phalanxPing.vorschlag && (
+                        <div style={{ marginTop: 6 }}>
+                          Vorschlag für <code>PHALANX_SYNC_TAGS</code>:
+                          <div style={{ fontFamily: 'ui-monospace, monospace', background: '#fff', border: '1px solid #fde68a', borderRadius: 6, padding: '0.35rem 0.5rem', marginTop: 4, wordBreak: 'break-all' }}>{phalanxPing.vorschlag}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Die Namen, die der Pool wirklich führt. Ende der Raterei. */}
+                  {(phalanxPing.verfuegbar || []).length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: '0.72rem', color: C.muted, textTransform: 'uppercase', marginBottom: 4 }}>Segmente im Pool</div>
+                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', maxHeight: 130, overflowY: 'auto' }}>
+                        {phalanxPing.verfuegbar.map(t => (
+                          <span key={t.name} style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.15rem 0.5rem', fontSize: '0.72rem', color: C.text }}>
+                            {t.name} <span style={{ color: C.muted }}>{t.anzahl}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}

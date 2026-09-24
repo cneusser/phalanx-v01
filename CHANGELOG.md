@@ -8,6 +8,7 @@ Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog")
 - **Neuer Knopf „Vollabgleich"** neben „Jetzt synchronisieren": liest den ganzen Pool statt nur das seit dem letzten erfolgreichen Lauf Geänderte. Nötig, weil ein Lauf, der aus anderem Grund nichts gelesen hat, den Zeitstempel trotzdem gesetzt hat und der Bestand damit dauerhaft außen vor geblieben wäre
 - **„Verbindung prüfen" misst jetzt zuerst ohne Filter.** Steht dort eine Zahl und bei jedem Segment eine Null, liegt es an den Segmentnamen, nicht an den Rechten. Genau das sagt die Prüfung jetzt im Klartext
 - **`PHALANX_SYNC_TAGS` erwartet Tag-Namen**, etwa „LI:Investor/Kapital", keine Nummern
+- **Die Segmentnamen stehen jetzt in der Oberfläche.** „Verbindung prüfen" holt sie aus dem Pool (Phalanx OS ab v6.47.0), zeigt sie mit Anzahl an und schlägt die drei größten als fertige Zeile für `PHALANX_SYNC_TAGS` vor. Niemand muss mehr raten, wie ein Segment heißt
 
 ## v0.405 · 24.09.2026 · Stammdaten sauber getrennt, Pflege ohne Anmeldung
 - **Aus einer Firmenart werden drei Angaben**: Sektor (Pflicht, wortgleich zu den acht Sektoren in Phalanx OS), Schwerpunkt (freiwillig, die Auswahl hängt am Sektor) und Rolle in der Transaktion (mehrfach möglich, etwa Stratege und Käufer). Ein Schwerpunkt, der nicht zum Sektor passt, wird abgelehnt statt stillschweigend gespeichert

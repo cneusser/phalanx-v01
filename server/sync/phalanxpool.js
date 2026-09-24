@@ -321,6 +321,15 @@ function httpClient() {
       }
       return res.json().catch(() => ({}));
     },
+    // Welche Segmentnamen kennt der Pool? Seit Phalanx OS v6.47.0 verfügbar.
+    // Ältere Stände antworten mit 404, dann bleibt die Liste eben leer.
+    async tags() {
+      const res = await authed('/api/pool/v1/tags');
+      if (!res.ok) return null;
+      const j = await res.json().catch(() => ({}));
+      const arr = zeilenAus(j);
+      return arr.map((t) => ({ name: t.name || t, anzahl: Number(t.anzahl) || 0 })).filter((t) => t.name);
+    },
     async probe(tag) {
       const res = await authed(`/api/pool/v1/contacts?limit=1${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`);
       if (!res.ok) throw new Error(`Ping fehlgeschlagen (${res.status})`);
@@ -525,10 +534,24 @@ async function ping() {
       catch (e) { perSegment.push({ tag, total: null, reachable: false, error: e.message }); }
     }
     const treffer = perSegment.reduce((n, s) => n + (Number(s.total) || 0), 0);
-    const hinweis = (gesamt && !treffer)
-      ? `Der Pool enthält ${gesamt} Kontakte, aber keiner trägt eines der konfigurierten Segmente. Bitte PHALANX_SYNC_TAGS prüfen: erwartet werden Tag-Namen wie „LI:Investor/Kapital", nicht Nummern.`
-      : null;
-    return { ok: true, gesamt, segments: perSegment, hinweis };
+
+    // Die Namen, die der Pool tatsächlich führt. Damit muss niemand raten.
+    let verfuegbar = null;
+    try { verfuegbar = await client.tags(); } catch { verfuegbar = null; }
+
+    let hinweis = null;
+    let vorschlag = null;
+    if (gesamt && !treffer) {
+      hinweis = `Der Pool enthält ${gesamt} Kontakte, aber keiner trägt eines der konfigurierten Segmente.`;
+      if (verfuegbar && verfuegbar.length) {
+        // Die drei größten Segmente als fertige Zeile für PHALANX_SYNC_TAGS.
+        vorschlag = verfuegbar.slice(0, 3).map((t) => t.name).join(',');
+        hinweis += ` Der Pool kennt ${verfuegbar.length} Segmente. Setzen Sie PHALANX_SYNC_TAGS auf die gewünschten Namen aus der Liste unten.`;
+      } else {
+        hinweis += ' Erwartet werden Tag-Namen wie „LI:Investor/Kapital", keine Nummern.';
+      }
+    }
+    return { ok: true, gesamt, segments: perSegment, hinweis, vorschlag, verfuegbar };
   } catch (e) {
     return { ok: false, error: e.message };
   }

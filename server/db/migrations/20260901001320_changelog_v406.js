@@ -7,6 +7,7 @@ const ENTRY = {
     'Neuer Knopf „Vollabgleich": liest den ganzen Pool statt nur das seit dem letzten Lauf Geänderte. Nötig, weil ein Lauf mit null Kontakten den Zeitstempel trotzdem gesetzt hat',
     '„Verbindung prüfen" zeigt jetzt zuerst, wie viele Kontakte der Pool insgesamt hat. Steht dort eine Zahl und bei jedem Segment eine Null, dann stimmen die Segmentnamen nicht, nicht die Rechte',
     'Erwartet werden Tag-Namen wie „LI:Investor/Kapital", keine Nummern. Darauf weist die Prüfung im Klartext hin',
+    'Die Segmentnamen kommen jetzt aus dem Pool selbst: mit Anzahl aufgelistet, die drei größten als fertiger Vorschlag für PHALANX_SYNC_TAGS',
   ],
 };
 exports.up = async function (knex) {
