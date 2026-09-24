@@ -53,13 +53,15 @@ function normalizeName(name) {
 
 // ── Unternehmen: Liste (Suche + Filter) ─────────────────────────────────────
 router.get('/companies', ...isStaff, wrap(async (req, res) => {
-  const { q, industry, region, company_type, tag } = req.query;
+  const { q, industry, region, company_type, tag, sektor, rolle } = req.query;
   const where = ['1=1']; const params = [];
   if (q) { where.push('(c.name ILIKE ? OR c.city ILIKE ? OR c.website ILIKE ?)'); const s = `%${q}%`; params.push(s, s, s); }
   if (industry) { where.push('c.industry = ?'); params.push(industry); }
   if (region) { where.push('c.region = ?'); params.push(region); }
   if (company_type) { where.push('c.company_type = ?'); params.push(company_type); }
   if (tag) { where.push('c.tags_json ILIKE ?'); params.push(`%"${tag}"%`); }
+  if (sektor) { where.push('c.sektor = ?'); params.push(sektor); }
+  if (rolle) { where.push('c.rollen_json ILIKE ?'); params.push(`%"${rolle}"%`); }
 
   const rows = await scoped(req, (t) => t.all(`
     SELECT c.*,
@@ -69,7 +71,7 @@ router.get('/companies', ...isStaff, wrap(async (req, res) => {
     LEFT JOIN crm_companies p ON p.id = c.parent_company_id
     WHERE ${where.join(' AND ')}
     ORDER BY c.name ASC LIMIT 500`, params));
-  res.json({ success: true, data: rows.map(r => ({ ...r, tags: safeJson(r.tags_json, []) })) });
+  res.json({ success: true, data: rows.map(r => ({ ...r, tags: safeJson(r.tags_json, []), rollen: safeJson(r.rollen_json, []) })) });
 }));
 
 // ── Dubletten-Check (vor dem Anlegen) ───────────────────────────────────────
@@ -94,11 +96,44 @@ router.get('/contacts/duplicates', ...isStaff, wrap(async (req, res) => {
 // ── Unternehmen: anlegen ────────────────────────────────────────────────────
 const COMPANY_FIELDS = ['name', 'street', 'postal_code', 'city', 'country', 'website', 'industry', 'region',
   'revenue_band', 'employees', 'company_type', 'buyer_category', 'investment_criteria', 'description', 'notes',
-  'parent_company_id', 'relation_to_parent'];
+  'parent_company_id', 'relation_to_parent',
+  // v0.405: Sektor, Schwerpunkt und Rollen. company_type bleibt als alte
+  // Firmenart erhalten, bis die Umstellung geprüft ist.
+  'sektor', 'schwerpunkt'];
+
+const vollstaendigkeit = require('../utils/vollstaendigkeit');
+
+/**
+ * Sektor, Schwerpunkt und Rollen prüfen.
+ * Ein Schwerpunkt, der nicht zum Sektor passt, wird abgelehnt statt stillschweigend
+ * gespeichert. Sonst entstehen Angaben wie "Handel / Private Equity".
+ * @returns {string|null} Fehlertext oder null
+ */
+function pruefeEinordnung(body, sektorVorher) {
+  if (body.sektor !== undefined) {
+    const s = String(body.sektor || '').trim();
+    if (!s || !vokabular.istSektor(s)) return 'Bitte wählen Sie einen Sektor aus der Liste.';
+  }
+  const sektor = body.sektor !== undefined ? String(body.sektor || '').trim() : (sektorVorher || '');
+  if (body.schwerpunkt !== undefined) {
+    const sp = String(body.schwerpunkt || '').trim();
+    if (sp && !vokabular.schwerpunktPasst(sektor, sp)) return 'Der gewählte Schwerpunkt passt nicht zum Sektor.';
+  }
+  return null;
+}
 
 router.post('/companies', ...isStaff, canWrite, wrap(async (req, res) => {
   const name = String(req.body.name || '').trim();
   if (!name) return res.status(400).json({ success: false, error: 'Firmenname ist erforderlich' });
+  // Seit v0.405 Pflichtangabe. Ohne Sektor laesst sich eine Firma spaeter nicht
+  // sinnvoll zuordnen, und genau das wollen wir nicht mehr nachträglich pflegen.
+  const sektor = String(req.body.sektor || '').trim();
+  if (!sektor || !vokabular.istSektor(sektor)) {
+    return res.status(400).json({ success: false, error: 'Bitte wählen Sie einen Sektor aus der Liste.' });
+  }
+  const einordnungFehler = pruefeEinordnung(req.body, sektor);
+  if (einordnungFehler) return res.status(400).json({ success: false, error: einordnungFehler });
+  const rollen = vokabular.rollenBereinigen(req.body.rollen || []);
 
   // Dubletten-Warnung (kann mit force=true übergangen werden)
   if (!req.body.force) {
@@ -113,15 +148,17 @@ router.post('/companies', ...isStaff, canWrite, wrap(async (req, res) => {
   const id = await scoped(req, (t) => t.insert(`
     INSERT INTO crm_companies (tenant_id, name, name_normalized, street, postal_code, city, country, website,
       industry, region, revenue_band, employees, company_type, buyer_category, investment_criteria,
-      description, notes, tags_json, parent_company_id, relation_to_parent, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      description, notes, tags_json, parent_company_id, relation_to_parent, created_by,
+      sektor, schwerpunkt, rollen_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [req.tenantId || 1, name, normalizeName(name),
      req.body.street || null, req.body.postal_code || null, req.body.city || null, req.body.country || null,
      req.body.website || null, req.body.industry || null, req.body.region || null, req.body.revenue_band || null,
      req.body.employees ? Number(req.body.employees) : null, req.body.company_type || null,
      req.body.buyer_category || null, req.body.investment_criteria || null, req.body.description || null,
      req.body.notes || null, JSON.stringify(req.body.tags || []),
-     req.body.parent_company_id || null, req.body.relation_to_parent || null, req.user.id]));
+     req.body.parent_company_id || null, req.body.relation_to_parent || null, req.user.id,
+     sektor, String(req.body.schwerpunkt || '').trim() || null, JSON.stringify(rollen)]));
 
   db.auditLog(req.user.id, 'CRM_COMPANY_CREATED', 'crm_company', id, name, req.ip);
   res.status(201).json({ success: true, data: { id } });
@@ -148,7 +185,10 @@ router.get('/companies/:id/detail', ...isStaff, wrap(async (req, res) => {
   res.json({
     success: true,
     data: {
-      company: { ...company, tags: safeJson(company.tags_json, []) },
+      company: { ...company, tags: safeJson(company.tags_json, []), rollen: safeJson(company.rollen_json, []) },
+      // Bewusst eine Liste der fehlenden Felder, keine Prozentzahl.
+      vollstaendigkeit: vollstaendigkeit.pruefe(company,
+        contacts.filter((c) => !c.ended_on).map((c) => ({ last_name: c.last_name, email: c.email, responsibility: c.position }))),
       contacts: contacts.filter(c => !c.ended_on),
       history: contacts.filter(c => c.ended_on),
       subsidiaries,
@@ -157,8 +197,10 @@ router.get('/companies/:id/detail', ...isStaff, wrap(async (req, res) => {
 }));
 
 router.put('/companies/:id', ...isStaff, canWrite, wrap(async (req, res) => {
-  const existing = await scoped(req, (t) => t.get('SELECT id FROM crm_companies WHERE id = ?', [req.params.id]));
+  const existing = await scoped(req, (t) => t.get('SELECT id, sektor FROM crm_companies WHERE id = ?', [req.params.id]));
   if (!existing) return res.status(404).json({ success: false, error: 'Unternehmen nicht gefunden' });
+  const einordnungFehler = pruefeEinordnung(req.body, existing.sektor);
+  if (einordnungFehler) return res.status(400).json({ success: false, error: einordnungFehler });
 
   const sets = []; const params = [];
   for (const f of COMPANY_FIELDS) {
@@ -169,6 +211,9 @@ router.put('/companies/:id', ...isStaff, canWrite, wrap(async (req, res) => {
   }
   if (req.body.name !== undefined) { sets.push('name_normalized = ?'); params.push(normalizeName(req.body.name)); }
   if (req.body.tags !== undefined) { sets.push('tags_json = ?'); params.push(JSON.stringify(req.body.tags || [])); }
+  if (req.body.rollen !== undefined) {
+    sets.push('rollen_json = ?'); params.push(JSON.stringify(vokabular.rollenBereinigen(req.body.rollen || [])));
+  }
   if (!sets.length) return res.json({ success: true, data: { message: 'Nichts zu ändern' } });
 
   sets.push('updated_at = now()');
@@ -267,6 +312,10 @@ router.get('/vokabular', ...isStaff, (req, res) => {
     kaeufertypen: vokabular.KAEUFERTYPEN,
     firmentypen: vokabular.FIRMENTYPEN,
     laender: vokabular.LAENDER,
+    // Seit v0.405 ist die alte Firmenart in drei Angaben aufgeteilt.
+    sektoren: vokabular.SEKTOREN,
+    schwerpunkte: vokabular.SCHWERPUNKTE,
+    rollen: vokabular.TRANSAKTIONSROLLEN,
   } });
 });
 

@@ -14,6 +14,8 @@ const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F8FAFC',
 const INPUT = { width: '100%', padding: '0.55rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
 const LABEL = { display: 'block', fontSize: '0.72rem', fontWeight: 600, color: C.muted, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.03em' };
 
+// Alte Firmenart. Bleibt als Feld erhalten, bis die Umstellung auf Sektor,
+// Schwerpunkt und Rolle geprüft ist (v0.405). Neue Einordnung: siehe Sektor.
 const COMPANY_TYPES = ['Stratege', 'Private Equity', 'Family Office', 'MBI/MBO-Kandidat', 'Bank/Finanzierer', 'Berater', 'Zielunternehmen', 'Sonstige'];
 const CONSENT = { unknown: { label: 'Unbekannt', bg: '#f1f5f9', color: '#475569' }, opt_in: { label: 'Einwilligung', bg: '#d1fae5', color: '#065f46' }, opt_out: { label: 'Widerspruch', bg: '#fee2e2', color: '#991b1b' } };
 const STATUS = { active: { label: 'Aktiv', bg: '#e0f2fe', color: '#0369a1' }, do_not_contact: { label: 'Nicht kontaktieren', bg: '#fee2e2', color: '#991b1b' }, bounced: { label: 'Unzustellbar', bg: '#fef3c7', color: '#92400e' } };
@@ -418,7 +420,7 @@ export default function Crm() {
                       {c.parent_name && <> · Teil von <strong>{c.parent_name}</strong></>}
                     </div>
                   </td>
-                  <td style={{ padding: '0.7rem 0.5rem', color: C.text }}>{c.company_type || 'k. A.'}</td>
+                  <td style={{ padding: '0.7rem 0.5rem', color: C.text }}>{c.sektor || c.company_type || 'k. A.'}</td>
                   <td style={{ padding: '0.7rem 0.5rem', color: C.muted }}>{[c.industry, c.region].filter(Boolean).join(' · ') || 'k. A.'}</td>
                   <td style={{ padding: '0.7rem 0.5rem', textAlign: 'right', fontWeight: 700 }}>{c.contact_count}</td>
                   <td style={{ padding: '0.7rem 1rem', textAlign: 'right' }}><ChevronRight size={14} color={C.muted} /></td>
@@ -975,7 +977,7 @@ function AssignDealModal({ contact, projects, stages, onClose, show }) {
 
 // ── Unternehmens-Detail: Kontakte, Konzern, Historie ─────────────────────────
 function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, onEditContact, contactsAll, show }) {
-  const { company, contacts, history, subsidiaries } = data;
+  const { company, contacts, history, subsidiaries, vollstaendigkeit } = data;
   const [addId, setAddId] = useState('');
   const [addQ, setAddQ] = useState('');
   const [pos, setPos] = useState('');
@@ -1028,14 +1030,36 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
           <div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: C.navy, margin: 0 }}>{company.name}</h2>
             <div style={{ fontSize: '0.8rem', color: C.muted }}>
-              {[company.company_type, company.industry, company.region, company.city].filter(Boolean).join(' · ')}
+              {[company.sektor, company.schwerpunkt, company.region, company.city].filter(Boolean).join(' · ')
+                || [company.company_type, company.industry, company.city].filter(Boolean).join(' · ')}
             </div>
+            {!!(company.rollen || []).length && (
+              <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                {company.rollen.map(r => (
+                  <span key={r} style={{ fontSize: '0.7rem', fontWeight: 700, color: C.navy, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 20, padding: '0.15rem 0.55rem' }}>{r}</span>
+                ))}
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '0.4rem' }}>
             <button onClick={onEdit} style={{ background: C.bg, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>Bearbeiten</button>
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={20} /></button>
           </div>
         </div>
+
+        {/* Vollständigkeit. Bewusst als Liste der fehlenden Felder, nicht als Prozentzahl:
+            eine Zahl sagt nicht, was zu tun ist. */}
+        {vollstaendigkeit && (
+          vollstaendigkeit.vollstaendig ? (
+            <div style={{ fontSize: '0.8rem', color: '#166534', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '0.55rem 0.8rem', margin: '0.75rem 0' }}>
+              Stammdaten vollständig.
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.8rem', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '0.55rem 0.8rem', margin: '0.75rem 0' }}>
+              <strong>Es fehlt noch:</strong> {vollstaendigkeit.labels.join(', ')}
+            </div>
+          )
+        )}
 
         {/* Kontaktdaten des Unternehmens */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.8rem 1rem', margin: '0.75rem 0' }}>
@@ -1166,17 +1190,31 @@ function CompanyForm({ company, companies, onClose, onSaved }) {
   const [f, setF] = useState({
     name: '', street: '', postal_code: '', city: '', country: '', website: '', industry: '', region: '',
     revenue_band: '', employees: '', company_type: '', buyer_category: '', investment_criteria: '',
-    description: '', notes: '', parent_company_id: '', relation_to_parent: '', ...company,
+    description: '', notes: '', parent_company_id: '', relation_to_parent: '',
+    sektor: '', schwerpunkt: '', ...company,
   });
+  const [rollen, setRollen] = useState(company.rollen || []);
   const [dupes, setDupes] = useState([]);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const set = (k) => (e) => setF(s => ({ ...s, [k]: e.target.value }));
+  // Sektoren, Schwerpunkte und Rollen kommen aus dem Vokabular des Servers,
+  // damit die Liste nur an einer Stelle gepflegt wird.
+  const [vok, setVok] = useState({ sektoren: [], schwerpunkte: {}, rollen: [], laender: [] });
+  useEffect(() => { api.get('/crm/vokabular').then(setVok).catch(() => {}); }, []);
+
+  const set = (k) => (e) => setF(s => {
+    const neuStand = { ...s, [k]: e.target.value };
+    // Wechselt der Sektor, passt der bisherige Schwerpunkt meist nicht mehr.
+    if (k === 'sektor') neuStand.schwerpunkt = '';
+    return neuStand;
+  });
+  const rolleUmschalten = (r) => setRollen(l => (l.includes(r) ? l.filter(x => x !== r) : [...l, r]));
+  const schwerpunkte = (vok.schwerpunkte || {})[f.sektor] || [];
 
   async function save(force = false) {
     setBusy(true); setErr(''); setDupes([]);
     try {
-      const body = { ...f, employees: f.employees || null, parent_company_id: f.parent_company_id || null, force };
+      const body = { ...f, rollen, employees: f.employees || null, parent_company_id: f.parent_company_id || null, force };
       if (isNew) await api.post('/crm/companies', body);
       else await api.put(`/crm/companies/${company.id}`, body);
       onSaved();
@@ -1206,7 +1244,34 @@ function CompanyForm({ company, companies, onClose, onSaved }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
         <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Firmenname *</label><input value={f.name} onChange={set('name')} style={INPUT} /></div>
-        <div><label style={LABEL}>Unternehmensart</label>
+        <div><label style={LABEL}>Sektor *</label>
+          <select value={f.sektor || ''} onChange={set('sektor')} style={INPUT}>
+            <option value="">Bitte wählen</option>
+            {(vok.sektoren || []).map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div><label style={LABEL}>Schwerpunkt</label>
+          <select value={f.schwerpunkt || ''} onChange={set('schwerpunkt')} style={INPUT} disabled={!schwerpunkte.length}>
+            <option value="">{schwerpunkte.length ? 'k. A.' : 'für diesen Sektor nicht vorgesehen'}</option>
+            {schwerpunkte.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={LABEL}>Rolle in der Transaktion</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+            {(vok.rollen || []).map(r => {
+              const an = rollen.includes(r);
+              return (
+                <button key={r} type="button" onClick={() => rolleUmschalten(r)} style={{
+                  border: `1.5px solid ${an ? C.navy : C.border}`, background: an ? C.navy : '#fff',
+                  color: an ? '#fff' : C.muted, borderRadius: 20, padding: '0.28rem 0.7rem',
+                  fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer',
+                }}>{r}</button>
+              );
+            })}
+          </div>
+        </div>
+        <div><label style={LABEL}>Unternehmensart <span style={{ fontWeight: 400, color: C.muted }}>(alt)</span></label>
           <select value={f.company_type || ''} onChange={set('company_type')} style={INPUT}>
             <option value="">k. A.</option>{COMPANY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -1220,7 +1285,13 @@ function CompanyForm({ company, companies, onClose, onSaved }) {
         <div><label style={LABEL}>Straße</label><input value={f.street || ''} onChange={set('street')} style={INPUT} /></div>
         <div><label style={LABEL}>PLZ</label><input value={f.postal_code || ''} onChange={set('postal_code')} style={INPUT} /></div>
         <div><label style={LABEL}>Ort</label><input value={f.city || ''} onChange={set('city')} style={INPUT} /></div>
-        <div><label style={LABEL}>Land</label><input value={f.country || ''} onChange={set('country')} style={INPUT} /></div>
+        <div><label style={LABEL}>Land</label>
+          <select value={f.country || ''} onChange={set('country')} style={INPUT}>
+            <option value="">k. A.</option>
+            {(vok.laender || []).map(l => <option key={l} value={l}>{l}</option>)}
+            {f.country && !(vok.laender || []).includes(f.country) && <option value={f.country}>{f.country}</option>}
+          </select>
+        </div>
         <div><label style={LABEL}>Muttergesellschaft</label>
           <select value={f.parent_company_id || ''} onChange={set('parent_company_id')} style={INPUT}>
             <option value="">k. A.</option>
@@ -1231,7 +1302,7 @@ function CompanyForm({ company, companies, onClose, onSaved }) {
         <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Notizen</label><textarea value={f.notes || ''} onChange={set('notes')} rows={3} style={{ ...INPUT, resize: 'vertical' }} /></div>
       </div>
 
-      <button onClick={() => save(false)} disabled={busy || !f.name} style={{ marginTop: '1rem', width: '100%', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer' }}>
+      <button onClick={() => save(false)} disabled={busy || !f.name || !f.sektor} style={{ marginTop: '1rem', width: '100%', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem', fontWeight: 700, fontSize: '0.88rem', cursor: (busy || !f.name || !f.sektor) ? 'default' : 'pointer', opacity: (busy || !f.name || !f.sektor) ? 0.55 : 1 }}>
         {busy ? 'Speichert…' : 'Speichern'}
       </button>
     </Modal>

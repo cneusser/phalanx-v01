@@ -81,6 +81,11 @@ app.use('/api/messages', require('./routes/messages'));
 app.use('/api/gamification', require('./routes/gamification'));
 app.use('/api/invitations', require('./routes/invitations'));
 app.use('/api/crm', require('./routes/crm'));
+// Stammdatenpflege (v0.405): oeffentliche Pflegeseite ohne Anmeldung, dazu die
+// internen Routen fuer Datenpflege und Aktualisierungsmailing.
+const stammdaten = require('./routes/stammdaten');
+app.use('/api/stammdaten', stammdaten.publicRouter);
+app.use('/api/pflege', stammdaten.router);
 app.use('/api/succession', require('./routes/succession'));
 app.use('/api/inbound', require('./routes/inbound'));
 app.use('/api/share', require('./routes/share'));

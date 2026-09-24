@@ -3,6 +3,19 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.405 · 24.09.2026 · Stammdaten sauber getrennt, Pflege ohne Anmeldung
+- **Aus einer Firmenart werden drei Angaben**: Sektor (Pflicht, wortgleich zu den acht Sektoren in Phalanx OS), Schwerpunkt (freiwillig, die Auswahl hängt am Sektor) und Rolle in der Transaktion (mehrfach möglich, etwa Stratege und Käufer). Ein Schwerpunkt, der nicht zum Sektor passt, wird abgelehnt statt stillschweigend gespeichert
+- **Bestandsdaten nach acht abgestimmten Regeln übernommen**, je Regel mit Anzahl im Migrationsbericht. Nichts wurde geraten, nichts gelöscht, nichts zusammengeführt. Die alte Firmenart bleibt als Feld erhalten, bis die Umstellung geprüft ist
+- **Vollständigkeit als Liste, nicht als Prozentzahl.** „72 Prozent" sagt niemandem, was zu tun ist. In der Firmenakte steht deshalb: „Es fehlt noch: Sektor, Ort und Land"
+- **Neue Seite „Datenpflege"**: Firmen mit Lücken, filterbar nach dem fehlenden Feld, mit Mehrfachauswahl und Stapelbearbeitung für Sektor, Schwerpunkt, Region und Land
+- **Aktualisierungsmailing, das nicht allgemein nachfragt**: Jede Mail nennt genau die Felder, die bei dieser Firma fehlen, und führt über einen Link ohne Anmeldung auf eine Seite mit genau diesen Feldern
+- **Ein Klick genügt, wenn alles stimmt.** „Angaben bestätigen" wird mit Zeitstempel festgehalten, damit dieselbe Frage nicht wiederkommt
+- **Der Link gilt genau einmal**, gespeichert wird nur sein Hashwert. Wer die Datenbank liest, kann damit keine fremde Firmenakte öffnen
+- **Kein Versand ohne Einwilligung.** Angeschrieben werden nur Ansprechpersonen mit Opt-in, je Person eine Mail je Mailing
+- **Versand in Rationen**, innerhalb eines Zeitfensters, von Hand angestoßen. Zwei gleichzeitige Läufe können keine Mail doppelt verschicken, weder über die Kampagnensperre noch über die Einladung selbst
+- **Unzustellbare Adressen** werden mit Grund im Klartext gesperrt und in keinem weiteren Mailing dieser Art angeschrieben. Abmeldung gilt nur für das Mailing, der Zugang bleibt unberührt
+- **Je Mailing eine Übersicht**: Einladungen, offen, versendet, geöffnet, ausgefüllt, bestätigt, unzustellbar, abgemeldet
+
 ## v0.404 · 08.08.2026 · Eine Datenraum-Struktur für alle Mandate
 - **Sieben Bereiche statt neun langer Titel**: Transaktion, Unternehmen und Recht, Finanzen und Steuern, Markt und Geschäft, Personal, Betrieb und IT, Clean Team. Darunter je drei bis fünf Unterordner, tiefer geht es nicht
 - **Knopf „Einheitliche Struktur"** im Safe: zeigt erst eine Vorschau (was wird angelegt, was wandert wohin, was bleibt liegen) und baut erst auf Bestätigung um

@@ -25,6 +25,8 @@ import ConsentInvite from './pages/ConsentInvite';
 import BirdviewBanner from './components/BirdviewBanner';
 import ErrorBoundary from './components/ErrorBoundary';
 import ContactSelfService from './pages/ContactSelfService';
+import Stammdaten from './pages/Stammdaten';
+import Datenpflege from './pages/Datenpflege';
 import Messages from './pages/Messages';
 import Register from './pages/Register';
 import Login from './pages/Login';
@@ -112,11 +114,13 @@ function AppRoutes() {
           <Route path="/einladung" element={<InvitationAccept />} />
           <Route path="/einwilligung" element={<ConsentInvite />} />
           <Route path="/profil-pflege" element={<ContactSelfService />} />
+          <Route path="/stammdaten/:token" element={<Stammdaten />} />
           <Route path="/unterlagen" element={<SharedDocument />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
           <Route path="/crm" element={<ProtectedRoute adminOnly><Crm /></ProtectedRoute>} />
+          <Route path="/datenpflege" element={<ProtectedRoute adminOnly><Datenpflege /></ProtectedRoute>} />
           <Route path="/funnel" element={<ProtectedRoute><Funnel /></ProtectedRoute>} />
           <Route path="/verkaeuferdashboard" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
           <Route path="/datenschutz" element={<Datenschutz />} />
