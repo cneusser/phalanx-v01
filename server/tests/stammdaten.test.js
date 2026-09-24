@@ -19,7 +19,10 @@ gleich('acht Sektoren', vok.SEKTOREN.length, 8);
 for (const s of ERWARTET) ok(`Sektor wortgleich: ${s}`, vok.SEKTOREN.includes(s));
 
 // ── Schwerpunkt hängt am Sektor ─────────────────────────────────────────────
-gleich('Finanzwirtschaft hat sieben Schwerpunkte', vok.schwerpunkteZu('Finanz- und Beteiligungswirtschaft').length, 7);
+gleich('Finanzwirtschaft hat acht Schwerpunkte', vok.schwerpunkteZu('Finanz- und Beteiligungswirtschaft').length, 8);
+ok('Venture Capital steht neben Private Equity', vok.schwerpunkteZu('Finanz- und Beteiligungswirtschaft').includes('Venture Capital'));
+ok('Venture Capital gilt nur in der Finanzwirtschaft', !vok.schwerpunktPasst('Handel', 'Venture Capital'));
+ok('Venture Capital passt zur Finanzwirtschaft', vok.schwerpunktPasst('Finanz- und Beteiligungswirtschaft', 'Venture Capital'));
 gleich('Dienstleistungen haben neun', vok.schwerpunkteZu('Dienstleistungen').length, 9);
 gleich('Industrie hat sieben', vok.schwerpunkteZu('Industrie und verarbeitendes Gewerbe').length, 7);
 gleich('Handel hat bewusst keine', vok.schwerpunkteZu('Handel').length, 0);

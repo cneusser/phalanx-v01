@@ -37,6 +37,9 @@ export default function Datenpflege() {
   const [auswahl, setAuswahl] = useState([]);
   const [stapelFeld, setStapelFeld] = useState('sektor');
   const [stapelWert, setStapelWert] = useState('');
+  // Beim Schwerpunkt wird der Sektor mitgewählt, sonst scheitert das Setzen bei
+  // jeder Firma, die noch keinen Sektor hat.
+  const [stapelSektor, setStapelSektor] = useState('');
   const [vok, setVok] = useState({ sektoren: [], schwerpunkte: {}, laender: [] });
   const [kampagnen, setKampagnen] = useState([]);
   const [vorschau, setVorschau] = useState(null);
@@ -67,9 +70,16 @@ export default function Datenpflege() {
     if (!stapelWert || !auswahl.length) return;
     setBusy(true); setFehler(''); setMeldung('');
     try {
-      const r = await api.post('/pflege/pflege/stapel', { feld: stapelFeld, wert: stapelWert, ids: auswahl });
+      const r = await api.post('/pflege/pflege/stapel', {
+        feld: stapelFeld, wert: stapelWert, ids: auswahl,
+        sektor: stapelFeld === 'schwerpunkt' ? stapelSektor : undefined,
+      });
       const abgelehnt = r.abgelehnt || [];
-      setMeldung(`${r.gesetzt} Firmen gesetzt${abgelehnt.length ? `, ${abgelehnt.length} nicht: ${abgelehnt.map((a) => a.name).join(', ')}` : ''}.`);
+      // Die Gründe zusammenfassen, damit nicht zehnmal dasselbe dasteht.
+      const gruende = [...new Set(abgelehnt.map((a) => a.grund))].join('; ');
+      setMeldung(`${r.gesetzt} Firmen gesetzt${abgelehnt.length
+        ? `, ${abgelehnt.length} nicht (${gruende}): ${abgelehnt.map((a) => a.name).join(', ')}`
+        : ''}.`);
       setAuswahl([]); setStapelWert('');
       await laden();
     } catch (e) { setFehler(e.message); }
@@ -115,9 +125,11 @@ export default function Datenpflege() {
     setBusy(false);
   };
 
+  // Beim Schwerpunkt nur die Werte des gewählten Sektors anbieten. Alles andere
+  // wäre eine Liste, aus der man garantiert das Falsche nimmt.
   const stapelWerte = stapelFeld === 'sektor' ? (vok.sektoren || [])
     : stapelFeld === 'country' ? (vok.laender || [])
-      : stapelFeld === 'schwerpunkt' ? [...new Set(Object.values(vok.schwerpunkte || {}).flat())]
+      : stapelFeld === 'schwerpunkt' ? ((vok.schwerpunkte || {})[stapelSektor] || [])
         : null;
 
   return (
@@ -176,12 +188,23 @@ export default function Datenpflege() {
           {/* Stapelbearbeitung */}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '0.7rem', marginBottom: '1rem' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: C.navy }}>Für die Auswahl setzen:</span>
-            <select style={INPUT} value={stapelFeld} onChange={(e) => { setStapelFeld(e.target.value); setStapelWert(''); }}>
+            <select style={INPUT} value={stapelFeld} onChange={(e) => { setStapelFeld(e.target.value); setStapelWert(''); setStapelSektor(''); }}>
               {STAPEL_FELDER.map(([w, l]) => <option key={w} value={w}>{l}</option>)}
             </select>
+            {stapelFeld === 'schwerpunkt' && (
+              <select style={{ ...INPUT, minWidth: 220 }} value={stapelSektor}
+                onChange={(e) => { setStapelSektor(e.target.value); setStapelWert(''); }}>
+                <option value="">Sektor wählen</option>
+                {(vok.sektoren || []).map((s2) => <option key={s2} value={s2}>{s2}</option>)}
+              </select>
+            )}
             {stapelWerte ? (
-              <select style={{ ...INPUT, minWidth: 220 }} value={stapelWert} onChange={(e) => setStapelWert(e.target.value)}>
-                <option value="">Bitte wählen</option>
+              <select style={{ ...INPUT, minWidth: 220 }} value={stapelWert} onChange={(e) => setStapelWert(e.target.value)}
+                disabled={stapelFeld === 'schwerpunkt' && !stapelSektor}>
+                <option value="">
+                  {stapelFeld === 'schwerpunkt' && !stapelSektor ? 'erst Sektor wählen'
+                    : stapelWerte.length ? 'Bitte wählen' : 'für diesen Sektor nicht vorgesehen'}
+                </option>
                 {stapelWerte.map((w) => <option key={w} value={w}>{w}</option>)}
               </select>
             ) : (
@@ -189,7 +212,9 @@ export default function Datenpflege() {
             )}
             <button type="button" style={{ ...KNOPF, opacity: (!stapelWert || !auswahl.length || busy) ? 0.45 : 1 }}
               disabled={!stapelWert || !auswahl.length || busy} onClick={stapelSpeichern}>
-              Für {auswahl.length} Firmen setzen
+              {stapelFeld === 'schwerpunkt' && stapelSektor
+                ? `Sektor und Schwerpunkt für ${auswahl.length} Firmen setzen`
+                : `Für ${auswahl.length} Firmen setzen`}
             </button>
           </div>
 

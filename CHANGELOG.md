@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.408 · 24.09.2026 · Venture Capital ergänzt, Stapel setzt den Sektor mit
+- **Venture Capital** steht jetzt neben Private Equity als Schwerpunkt der Finanz- und Beteiligungswirtschaft
+- **Ein Schwerpunkt braucht einen Sektor.** Wer ihn im Stapel setzen wollte, scheiterte an jeder Firma, bei der noch kein Sektor steht. Jetzt wird der Sektor in derselben Zeile mitgewählt und in einem Zug mitgesetzt
+- **Die Schwerpunktliste zeigt nur die Werte des gewählten Sektors.** Vorher standen dort alle Schwerpunkte aller Sektoren untereinander, aus dieser Liste nimmt man garantiert einmal das Falsche
+- **Abgelehnte Firmen kommen mit Grund zurück**, zusammengefasst statt zehnmal derselbe Satz
+
 ## v0.407 · 24.09.2026 · Datenpflege zeigte null Firmen, obwohl Hunderte da sind
 - **Auf eine Spalte gefiltert, die es nicht gibt.** Die Abfrage schloss `crm_companies.is_deleted` aus. Dieses Feld existiert nicht: Firmen werden hart gelöscht oder zusammengeführt, und bei Kontakten heißt das Kennzeichen `anonymized_at`
 - **Der Fehler wurde verschluckt.** Ein `catch` machte aus dem Datenbankfehler eine leere Liste. Eine leere Liste sieht aus wie ein Ergebnis, ein Fehler nicht. Das `catch` ist weg, Fehler stehen jetzt im Klartext auf der Seite

@@ -192,24 +192,49 @@ router.get('/pflege/uebersicht', wrap(async (req, res) => {
 router.post('/pflege/stapel', wrap(async (req, res) => {
   const feld = String(req.body.feld || '');
   const wert = String(req.body.wert == null ? '' : req.body.wert).trim();
+  // Ein Schwerpunkt ohne passenden Sektor geht nicht. Damit man nicht zweimal
+  // durch dieselbe Auswahl muss, darf der Sektor hier mitgeliefert werden und
+  // wird dann in einem Zug mitgesetzt.
+  const sektorMit = String(req.body.sektor || '').trim();
   const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
   if (!['sektor', 'schwerpunkt', 'region', 'country'].includes(feld)) {
     return res.status(400).json({ success: false, error: 'Dieses Feld lässt sich nicht im Stapel setzen.' });
   }
   if (!wert || !ids.length) return res.status(400).json({ success: false, error: 'Wert und Auswahl erforderlich.' });
   if (feld === 'sektor' && !vokabular.istSektor(wert)) return res.status(400).json({ success: false, error: 'Unbekannter Sektor.' });
+  if (sektorMit && !vokabular.istSektor(sektorMit)) return res.status(400).json({ success: false, error: 'Unbekannter Sektor.' });
+  if (feld === 'schwerpunkt' && sektorMit && !vokabular.schwerpunktPasst(sektorMit, wert)) {
+    return res.status(400).json({ success: false, error: 'Der gewählte Schwerpunkt passt nicht zu diesem Sektor.' });
+  }
 
   const q = qFor(req);
   let gesetzt = 0; const abgelehnt = [];
   for (const id of ids) {
+    const f = await q.get('SELECT sektor, name FROM crm_companies WHERE id = ?', [id]);
+    if (!f) { abgelehnt.push({ id, name: null, grund: 'Firma nicht gefunden' }); continue; }
+
     if (feld === 'schwerpunkt') {
-      const f = await q.get('SELECT sektor, name FROM crm_companies WHERE id = ?', [id]);
-      if (!f || !vokabular.schwerpunktPasst(f.sektor, wert)) { abgelehnt.push({ id, name: f && f.name, grund: 'Schwerpunkt passt nicht zum Sektor' }); continue; }
+      const sektor = sektorMit || f.sektor || '';
+      if (!sektor) {
+        abgelehnt.push({ id, name: f.name, grund: 'noch kein Sektor gesetzt' });
+        continue;
+      }
+      if (!vokabular.schwerpunktPasst(sektor, wert)) {
+        abgelehnt.push({ id, name: f.name, grund: `passt nicht zum Sektor ${sektor}` });
+        continue;
+      }
+      if (sektorMit && sektorMit !== f.sektor) {
+        await q.run('UPDATE crm_companies SET sektor = ?, schwerpunkt = ?, updated_at = now() WHERE id = ?',
+          [sektorMit, wert, id]);
+        gesetzt += 1;
+        continue;
+      }
     }
-    await q.run(`UPDATE crm_companies SET ${feld} = ?, updated_at = now() WHERE id = ?`, [wert, id]).catch(() => {});
+    await q.run(`UPDATE crm_companies SET ${feld} = ?, updated_at = now() WHERE id = ?`, [wert, id]);
     gesetzt += 1;
   }
-  db.auditLog(req.user.id, 'CRM_STAPEL_PFLEGE', 'crm_company', null, `${feld} = ${wert} für ${gesetzt} Firmen`, req.ip);
+  db.auditLog(req.user.id, 'CRM_STAPEL_PFLEGE', 'crm_company', null,
+    `${feld} = ${wert}${sektorMit ? ` (Sektor ${sektorMit})` : ''} für ${gesetzt} Firmen`, req.ip);
   res.json({ success: true, data: { gesetzt, abgelehnt } });
 }));
 

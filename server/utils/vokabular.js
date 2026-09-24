@@ -54,8 +54,8 @@ const SEKTOREN = [
 // haben bewusst keinen Schwerpunkt.
 const SCHWERPUNKTE = {
   'Finanz- und Beteiligungswirtschaft': [
-    'Private Equity', 'Family Office', 'Business Angel', 'Bank und Finanzierung',
-    'Versicherung', 'Vermögensverwaltung', 'Sonstige',
+    'Private Equity', 'Venture Capital', 'Family Office', 'Business Angel',
+    'Bank und Finanzierung', 'Versicherung', 'Vermögensverwaltung', 'Sonstige',
   ],
   'Dienstleistungen': [
     'Unternehmensberatung', 'Interim Management', 'Kanzlei und Steuerberatung',
