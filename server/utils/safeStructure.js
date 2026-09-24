@@ -6,19 +6,16 @@
 // Der erste Ordner „Teaser und Investment Memorandum" nimmt die personalisierten
 // Teaser-/IM-PDFs auf (siehe Datenraum-Übernahme + Wasserzeichen).
 // ─────────────────────────────────────────────────────────────────────────────
-const TEASER_FOLDER = 'Teaser und Investment Memorandum';
+// Wohin Teaser und Informationsmemorandum gehören. Seit v0.404 ein Pfad mit zwei
+// Ebenen, deshalb als Liste: [Bereich, Unterordner].
+const TEASER_PFAD = ['Transaktion', 'Teaser und Informationsmemorandum'];
+const TEASER_FOLDER = TEASER_PFAD[TEASER_PFAD.length - 1];
 
-const STANDARD_SAFE_FOLDERS = [
-  TEASER_FOLDER,
-  'Rechtliche Situation im Unternehmen',
-  'Entwicklung und Übersicht des Unternehmens',
-  'Mitarbeiter und Management',
-  'Finanzierung',
-  'Wirtschaftliche Entwicklung (GuV, Bilanz, Cash Flow)',
-  'Leistungswirtschaftliche Entwicklung (Produkte, Kunden, Markt, Wettbewerb, Fertigung)',
-  'Organisation und Steuerung',
-  'Finanz- und Rechnungswesen, IT',
-];
+// Seit v0.404 gilt für alle Mandate dieselbe Gliederung. Sie steht in
+// utils/datenraumStruktur und wird hier nur noch auf die erste Ebene
+// heruntergebrochen; die Unterordner legt der Umbau an.
+const { STRUKTUR } = require('./datenraumStruktur');
+const STANDARD_SAFE_FOLDERS = STRUKTUR.map(([bereich]) => bereich);
 
 /**
  * Legt die Standard-Ordner (Top-Ebene, leer) für ein Mandat an, sofern noch nicht
@@ -49,4 +46,4 @@ async function seedStandardStructure(projectId, opts = {}) {
   return created;
 }
 
-module.exports = { seedStandardStructure, STANDARD_SAFE_FOLDERS, TEASER_FOLDER };
+module.exports = { seedStandardStructure, STANDARD_SAFE_FOLDERS, TEASER_FOLDER, TEASER_PFAD };

@@ -383,6 +383,44 @@ router.get('/:projectId/item/:id/preview', authenticate, wrap(async (req, res) =
   res.send(buf);
 }));
 
+// ── Einheitliche Struktur (v0.404) ──────────────────────────────────────────
+// Alle Mandate bekommen dieselbe Gliederung: sieben Bereiche, darunter je drei
+// bis fünf Unterordner, nicht tiefer. Ohne `anwenden` kommt nur der Plan zurück,
+// damit man vorher sieht, was passieren würde.
+router.post('/:projectId/standard-struktur', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = Number(req.params.projectId);
+  const umbau = require('../utils/datenraumUmbau');
+  const q = {
+    get: (sql, p) => scoped(req, (t) => t.get(sql, p)),
+    all: (sql, p) => scoped(req, (t) => t.all(sql, p)),
+    run: (sql, p) => scoped(req, (t) => t.run(sql, p)),
+    insert: (sql, p) => scoped(req, (t) => t.insert(sql, p)),
+  };
+
+  if (!req.body || req.body.anwenden !== true) {
+    const items = await q.all('SELECT id, parent_id, name, is_folder FROM safe_items WHERE project_id = ? AND deleted_at IS NULL', [projectId]);
+    return res.json({ success: true, data: { vorschau: true, ...umbau.planen(items) } });
+  }
+
+  const ergebnis = await umbau.anwenden(q, { tenant: req.tenantId || 1, projectId, userId: req.user.id });
+  db.auditLog(req.user.id, 'SAFE_STANDARD_STRUKTUR', 'project', projectId,
+    `${ergebnis.angelegt} Ordner angelegt, ${ergebnis.verschoben} Dateien einsortiert, ${ergebnis.entfernt} leere Altordner entfernt`, req.ip);
+  res.json({ success: true, data: { vorschau: false, ...ergebnis } });
+}));
+
+// Verzeichnisliste aus einem fremden Datenraum einlesen und zuordnen.
+// Der Text kommt aus der Zwischenablage: eingerückte Liste, nummerierte Liste
+// oder Pfade mit Schrägstrich. Zurück kommt, wohin jede Zeile gehören würde.
+router.post('/:projectId/struktur-lesen', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const text = String((req.body || {}).text || '');
+  if (text.trim().length < 3) return res.status(400).json({ success: false, error: 'Bitte fügen Sie die Verzeichnisliste ein.' });
+  const { planAusListe, STRUKTUR } = require('../utils/datenraumStruktur');
+  const plan = planAusListe(text);
+  res.json({ success: true, data: { plan, struktur: STRUKTUR, offen: plan.filter((z) => !z.ziel).length } });
+}));
+
 // ── Struktur umbauen (v0.395) ───────────────────────────────────────────────
 // Führt zwei nebeneinander gewachsene Gliederungen wieder zu einer zusammen und
 // hält die Tiefe klein. Der Plan kommt als Text, je Zeile „Quelle => Ziel";
@@ -985,12 +1023,12 @@ async function putSafeFile(req, projectId, parentId, name, buf, mime) {
 router.post('/:projectId/teaser-im/build', authenticate, wrap(async (req, res) => {
   if (!(await guard(req, res))) return;
   const projectId = req.params.projectId;
-  const { TEASER_FOLDER } = require('../utils/safeStructure');
+  const { TEASER_PFAD } = require('../utils/safeStructure');
   const project = await scoped(req, (t) => t.get('SELECT * FROM projects WHERE id = ?', [projectId]));
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
 
   // Zielordner sicherstellen
-  const folderId = await ensureFolderPath(req, projectId, null, [TEASER_FOLDER]);
+  const folderId = await ensureFolderPath(req, projectId, null, TEASER_PFAD);
   const inFolder = await scoped(req, (t) => t.all(
     'SELECT * FROM safe_items WHERE project_id = ? AND parent_id = ? AND is_folder = 0 AND deleted_at IS NULL', [projectId, folderId]));
 

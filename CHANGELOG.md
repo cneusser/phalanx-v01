@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.404 · 08.08.2026 · Eine Datenraum-Struktur für alle Mandate
+- **Sieben Bereiche statt neun langer Titel**: Transaktion, Unternehmen und Recht, Finanzen und Steuern, Markt und Geschäft, Personal, Betrieb und IT, Clean Team. Darunter je drei bis fünf Unterordner, tiefer geht es nicht
+- **Knopf „Einheitliche Struktur"** im Safe: zeigt erst eine Vorschau (was wird angelegt, was wandert wohin, was bleibt liegen) und baut erst auf Bestätigung um
+- **Dateien werden nach ihrem Namen einsortiert**, mit rund 40 Regeln. „Steuerung" wird nicht mit „Steuer" verwechselt, „Anlage 3" nicht mit dem Anlagevermögen, und ein Dateiname ohne Hinweis erbt die Zuordnung seines Ordners
+- **Im Zweifel liegen lassen**: Was sich nicht sicher zuordnen lässt, bleibt, wo es ist, und wird aufgelistet. Ein falsch einsortiertes Dokument wäre für die falschen Leute sichtbar
+- **Struktur aus fremden Datenräumen übernehmen**: Verzeichnisliste einfügen, eingerückt, nummeriert oder als Pfade, und die Zuordnung steht daneben
+- Leere Altordner wandern nach dem Umbau in den Papierkorb, nichts mit Inhalt wird gelöscht
+- Neue Mandate bekommen die neue Gliederung automatisch
+
 ## v0.402 bis v0.403 · 07.08.2026 · Warum ein Käufer trotz NDA nicht hineinkam
 - **Drei Stellen hießen „freigegeben", nur eine öffnete etwas.** In der Kontaktakte steht beim Datenraum jetzt eine Kette: NDA unterschrieben › Nutzerkonto vorhanden › Datenraum freigegeben, jede mit Haken oder offen, darunter in einem Satz, woran es hängt
 - **Das CRM-Häkchen heißt jetzt ehrlich „Eigener Vermerk (nur Notiz)"** mit dem Zusatz „Öffnet nichts, dient nur Ihrer Übersicht". Vorher sah es aus wie ein Schalter

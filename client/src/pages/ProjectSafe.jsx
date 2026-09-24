@@ -30,6 +30,12 @@ export default function ProjectSafe() {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
+  // v0.404: einheitliche Struktur und Übernahme aus fremden Datenräumen
+  const [stdOffen, setStdOffen] = useState(false);
+  const [stdPlan, setStdPlan] = useState(null);
+  const [stdBusy, setStdBusy] = useState(false);
+  const [listeText, setListeText] = useState('');
+  const [listePlan, setListePlan] = useState(null);
   const [showTrash, setShowTrash] = useState(false);
   const [trash, setTrash] = useState([]);
   const [publishItem, setPublishItem] = useState(null);
@@ -156,6 +162,29 @@ export default function ProjectSafe() {
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }
   // Struktur zusammenführen: Vorschlag, den man vor dem Anwenden anpassen kann.
+  async function stdVorschau() {
+    setStdBusy(true); setMsg('');
+    try { setStdPlan(await api.post(`/safe/${pid}/standard-struktur`, {})); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+    setStdBusy(false);
+  }
+  async function stdAnwenden() {
+    if (!window.confirm('Datenraum auf die einheitliche Struktur umbauen?\n\nDie Bereiche werden angelegt, Dateien nach ihrem Namen einsortiert und leere Altordner in den Papierkorb gelegt. Nicht zuzuordnende Dateien bleiben liegen.')) return;
+    setStdBusy(true); setMsg('');
+    try {
+      const d = await api.post(`/safe/${pid}/standard-struktur`, { anwenden: true });
+      setMsg(`Umbau fertig: ${d.angelegt} Ordner angelegt, ${d.verschoben} Dateien einsortiert, ${d.entfernt} leere Altordner entfernt${d.offen ? `, ${d.offen} offen` : ''}.`);
+      setStdPlan(null); setStdOffen(false); load();
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+    setStdBusy(false);
+  }
+  async function listeLesen() {
+    setStdBusy(true); setMsg('');
+    try { setListePlan(await api.post(`/safe/${pid}/struktur-lesen`, { text: listeText })); }
+    catch (e) { setMsg('Fehler: ' + e.message); }
+    setStdBusy(false);
+  }
+
   const PLAN_VORSCHLAG = [
     'Gesellschaftsrechtliche Unterlagen => Rechtliche Situation im Unternehmen',
     'Recht und Compliance => Rechtliche Situation im Unternehmen',
@@ -445,6 +474,7 @@ export default function ProjectSafe() {
           <button onClick={() => setPublishItem({ all: true, name: 'Alle Dateien' })} title="Alle Dateien dieses Mandats in den Datenraum übernehmen" style={btn('#fff', C.navy, true)}><Share2 size={15} /> Alles in Datenraum</button>
           <button onClick={uebernehmeDokumente} title="Einmalig: Dokumente aus der alten, flachen Datenraum-Liste mit ihrem Ordnerpfad in den Safe holen" style={btn('#fff', C.navy, true)}><Package size={15} /> Alte Dokumente übernehmen</button>
           <button onClick={speicherUmzug} disabled={!!umzug} title="Dateien dieses Mandats in den Cloudflare-Speicher kopieren (nichts wird gelöscht)" style={btn('#fff', C.navy, true)}><HardDrive size={15} /> {umzug || 'Speicher-Umzug'}</button>
+          <button onClick={() => { setStdOffen(true); setStdPlan(null); stdVorschau(); }} title="Diesen Datenraum auf die einheitliche Struktur umbauen: sieben Bereiche, zwei Ebenen" style={btn('#fff', C.navy, true)}><Folder size={15} /> Einheitliche Struktur</button>
           <button onClick={() => { setPlanOffen(true); setPlanVorschau(null); }} title="Zwei Gliederungen zu einer zusammenführen und die Tiefe begrenzen" style={btn('#fff', C.navy, true)}><Folder size={15} /> Struktur aufräumen</button>
           <button onClick={() => showReport ? setShowReport(false) : loadReport()} style={btn('#fff', showReport ? C.accent : C.muted, true)}><BarChart3 size={15} /> Zugriffe</button>
           <button onClick={() => showTrash ? setShowTrash(false) : loadTrash()} style={btn('#fff', showTrash ? '#991b1b' : C.muted, true)}><Trash2 size={15} /> Papierkorb</button>
@@ -668,6 +698,82 @@ export default function ProjectSafe() {
               <button onClick={runRedactPreview} disabled={redactBusy || !redactTermList().length} style={btn('#fff', C.navy, true)}>{redactBusy ? 'Prüfe…' : 'Vorschau: Fundstellen zählen'}</button>
               <button onClick={runRedact} disabled={redactBusy || !redactTermList().length} style={btn(C.navy, '#fff')}><Eraser size={15} /> Geschwärzte Kopie erstellen</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Einheitliche Struktur und Übernahme aus fremden Datenräumen (v0.404) */}
+      {stdOffen && (
+        <div onClick={() => setStdOffen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, width: 'min(820px, 96vw)', maxHeight: '90vh', overflow: 'auto', padding: '1.2rem 1.4rem' }}>
+            <h3 style={{ margin: '0 0 4px', color: C.navy }}>Einheitliche Struktur</h3>
+            <p style={{ fontSize: '0.83rem', color: C.muted, margin: '0 0 12px', lineHeight: 1.55 }}>
+              Sieben Bereiche, darunter je drei bis fünf Unterordner, nicht tiefer. Dateien werden nach ihrem Namen
+              einsortiert. Was sich nicht sicher zuordnen lässt, bleibt liegen und wird unten aufgeführt.
+            </p>
+
+            {stdPlan && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
+                {[['Ordner anlegen', stdPlan.anzulegen.length], ['Dateien einsortieren', stdPlan.verschiebungen.length],
+                  ['Bleiben liegen', stdPlan.offen.length], ['Leere Altordner', stdPlan.leer.length]].map(([l, n]) => (
+                  <div key={l} style={{ background: C.bg, borderRadius: 8, padding: '0.5rem 0.7rem' }}>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: C.navy }}>{n}</div>
+                    <div style={{ fontSize: '0.7rem', color: C.muted }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {stdPlan && stdPlan.verschiebungen.length > 0 && (
+              <details style={{ marginBottom: 10 }}>
+                <summary style={{ cursor: 'pointer', fontSize: '0.83rem', fontWeight: 700, color: C.navy }}>Was wohin wandert ({stdPlan.verschiebungen.length})</summary>
+                <div style={{ maxHeight: 220, overflow: 'auto', marginTop: 6, fontSize: '0.76rem' }}>
+                  {stdPlan.verschiebungen.map((v) => (
+                    <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '2px 0', borderBottom: `1px solid ${C.border}` }}>
+                      <span style={{ color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.von}</span>
+                      <span style={{ color: C.navy, whiteSpace: 'nowrap' }}>→ {v.nach}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+            {stdPlan && stdPlan.offen.length > 0 && (
+              <details style={{ marginBottom: 10 }}>
+                <summary style={{ cursor: 'pointer', fontSize: '0.83rem', fontWeight: 700, color: '#92400e' }}>Bleiben liegen, bitte selbst einsortieren ({stdPlan.offen.length})</summary>
+                <div style={{ maxHeight: 160, overflow: 'auto', marginTop: 6, fontSize: '0.76rem', color: C.muted }}>
+                  {stdPlan.offen.map((o) => <div key={o.id}>{o.jetzt}</div>)}
+                </div>
+              </details>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <button onClick={stdVorschau} disabled={stdBusy} style={btn('#fff', C.navy, true)}>Vorschau neu berechnen</button>
+              <button onClick={stdAnwenden} disabled={stdBusy || !stdPlan} style={btn(C.navy, '#fff')}>{stdBusy ? 'Läuft…' : 'Umbau ausführen'}</button>
+              <div style={{ flex: 1 }} />
+              <button onClick={() => setStdOffen(false)} style={btn('#fff', C.muted, true)}>Schließen</button>
+            </div>
+
+            <h4 style={{ margin: '0 0 4px', color: C.navy, fontSize: '0.9rem' }}>Struktur aus einem anderen Datenraum übernehmen</h4>
+            <p style={{ fontSize: '0.8rem', color: C.muted, margin: '0 0 8px', lineHeight: 1.5 }}>
+              Fügen Sie die Verzeichnisliste ein, so wie sie ist: eingerückt, nummeriert oder als Pfade mit Schrägstrich.
+              Sie sehen dann, wohin jede Zeile in unserer Struktur gehört.
+            </p>
+            <textarea value={listeText} onChange={(e) => setListeText(e.target.value)} rows={6}
+              placeholder={'1. Finanzen\n  1.1 Jahresabschluss 2023\n  1.2 BWA\n2. Personal\n  2.1 Gehaltsliste'}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.8rem', fontFamily: 'monospace', resize: 'vertical' }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button onClick={listeLesen} disabled={stdBusy || listeText.trim().length < 3} style={btn(C.navy, '#fff')}>Liste zuordnen</button>
+            </div>
+            {listePlan && (
+              <div style={{ marginTop: 10, maxHeight: 240, overflow: 'auto', fontSize: '0.78rem', border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                {listePlan.plan.map((z, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '4px 8px', borderBottom: `1px solid ${C.border}`, background: z.ziel ? '#fff' : '#FFFBEB' }}>
+                    <span style={{ paddingLeft: z.ebene * 14, color: C.text }}>{z.name}</span>
+                    <span style={{ color: z.ziel ? C.navy : '#92400e', whiteSpace: 'nowrap' }}>{z.ziel || 'nicht zuzuordnen'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

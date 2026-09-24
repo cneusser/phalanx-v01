@@ -26,8 +26,9 @@ const project = {
   const p2 = { ...project, highlights: '[]' };
   ok('Teaser ohne Highlights ok', isPdf(await generateTeaser(p2)));
 
-  ok('Standardstruktur hat 9 Ordner', STANDARD_SAFE_FOLDERS.length === 9);
-  ok('Teaser-Ordner ist erster', STANDARD_SAFE_FOLDERS[0] === TEASER_FOLDER);
+  // v0.404: sieben Bereiche statt neun langer Titel, Transaktion steht vorn.
+ok('Standardstruktur hat sieben Bereiche', STANDARD_SAFE_FOLDERS.length === 7);
+  ok('Transaktion steht an erster Stelle', STANDARD_SAFE_FOLDERS[0] === 'Transaktion');
 
   console.log(fail ? `\n${fail} FEHLER` : '\nAlle Tests grün');
   process.exit(fail ? 1 : 0);
