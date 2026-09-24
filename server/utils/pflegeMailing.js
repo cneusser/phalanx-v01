@@ -96,19 +96,21 @@ Christian Neusser`;
  * Widerspruch im CRM und fehlende Einwilligung.
  */
 async function empfaenger(q, { tenant = 1 } = {}) {
+  // Kein Loeschkennzeichen an crm_companies, und kein stilles catch: Ein Fehler
+  // darf nicht als leere Empfaengerliste enden.
   const firmen = await q.all(`
     SELECT c.id, c.name, c.sektor, c.region, c.employees, c.street, c.postal_code, c.city, c.country
       FROM crm_companies c
-     WHERE c.is_deleted IS NOT TRUE
-     ORDER BY c.name`).catch(() => []);
+     ORDER BY c.name`);
   if (!firmen.length) return { zeilen: [], firmenGeprueft: 0, ohneAnsprechperson: [] };
 
   const kontakte = await q.all(`
-    SELECT k.id, k.first_name, k.last_name, k.salutation, k.email, k.responsibility,
+    SELECT k.id, k.first_name, k.last_name, k.salutation, k.email,
+           COALESCE(cc.position, k.responsibility) AS responsibility,
            k.consent_status, k.contact_status, cc.company_id
       FROM crm_company_contacts cc
       JOIN crm_contacts k ON k.id = cc.contact_id
-     WHERE k.is_deleted IS NOT TRUE`).catch(() => []);
+     WHERE k.anonymized_at IS NULL AND cc.ended_on IS NULL`);
   const proFirma = new Map();
   for (const k of kontakte) {
     const l = proFirma.get(Number(k.company_id)) || [];

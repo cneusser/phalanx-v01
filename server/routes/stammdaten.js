@@ -157,14 +157,17 @@ router.use(authenticate, nurStaff);
 // Übersicht „Datenpflege": Firmen mit fehlenden Feldern, filterbar.
 router.get('/pflege/uebersicht', wrap(async (req, res) => {
   const q = qFor(req);
+  // crm_companies kennt kein Loeschkennzeichen, Firmen werden hart geloescht
+  // oder zusammengefuehrt. Bei Kontakten heisst das Kennzeichen anonymized_at.
+  // Kein catch: Ein Fehler soll sichtbar werden und nicht als "0 Firmen" enden.
   const firmen = await q.all(`
     SELECT c.id, c.name, c.sektor, c.schwerpunkt, c.rollen_json, c.region, c.employees,
            c.street, c.postal_code, c.city, c.country, c.company_type
-      FROM crm_companies c WHERE c.is_deleted IS NOT TRUE ORDER BY c.name`).catch(() => []);
+      FROM crm_companies c ORDER BY c.name`);
   const kontakte = await q.all(`
-    SELECT k.id, k.last_name, k.email, k.responsibility, cc.company_id
+    SELECT k.id, k.last_name, k.email, COALESCE(cc.position, k.responsibility) AS responsibility, cc.company_id
       FROM crm_company_contacts cc JOIN crm_contacts k ON k.id = cc.contact_id
-     WHERE k.is_deleted IS NOT TRUE`).catch(() => []);
+     WHERE k.anonymized_at IS NULL AND cc.ended_on IS NULL`);
   const proFirma = new Map();
   for (const k of kontakte) { const l = proFirma.get(Number(k.company_id)) || []; l.push(k); proFirma.set(Number(k.company_id), l); }
 

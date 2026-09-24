@@ -174,7 +174,7 @@ router.get('/companies/:id/detail', ...isStaff, wrap(async (req, res) => {
   const contacts = await scoped(req, (t) => t.all(`
     SELECT cc.id AS link_id, cc.position, cc.is_primary, cc.started_on, cc.ended_on,
            k.id, k.salutation, k.title, k.first_name, k.last_name, k.email, k.phone, k.mobile,
-           k.linkedin_url, k.is_decision_maker, k.consent_status, k.contact_status
+           k.linkedin_url, k.is_decision_maker, k.consent_status, k.contact_status, k.responsibility
     FROM crm_company_contacts cc JOIN crm_contacts k ON k.id = cc.contact_id
     WHERE cc.company_id = ?
     ORDER BY cc.ended_on NULLS FIRST, cc.is_primary DESC, k.last_name`, [req.params.id]));
@@ -188,7 +188,7 @@ router.get('/companies/:id/detail', ...isStaff, wrap(async (req, res) => {
       company: { ...company, tags: safeJson(company.tags_json, []), rollen: safeJson(company.rollen_json, []) },
       // Bewusst eine Liste der fehlenden Felder, keine Prozentzahl.
       vollstaendigkeit: vollstaendigkeit.pruefe(company,
-        contacts.filter((c) => !c.ended_on).map((c) => ({ last_name: c.last_name, email: c.email, responsibility: c.position }))),
+        contacts.filter((c) => !c.ended_on).map((c) => ({ last_name: c.last_name, email: c.email, responsibility: c.position || c.responsibility }))),
       contacts: contacts.filter(c => !c.ended_on),
       history: contacts.filter(c => c.ended_on),
       subsidiaries,

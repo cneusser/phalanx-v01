@@ -3,6 +3,14 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.407 · 24.09.2026 · Datenpflege zeigte null Firmen, obwohl Hunderte da sind
+- **Auf eine Spalte gefiltert, die es nicht gibt.** Die Abfrage schloss `crm_companies.is_deleted` aus. Dieses Feld existiert nicht: Firmen werden hart gelöscht oder zusammengeführt, und bei Kontakten heißt das Kennzeichen `anonymized_at`
+- **Der Fehler wurde verschluckt.** Ein `catch` machte aus dem Datenbankfehler eine leere Liste. Eine leere Liste sieht aus wie ein Ergebnis, ein Fehler nicht. Das `catch` ist weg, Fehler stehen jetzt im Klartext auf der Seite
+- **Die Rolle der Ansprechperson steht an zwei Stellen**, am Kontakt und an der Verknüpfung zur Firma. Bisher las die Firmenakte die eine und die Datenpflege die andere, dadurch galt dieselbe Firma hier als vollständig und dort nicht. Jetzt zählt beides
+- **Beendete Zuordnungen zählen nicht mehr als Ansprechperson**
+- **Der leere Zustand sagt, was los ist**: keine Unternehmen angelegt, bei diesem Feld fehlt nichts, oder alles vollständig. Vorher stand dort immer „Hier fehlt nichts"
+- **Neuer Test `sqlSpalten.test.js`** liest die Spalten aus den Migrationen und prüft die Abfragen dagegen, ohne Datenbank
+
 ## v0.406 · 24.09.2026 · Pool-Sync las nichts, obwohl die Verbindung stand
 - **Das falsche Feld gelesen.** Phalanx OS antwortet mit `{ total, limit, offset, items }`, die Anbindung suchte nur nach `data` und `contacts`. Ergebnis: jeder Lauf meldete „gelesen 0", während Token, Rechte und Segmente in Ordnung waren
 - **Neuer Knopf „Vollabgleich"** neben „Jetzt synchronisieren": liest den ganzen Pool statt nur das seit dem letzten erfolgreichen Lauf Geänderte. Nötig, weil ein Lauf, der aus anderem Grund nichts gelesen hat, den Zeitstempel trotzdem gesetzt hat und der Bestand damit dauerhaft außen vor geblieben wäre

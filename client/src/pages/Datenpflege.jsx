@@ -220,7 +220,10 @@ export default function Datenpflege() {
                 ))}
                 {!(uebersicht?.zeilen || []).length && (
                   <tr><td colSpan={5} style={{ padding: '1.2rem 0.4rem', color: C.muted }}>
-                    {uebersicht ? 'Hier fehlt nichts.' : 'Einen Moment bitte.'}
+                    {!uebersicht ? 'Einen Moment bitte.'
+                      : uebersicht.gesamt === 0 ? 'Es sind noch keine Unternehmen im CRM angelegt.'
+                        : filter ? 'Bei diesem Feld fehlt nichts. Wählen Sie „alle" für den Gesamtstand.'
+                          : 'Alle Unternehmen sind vollständig gepflegt.'}
                   </td></tr>
                 )}
               </tbody>

@@ -41,10 +41,10 @@ const REGELN = [
 const normal = (s) => String(s || '').trim().toLowerCase().replace(/\s*\/\s*/g, '/').replace(/\s+/g, ' ');
 
 exports.up = async function (knex) {
-  for (const [name, typ] of [['sektor', 'text'], ['schwerpunkt', 'text'], ['rollen_json', 'text']]) {
-    const da = await knex.schema.hasColumn('crm_companies', name).catch(() => false);
-    if (!da) await knex.schema.alterTable('crm_companies', (t) => { t[typ](name); });
-  }
+  const fehlt = async (name) => !(await knex.schema.hasColumn('crm_companies', name).catch(() => false));
+  if (await fehlt('sektor')) await knex.schema.alterTable('crm_companies', (t) => { t.text('sektor'); });
+  if (await fehlt('schwerpunkt')) await knex.schema.alterTable('crm_companies', (t) => { t.text('schwerpunkt'); });
+  if (await fehlt('rollen_json')) await knex.schema.alterTable('crm_companies', (t) => { t.text('rollen_json'); });
   await knex.raw('CREATE INDEX IF NOT EXISTS crm_companies_sektor_idx ON crm_companies (sektor)').catch(() => {});
 
   // Tabelle für den Bericht, damit das Ergebnis nachlesbar bleibt und nicht nur
