@@ -102,6 +102,99 @@ const INPUT_STYLE = {
   background: '#fff',
 };
 
+// ── Konten und Kontakte abgleichen (v0.403) ─────────────────────────────────
+// Findet Interessenten, die in einem Mandat stehen, aber kein verknüpftes
+// Plattform-Konto haben. Ohne diese Verknüpfung bleibt der Datenraum zu, auch
+// wenn NDA und Funnel längst grün aussehen. Das war beim ersten Fall nicht zu
+// erkennen, deshalb steht die Prüfung jetzt direkt über den NDA-Anfragen.
+function KontoAbgleich({ C, show }) {
+  const [daten, setDaten] = useState(null);
+  const [laden, setLaden] = useState(false);
+  const [offen, setOffen] = useState(false);
+
+  async function pruefen() {
+    setLaden(true);
+    try { setDaten(await api.get('/crm/konto-abgleich')); setOffen(true); }
+    catch (e) { show('Prüfung fehlgeschlagen: ' + e.message, 'error'); }
+    setLaden(false);
+  }
+
+  async function verknuepfen(kontaktId, kontoId, name) {
+    if (!window.confirm(`Konto „${name}" mit diesem Kontakt verknüpfen?\n\nDanach lässt sich der Datenraum für diese Person freigeben. Die Verknüpfung können Sie in der Kontaktakte wieder lösen.`)) return;
+    try {
+      await api.put(`/crm/contacts/${kontaktId}/account`, { user_id: kontoId });
+      show('Konto verknüpft ✓');
+      await pruefen();
+    } catch (e) { show('Fehler: ' + e.message, 'error'); }
+  }
+
+  const faelle = (daten && daten.faelle) || [];
+
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.9rem 1.1rem', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.8rem', flexWrap: 'wrap' }}>
+        <div>
+          <strong style={{ color: C.navy, fontSize: '0.92rem' }}>Kommt jeder hinein, der hinein soll?</strong>
+          <div style={{ fontSize: '0.78rem', color: C.muted, marginTop: 2, maxWidth: 640 }}>
+            Ein unterschriebener NDA öffnet noch keinen Datenraum. Dafür muss der CRM-Kontakt mit einem Plattform-Konto
+            verknüpft sein. Das geschieht über die E-Mail-Adresse und bleibt aus, wenn sich jemand mit einer anderen
+            Adresse anmeldet, als im CRM steht.
+          </div>
+        </div>
+        <button onClick={pruefen} disabled={laden}
+          style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 7, padding: '0.5rem 1rem', fontSize: '0.82rem', fontWeight: 700, cursor: laden ? 'default' : 'pointer' }}>
+          {laden ? 'Wird geprüft…' : 'Bestand prüfen'}
+        </button>
+      </div>
+
+      {offen && daten && (
+        <div style={{ marginTop: '0.8rem' }}>
+          {faelle.length === 0 ? (
+            <div style={{ background: '#ECFDF5', border: '1px solid #a7f3d0', color: '#065f46', borderRadius: 7, padding: '0.6rem 0.8rem', fontSize: '0.82rem' }}>
+              Keine offenen Fälle. {daten.geprueft} Kontakte ohne Konto geprüft, zu keinem davon gibt es ein passendes Konto.
+              Wer kein Konto hat, muss zur Plattform eingeladen werden.
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: '0.8rem', color: '#92400e', marginBottom: 6 }}>
+                {faelle.length} {faelle.length === 1 ? 'Kontakt' : 'Kontakte'} ohne Verknüpfung, zu denen es ein passendes Konto gibt.
+                Prüfen Sie jeden Vorschlag, bevor Sie ihn übernehmen.
+              </div>
+              {faelle.map((f) => (
+                <div key={f.kontakt_id} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.6rem 0.8rem', marginBottom: '0.5rem' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: C.navy }}>
+                    {f.name} <span style={{ fontWeight: 400, color: C.muted }}>· {f.mandat} · Stufe {f.funnel_stage}</span>
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: C.muted, marginBottom: 6 }}>
+                    {f.email || 'keine E-Mail am Kontakt'}{f.company ? ` · ${f.company}` : ''}
+                  </div>
+                  {f.kandidaten.map((k) => (
+                    <div key={k.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', flexWrap: 'wrap', background: '#F8FAFC', borderRadius: 6, padding: '0.45rem 0.6rem', marginTop: 4 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '0.8rem', color: C.navy }}>
+                          <strong>{k.name || k.email}</strong> · {k.email}
+                          <span style={{ marginLeft: 8, background: k.punkte >= 85 ? '#dcfce7' : '#fef3c7', color: k.punkte >= 85 ? '#166534' : '#92400e', borderRadius: 20, padding: '1px 8px', fontSize: '0.68rem', fontWeight: 700 }}>
+                            {k.punkte >= 85 ? 'sehr wahrscheinlich' : 'zu prüfen'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: C.muted }}>{k.gruende.join(' · ')}</div>
+                      </div>
+                      <button onClick={() => verknuepfen(f.kontakt_id, k.id, k.name || k.email)}
+                        style={{ background: '#065f46', color: '#fff', border: 'none', borderRadius: 6, padding: '0.35rem 0.8rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        Verknüpfen
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Admin() {
   const { startBirdview, user } = useAuth();
   const navigate = useNavigate();
@@ -1443,6 +1536,7 @@ export default function Admin() {
       )}
 
       {/* NDAs Tab */}
+      {activeTab === 'ndas' && <KontoAbgleich C={C} show={showMsg} />}
       {activeTab === 'ndas' && (
         <div style={{ background: C.card, borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.border}` }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>

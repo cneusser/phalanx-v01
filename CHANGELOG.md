@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.402 bis v0.403 · 07.08.2026 · Warum ein Käufer trotz NDA nicht hineinkam
+- **Drei Stellen hießen „freigegeben", nur eine öffnete etwas.** In der Kontaktakte steht beim Datenraum jetzt eine Kette: NDA unterschrieben › Nutzerkonto vorhanden › Datenraum freigegeben, jede mit Haken oder offen, darunter in einem Satz, woran es hängt
+- **Das CRM-Häkchen heißt jetzt ehrlich „Eigener Vermerk (nur Notiz)"** mit dem Zusatz „Öffnet nichts, dient nur Ihrer Übersicht". Vorher sah es aus wie ein Schalter
+- **Neue Prüfung „Kommt jeder hinein, der hinein soll?"** über den NDA-Anfragen: Sie geht den gesamten Bestand durch und findet Interessenten, die in einem Mandat stehen, aber kein verknüpftes Konto haben
+- **Mit Vorschlag statt Rätselraten**: Zu jedem Fall werden bis zu drei passende Konten genannt, mit Begründung (gleicher Name, gleiche Firmendomain, Nachname in der Adresse, NDA für dasselbe Mandat unterschrieben). Verknüpft wird erst auf Klick, denn eine falsche Verknüpfung würde einem Fremden den Datenraum öffnen
+- Freemail-Domains wie gmail oder web.de zählen bewusst nicht als Hinweis, sonst würde jeder zu jedem passen
+
 ## v0.401 · 06.08.2026 · Datenraum bedient sich wie ein Dateimanager
 - **„Alles herunterladen" steht jetzt ganz oben**, zusammen mit der Anzahl der freigegebenen Dokumente und der Gesamtgröße. Bisher gab es auf der obersten Ebene gar keinen Weg, den Datenraum am Stück zu bekommen
 - **Mehrfachauswahl**: Zeilen ankreuzen, mit gedrückter Umschalttaste ganze Bereiche, dann „Auswahl herunterladen". Ein markierter Ordner nimmt alles Freigegebene darunter mit

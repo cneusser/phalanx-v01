@@ -446,6 +446,15 @@ router.get('/account-candidates', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: rows.map(r => ({ ...r, name: [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || r.email })) });
 }));
 
+// ── Konten und Kontakte abgleichen (v0.403) ────────────────────────────────
+// Findet Kontakte, die in einem Mandat stehen, aber kein verknüpftes Konto
+// haben, und schlägt das wahrscheinliche Konto vor. Ohne diese Verknüpfung
+// bleibt der Datenraum zu, auch wenn NDA und Funnel längst grün aussehen.
+router.get('/konto-abgleich', ...isStaff, wrap(async (req, res) => {
+  const ergebnis = await require('../utils/kontoAbgleich').pruefe(qFor(req));
+  res.json({ success: true, data: ergebnis });
+}));
+
 // ── Konto mit einem Kontakt verknüpfen oder die Verknüpfung lösen ──────────
 router.put('/contacts/:id/account', ...isStaff, canWrite, wrap(async (req, res) => {
   const contact = await scoped(req, (t) => t.get('SELECT id, first_name, last_name FROM crm_contacts WHERE id = ?', [req.params.id]));
