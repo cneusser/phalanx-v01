@@ -3,6 +3,15 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.400 · 05.08.2026 · Anfragen aus Marktplätzen landen vollständig im CRM
+- **Der Investortyp ging bisher verloren**: Das Feld im Dialog „Anfrage einfügen" war Freitext und passte auf kein Feld der Datenbank. Jetzt ist es ein Auswahlfeld mit denselben Käufertypen wie in der Kontaktakte, und der Wert wird gespeichert
+- **Was das Portal geschrieben hat, wird zugeordnet**: „Privatperson", „Private Equity Fonds" oder „MBI-Kandidat" werden automatisch auf den passenden Käufertyp abgebildet. Der ursprüngliche Wortlaut bleibt sichtbar. Lässt sich nichts sicher zuordnen, bleibt das Feld leer statt falsch
+- **Anschrift wird zerlegt**: Aus „Albrecht-Dürer-Straße 42, 15732 Schulzendorf, Deutschland" werden vier Felder. Der Kontakt hat dafür jetzt Straße, Postleitzahl, Ort und Land, so wie die Firmentabelle es längst hatte
+- **Die Firma bekommt die Anschrift mit**: Wird beim Übernehmen eine neue Firma angelegt, steht die Adresse gleich dort. Eine vorhandene Firma wird nur ergänzt, nie überschrieben
+- **Hinweis bei bekannten Kontakten**: Liegt die E-Mail schon im CRM, sagt der Dialog das vorher. Gepflegte Felder bleiben unverändert, leere werden gefüllt
+- **Ein Vokabular statt drei**: Käufertypen, Firmentypen und Länder stehen nur noch in `server/utils/vokabular.js` und kommen über `GET /api/crm/vokabular` in die Oberfläche. Die Kontaktakte nutzt dieselbe Quelle. Ein Test hält die Notfassung im Browser deckungsgleich
+- Vorbereitung auf Phalanx OS: Wenn der Datenpool übernimmt, ändert sich nur die Quelle hinter dieser einen Route
+
 ## v0.399 · 04.08.2026 · Nachrichten mehrzeilig schreiben und noch nachbessern
 - **Enter macht eine neue Zeile**: Das Eingabefeld im Nachrichtenbereich ist jetzt mehrzeilig und wächst mit dem Text. Gesendet wird über den Knopf oder mit Cmd beziehungsweise Strg und Enter
 - **Zeilenumbrüche bleiben erhalten**, in der Anzeige und in der Hinweis-Mail

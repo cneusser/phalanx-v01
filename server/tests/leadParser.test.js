@@ -30,7 +30,11 @@ ok('Quelle DUB erkannt', r.source === 'dub' && /Unternehmerb/.test(r.sourceLabel
 ok('E-Mail korrekt (nicht die Portal-Adresse)', r.contact.email === 'geserer.simon@gmail.com');
 ok('Telefon erkannt', r.contact.phone.replace(/\s/g, '') === '+4917635644618');
 ok('Vorname/Nachname getrennt', r.contact.first_name === 'Simon' && r.contact.last_name === 'Geserer');
-ok('Investortyp erkannt', r.contact.investor_type === 'Privatperson');
+// v0.400: Der Wortlaut des Portals bleibt erhalten, zusaetzlich wird er auf den
+// Kaeufertyp des CRM abgebildet. Frueher stand hier ein Freitextfeld, das beim
+// Speichern verloren ging.
+ok('Wortlaut des Portals erhalten', r.contact.investor_type_raw === 'Privatperson');
+ok('auf den Kaeufertyp abgebildet', r.contact.buyer_type === 'private');
 ok('Adresse erkannt', /Vachendorf/.test(r.contact.location));
 ok('Firma leer bleibt leer', r.contact.company === '');
 ok('Inseratsnummer erkannt', r.inserat === '17392');

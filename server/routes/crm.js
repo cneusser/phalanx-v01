@@ -250,10 +250,25 @@ router.delete('/companies/:id', ...isStaff, canDelete, wrap(async (req, res) => 
 // ── Kontakte ────────────────────────────────────────────────────────────────
 const CONTACT_FIELDS = ['salutation', 'title', 'first_name', 'last_name', 'email', 'phone', 'mobile',
   'linkedin_url', 'location', 'responsibility', 'relationship', 'notes', 'consent_status', 'contact_status',
-  'investment_focus', 'lead_source', 'lead_ref'];
-// Käufertyp am Kontakt (v0.291, DUB-Benchmark). Leer = unbekannt.
-const BUYER_TYPES = ['strategic', 'financial', 'business_angel', 'venture_capital', 'family_office', 'successor', 'private', 'advisor_mandate'];
-const cleanBuyerType = (v) => (BUYER_TYPES.includes(v) ? v : null);
+  'investment_focus', 'lead_source', 'lead_ref',
+  // v0.400: strukturierte Anschrift, damit sie in der Kontaktakte pflegbar ist
+  'street', 'postal_code', 'city', 'country'];
+// Käufertyp am Kontakt (v0.291). Die Liste steht seit v0.400 nur noch an einer
+// Stelle, in utils/vokabular, und wird von dort auch an die Oberfläche geliefert.
+const vokabular = require('../utils/vokabular');
+const BUYER_TYPES = vokabular.KAEUFERTYP_WERTE;
+const cleanBuyerType = (v) => (vokabular.istKaeufertyp(v) ? v : null);
+
+// ── Gemeinsames Vokabular für die Oberfläche ────────────────────────────────
+// Damit Auswahlfelder in der Kontaktakte und im Dialog „Anfrage einfügen"
+// dieselben Werte anbieten und niemand zweimal dasselbe pflegt.
+router.get('/vokabular', ...isStaff, (req, res) => {
+  res.json({ success: true, data: {
+    kaeufertypen: vokabular.KAEUFERTYPEN,
+    firmentypen: vokabular.FIRMENTYPEN,
+    laender: vokabular.LAENDER,
+  } });
+});
 
 router.get('/contacts', ...isStaff, wrap(async (req, res) => {
   const { q, decision_makers, company_id, buyer_type } = req.query;

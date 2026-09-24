@@ -9,6 +9,9 @@
 // Admin-Weg, im Webhook der Standard-Mandant). So bleibt die Logik an einer Stelle.
 // ─────────────────────────────────────────────────────────────────────────────
 
+const { zerlege, zeile, hatInhalt } = require('./adresse');
+const { istKaeufertyp, kaeufertypAus } = require('./vokabular');
+
 // Mandat aus dem Codename-Hinweis der Anfrage finden (ilike)
 async function findProjectByHint(q, hint) {
   if (!hint) return null;
@@ -32,6 +35,15 @@ async function ingestLead(q, { tenant = 1, lead, projectId = null, actorId = nul
   const leadRef = [lead.inserat ? `Inserat ${lead.inserat}` : '', lead.ref && lead.ref !== lead.inserat ? `Referenz ${lead.ref}` : '']
     .filter(Boolean).join(', ');
 
+  // v0.400: Anschrift und Kaeufertyp mitnehmen. Beides ging bisher verloren.
+  // Die Einzelfelder haben Vorrang; kommt nur eine Zeile herein, wird sie zerlegt.
+  const anschrift = hatInhalt(c)
+    ? { street: c.street || '', postal_code: c.postal_code || '', city: c.city || '', country: c.country || '' }
+    : zerlege(c.location || '');
+  const ortszeile = zeile(anschrift) || (c.location || '');
+  // Freitext des Marktplatzes wird abgebildet; ein bereits gueltiger Wert bleibt.
+  const kaeufertyp = istKaeufertyp(c.buyer_type) ? c.buyer_type : kaeufertypAus(c.buyer_type || c.investor_type_raw || c.investor_type);
+
   // Kontakt: per E-Mail wiederverwenden, sonst neu. Herkunft immer festhalten.
   const existingContact = c.email
     ? await q.get('SELECT * FROM crm_contacts WHERE lower(email) = lower(?) LIMIT 1', [c.email]).catch(() => null)
@@ -39,26 +51,53 @@ async function ingestLead(q, { tenant = 1, lead, projectId = null, actorId = nul
   let contactId, created = false;
   if (existingContact) {
     contactId = existingContact.id;
+    // Vorhandenes nie ueberschreiben: COALESCE haelt gepflegte Werte fest und
+    // fuellt nur Luecken. Sonst raeumt ein duenner Marktplatz-Datensatz eine
+    // ueber Monate gepflegte Akte leer.
     await q.run(
       `UPDATE crm_contacts SET
          phone = COALESCE(NULLIF(?, ''), phone), location = COALESCE(NULLIF(?, ''), location),
+         street = COALESCE(street, NULLIF(?, '')), postal_code = COALESCE(postal_code, NULLIF(?, '')),
+         city = COALESCE(city, NULLIF(?, '')), country = COALESCE(country, NULLIF(?, '')),
+         buyer_type = COALESCE(buyer_type, NULLIF(?, '')),
          lead_source = ?, lead_ref = ?, source = COALESCE(source, 'inbound')
        WHERE id = ?`,
-      [c.phone || '', c.location || '', leadSource, leadRef, contactId]).catch(() => {});
+      [c.phone || '', ortszeile, anschrift.street, anschrift.postal_code, anschrift.city, anschrift.country,
+       kaeufertyp || '', leadSource, leadRef, contactId]).catch(() => {});
   } else {
     contactId = await q.insert(
       `INSERT INTO crm_contacts (tenant_id, salutation, title, first_name, last_name, email, phone, location,
+                                 street, postal_code, city, country, buyer_type,
                                  source, lead_source, lead_ref, consent_status, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'inbound', ?, ?, 'unknown', ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inbound', ?, ?, 'unknown', ?)`,
       [tenant, c.salutation || null, c.title || null, c.first_name || '', c.last_name || (c.email || '').split('@')[0],
-       c.email || null, c.phone || null, c.location || null, leadSource, leadRef, actorId]);
+       c.email || null, c.phone || null, ortszeile || null,
+       anschrift.street || null, anschrift.postal_code || null, anschrift.city || null, anschrift.country || null,
+       kaeufertyp || null, leadSource, leadRef, actorId]);
     created = true;
   }
 
   // Firma optional anlegen und verknüpfen (ohne Dublette)
   if (c.company) {
-    const comp = await q.get('SELECT id FROM crm_companies WHERE lower(name) = lower(?) LIMIT 1', [c.company]).catch(() => null)
-      || { id: await q.insert('INSERT INTO crm_companies (tenant_id, name, created_by) VALUES (?, ?, ?)', [tenant, c.company, actorId]) };
+    let comp = await q.get('SELECT id FROM crm_companies WHERE lower(name) = lower(?) LIMIT 1', [c.company]).catch(() => null);
+    if (!comp) {
+      // Neue Firma gleich mit Anschrift anlegen, damit sie nicht spaeter von
+      // Hand nachgetragen werden muss.
+      const id = await q.insert(
+        `INSERT INTO crm_companies (tenant_id, name, street, postal_code, city, country, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [tenant, c.company, anschrift.street || null, anschrift.postal_code || null,
+         anschrift.city || null, anschrift.country || null, actorId]);
+      comp = { id };
+    } else {
+      // Bestehende Firma nur ergaenzen, nie ueberschreiben.
+      await q.run(
+        `UPDATE crm_companies SET
+           street = COALESCE(street, NULLIF(?, '')), postal_code = COALESCE(postal_code, NULLIF(?, '')),
+           city = COALESCE(city, NULLIF(?, '')), country = COALESCE(country, NULLIF(?, ''))
+         WHERE id = ?`,
+        [anschrift.street, anschrift.postal_code, anschrift.city, anschrift.country, comp.id]).catch(() => {});
+    }
     const linked = await q.get('SELECT id FROM crm_company_contacts WHERE company_id = ? AND contact_id = ? LIMIT 1', [comp.id, contactId]).catch(() => null);
     if (!linked) await q.run('INSERT INTO crm_company_contacts (tenant_id, company_id, contact_id) VALUES (?, ?, ?)', [tenant, comp.id, contactId]).catch(() => {});
   }
@@ -87,7 +126,7 @@ async function ingestLead(q, { tenant = 1, lead, projectId = null, actorId = nul
       `${leadSource}${leadRef ? ' · ' + leadRef : ''}${projectId ? ' · Mandat #' + projectId : ' · ohne Mandat'}`, null);
   }
 
-  return { contact_id: contactId, created, project_id: projectId, party_id: party, lead_source: leadSource, lead_ref: leadRef };
+  return { contact_id: contactId, created, project_id: projectId, party_id: party, lead_source: leadSource, lead_ref: leadRef, buyer_type: kaeufertyp || null, anschrift };
 }
 
 module.exports = { findProjectByHint, ingestLead };

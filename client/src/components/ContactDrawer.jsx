@@ -6,6 +6,7 @@
 // (geöffnet, eingewilligt, registriert, selbst gepflegt, widersprochen).
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useCallback } from 'react';
+import { ladeVokabular, KAEUFERTYPEN_FALLBACK, LAENDER_FALLBACK } from '../constants/vokabular';
 import { api, getToken } from '../api/client';
 import { X, Mail, Send, ShieldCheck, ShieldOff, Star, Save, ExternalLink, FileText, Inbox, Check, Plus, Eye } from 'lucide-react';
 import TemplateSendModal from './TemplateSendModal';
@@ -16,13 +17,9 @@ const IN = { width: '100%', padding: '0.45rem 0.6rem', border: `1px solid ${C.bo
 const LBL = { fontSize: '0.68rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.03em' };
 
 const STAGE_LABEL = ['Longlist zur Freigabe', 'Shortlist freigegeben', 'Ansprache', 'NDA', 'Datenraum-Zugang', 'LOI', 'Verhandlung', 'Closing / Signing', 'Abschluss'];
-// Käufertyp (v0.291): value → Anzeigename
-const BUYER_TYPES = [
-  ['', 'ohne Angabe'], ['strategic', 'Strategischer Käufer'], ['financial', 'Finanzinvestor'],
-  ['business_angel', 'Business Angel'], ['venture_capital', 'Venture Capital'],
-  ['family_office', 'Family Office'], ['successor', 'Nachfolger (MBO/MBI)'],
-  ['private', 'Privatperson'], ['advisor_mandate', 'M&A-Berater mit Suchmandat'],
-];
+// Käufertyp: Die Liste kommt seit v0.400 aus dem gemeinsamen Vokabular
+// (server/utils/vokabular.js über GET /api/crm/vokabular), damit sie nur an
+// einer Stelle gepflegt wird.
 const EVENT_COLOR = {
   invite: '#1D4E89', mail: '#1D4E89', reminder: '#d97706', open: '#0891b2',
   consent: '#059669', register: '#059669', response: '#059669',
@@ -33,12 +30,15 @@ const EVENT_COLOR = {
 const FIELDS = [
   ['salutation', 'Anrede'], ['title', 'Titel'], ['first_name', 'Vorname'], ['last_name', 'Nachname'],
   ['email', 'E-Mail'], ['phone', 'Telefon'], ['mobile', 'Mobil'],
-  ['location', 'Ort'], ['responsibility', 'Verantwortung'], ['linkedin_url', 'LinkedIn'],
+  ['street', 'Straße und Hausnummer'], ['postal_code', 'PLZ'], ['city', 'Ort'], ['country', 'Land'],
+  ['responsibility', 'Verantwortung'], ['linkedin_url', 'LinkedIn'],
 ];
 
 const fmt = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'k. A.';
 
 export default function ContactDrawer({ contactId, onClose, onChanged, show, initialTab }) {
+  const [vok, setVok] = useState({ kaeufertypen: KAEUFERTYPEN_FALLBACK, laender: LAENDER_FALLBACK });
+  useEffect(() => { ladeVokabular().then(setVok).catch(() => {}); }, []);
   const { startBirdview } = useAuth();
   const [data, setData] = useState(null);
   // Unterlagen-Link
@@ -582,7 +582,8 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show, ini
                   <div style={{ margin: '0.4rem 0 0.2rem' }}>
                     <div style={LBL}>Käufertyp</div>
                     <select value={form.buyer_type || ''} onChange={e => setForm(f => ({ ...f, buyer_type: e.target.value }))} style={{ ...IN, marginTop: 3 }}>
-                      {BUYER_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      <option value="">ohne Angabe</option>
+                      {(vok.kaeufertypen || []).map(k => <option key={k.wert} value={k.wert}>{k.label}</option>)}
                     </select>
                   </div>
 

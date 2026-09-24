@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
-import { Inbox, X } from 'lucide-react';
+import { Inbox, X, AlertCircle, UserCheck } from 'lucide-react';
+import { ladeVokabular, KAEUFERTYPEN_FALLBACK, LAENDER_FALLBACK } from '../constants/vokabular';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', border: '#E2E8F0', text: '#0F172A', muted: '#64748B', bg: '#F8FAFC' };
 const IN = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', boxSizing: 'border-box' };
@@ -15,6 +16,12 @@ export default function LeadIngestModal({ deals = [], activeProjectId, onClose, 
   const [matched, setMatched] = useState(null);
   const [autoApproach, setAutoApproach] = useState(true);
   const [busy, setBusy] = useState(false);
+  // v0.400: Auswahlfelder aus dem gemeinsamen Vokabular, dazu der Hinweis,
+  // ob die Adresse schon im CRM liegt.
+  const [vok, setVok] = useState({ kaeufertypen: KAEUFERTYPEN_FALLBACK, laender: LAENDER_FALLBACK });
+  const [bekannt, setBekannt] = useState(null);
+
+  useEffect(() => { ladeVokabular().then(setVok).catch(() => {}); }, []);
 
   const parse = async () => {
     setBusy(true);
@@ -22,6 +29,18 @@ export default function LeadIngestModal({ deals = [], activeProjectId, onClose, 
       const r = await api.post('/crm/leads/parse', { text });
       setLead(r.lead);
       if (r.matchedProject) { setMatched(r.matchedProject); setProjectId(r.matchedProject.id); }
+      // Liegt der Kontakt schon im CRM? Dann soll klar sein, dass hier ergaenzt
+      // und nicht doppelt angelegt wird.
+      const mail = r.lead && r.lead.contact && r.lead.contact.email;
+      if (mail) {
+        api.get(`/crm/contacts?q=${encodeURIComponent(mail)}`)
+          .then((d) => {
+            const treffer = (d && (d.items || d.contacts || d)) || [];
+            const liste = Array.isArray(treffer) ? treffer : [];
+            setBekannt(liste.find((k) => (k.email || '').toLowerCase() === mail.toLowerCase()) || null);
+          })
+          .catch(() => setBekannt(null));
+      }
     } catch (e) { show && show('Konnte die Anfrage nicht lesen: ' + e.message); }
     finally { setBusy(false); }
   };
@@ -79,6 +98,16 @@ export default function LeadIngestModal({ deals = [], activeProjectId, onClose, 
                 <div style={{ marginTop: 2, color: '#78350f' }}>Diese Herkunft wird beim Kontakt gespeichert und in der späteren Ansprache genannt.</div>
               </div>
 
+              {bekannt && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, background: '#ECFDF5', border: '1px solid #a7f3d0', borderRadius: 8, padding: '0.6rem 0.8rem', marginBottom: 12, fontSize: '0.8rem', color: '#065f46' }}>
+                  <UserCheck size={15} style={{ flex: 'none', marginTop: 1 }} />
+                  <div>
+                    <strong>{[bekannt.first_name, bekannt.last_name].filter(Boolean).join(' ') || bekannt.email}</strong> liegt bereits im CRM.
+                    Der Kontakt wird ergänzt, nicht neu angelegt. Gepflegte Felder bleiben unverändert, leere werden gefüllt.
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
                 <div><div style={LBL}>Anrede</div>
                   <select value={c.salutation || ''} onChange={e => setC('salutation', e.target.value)} style={IN}>
@@ -90,8 +119,33 @@ export default function LeadIngestModal({ deals = [], activeProjectId, onClose, 
                 <div><div style={LBL}>E-Mail</div><input value={c.email || ''} onChange={e => setC('email', e.target.value)} style={IN} /></div>
                 <div><div style={LBL}>Telefon</div><input value={c.phone || ''} onChange={e => setC('phone', e.target.value)} style={IN} /></div>
                 <div><div style={LBL}>Firma</div><input value={c.company || ''} onChange={e => setC('company', e.target.value)} style={IN} /></div>
-                <div><div style={LBL}>Investortyp</div><input value={c.investor_type || ''} onChange={e => setC('investor_type', e.target.value)} style={IN} /></div>
-                <div style={{ gridColumn: '1 / span 2' }}><div style={LBL}>Adresse</div><input value={c.location || ''} onChange={e => setC('location', e.target.value)} style={IN} /></div>
+                <div><div style={LBL}>Käufertyp</div>
+                  <select value={c.buyer_type || ''} onChange={e => setC('buyer_type', e.target.value)} style={IN}>
+                    <option value="">ohne Angabe</option>
+                    {(vok.kaeufertypen || []).map(k => <option key={k.wert} value={k.wert}>{k.label}</option>)}
+                  </select>
+                  {c.investor_type_raw && (
+                    <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 3 }}>
+                      Im Portal stand: „{c.investor_type_raw}"{!c.buyer_type ? '. Bitte einmal zuordnen.' : ''}
+                    </div>
+                  )}
+                </div>
+                <div style={{ gridColumn: '1 / span 2', display: 'grid', gridTemplateColumns: '2fr 1fr 2fr 1.4fr', gap: '0.5rem' }}>
+                  <div><div style={LBL}>Straße und Hausnummer</div><input value={c.street || ''} onChange={e => setC('street', e.target.value)} style={IN} /></div>
+                  <div><div style={LBL}>PLZ</div><input value={c.postal_code || ''} onChange={e => setC('postal_code', e.target.value)} style={IN} /></div>
+                  <div><div style={LBL}>Ort</div><input value={c.city || ''} onChange={e => setC('city', e.target.value)} style={IN} /></div>
+                  <div><div style={LBL}>Land</div>
+                    <select value={c.country || ''} onChange={e => setC('country', e.target.value)} style={IN}>
+                      <option value="">k. A.</option>
+                      {(vok.laender || []).map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                  </div>
+                </div>
+                {c.rest && (
+                  <div style={{ gridColumn: '1 / span 2', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: '#92400e' }}>
+                    <AlertCircle size={13} /> Nicht zugeordnet: „{c.rest}". Bitte oben einsortieren, sonst geht es verloren.
+                  </div>
+                )}
                 <div style={{ gridColumn: '1 / span 2' }}><div style={LBL}>Mandat zuordnen</div>
                   <select value={projectId} onChange={e => setProjectId(e.target.value)} style={IN}>
                     <option value="">Kein Mandat</option>

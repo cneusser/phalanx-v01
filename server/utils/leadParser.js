@@ -10,7 +10,9 @@
 // Erkannt werden:
 //   · Quelle (Portal) inklusive lesbarer Bezeichnung für die spätere Ansprache
 //   · Inserats-/Referenznummer und ein Hinweis auf das Mandat (Codename)
-//   · Name (mit Titel), Firma, Investortyp, E-Mail, Telefon, Adresse
+//   · Name (mit Titel), Firma, E-Mail, Telefon
+//   · Anschrift, zerlegt in Strasse, Postleitzahl, Ort und Land
+//   · Investortyp, abgebildet auf den Kaeufertyp des CRM
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Bekannte Portale. label = so nennen wir die Quelle gegenüber dem Angeschriebenen.
@@ -25,6 +27,9 @@ const SOURCES = [
 const TITLES = ['Prof. Dr.', 'Prof.', 'Dr.', 'Dipl.-Ing.', 'Dipl.-Kfm.', 'Mag.', 'Dr. Dr.'];
 
 const clean = (s) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+
+const { zerlege, zeile } = require('./adresse');
+const { kaeufertypAus } = require('./vokabular');
 
 // Eine „Label: Wert"-Zeile suchen (robust gegen Doppelpunkt-Varianten und Leerraum)
 function field(text, labels) {
@@ -87,6 +92,7 @@ function parseLead(raw) {
     .filter(w => !/^(nr|inserat|referenz|interne)$/i.test(w)).pop()) || '';
 
   const { title, first_name, last_name } = splitName(nameRaw || (email ? email.split('@')[0] : ''));
+  const adresse = zerlege(address);
 
   // Menschlich lesbare Herkunft für die spätere Ansprache
   const refBits = [inserat ? `Inserat ${inserat}` : '', ref && ref !== inserat ? `Referenz ${ref}` : '']
@@ -102,7 +108,13 @@ function parseLead(raw) {
     contact: {
       salutation: '', title, first_name, last_name,
       email, phone: clean(phone), company: clean(company),
-      location: address, investor_type: investorType,
+      // v0.400: Anschrift zerlegt statt als eine Zeile, und der Freitext des
+      // Marktplatzes auf einen gueltigen Kaeufertyp abgebildet. `location`
+      // bleibt als lesbare Zeile erhalten, wird aber aus den Feldern gebaut.
+      ...adresse,
+      location: zeile(adresse) || address,
+      buyer_type: kaeufertypAus(investorType),
+      investor_type_raw: investorType,
     },
     // Für den Admin: was wurde erkannt, was fehlt?
     complete: !!(last_name && (email || phone)),
