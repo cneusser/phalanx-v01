@@ -747,9 +747,10 @@ export default function Admin() {
       setPhalanx(st); setPhalanxReviews(rev || []);
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
-  async function runPhalanxSync() {
+  // voll=true ignoriert den Zeitstempel des letzten Laufs und liest den ganzen Pool.
+  async function runPhalanxSync(voll = false) {
     setPhalanxBusy(true);
-    try { const s = await api.post('/admin/phalanx/sync', {}); showMsg(`Sync: gelesen ${s.read}, neu ${s.created}, angereichert ${s.enriched}, mehrdeutig ${s.ambiguous}, Fehler ${s.errors}`); await loadPhalanx(); }
+    try { const s = await api.post('/admin/phalanx/sync', { voll }); showMsg(`Sync: gelesen ${s.read}, neu ${s.created}, angereichert ${s.enriched}, mehrdeutig ${s.ambiguous}, Fehler ${s.errors}`); await loadPhalanx(); }
     catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
     finally { setPhalanxBusy(false); }
   }
@@ -1685,7 +1686,8 @@ export default function Admin() {
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={pingPhalanx} disabled={phalanxBusy} style={{ background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: phalanxBusy ? 'default' : 'pointer' }}>Verbindung prüfen</button>
-              <button onClick={runPhalanxSync} disabled={phalanxBusy || !phalanx?.configured} style={{ background: (phalanxBusy || !phalanx?.configured) ? '#9ca3af' : '#166534', color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: (phalanxBusy || !phalanx?.configured) ? 'default' : 'pointer' }}>{phalanxBusy ? 'Bitte warten…' : 'Jetzt synchronisieren'}</button>
+              <button onClick={() => runPhalanxSync(false)} disabled={phalanxBusy || !phalanx?.configured} style={{ background: (phalanxBusy || !phalanx?.configured) ? '#9ca3af' : '#166534', color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: (phalanxBusy || !phalanx?.configured) ? 'default' : 'pointer' }}>{phalanxBusy ? 'Bitte warten…' : 'Jetzt synchronisieren'}</button>
+              <button onClick={() => runPhalanxSync(true)} disabled={phalanxBusy || !phalanx?.configured} title="Liest den ganzen Pool, nicht nur das seit dem letzten Lauf Geänderte" style={{ background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: (phalanxBusy || !phalanx?.configured) ? 'default' : 'pointer' }}>Vollabgleich</button>
             </div>
           </div>
 
@@ -1734,9 +1736,15 @@ export default function Admin() {
               {phalanxPing && (
                 <div style={{ background: phalanxPing.ok ? '#f0fdf4' : '#fef2f2', border: `1px solid ${phalanxPing.ok ? '#bbf7d0' : '#fecaca'}`, borderRadius: 10, padding: '0.9rem', marginBottom: '1rem' }}>
                   <div style={{ fontSize: '0.82rem', fontWeight: 700, color: phalanxPing.ok ? '#166534' : '#b91c1c', marginBottom: 6 }}>{phalanxPing.ok ? 'Verbindung ok' : `Verbindung fehlgeschlagen: ${phalanxPing.error || ''}`}</div>
+                  {phalanxPing.gesamt != null && (
+                    <div style={{ fontSize: '0.78rem', color: C.text, fontWeight: 700 }}>Im Pool insgesamt: {phalanxPing.gesamt} Kontakte</div>
+                  )}
                   {(phalanxPing.segments || []).map(s => (
                     <div key={s.tag} style={{ fontSize: '0.78rem', color: C.text }}>{s.tag}: {s.reachable ? (s.total != null ? `${s.total} Kontakte` : 'erreichbar') : `nicht erreichbar (${s.error || ''})`}</div>
                   ))}
+                  {phalanxPing.hinweis && (
+                    <div style={{ fontSize: '0.78rem', color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '0.5rem 0.7rem', marginTop: 6 }}>{phalanxPing.hinweis}</div>
+                  )}
                 </div>
               )}
 

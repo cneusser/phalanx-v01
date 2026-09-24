@@ -1099,7 +1099,9 @@ router.get('/phalanx/ping', ...isAdmin, wrap(async (req, res) => {
 
 router.post('/phalanx/sync', ...isAdmin, wrap(async (req, res) => {
   if (!phalanxPool.isConfigured()) return res.status(503).json({ success: false, error: 'Phalanx OS ist nicht konfiguriert.' });
-  const stats = await phalanxPool.syncNow('manual');
+  // voll=true liest den ganzen Pool, nicht nur das seit dem letzten Lauf Geänderte.
+  const voll = req.body && (req.body.voll === true || req.body.voll === 'true');
+  const stats = await phalanxPool.syncNow(voll ? 'manual-voll' : 'manual', { voll });
   db.auditLog(req.user.id, 'PHALANX_SYNC_MANUAL', 'system', null, JSON.stringify(stats), req.ip);
   res.json({ success: true, data: stats });
 }));

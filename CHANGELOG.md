@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.406 · 24.09.2026 · Pool-Sync las nichts, obwohl die Verbindung stand
+- **Das falsche Feld gelesen.** Phalanx OS antwortet mit `{ total, limit, offset, items }`, die Anbindung suchte nur nach `data` und `contacts`. Ergebnis: jeder Lauf meldete „gelesen 0", während Token, Rechte und Segmente in Ordnung waren
+- **Neuer Knopf „Vollabgleich"** neben „Jetzt synchronisieren": liest den ganzen Pool statt nur das seit dem letzten erfolgreichen Lauf Geänderte. Nötig, weil ein Lauf, der aus anderem Grund nichts gelesen hat, den Zeitstempel trotzdem gesetzt hat und der Bestand damit dauerhaft außen vor geblieben wäre
+- **„Verbindung prüfen" misst jetzt zuerst ohne Filter.** Steht dort eine Zahl und bei jedem Segment eine Null, liegt es an den Segmentnamen, nicht an den Rechten. Genau das sagt die Prüfung jetzt im Klartext
+- **`PHALANX_SYNC_TAGS` erwartet Tag-Namen**, etwa „LI:Investor/Kapital", keine Nummern
+
 ## v0.405 · 24.09.2026 · Stammdaten sauber getrennt, Pflege ohne Anmeldung
 - **Aus einer Firmenart werden drei Angaben**: Sektor (Pflicht, wortgleich zu den acht Sektoren in Phalanx OS), Schwerpunkt (freiwillig, die Auswahl hängt am Sektor) und Rolle in der Transaktion (mehrfach möglich, etwa Stratege und Käufer). Ein Schwerpunkt, der nicht zum Sektor passt, wird abgelehnt statt stillschweigend gespeichert
 - **Bestandsdaten nach acht abgestimmten Regeln übernommen**, je Regel mit Anzahl im Migrationsbericht. Nichts wurde geraten, nichts gelöscht, nichts zusammengeführt. Die alte Firmenart bleibt als Feld erhalten, bis die Umstellung geprüft ist

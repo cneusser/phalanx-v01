@@ -139,6 +139,37 @@ const TAGS = ['LI:Investor/Kapital', 'LI:Unternehmer/GF', 'LI:Bank/Finanzierer',
   ok('Rückmeldung: Firma mit source_id', body.company && body.company.source_id === 'crmco-7' && body.company.name === 'Muster GmbH');
   ok('Rückmeldung: E-Mail übernommen', body.email === 't@p.de');
 
+  // ── Antwortformat des Pools (v0.406) ──────────────────────────────────────
+  // Phalanx OS antwortet mit { total, limit, offset, items }. Wurde dieses Feld
+  // nicht gelesen, meldete jeder Lauf „gelesen 0" bei tadelloser Verbindung.
+  ok('Antwort mit items wird gelesen', pool.zeilenAus({ total: 2, items: [{ id: 1 }, { id: 2 }] }).length === 2);
+  ok('ein nacktes Array wird gelesen', pool.zeilenAus([{ id: 1 }]).length === 1);
+  ok('data bleibt als Schreibweise zulässig', pool.zeilenAus({ data: [{ id: 1 }] }).length === 1);
+  ok('contacts bleibt als Schreibweise zulässig', pool.zeilenAus({ contacts: [{ id: 1 }] }).length === 1);
+  ok('eine leere Antwort ergibt eine leere Liste', pool.zeilenAus({ total: 0, items: [] }).length === 0);
+  ok('Unsinn ergibt eine leere Liste, keinen Absturz', pool.zeilenAus(null).length === 0 && pool.zeilenAus('nein').length === 0);
+  ok('total allein ist noch keine Liste', pool.zeilenAus({ total: 7 }).length === 0);
+
+  // Der Lauf über eine Seite im echten Antwortformat.
+  const gelesen = [];
+  const statsFormat = await pool.runSync({
+    tags: ['LI:Investor/Kapital'],
+    updatedSince: null,
+    client: {
+      getContacts: async ({ offset }) => (offset === 0
+        ? [{ id: 'p1', first_name: 'Anna', last_name: 'Berg' }]
+        : []),
+    },
+    store: {
+      findByPoolId: async () => null, findByEmail: async () => null,
+      findByLinkedin: async () => null, findByNameKey: async () => [],
+      create: async (f) => { gelesen.push(f); return 1; },
+      enrich: async () => {}, addReview: async () => {},
+    },
+  });
+  ok('ein Lauf im echten Antwortformat liest den Kontakt', statsFormat.read === 1);
+  ok('und legt ihn an', gelesen.length === 1);
+
   console.log(fail ? `\n${fail} Test(s) fehlgeschlagen` : '\nAlle Phalanx-Pool-Tests grün');
   process.exit(fail ? 1 : 0);
 })();

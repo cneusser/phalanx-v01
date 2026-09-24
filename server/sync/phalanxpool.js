@@ -270,6 +270,23 @@ async function getPoolToken() {
   return _token.access_token;
 }
 
+/**
+ * Die Kontaktliste aus der Antwort ziehen.
+ *
+ * Phalanx OS antwortet auf /api/pool/v1/contacts mit { total, limit, offset, items }.
+ * Genau dieses Feld fehlte hier bis v0.406, weshalb jeder Lauf null Kontakte
+ * gelesen hat, obwohl Verbindung und Rechte in Ordnung waren. Die anderen Namen
+ * bleiben stehen, damit ein anderer Pool die Anbindung nicht bricht.
+ */
+function zeilenAus(j) {
+  if (Array.isArray(j)) return j;
+  if (!j || typeof j !== 'object') return [];
+  for (const feld of ['items', 'data', 'contacts', 'rows', 'results']) {
+    if (Array.isArray(j[feld])) return j[feld];
+  }
+  return [];
+}
+
 function httpClient() {
   const c = config();
   const authed = async (path, opts = {}) => {
@@ -290,8 +307,7 @@ function httpClient() {
       const res = await authed(`/api/pool/v1/contacts?${qs.toString()}`);
       if (!res.ok) throw new Error(`Pool-Lesen fehlgeschlagen (${res.status})`);
       const j = await res.json();
-      // Antwort kann Array oder { data:[], total } sein
-      return Array.isArray(j) ? j : (j.data || j.contacts || []);
+      return zeilenAus(j);
     },
     async putContact(bodyObj) {
       const res = await authed('/api/pool/v1/contacts', {
@@ -308,10 +324,10 @@ function httpClient() {
     async probe(tag) {
       const res = await authed(`/api/pool/v1/contacts?limit=1${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`);
       if (!res.ok) throw new Error(`Ping fehlgeschlagen (${res.status})`);
-      const total = res.headers.get('x-total-count');
+      const kopf = res.headers.get('x-total-count');
       const j = await res.json().catch(() => ({}));
-      const arr = Array.isArray(j) ? j : (j.data || j.contacts || []);
-      return { ok: true, total: total != null ? Number(total) : (j.total != null ? Number(j.total) : null), sample: arr[0] || null };
+      const arr = zeilenAus(j);
+      return { ok: true, total: kopf != null ? Number(kopf) : (j.total != null ? Number(j.total) : null), sample: arr[0] || null };
     },
   };
 }
@@ -385,14 +401,18 @@ async function lastSuccessfulSyncIso() {
   return row && row.finished_at ? new Date(row.finished_at).toISOString() : null;
 }
 
-async function syncNow(trigger = 'manual') {
+async function syncNow(trigger = 'manual', { voll = false } = {}) {
   if (!isConfigured()) throw new Error('Phalanx OS ist nicht konfiguriert (ENV fehlt).');
   const c = config();
   const logId = await db.insert(
     `INSERT INTO phalanx_sync_log (tenant_id, trigger, status) VALUES (?, ?, 'running')`, [1, trigger]
   ).catch(() => null);
   try {
-    const updatedSince = await lastSuccessfulSyncIso();
+    // Nur Geändertes holen, sonst wird bei jedem Lauf der ganze Pool gelesen.
+    // Beim Vollabgleich bewusst ohne Schranke: Nach einem Lauf, der aus einem
+    // anderen Grund nichts gelesen hat, wäre der Bestand sonst für immer außen
+    // vor, weil der Zeitstempel trotzdem gesetzt wurde.
+    const updatedSince = voll ? null : await lastSuccessfulSyncIso();
     const stats = await runSync({ client: httpClient(), store: dbStore(), tags: c.tags, updatedSince });
     if (logId) await db.run(
       `UPDATE phalanx_sync_log SET status='ok', read_count=?, new_count=?, enriched_count=?, ambiguous_count=?, error_count=?, finished_at=now() WHERE id=?`,
@@ -495,11 +515,20 @@ async function ping() {
   const perSegment = [];
   try {
     await getPoolToken(); // erzwingt Token-Abruf
+    // Erst ohne Filter messen. Steht hier eine Zahl und bei jedem Segment eine
+    // Null, dann stimmen nicht die Rechte, sondern die Segmentnamen nicht.
+    let gesamt = null;
+    try { const r = await client.probe(null); gesamt = r.total; }
+    catch { gesamt = null; }
     for (const tag of c.tags) {
       try { const r = await client.probe(tag); perSegment.push({ tag, total: r.total, reachable: true }); }
       catch (e) { perSegment.push({ tag, total: null, reachable: false, error: e.message }); }
     }
-    return { ok: true, segments: perSegment };
+    const treffer = perSegment.reduce((n, s) => n + (Number(s.total) || 0), 0);
+    const hinweis = (gesamt && !treffer)
+      ? `Der Pool enthält ${gesamt} Kontakte, aber keiner trägt eines der konfigurierten Segmente. Bitte PHALANX_SYNC_TAGS prüfen: erwartet werden Tag-Namen wie „LI:Investor/Kapital", nicht Nummern.`
+      : null;
+    return { ok: true, gesamt, segments: perSegment, hinweis };
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -534,7 +563,7 @@ module.exports = {
   // Produktion
   startScheduler, syncNow, drainOutbox, enqueueWriteback, status, ping, discovery, getPoolToken, config, isConfigured,
   // Kern (für Tests und Wiederverwendung)
-  runSync, reconcileOne, buildCreateFields, buildEnrichPatch, buildWritebackBody,
+  runSync, reconcileOne, buildCreateFields, buildEnrichPatch, buildWritebackBody, zeilenAus,
   segmentBuyerType, segmentShort, prioFromTags, pickEmails, linkedinUrl, reviewEntry,
   DEFAULT_TAGS,
 };
