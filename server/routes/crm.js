@@ -556,9 +556,15 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
                      ELSE nr.status END
               FROM nda_requests nr
              WHERE nr.project_id = dp.project_id AND nr.user_id = ?
-             ORDER BY nr.id DESC LIMIT 1) AS nda_online
+             ORDER BY nr.id DESC LIMIT 1) AS nda_online,
+           -- v0.402: Die echte Freigabe steht in der Interessenten-Akte, nicht im
+           -- CRM-Kennzeichen. Ohne sie hier war nicht zu erkennen, ob jemand
+           -- tatsaechlich in den Datenraum kommt.
+           (SELECT i.stage FROM interests i
+             WHERE i.project_id = dp.project_id AND i.buyer_id = ?
+             LIMIT 1) AS interest_stage
     FROM crm_deal_parties dp JOIN projects p ON p.id = dp.project_id
-    WHERE dp.contact_id = ? ORDER BY dp.funnel_stage DESC`, [contact.user_id || 0, req.params.id])).catch(() => []);
+    WHERE dp.contact_id = ? ORDER BY dp.funnel_stage DESC`, [contact.user_id || 0, contact.user_id || 0, req.params.id])).catch(() => []);
 
   // Aktivitäten-Timeline: Einladungen, Mailings, Reminder, Pflege-Links, Selbstpflege
   const activity = await contactActivity(req, req.params.id, contact);

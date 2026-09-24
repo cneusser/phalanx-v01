@@ -813,16 +813,51 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show, ini
                           )}
                         </div>
                         <div>
-                          <div style={LBL}>Zugang-Kennzeichen (CRM)</div>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: '0.8rem', color: C.text, cursor: 'pointer' }}>
+                          <div style={LBL}>Eigener Vermerk (nur Notiz)</div>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: '0.8rem', color: C.text, cursor: 'pointer' }}
+                            title="Reine Notiz für Ihre Übersicht. Dieses Häkchen öffnet keinen Datenraum.">
                             <input type="checkbox" checked={d.access_granted === 1} onChange={e => setPartyField(d.party_id, { access_granted: e.target.checked })} />
-                            {d.access_granted === 1 ? 'freigegeben' : 'kein Zugang'}
+                            {d.access_granted === 1 ? 'als freigegeben notiert' : 'nicht notiert'}
                           </label>
+                          <div style={{ fontSize: '0.66rem', color: C.muted, marginTop: 2 }}>Öffnet nichts, dient nur Ihrer Übersicht.</div>
                         </div>
                       </div>
                       {/* Echte Datenraum-Freigabe (Recht auf dem Server, nicht nur Anzeige) */}
                       <div style={{ marginTop: '0.6rem', padding: '0.6rem', background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
                         <div style={{ ...LBL, marginBottom: 4 }}>Datenraum-Zugang (echte Freigabe)</div>
+                        {/* v0.402: Drei Dinge müssen zusammenkommen, damit jemand wirklich
+                            hineinkommt. Vorher stand an drei Stellen „freigegeben", ohne dass
+                            erkennbar war, welche davon zählt. */}
+                        {(() => {
+                          const schritte = [
+                            { name: 'NDA unterschrieben', erfuellt: d.nda_online === 'signed' || d.nda_status === 'signed',
+                              fehlt: 'Der NDA liegt noch nicht unterschrieben vor.' },
+                            { name: 'Nutzerkonto vorhanden', erfuellt: !!(data.account && data.account.id),
+                              fehlt: data.email
+                                ? `Unter ${data.email} gibt es kein Konto. Bitte zur Plattform einladen.`
+                                : 'Am Kontakt ist keine E-Mail hinterlegt, deshalb lässt sich kein Konto finden.' },
+                            { name: 'Datenraum freigegeben', erfuellt: d.interest_stage === 'dataroom_granted' || d.interest_stage === 'loi',
+                              fehlt: 'Die Freigabe fehlt noch. Knopf unten.' },
+                          ];
+                          const offen = schritte.find((x) => !x.erfuellt);
+                          return (
+                            <div style={{ marginBottom: 7 }}>
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                                {schritte.map((x, i) => (
+                                  <span key={x.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', fontWeight: 600,
+                                    color: x.erfuellt ? '#065f46' : '#92400e', background: x.erfuellt ? '#ECFDF5' : '#FFFBEB',
+                                    border: `1px solid ${x.erfuellt ? '#a7f3d0' : '#fcd34d'}`, borderRadius: 20, padding: '2px 9px' }}>
+                                    {x.erfuellt ? '✓' : '○'} {x.name}
+                                    {i < schritte.length - 1 && <span style={{ color: C.muted, marginLeft: 4 }}>›</span>}
+                                  </span>
+                                ))}
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: offen ? '#92400e' : '#065f46', marginTop: 5 }}>
+                                {offen ? offen.fehlt : 'Alles erfüllt: Diese Person kommt in den Datenraum.'}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                           <button onClick={() => grantDataroom(d.project_id, true)} title="Diesem Kontakt echten Datenraum-Zugang geben (Lesen, Download, Q&A) und ihn per E-Mail informieren"
                             style={{ ...btn(false), color: '#065f46', borderColor: '#6ee7b7' }}>
@@ -833,7 +868,7 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show, ini
                             <ShieldOff size={13} /> Zugang entziehen
                           </button>
                         </div>
-                        {!data.account?.id && <div style={{ fontSize: '0.68rem', color: '#92400e', marginTop: 5 }}>Kein Nutzerkonto verknüpft, bitte zuerst zur Plattform einladen.</div>}
+
                       </div>
                       {/* Namensnennung (Demasking): Klarname bewusst freigeben */}
                       <div style={{ marginTop: '0.6rem' }}>
