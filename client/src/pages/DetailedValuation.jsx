@@ -3,7 +3,7 @@ import { api, getToken } from '../api/client';
 import { VALUATION_INDUSTRIES as INDUSTRIES } from '../constants/valuationIndustries';
 import { FileText, Plus, Download, ChevronLeft, ChevronRight, CheckCircle, AlertTriangle } from 'lucide-react';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.6rem 0.75rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' };
 const LABEL = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' };
 const eur = (n) => (Math.round(Number(n) || 0)).toLocaleString('de-DE') + ' €';

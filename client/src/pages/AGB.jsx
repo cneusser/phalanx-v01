@@ -4,7 +4,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', border: '#E2E8F0', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', border: '#E2E8F0', muted: '#64748B' };
 
 const S = ({ n, title, children }) => (
   <section style={{ marginBottom: '1.9rem' }}>

@@ -5,7 +5,7 @@ import ContactDrawer from './ContactDrawer';
 import TemplateSendModal from './TemplateSendModal';
 import LeadIngestModal from './LeadIngestModal';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const SELECT = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
 
 const ROLE_LABEL = { buyer: 'Käufer', advisor: 'Berater', seller: 'Verkäufer', process: 'Prozessbeteiligter', bank: 'Bank', lawyer: 'Anwalt', target: 'Ziel', other: 'Sonstige' };

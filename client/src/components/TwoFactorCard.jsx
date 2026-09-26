@@ -9,7 +9,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
 import { Shield, ShieldCheck, Copy, Check } from 'lucide-react';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', bg: '#F8FAFC', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 
 export default function TwoFactorCard() {
   const [status, setStatus] = useState(null);

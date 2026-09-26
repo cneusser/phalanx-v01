@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import React from 'react';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', border: '#E2E8F0', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', border: '#E2E8F0', muted: '#64748B' };
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {

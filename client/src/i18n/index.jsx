@@ -66,6 +66,14 @@ const EN = {
   'common.loading': 'Loading…',
   'common.save': 'Save',
   'common.cancel': 'Cancel',
+  'common.and': 'and the',
+
+  // Cookie-Hinweis
+  'cookie.title': 'We do not track you',
+  'cookie.text': 'CapitalMatch sets no analytics, advertising or tracking cookies. We store only what is needed to run the service: your login and your language setting, locally in your browser. Details are in the',
+  'cookie.policy': 'cookie policy',
+  'cookie.privacy': 'privacy notice',
+  'cookie.ok': 'Understood',
   'common.close': 'Close',
   'common.send': 'Send',
   'common.delete': 'Delete',
@@ -114,6 +122,63 @@ const EN = {
 
   // Dashboard
   'dashboard.title': 'My area',
+
+
+  // Navigation, ergänzt v0.411
+  'nav.succession': 'Succession',
+  'nav.succession_profile': 'Succession profile',
+
+  // Anmelden
+  'auth.claim': 'Exclusive mandate platform · a brand of Phalanx GmbH',
+  'auth.resend_verification': 'Send the confirmation email again',
+  'auth.twofactor_hint': 'Your account is protected by two-factor authentication. Please enter the six-digit code from your authenticator app, or one of your backup codes.',
+  'auth.code': 'Code',
+  'auth.checking': 'Checking…',
+  'auth.confirm': 'Confirm',
+  'auth.sso_failed': 'Signing in via Phalanx OS did not work',
+  'auth.sso_fallback': 'Please sign in with your email address and password.',
+  'auth.sso_button': 'Sign in with Phalanx OS',
+  'auth.sso_note': 'For staff of Phalanx GmbH',
+  'auth.register_now': 'Register now',
+
+  // Registrierung
+  'reg.title': 'Free registration: access to selected mandates',
+  'reg.verify_title': 'Please confirm your email address',
+  'reg.verify_sent_to': 'Confirmation email sent to:',
+  'reg.to_login': 'To the login',
+  'reg.role_buyer': 'I am looking (buyer)',
+  'reg.role_seller': 'I am selling (seller)',
+  'reg.salutation': 'Form of address *',
+  'reg.password': 'Password *',
+  'reg.segment_q': 'What describes you best?',
+  'reg.succession_interest': 'Your interest in succession',
+  'reg.succ_with_equity': 'Succession with an equity stake',
+  'reg.succ_without_equity': 'Succession without a stake (operational leadership)',
+  'reg.buyer_type': 'Type of buyer',
+  'reg.as_seller': 'As a seller',
+  'reg.mobile_note': 'Required: the basis for two-factor authentication later on.',
+  'reg.privacy_link': 'privacy notice',
+  'reg.accept_privacy': 'Please accept the privacy notice.',
+  'reg.submit': 'Register free of charge',
+  'reg.submitting': 'Registering…',
+  'reg.seg_successor': 'Interested in succession',
+  'reg.seg_professional': 'Professional buyer',
+  'reg.seg_successor_note': 'MBI or MBO, I would like to take over a company',
+  'reg.seg_professional_note': 'Strategic buyer, investor, family office, adviser',
+  'reg.company_selling': 'Company (for sale)',
+  'reg.network_note': 'As someone interested in succession you are part of our succession network, free of charge, with matching and events.',
+
+  // Käufertypen
+  'buyer.strategic': 'Strategic buyer',
+  'buyer.financial': 'Financial investor / private equity',
+  'buyer.angel': 'Business angel',
+  'buyer.vc': 'Venture capital',
+  'buyer.family_office': 'Family office',
+  'buyer.advisor': 'M&A adviser with a search mandate',
+
+  // Allgemein
+  'common.cancel': 'Cancel',
+  'common.choose': 'Please choose…',
 
   // Footer
   'footer.imprint': 'Imprint',

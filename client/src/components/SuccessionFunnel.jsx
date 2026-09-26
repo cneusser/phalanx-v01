@@ -3,7 +3,7 @@ import { api } from '../api/client';
 import { StickyNote, Check, X, Link2 } from 'lucide-react';
 import SuccessionLinksModal from './SuccessionLinksModal';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const STAGE_LABEL = {
   neu: 'Neu', profil: 'Profil vollständig', vorgestellt: 'Mandat vorgestellt',
   gespraech: 'Im Gespräch', vermittelt: 'Vermittelt', kein_match: 'Kein Match',
@@ -13,7 +13,7 @@ const STAGE_COLOR = {
   gespraech: '#d97706', vermittelt: '#166534', kein_match: '#991b1b',
 };
 const ORDER = ['neu', 'profil', 'vorgestellt', 'gespraech', 'vermittelt', 'kein_match'];
-const sel = { padding: '0.5rem', border: '1px solid #DDE8F3', borderRadius: 6, fontSize: '0.82rem', background: '#fff' };
+const sel = { padding: '0.5rem', border: '1px solid #d8dde1', borderRadius: 6, fontSize: '0.82rem', background: '#fff' };
 
 // Nachfolge-Funnel im CRM als Kanban: Kandidaten per Drag-and-drop durch die
 // Stufen führen, mit interner Notiz je Karte.

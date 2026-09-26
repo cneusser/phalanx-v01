@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { CheckCircle, XCircle, MailWarning } from 'lucide-react';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', muted: '#64748B' };
 
 export default function VerifyEmail() {
   const [state, setState] = useState('loading'); // loading | ok | expired | error

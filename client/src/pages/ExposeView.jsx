@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
 import { ChevronLeft, Download, Lock } from 'lucide-react';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const eur = (n) => (Math.round(Number(n) || 0)).toLocaleString('de-DE') + ' €';
 const authHeaders = () => ({ Authorization: `Bearer ${getToken()}` });
 const KF = [['country', 'Land'], ['region', 'Region'], ['industries', 'Branche(n)'], ['founding_year', 'Gründungsjahr'], ['legal_form', 'Rechtsform'], ['employees', 'Mitarbeiter'], ['locations', 'Standorte'], ['revenue_band', 'Umsatzband'], ['ebit_band', 'Operatives Ergebnis'], ['gf_availability', 'GF-Verfügbarkeit'], ['stake_offered', 'Abzugebender Anteil'], ['participation_type', 'Beteiligungsart'], ['price_band', 'Preisvorstellung'], ['purchase_modalities', 'Kaufpreismodalitäten']];

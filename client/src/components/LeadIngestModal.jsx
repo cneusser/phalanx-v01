@@ -3,7 +3,7 @@ import { api } from '../api/client';
 import { Inbox, X, AlertCircle, UserCheck } from 'lucide-react';
 import { ladeVokabular, KAEUFERTYPEN_FALLBACK, LAENDER_FALLBACK } from '../constants/vokabular';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', border: '#E2E8F0', text: '#0F172A', muted: '#64748B', bg: '#F8FAFC' };
+const C = { navy: '#111820', accent: '#1D4E89', border: '#E2E8F0', text: '#0F172A', muted: '#64748B', bg: '#F8FAFC' };
 const IN = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', boxSizing: 'border-box' };
 const LBL = { fontSize: '0.68rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 3 };
 

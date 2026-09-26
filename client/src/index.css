@@ -15,6 +15,29 @@ html, body, #root {
 
 body { font-family: Arial, Helvetica, sans-serif; }
 
+/* ─────────────────────────────────────────────────────────────
+   Typografie der Marke, ab v0.411 für die ganze Plattform.
+
+   Georgia für Überschriften, Arial für Bedienung und Fließtext, wie auf
+   phalanx.de. Beide sind auf jedem System vorhanden, es wird nichts von
+   einem fremden Server nachgeladen. Genau deshalb dürfen wir "Server in
+   der Europäischen Union" überhaupt schreiben.
+
+   Die Regel greift über alle Seiten, auch über die, die ihre Größen noch
+   selbst setzen: Nur Schriftart, Schriftschnitt und Laufweite werden
+   vorgegeben, Größen bleiben unberührt.
+   ───────────────────────────────────────────────────────────── */
+h1, h2, h3 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+/* Formulare und Bedienelemente bleiben serifenlos, dort zählt Lesbarkeit
+   in kleinen Größen mehr als Haltung. */
+button, input, select, textarea, label, th { font-family: Arial, Helvetica, sans-serif; }
+
+
 img, svg, video { max-width: 100%; height: auto; }
 
 /* Tabellen bekommen bei Bedarf horizontales Scrollen statt die Seite zu sprengen */

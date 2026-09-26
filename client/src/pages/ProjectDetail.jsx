@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 const C = {
-  navy:   '#0D1B36',
+  navy:   '#111820',
   accent: '#1D4E89',
   steel:  '#8AB4D4',
   bg:     '#F8FAFC',
@@ -758,7 +758,7 @@ export default function ProjectDetail() {
             <p style={{ color: C.muted, fontSize: '0.83rem' }}>Noch keine Fragen gestellt.</p>
           ) : questions.map(q => (
             <div key={q.id} style={{
-              background: q.is_public === 1 && !q.is_mine ? '#F4F8FC' : C.bg,
+              background: q.is_public === 1 && !q.is_mine ? '#f4f6f7' : C.bg,
               border: `1px solid ${q.is_public === 1 && !q.is_mine ? '#bfdbfe' : C.border}`,
               borderRadius: 6, padding: '0.9rem 1rem', marginBottom: '0.75rem',
             }}>

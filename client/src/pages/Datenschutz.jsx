@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const C = { navy: '#1A4D8A', steel: '#29ABE2', bg: '#EBF7FC' };
+const C = { navy: '#174a6a', steel: '#174a6a', bg: '#f7f5f0' };
 
 const Section = ({ title, children }) => (
   <div style={{ marginBottom: '2rem' }}>

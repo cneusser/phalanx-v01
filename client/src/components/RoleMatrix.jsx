@@ -10,7 +10,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
 import { Check, Minus, Save, Plus, Trash2, Lock } from 'lucide-react';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 
 // Rechte nach Bereich gruppieren: sonst ist die Matrix eine Bleiwüste
 const GROUP_OF = (key) => key.split('.')[0];

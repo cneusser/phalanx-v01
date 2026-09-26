@@ -28,7 +28,7 @@ export default function SsoCallback() {
         {error ? (
           <>
             <p style={{ marginBottom: '0.8rem' }}>{error}</p>
-            <a href="/login" style={{ color: '#1A4D8A', fontWeight: 700 }}>Zur Anmeldung</a>
+            <a href="/login" style={{ color: '#174a6a', fontWeight: 700 }}>Zur Anmeldung</a>
           </>
         ) : (
           <p>Anmeldung wird abgeschlossen…</p>

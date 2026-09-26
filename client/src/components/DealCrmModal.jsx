@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { X } from 'lucide-react';
 
-const C = { navy: '#0D1B36', border: '#E2E8F0', bg: '#F8FAFC', muted: '#64748B', text: '#0F172A' };
+const C = { navy: '#111820', border: '#E2E8F0', bg: '#F8FAFC', muted: '#64748B', text: '#0F172A' };
 const INPUT = { padding: '0.45rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.8rem', outline: 'none', boxSizing: 'border-box' };
 
 export const DEAL_STATUS_LABELS = {

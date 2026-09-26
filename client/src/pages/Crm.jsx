@@ -10,7 +10,7 @@ import ImportListModal from '../components/ImportListModal';
 import InviteContactsModal from '../components/InviteContactsModal';
 import SuccessionFunnel from '../components/SuccessionFunnel';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.55rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
 const LABEL = { display: 'block', fontSize: '0.72rem', fontWeight: 600, color: C.muted, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.03em' };
 

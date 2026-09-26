@@ -7,10 +7,10 @@ import CapitalMatchLogo from '../components/CapitalMatchLogo';
 import Turnstile from '../components/Turnstile';
 
 const C = {
-  navy:    '#1A4D8A',
-  steel:   '#29ABE2',
-  lightBg: '#EBF7FC',
-  xLight:  '#F3F8FC',
+  navy:    '#174a6a',
+  steel:   '#174a6a',
+  lightBg: '#f7f5f0',
+  xLight:  '#f4f6f7',
   gray:    '#64748B',
   border:  '#C8E4F4',
 };
@@ -88,7 +88,7 @@ export default function Login() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: `linear-gradient(135deg, #EBF7FC 0%, #F3F8FC 100%)`,
+      background: `linear-gradient(135deg, #f7f5f0 0%, #f4f6f7 100%)`,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -109,7 +109,7 @@ export default function Login() {
             <CapitalMatchLogo textSize={36} white={false} showClaim={false} />
           </div>
           <p style={{ color: C.gray, fontSize: '0.82rem', marginTop: '0.5rem', letterSpacing: '0.02em' }}>
-            Exklusive Mandatsplattform · eine Marke der Phalanx GmbH
+            {t('auth.claim', 'Exklusive Mandatsplattform · eine Marke der Phalanx GmbH')}
           </p>
         </div>
 
@@ -127,7 +127,7 @@ export default function Login() {
             {error}
             {unverified && (
               <div style={{ marginTop: '0.6rem' }}>
-                <button type="button" onClick={resend} style={{ background: 'none', border: 'none', color: '#1A4D8A', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontSize: '0.83rem' }}>Bestätigungs-E-Mail erneut senden</button>
+                <button type="button" onClick={resend} style={{ background: 'none', border: 'none', color: '#174a6a', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontSize: '0.83rem' }}>{t('auth.resend_verification', 'Bestätigungs-E-Mail erneut senden')}</button>
                 {resendMsg && <div style={{ marginTop: '0.4rem', color: '#065f46', fontSize: '0.8rem' }}>{resendMsg}</div>}
               </div>
             )}
@@ -139,11 +139,10 @@ export default function Login() {
         {challenge ? (
           <form onSubmit={submitCode}>
             <div style={{ background: '#EDF4FA', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.8rem 1rem', marginBottom: '1rem', fontSize: '0.83rem', color: '#475569', lineHeight: 1.55 }}>
-              Ihr Konto ist mit <strong>Zwei-Faktor-Authentifizierung</strong> geschützt. Bitte geben Sie den
-              6-stelligen Code aus Ihrer Authenticator-App ein, oder einen Ihrer Backup-Codes.
+              {t('auth.twofactor_hint', 'Ihr Konto ist mit Zwei-Faktor-Authentifizierung geschützt. Bitte geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein, oder einen Ihrer Backup-Codes.')}
             </div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0D1B36', marginBottom: 4 }}>
-              Code
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#111820', marginBottom: 4 }}>
+              {t('auth.code', 'Code')}
             </label>
             <input
               value={code}
@@ -152,19 +151,19 @@ export default function Login() {
               inputMode="numeric"
               autoComplete="one-time-code"
               placeholder="123456"
-              style={{ width: '100%', padding: '0.75rem 0.9rem', border: '1px solid #DDE8F3', borderRadius: 8, fontSize: '1.1rem', letterSpacing: '0.25em', textAlign: 'center', outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace' }}
+              style={{ width: '100%', padding: '0.75rem 0.9rem', border: '1px solid #d8dde1', borderRadius: 8, fontSize: '1.1rem', letterSpacing: '0.25em', textAlign: 'center', outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace' }}
             />
             <button type="submit" disabled={loading || code.trim().length < 6} style={{
-              width: '100%', marginTop: '1rem', padding: '0.8rem', background: loading || code.trim().length < 6 ? '#cbd5e1' : '#1A4D8A',
+              width: '100%', marginTop: '1rem', padding: '0.8rem', background: loading || code.trim().length < 6 ? '#cbd5e1' : '#174a6a',
               color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
             }}>
-              {loading ? 'Prüfe…' : 'Bestätigen'}
+              {loading ? t('auth.checking', 'Prüfe…') : t('auth.confirm', 'Bestätigen')}
             </button>
             <button type="button" onClick={() => { setChallenge(null); setCode(''); setError(''); }} style={{
               width: '100%', marginTop: '0.6rem', padding: '0.6rem', background: 'none', border: 'none',
               color: '#64748B', fontSize: '0.82rem', cursor: 'pointer',
             }}>
-              Abbrechen
+              {t('common.cancel', 'Abbrechen')}
             </button>
           </form>
         ) : (
@@ -253,7 +252,7 @@ export default function Login() {
             </div>
             {ssoError && (
               <div style={{ background: '#fef2f2', color: '#991b1b', borderRadius: 8, padding: '0.55rem 0.8rem', fontSize: '0.8rem', marginBottom: '0.7rem' }}>
-                Anmeldung über Phalanx OS nicht möglich ({ssoError}). Bitte melden Sie sich mit E-Mail und Passwort an.
+                {t('auth.sso_failed', 'Anmeldung über Phalanx OS nicht möglich')} ({ssoError}). {t('auth.sso_fallback', 'Bitte melden Sie sich mit E-Mail und Passwort an.')}
               </div>
             )}
             <a href="/api/auth/phalanx/start" style={{
@@ -262,17 +261,17 @@ export default function Login() {
               border: `1.5px solid ${C.navy}`, padding: '0.8rem', borderRadius: 8, fontWeight: 700,
               fontSize: '0.9rem', textDecoration: 'none',
             }}>
-              Mit Phalanx OS anmelden
+              {t('auth.sso_button', 'Mit Phalanx OS anmelden')}
             </a>
             <div style={{ textAlign: 'center', marginTop: '0.5rem', fontSize: '0.72rem', color: C.gray }}>
-              Für Mitarbeitende der Phalanx GmbH
+              {t('auth.sso_note', 'Für Mitarbeitende der Phalanx GmbH')}
             </div>
           </div>
         )}
 
         <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.85rem', color: C.gray }}>
           {t('auth.no_account', 'Noch kein Konto?')}{' '}
-          <Link to="/registrieren" style={{ color: C.navy, fontWeight: 700 }}>Jetzt registrieren</Link>
+          <Link to="/registrieren" style={{ color: C.navy, fontWeight: 700 }}>{t('auth.register_now', 'Jetzt registrieren')}</Link>
         </div>
       </div>
     </div>

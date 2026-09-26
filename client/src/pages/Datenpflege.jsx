@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { ListChecks, Mail, Send, RefreshCw, Users, AlertCircle, CheckCircle, Eye, Megaphone, Languages, Wand2 } from 'lucide-react';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', muted: '#64748B' };
 const INPUT = { padding: '0.5rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', outline: 'none', background: '#fff' };
 const KNOPF = { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 0.9rem', fontSize: '0.83rem', fontWeight: 700, cursor: 'pointer' };
 const KNOPF_HELL = { ...KNOPF, background: '#fff', color: C.navy, border: `1.5px solid ${C.border}` };

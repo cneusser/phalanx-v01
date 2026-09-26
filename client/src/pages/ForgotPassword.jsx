@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
 
 const C = {
-  navy:    '#1A4D8A',
-  steel:   '#29ABE2',
-  xLight:  '#F3F8FC',
+  navy:    '#174a6a',
+  steel:   '#174a6a',
+  xLight:  '#f4f6f7',
   gray:    '#64748B',
   border:  '#C8E4F4',
 };
@@ -37,7 +37,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: `linear-gradient(135deg, #EBF7FC 0%, #F3F8FC 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem' }}>
+    <div style={{ minHeight: '100vh', background: `linear-gradient(135deg, #f7f5f0 0%, #f4f6f7 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem' }}>
       <div style={{ background: '#fff', borderRadius: 16, padding: '2.5rem', boxShadow: '0 4px 32px rgba(26,77,138,0.10)', width: '100%', maxWidth: 420, border: `1px solid ${C.border}` }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>

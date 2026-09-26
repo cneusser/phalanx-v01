@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
 import { X, Search } from 'lucide-react';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 
 const TYPE_LABEL = {
   invite: 'Einladung (DSGVO)',
@@ -120,7 +120,7 @@ export default function MailOutbox({ show }) {
               </div>
               <button onClick={() => setOpen(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={20} /></button>
             </div>
-            <div style={{ flex: 1, overflow: 'auto', background: '#F4F8FC', padding: '1rem' }}>
+            <div style={{ flex: 1, overflow: 'auto', background: '#f4f6f7', padding: '1rem' }}>
               <iframe
                 title="Mail-Original"
                 srcDoc={open.body_html || '<p>Kein Inhalt protokolliert.</p>'}

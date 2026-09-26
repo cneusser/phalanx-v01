@@ -47,7 +47,7 @@ import AGB from './pages/AGB';
 import CookieNotice from './components/CookieNotice';
 import NotFound from './pages/NotFound';
 
-const C = { navy: '#1A4D8A', steel: '#29ABE2', lightBg: '#EBF7FC' };
+const C = { navy: '#174a6a', steel: '#174a6a', lightBg: '#f7f5f0' };
 
 // Seiten, die Kopf und Fuss selbst mitbringen. Die Startseite hat seit v0.409
 // eine eigene Kopfzeile in der Phalanx-Bildsprache; die globale Navigation
@@ -57,7 +57,7 @@ const NO_NAVBAR_PATHS = ['/'];
 
 function ProtectedRoute({ children, adminOnly = false, sellerOk = false }) {
   const { user, loading } = useAuth();
-  if (loading) return <div style={{ padding: '3rem', textAlign: 'center', color: '#878787' }}>Laden...</div>;
+  if (loading) return <div style={{ padding: '3rem', textAlign: 'center', color: '#5d6670' }}>Laden...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (adminOnly && !['super_admin', 'advisor'].includes(user.role)) return <Navigate to="/dashboard" replace />;
   return children;
@@ -69,7 +69,7 @@ function Footer() {
   if (NO_FOOTER_PATHS.includes(location.pathname)) return null;
 
   return (
-    <footer style={{ background: '#0B1F3D', color: 'rgba(255,255,255,0.55)', padding: '1.75rem 1.5rem', marginTop: 'auto' }}>
+    <footer style={{ background: '#101f2b', color: 'rgba(255,255,255,0.55)', padding: '1.75rem 1.5rem', marginTop: 'auto' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <CapitalMatchLogo textSize={15} white={true} compact={true} />
         <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.78rem' }}>

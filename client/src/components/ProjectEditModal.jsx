@@ -5,7 +5,7 @@ import { X, Upload } from 'lucide-react';
 import GroupedSelect from './GroupedSelect';
 import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES, REVENUE_CLASSES } from '../constants/projectOptions';
 
-const C = { navy: '#0D1B36', border: '#E2E8F0', bg: '#F8FAFC', muted: '#64748B', text: '#0F172A' };
+const C = { navy: '#111820', border: '#E2E8F0', bg: '#F8FAFC', muted: '#64748B', text: '#0F172A' };
 const INPUT = { width: '100%', padding: '0.55rem 0.75rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' };
 const LABEL = { display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#333', marginBottom: '0.3rem' };
 

@@ -3,6 +3,13 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.411 · 26.09.2026 · Eine Palette, eine Schrift, zwei Sprachen
+- **Die ganze Plattform steht auf der Phalanx-Palette.** 188 Farbwerte in 58 Dateien umgestellt. Das Neon-Hellblau, der stärkste Grund für den Baukasten-Eindruck, kommt nur noch im Logo vor, dort gehört es hin
+- **Überschriften in Georgia, Bedienelemente in Arial**, über alle Seiten hinweg. Beide Schriften sind auf jedem System vorhanden, es wird nichts nachgeladen. Genau deshalb dürfen wir „Server in der Europäischen Union" schreiben
+- **Startseite, Anmelden und Registrieren sind vollständig zweisprachig.** Auf Englisch steht kein deutsches Wort mehr, mit einem englischen Browser geprüft. Auch der Cookie-Hinweis
+- **Die Texte der Startseite stehen in einer Datei**, deutsch und englisch nebeneinander. Wer die eine Fassung ändert, sieht die andere daneben, und genau deshalb driften sie nicht auseinander
+- **Register hatte `t()` benutzt, ohne es einzubinden.** Das wäre ein Absturz der Seite gewesen, kein Schönheitsfehler. Eine neue Prüfung findet solche Fälle künftig vor dem Deploy
+
 ## v0.410 · 26.09.2026 · Zweisprachig, und ehrlich darüber
 Auf dem Marktplatz standen deutsche und englische Teaser nebeneinander. Eine Sprachumschaltung allein löst das nicht: Was es nur einmal gibt, lässt sich nicht umschalten.
 

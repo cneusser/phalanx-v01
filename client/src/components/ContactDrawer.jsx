@@ -12,7 +12,7 @@ import { X, Mail, Send, ShieldCheck, ShieldOff, Star, Save, ExternalLink, FileTe
 import TemplateSendModal from './TemplateSendModal';
 import { useAuth } from '../context/AuthContext';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
 const IN = { width: '100%', padding: '0.45rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.82rem', outline: 'none', background: '#fff', boxSizing: 'border-box' };
 const LBL = { fontSize: '0.68rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.03em' };
 
@@ -910,7 +910,7 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show, ini
                         const out = m.direction === 'out';
                         return (
                           <div key={m.id} style={{ display: 'flex', justifyContent: out ? 'flex-end' : 'flex-start' }}>
-                            <div style={{ maxWidth: '82%', background: out ? '#0D1B36' : '#fff', color: out ? '#fff' : C.text, border: `1px solid ${out ? '#0D1B36' : C.border}`, borderRadius: 10, padding: '0.55rem 0.7rem' }}>
+                            <div style={{ maxWidth: '82%', background: out ? '#111820' : '#fff', color: out ? '#fff' : C.text, border: `1px solid ${out ? '#111820' : C.border}`, borderRadius: 10, padding: '0.55rem 0.7rem' }}>
                               <div style={{ fontSize: '0.66rem', opacity: 0.8, marginBottom: 2 }}>
                                 {out ? 'Gesendet' : 'Eingegangen'}{m.codename ? ` · ${m.codename}` : ''} · {fmt(m.sent_at || m.created_at)}
                               </div>

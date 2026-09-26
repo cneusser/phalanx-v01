@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { Users, Calendar, Building2, ShieldCheck, ArrowRight, CheckCircle } from 'lucide-react';
 
 const C = {
-  navy: '#1A4D8A', accent: '#29ABE2', heroBg: '#0C2C5F',
-  bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B',
+  navy: '#174a6a', accent: '#174a6a', heroBg: '#0f1c28',
+  bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B',
 };
 
 const Pillar = ({ icon: Icon, title, text }) => (
@@ -43,7 +43,7 @@ export default function Nachfolge() {
             CapitalMatch bringt Menschen mit unternehmerischem Anspruch und Übergeber zusammen, die einen Nachfolger suchen. Auf der Plattform, bei Matching-Events und im persönlichen Austausch. Für Nachfolge-Interessierte kostenfrei.
           </p>
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link to="/registrieren" style={{ background: C.accent, color: '#0C2C5F', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+            <Link to="/registrieren" style={{ background: C.accent, color: '#0f1c28', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
               Kostenfrei registrieren <ArrowRight size={16} />
             </Link>
             <Link to="/kontakt" style={{ border: '1px solid rgba(255,255,255,0.4)', color: '#fff', fontWeight: 600, padding: '0.75rem 1.5rem', borderRadius: 8, textDecoration: 'none' }}>
@@ -115,7 +115,7 @@ export default function Nachfolge() {
           <p style={{ fontSize: '0.98rem', color: 'rgba(255,255,255,0.85)', lineHeight: 1.6, margin: '0 0 1.5rem' }}>
             Die Registrierung dauert zwei Minuten. Danach kümmern wir uns um die passenden Vorschläge.
           </p>
-          <Link to="/registrieren" style={{ background: C.accent, color: '#0C2C5F', fontWeight: 700, padding: '0.8rem 1.8rem', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+          <Link to="/registrieren" style={{ background: C.accent, color: '#0f1c28', fontWeight: 700, padding: '0.8rem 1.8rem', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
             Jetzt kostenfrei dabei sein <ArrowRight size={16} />
           </Link>
         </div>

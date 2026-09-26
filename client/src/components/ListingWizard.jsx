@@ -9,7 +9,7 @@ import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING }
 // Wizard automatisch. Am Ende reicht der Verkäufer zur Prüfung ein.
 
 const C = {
-  navy: '#1A4D8A', steel: '#29ABE2', lightBg: '#EBF7FC', xLight: '#F3F8FC',
+  navy: '#174a6a', steel: '#174a6a', lightBg: '#f7f5f0', xLight: '#f4f6f7',
   gray: '#64748B', border: '#C8E4F4', card: '#FFFFFF', text: '#1E293B',
 };
 const INPUT = {

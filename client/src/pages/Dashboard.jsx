@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User, Award, Lock, FileCheck, Database, MessageSquare, ArrowRight, Target, Users, ClipboardList } from 'lucide-react';
 
-const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB', lightBg: '#EDF4FA', gray: '#878787' };
+const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB', lightBg: '#EDF4FA', gray: '#5d6670' };
 
 // Die vier Prozessstufen aus Käufersicht, in Reihenfolge
 const DEAL_STEPS = [
@@ -195,7 +195,7 @@ export default function Dashboard() {
             </Link>
           </div>
           <div style={{ height: 8, background: '#eef2f7', borderRadius: 5, overflow: 'hidden', marginTop: '1rem' }}>
-            <div style={{ width: `${pct}%`, height: '100%', background: '#29ABE2', borderRadius: 5 }} />
+            <div style={{ width: `${pct}%`, height: '100%', background: '#174a6a', borderRadius: 5 }} />
           </div>
         </div>
 
@@ -398,7 +398,7 @@ export default function Dashboard() {
             </div>
             <div style={{ marginTop: '0.5rem' }}>
               <div style={{ height: 7, background: 'rgba(255,255,255,0.2)', borderRadius: 5, overflow: 'hidden' }}>
-                <div style={{ width: `${xp.progress_pct}%`, height: '100%', background: '#29ABE2', borderRadius: 5 }} />
+                <div style={{ width: `${xp.progress_pct}%`, height: '100%', background: '#174a6a', borderRadius: 5 }} />
               </div>
               <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>
                 {xp.next ? `Noch ${xp.to_next} XP bis „${xp.next}"` : 'Höchstes Level erreicht 🎉'}

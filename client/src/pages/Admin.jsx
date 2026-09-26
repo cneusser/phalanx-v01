@@ -27,7 +27,7 @@ const fieldOptions = (key, mandateType) => {
 };
 
 const C = {
-  navy:   '#0D1B36',
+  navy:   '#111820',
   accent: '#1D4E89',
   steel:  '#8AB4D4',
   bg:     '#F8FAFC',
@@ -1517,7 +1517,7 @@ export default function Admin() {
                       <button onClick={() => { openUpload(p); loadProjectDocs(p.id); }} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#dcfce7', color: '#166534', border: 'none', padding: '0.3rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
                         <Upload size={11} /> Dokumente
                       </button>
-                      <Link to={`/mandat/${p.id}/safe`} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#0D1B36', color: '#fff', padding: '0.3rem 0.6rem', borderRadius: 5, fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none' }}>
+                      <Link to={`/mandat/${p.id}/safe`} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#111820', color: '#fff', padding: '0.3rem 0.6rem', borderRadius: 5, fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none' }}>
                         🔒 Safe
                       </Link>
                       <Link to={`/mandat/${p.id}/expose`} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#1D4E89', color: '#fff', padding: '0.3rem 0.6rem', borderRadius: 5, fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none' }}>
@@ -2055,7 +2055,7 @@ export default function Admin() {
             {signupSources.map(s => {
               const isLi = s.source === 'linkedin';
               return (
-                <div key={s.source} style={{ border: `1px solid ${isLi ? '#1A4D8A' : C.border}`, background: isLi ? '#EDF4FA' : '#fff', borderRadius: 8, padding: '0.5rem 0.8rem', minWidth: 110 }}>
+                <div key={s.source} style={{ border: `1px solid ${isLi ? '#174a6a' : C.border}`, background: isLi ? '#EDF4FA' : '#fff', borderRadius: 8, padding: '0.5rem 0.8rem', minWidth: 110 }}>
                   <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'capitalize' }}>{s.source}</div>
                   <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#14314F' }}>{s.total}</div>
                   <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{s.last_30d} in 30 Tagen</div>

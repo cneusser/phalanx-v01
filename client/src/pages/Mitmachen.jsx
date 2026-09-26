@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ShieldCheck, FileText, Database, MessageSquare, Lock, ArrowRight, CheckCircle } from 'lucide-react';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
 
-const C = { navy: '#14314F', accent: '#1A4D8A', steel: '#29ABE2', bg: '#F3F7FB', border: '#DDE8F3', text: '#0F172A', muted: '#5B6B7F' };
+const C = { navy: '#14314F', accent: '#174a6a', steel: '#174a6a', bg: '#F3F7FB', border: '#d8dde1', text: '#0F172A', muted: '#5B6B7F' };
 
 // Mitmachen-Landingpage. Der Link, den Sie z. B. auf LinkedIn teilen, trägt
 // ?src=linkedin. Der Wert wird an die Registrierung durchgereicht und dort

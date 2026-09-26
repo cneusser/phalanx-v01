@@ -9,12 +9,12 @@ import { api } from '../api/client';
 
 // CapitalMatch brand palette – exported for use across the platform
 export const C = {
-  navy:    '#1A4D8A',   // Primary deep blue (CapitalMatch "Match" color)
-  steel:   '#29ABE2',   // Accent sky blue (CapitalMatch "Capital" color)
-  lightBg: '#EBF7FC',   // Light blue tint background
-  xLight:  '#F3F8FC',   // Extra light section background
-  gray:    '#878787',   // Muted text
-  dark:    '#30302E',   // Dark text
+  navy:    '#174a6a',   // Primary deep blue (CapitalMatch "Match" color)
+  steel:   '#174a6a',   // Accent sky blue (CapitalMatch "Capital" color)
+  lightBg: '#f7f5f0',   // Light blue tint background
+  xLight:  '#f4f6f7',   // Extra light section background
+  gray:    '#5d6670',   // Muted text
+  dark:    '#111820',   // Dark text
   white:   '#FFFFFF',
 };
 

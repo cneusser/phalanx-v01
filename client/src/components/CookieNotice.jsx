@@ -14,10 +14,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useT } from '../i18n';
 
 const KEY = 'cm_cookie_notice';
 
 export default function CookieNotice() {
+  const t = useT();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -39,20 +41,18 @@ export default function CookieNotice() {
       padding: '1.1rem 1.25rem', boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
     }}>
       <div style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: 6 }}>
-        Wir verzichten auf Tracking
+        {t('cookie.title', 'Wir verzichten auf Tracking')}
       </div>
       <div style={{ fontSize: '0.83rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.85)' }}>
-        CapitalMatch setzt <strong>keine Analyse-, Werbe- oder Tracking-Cookies</strong>. Gespeichert wird nur, was für den
-        Betrieb nötig ist: Ihre Anmeldung und Ihre Spracheinstellung, lokal in Ihrem Browser. Einzelheiten in der{' '}
-        <Link to="/cookies" style={{ color: '#8AB4D4', fontWeight: 700 }}>Cookie-Richtlinie</Link> und der{' '}
-        <Link to="/datenschutz" style={{ color: '#8AB4D4', fontWeight: 700 }}>Datenschutzerklärung</Link>.
+        {t('cookie.text', 'CapitalMatch setzt keine Analyse-, Werbe- oder Tracking-Cookies. Gespeichert wird nur, was für den Betrieb nötig ist: Ihre Anmeldung und Ihre Spracheinstellung, lokal in Ihrem Browser. Einzelheiten in der')}{' '}
+        <Link to="/cookies" style={{ color: '#8AB4D4', fontWeight: 700 }}>{t('cookie.policy', 'Cookie-Richtlinie')}</Link>{' '}
+        {t('common.and', 'und der')}{' '}
+        <Link to="/datenschutz" style={{ color: '#8AB4D4', fontWeight: 700 }}>{t('cookie.privacy', 'Datenschutzerklärung')}</Link>.
       </div>
       <button onClick={dismiss} style={{
         marginTop: '0.9rem', background: '#fff', color: '#0D2A4A', border: 'none', borderRadius: 8,
         padding: '0.55rem 1.3rem', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer',
-      }}>
-        Verstanden
-      </button>
+      }}>{t('cookie.ok', 'Verstanden')}</button>
     </div>
   );
 }

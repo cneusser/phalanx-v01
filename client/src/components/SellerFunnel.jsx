@@ -4,7 +4,7 @@ import { api } from '../api/client';
 // Reduzierter, nur-lesender Funnel für den Mandanten (Verkäufer). Zeigt je Mandat,
 // wie weit die interessierten Parteien im Prozess sind, aber bewusst OHNE
 // Kontaktdaten und ohne Bezug zu anderen Mandaten. Mehrere Projekte als Reiter.
-const C = { navy: '#1A4D8A', steel: '#29ABE2', lightBg: '#EBF7FC', gray: '#64748B', border: '#C8E4F4', bg: '#F8FAFC', card: '#FFFFFF' };
+const C = { navy: '#174a6a', steel: '#174a6a', lightBg: '#f7f5f0', gray: '#64748B', border: '#C8E4F4', bg: '#F8FAFC', card: '#FFFFFF' };
 
 export default function SellerFunnel({ projects = [], show }) {
   const active = projects.filter(p => p.status === 'active');

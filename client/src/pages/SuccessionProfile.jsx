@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Save, CheckCircle, UserCog, Target, ArrowRight, HelpCircle } from 'lucide-react';
 import { NACE_INDUSTRIES, BUNDESLAENDER } from '../constants/projectOptions';
 
-const C = { navy: '#1A4D8A', accent: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#174a6a', accent: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
 const LABEL = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.35rem' };
 
@@ -113,7 +113,7 @@ export default function SuccessionProfile() {
 
         {/* Passende Nachfolge-Mandate: prominent, ganz oben */}
         {matches.length > 0 && (
-          <div style={{ background: `linear-gradient(135deg, ${C.navy}, #0d1b36)`, borderRadius: 14, padding: '1.4rem', marginBottom: '1.2rem', color: '#fff', boxShadow: '0 6px 22px rgba(13,27,54,0.18)' }}>
+          <div style={{ background: `linear-gradient(135deg, ${C.navy}, #111820)`, borderRadius: 14, padding: '1.4rem', marginBottom: '1.2rem', color: '#fff', boxShadow: '0 6px 22px rgba(13,27,54,0.18)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.9rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Target size={20} color="#fff" />

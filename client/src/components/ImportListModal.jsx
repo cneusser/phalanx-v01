@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { Upload, X, CheckCircle, Circle } from 'lucide-react';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', border: '#E2E8F0', text: '#0F172A', muted: '#64748B', bg: '#F8FAFC' };
+const C = { navy: '#111820', accent: '#1D4E89', border: '#E2E8F0', text: '#0F172A', muted: '#64748B', bg: '#F8FAFC' };
 const IN = { width: '100%', padding: '0.5rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', boxSizing: 'border-box', background: '#fff' };
 
 // Rechercheliste (Excel/CSV) einlesen: Dubletten-Abgleich, Mandat zuordnen, optional einladen.

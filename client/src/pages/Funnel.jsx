@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import DealFunnelBoard from '../components/DealFunnelBoard';
 import SellerFunnel from '../components/SellerFunnel';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', muted: '#64748B' };
 
 export default function Funnel() {
   const { user, isAdmin, isSeller } = useAuth();

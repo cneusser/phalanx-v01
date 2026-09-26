@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { ShieldCheck, CheckCircle, AlertCircle } from 'lucide-react';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.88rem', outline: 'none', boxSizing: 'border-box' };
 const LABEL = { display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#333', marginBottom: '0.3rem' };
 
@@ -121,7 +121,7 @@ export default function ConsentInvite() {
           Kommunikation an einem Ort.
         </p>
         {inv.message && (
-          <div style={{ background: '#F4F8FC', borderLeft: `3px solid ${C.steel}`, padding: '0.7rem 1rem', fontSize: '0.85rem', color: '#333', margin: '0.75rem 0' }}>{inv.message}</div>
+          <div style={{ background: '#f4f6f7', borderLeft: `3px solid ${C.steel}`, padding: '0.7rem 1rem', fontSize: '0.85rem', color: '#333', margin: '0.75rem 0' }}>{inv.message}</div>
         )}
 
         {err && <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 8, padding: '0.7rem 0.9rem', fontSize: '0.83rem', margin: '0.75rem 0' }}>{err}</div>}

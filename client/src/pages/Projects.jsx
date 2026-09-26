@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 const C = {
-  navy:    '#0D1B36',
+  navy:    '#111820',
   accent:  '#1D4E89',
   steel:   '#8AB4D4',
   bg:      '#F8FAFC',

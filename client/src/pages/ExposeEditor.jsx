@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
 import { ChevronLeft, Save, Eye, Download, Upload as UploadIcon, CheckCircle, Image as ImageIcon, Globe } from 'lucide-react';
 
-const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', text: '#0F172A', muted: '#64748B' };
+const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.5rem 0.65rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' };
 const LABEL = { display: 'block', fontSize: '0.72rem', fontWeight: 600, color: C.muted, marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.03em' };
 const eur = (n) => (Math.round(Number(n) || 0)).toLocaleString('de-DE') + ' €';
