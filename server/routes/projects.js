@@ -11,13 +11,28 @@ const path = require('path');
 const fs = require('fs');
 const router = express.Router();
 
-const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, visibility, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type, (image_path IS NOT NULL)::int AS has_image';
+const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, visibility, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type, sprache, uebersetzung_status, short_description_en, deal_type_en, industry_en, highlights_en, (image_path IS NOT NULL)::int AS has_image';
 
 // ── Pflege-Berechtigung (Sprint 19: rollenbewusst) ──────────────────────────
 // Admin/Berater/Tenant-Owner, Ersteller oder Mitglied mit member_role='editor'.
 // Ein „Betrachter" (member_role='viewer') darf NICHT pflegen.
 const access = require('../utils/projectAccess');
 const spannen = require('../utils/spannen');
+const uebersetzung = require('../utils/uebersetzung');
+
+// Felder, die in beiden Sprachen vorliegen. Muss zur Migration passen.
+const SPRACHFELDER = ['short_description', 'deal_type', 'industry', 'highlights'];
+
+/**
+ * In welcher Sprache will der Aufrufer lesen?
+ * Der Parameter gewinnt, sonst entscheidet der Browser, sonst Deutsch.
+ */
+function spracheVon(req) {
+  const p = String(req.query.sprache || req.query.lang || '').slice(0, 2).toLowerCase();
+  if (p === 'en' || p === 'de') return p;
+  const kopf = String(req.get('accept-language') || '').slice(0, 2).toLowerCase();
+  return kopf === 'en' ? 'en' : 'de';
+}
 const _get = (sql, p) => db.get(sql, p);
 
 async function canManageProject(user, projectId) {
@@ -142,7 +157,11 @@ router.get('/', optionalAuth, wrap(async (req, res) => {
   // Vor der Freischaltung werden die Angaben vergroebert: Spannen statt Zahlen,
   // Region statt Stadt, keine Highlights. Ein Unternehmensverkauf bleibt
   // vertraulich, bis die verkaufende Seite etwas anderes entscheidet.
+  // Erst die Sprache waehlen, dann vergroebern. Andersherum wuerde die
+  // englische Fassung an den Spannen vorbeilaufen.
+  const sprache = spracheVon(req);
   const projects = (await db.all(query, params))
+    .map(p => uebersetzung.inSprache(p, SPRACHFELDER, sprache))
     .map(p => ({ ...p, highlights: JSON.parse(p.highlights || '[]') }))
     .map(p => spannen.fuerOeffentlich(p, req.user));
 

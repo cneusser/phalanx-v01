@@ -14,6 +14,7 @@ const mailing = require('../utils/pflegeMailing');
 const voll = require('../utils/vollstaendigkeit');
 const vokabular = require('../utils/vokabular');
 const rundmail = require('../utils/rundmail');
+const uebersetzung = require('../utils/uebersetzung');
 
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
 const qFor = (req) => ({
@@ -393,6 +394,100 @@ router.post('/rundmails/:id/senden', wrap(async (req, res) => {
 
 router.get('/rundmails/:id/dashboard', wrap(async (req, res) => {
   res.json({ success: true, data: await rundmail.dashboard(qFor(req), Number(req.params.id)) });
+}));
+
+// ── Übersetzungen der Mandate (v0.410) ──────────────────────────────────────
+// Nebeneinander lesen, ändern, freigeben. Gezeigt wird einem Besucher nur, was
+// freigegeben ist: Ein maschinell oder nebenbei erzeugter Satz darf in einem
+// Verkaufsprozess nicht ungeprüft nach draußen.
+const UEBERSETZBAR = ['short_description', 'deal_type', 'industry'];
+
+router.get('/uebersetzungen', wrap(async (req, res) => {
+  const q = qFor(req);
+  const zeilen = await q.all(`
+    SELECT id, codename, mandate_type, status, sprache, uebersetzung_status, uebersetzt_am,
+           short_description, short_description_en, deal_type, deal_type_en, industry, industry_en
+      FROM projects ORDER BY codename`);
+
+  const mandate = zeilen.map((z) => ({
+    id: z.id, codename: z.codename, mandate_type: z.mandate_type, status: z.status,
+    sprache: z.sprache || 'de', uebersetzung_status: z.uebersetzung_status || 'fehlt',
+    uebersetzt_am: z.uebersetzt_am,
+    felder: UEBERSETZBAR.map((f) => ({
+      feld: f, de: z[f] || '', en: z[`${f}_en`] || '',
+    })),
+    // Vollständig heißt: Zu jedem gefüllten deutschen Feld gibt es ein englisches.
+    vollstaendig: UEBERSETZBAR.every((f) => !z[f] || (z[`${f}_en`] && String(z[`${f}_en`]).trim())),
+  }));
+
+  res.json({ success: true, data: {
+    mandate,
+    dienst_eingerichtet: uebersetzung.eingerichtet(),
+    offen: mandate.filter((m) => m.uebersetzung_status !== 'freigegeben').length,
+  } });
+}));
+
+router.put('/uebersetzungen/:id', wrap(async (req, res) => {
+  const q = qFor(req);
+  const patch = {};
+  for (const f of UEBERSETZBAR) {
+    const wert = req.body[`${f}_en`];
+    if (wert !== undefined) patch[`${f}_en`] = String(wert).trim() || null;
+  }
+  const status = String(req.body.uebersetzung_status || '');
+  if (['fehlt', 'entwurf', 'freigegeben'].includes(status)) patch.uebersetzung_status = status;
+  if (!Object.keys(patch).length) return res.json({ success: true });
+
+  // Freigeben geht nur, wenn auch etwas dasteht. Sonst wäre ein leeres Feld
+  // freigegeben, und der Marktplatz zeigte für englische Leser eine Lücke.
+  if (patch.uebersetzung_status === 'freigegeben') {
+    const jetzt = await q.get(
+      `SELECT ${UEBERSETZBAR.map((f) => `${f}, ${f}_en`).join(', ')} FROM projects WHERE id = ?`,
+      [req.params.id]);
+    const gefuellt = (w) => !!(w && String(w).trim());
+    const fehlend = UEBERSETZBAR.filter((f) => {
+      // Der englische Wert nach dieser Änderung, nicht der davor.
+      const en = patch[`${f}_en`] !== undefined ? patch[`${f}_en`] : (jetzt && jetzt[`${f}_en`]);
+      return gefuellt(jetzt && jetzt[f]) && !gefuellt(en);
+    });
+    if (fehlend.length) {
+      return res.status(400).json({ success: false,
+        error: `Noch nicht vollständig: ${fehlend.join(', ')} fehlt auf Englisch.` });
+    }
+  }
+
+  const sets = Object.keys(patch);
+  await q.run(
+    `UPDATE projects SET ${sets.map((k) => `${k} = ?`).join(', ')}, uebersetzt_am = now() WHERE id = ?`,
+    [...sets.map((k) => patch[k]), req.params.id]);
+
+  db.auditLog(req.user.id, 'MANDAT_UEBERSETZUNG', 'project', req.params.id,
+    patch.uebersetzung_status || 'geändert', req.ip);
+  res.json({ success: true });
+}));
+
+// Fehlende Fassung maschinell vorbelegen. Ergebnis ist immer ein Entwurf.
+router.post('/uebersetzungen/:id/vorbelegen', wrap(async (req, res) => {
+  if (!uebersetzung.eingerichtet()) {
+    return res.status(400).json({ success: false,
+      error: 'Es ist kein Übersetzungsdienst eingerichtet. Die Fassung muss von Hand eingetragen werden.' });
+  }
+  const q = qFor(req);
+  const z = await q.get(
+    `SELECT sprache, ${UEBERSETZBAR.map((f) => `${f}, ${f}_en`).join(', ')} FROM projects WHERE id = ?`,
+    [req.params.id]);
+  if (!z) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden.' });
+
+  const r = await uebersetzung.felderVorbelegen(z, UEBERSETZBAR, { von: 'DE', nach: 'EN' });
+  const sets = Object.keys(r.werte);
+  if (sets.length) {
+    await q.run(
+      `UPDATE projects SET ${sets.map((k) => `${k} = ?`).join(', ')}, uebersetzung_status = 'entwurf', uebersetzt_am = now() WHERE id = ?`,
+      [...sets.map((k) => r.werte[k]), req.params.id]);
+  }
+  db.auditLog(req.user.id, 'MANDAT_UEBERSETZUNG_VORBELEGT', 'project', req.params.id,
+    `${sets.length} Feld(er)`, req.ip);
+  res.json({ success: true, data: { vorbelegt: sets.length, fehler: r.fehler } });
 }));
 
 module.exports = { router, publicRouter };

@@ -135,16 +135,21 @@ async function felderVorbelegen(zeile, felder, { von = 'DE', nach = 'EN' } = {})
 /**
  * Die Fassung in der gewünschten Sprache wählen.
  *
+ * Es gilt die eine Regel: Grundspalte Deutsch, Spalte mit _en Englisch. Das
+ * Feld `sprache` sagt nur, in welcher Sprache ein Mandat erfasst wurde, und ist
+ * eine Information über die Herkunft, keine Weiche. Ein früherer Stand hat das
+ * verwechselt und einem englischen Leser bei einem englisch erfassten Mandat
+ * den deutschen Text gezeigt.
+ *
  * Gezeigt wird die englische Fassung nur, wenn sie freigegeben ist. Fehlt sie
- * oder ist sie nur ein Entwurf, bleibt es beim Original, und das Kennzeichen
- * sagt, in welcher Sprache es verfasst ist. Lieber ein ehrlich gekennzeichneter
- * deutscher Text als ein ungeprüfter englischer.
+ * oder ist sie nur ein Entwurf, bleibt es beim deutschen Text, und
+ * `text_sprache` sagt, was der Leser tatsächlich vor sich hat. Lieber ein
+ * ehrlich gekennzeichneter deutscher Text als ein ungeprüfter englischer.
  */
 function inSprache(zeile, felder, sprache) {
   const z = { ...zeile };
-  const original = z.sprache || 'de';
-  z.text_sprache = original;
-  if (sprache !== 'en' || original === 'en') return z;
+  z.text_sprache = 'de';                       // die Grundspalte führt Deutsch
+  if (sprache !== 'en') return z;
   if (z.uebersetzung_status !== 'freigegeben') return z;
   for (const f of felder) {
     const en = z[`${f}_en`];

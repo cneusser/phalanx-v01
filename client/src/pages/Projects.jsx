@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
-import { useT } from '../i18n';
+import { useT, useI18n } from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import useIsMobile from '../hooks/useIsMobile';
 import { kpiWert } from '../utils/kpi';
@@ -119,9 +119,13 @@ function LoadingSpinner() {
   );
 }
 
-function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched, onToggleWatch }) {
+function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched, onToggleWatch, lang }) {
   const isStartup = p.mandate_type === 'fundraising';
   const statusInfo = ndaStatus ? ndaStatusLabel[ndaStatus] : null;
+  // Liegt der Text nicht in der Lesesprache vor, wird das gesagt, statt ihn
+  // stillschweigend gemischt zu zeigen. Genau das war der Eindruck vorher:
+  // ein englischer Teaser zwischen fuenf deutschen, ohne jede Erklaerung.
+  const andereSprache = (p.text_sprache || p.sprache || 'de') !== lang;
 
   return (
     <div style={{
@@ -178,6 +182,18 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched,
         </div>
       </div>
 
+      {/* Sprachhinweis, falls der Text nicht in der Lesesprache vorliegt */}
+      {andereSprache && (
+        <div style={{
+          fontSize: '0.68rem', color: '#6b7680', background: '#f4f6f7',
+          border: '1px solid #e3e7ea', borderRadius: 5, padding: '0.22rem 0.45rem',
+          marginBottom: '0.55rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+          alignSelf: 'flex-start',
+        }}>
+          {lang === 'en' ? 'This mandate is described in German' : 'Dieses Mandat liegt auf Englisch vor'}
+        </div>
+      )}
+
       {/* Kurzbeschreibung */}
       <p style={{
         fontSize: '0.81rem', color: '#444', lineHeight: 1.55,
@@ -229,6 +245,10 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched,
 
 export default function Projects() {
   const t = useT();
+  // Die Sprache geht an den Server mit: Er entscheidet, ob eine freigegebene
+  // englische Fassung vorliegt. Ohne sie bekaeme ein englischer Leser immer
+  // den deutschen Text, egal was hinterlegt ist.
+  const { lang } = useI18n();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -280,7 +300,8 @@ export default function Projects() {
     } catch (e) { setSaveMsg('Fehler: ' + e.message); }
   }
 
-  useEffect(() => { loadProjects(); }, [sel]);
+  // Sprachwechsel laedt neu, sonst blieben die alten Texte stehen.
+  useEffect(() => { loadProjects(); }, [sel, lang]);
 
   useEffect(() => {
     api.get('/projects/stats')
@@ -302,6 +323,7 @@ export default function Projects() {
       if (sel.mandate_type)  params.set('mandate_type', sel.mandate_type);
       if (sel.revenue_band)  params.set('revenue_band', sel.revenue_band);
       if (sel.ebitda_band)   params.set('ebitda_band', sel.ebitda_band);
+      params.set('sprache', lang);
       const data = await api.get(`/projects?${params.toString()}`);
       setProjects(data.projects);
       if (!sel.industry && !sel.region && !sel.deal_type && !sel.revenue_band && !sel.ebitda_band) setFilters(data.filters);
@@ -516,7 +538,7 @@ export default function Projects() {
                 ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
                   {projects.map(p => (
-                    <MandateCard
+                    <MandateCard lang={lang}
                       key={p.id}
                       p={p}
                       ndaStatus={ndaStatus[p.id]}

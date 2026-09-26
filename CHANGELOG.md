@@ -3,6 +3,19 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.410 · 26.09.2026 · Zweisprachig, und ehrlich darüber
+Auf dem Marktplatz standen deutsche und englische Teaser nebeneinander. Eine Sprachumschaltung allein löst das nicht: Was es nur einmal gibt, lässt sich nicht umschalten.
+
+- **Sprache wird erkannt**: erst die eigene Wahl, dann die Sprache des Browsers, sonst Deutsch. Wer angemeldet ist, bekommt einen Vorschlag aus seinem Profil, aber nur solange er noch nie selbst gewählt hat. Eine getroffene Wahl wird nie überschrieben
+- **Eine Regel für alle Texte**: die bisherige Spalte führt Deutsch, die Spalte mit `_en` führt Englisch. `sprache` hält nur fest, in welcher Sprache erfasst wurde, und entscheidet nichts
+- **Der Bestand ist übersetzt.** Cavendish war englisch erfasst und liegt jetzt auch auf Deutsch vor, die fünf übrigen Mandate zusätzlich auf Englisch. Zahlen, Einheiten und Fachbegriffe unverändert
+- **Nichts geht ungeprüft nach draußen.** Jede Fassung steht als Entwurf, bis sie freigegeben ist. Solange sieht ein englischer Leser den deutschen Text mit einem Hinweis auf die Sprache, nie eine ungeprüfte Übersetzung. Bei einem Unternehmensverkauf ist ein schiefer Satz kein Schönheitsfehler
+- **Neue Ansicht in der Datenpflege**: beide Fassungen nebeneinander, änderbar, einzeln freizugeben. Freigeben geht nur, wenn zu jedem gefüllten deutschen Feld auch ein englisches vorliegt
+- **Ein Übersetzungsdienst ist anschließbar**, DeepL oder OpenAI, über zwei Umgebungsvariablen. Ohne Schlüssel bleibt die zweite Fassung leer und wird als fehlend ausgewiesen. Geraten wird nie
+- **Erst Sprache, dann Spannen.** Andersherum liefe die englische Fassung an der Vergröberung vorbei, und ein nicht angemeldeter englischer Leser sähe exakte Zahlen
+
+**Korrektur:** Im Marktplatz stand bei einem Mandat „EBITDA über 500 Mio." bei 10 bis 13 Mio. Umsatz. Die Spannenfunktion hat aus jeder Zahl einen Millionenbetrag gemacht, auch aus „ca. 8 %" oder einer Jahreszahl. Umgerechnet wird jetzt nur noch, was eindeutig Geld ist. Prozentangaben und Freitext bleiben unverändert stehen.
+
 ## v0.409 · 26.09.2026 · Neues Gesicht, und ein ehrlicheres dazu
 Anlass war das Feedback eines Nutzers: Die Seite habe nach schnell zusammengestellter Software ausgesehen, und er habe sie anfangs für eine Seite zum Abgreifen von Daten gehalten. Beides war berechtigt, und die Ursache lag nicht nur in der Gestaltung.
 

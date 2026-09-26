@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
-import { ListChecks, Mail, Send, RefreshCw, Users, AlertCircle, CheckCircle, Eye, Megaphone } from 'lucide-react';
+import { ListChecks, Mail, Send, RefreshCw, Users, AlertCircle, CheckCircle, Eye, Megaphone, Languages, Wand2 } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', muted: '#64748B' };
 const INPUT = { padding: '0.5rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', outline: 'none', background: '#fff' };
@@ -45,6 +45,8 @@ export default function Datenpflege() {
   const [vorschau, setVorschau] = useState(null);
   const [rundmails, setRundmails] = useState([]);
   const [rundVorschau, setRundVorschau] = useState(null);
+  const [sprachen, setSprachen] = useState(null);
+  const [entwurf, setEntwurf] = useState({});   // id → { feld_en: Text }
   const [meldung, setMeldung] = useState('');
   const [fehler, setFehler] = useState('');
   const [busy, setBusy] = useState(false);
@@ -58,6 +60,7 @@ export default function Datenpflege() {
         api.get('/pflege/rundmails').catch(() => []),
       ]);
       setUebersicht(u); setKampagnen(k); setVok(v); setRundmails(r || []);
+      try { setSprachen(await api.get('/pflege/uebersetzungen')); } catch { /* erst nach der Migration da */ }
     } catch (e) { setFehler(e.message); }
   }, [filter]);
 
@@ -168,6 +171,38 @@ export default function Datenpflege() {
       else if (r.fehler && r.fehler.length) {
         setMeldung(`${r.versendet} von ${r.betrachtet} versendet. Nicht zugestellt: ${r.fehler.map((f) => f.grund).join('; ')}`);
       } else setMeldung(`${r.versendet} von ${r.betrachtet} Mails versendet.`);
+      await laden();
+    } catch (e) { setFehler(e.message); }
+    setBusy(false);
+  };
+
+  // ── Übersetzungen ────────────────────────────────────────────────────────
+  const feldWert = (m, f) => {
+    const eigen = entwurf[m.id] && entwurf[m.id][`${f.feld}_en`];
+    return eigen !== undefined ? eigen : f.en;
+  };
+  const feldSetzen = (id, feld, wert) => setEntwurf((e) => ({ ...e, [id]: { ...(e[id] || {}), [`${feld}_en`]: wert } }));
+
+  const uebersetzungSpeichern = async (m, status) => {
+    setBusy(true); setFehler(''); setMeldung('');
+    try {
+      const koerper = { ...(entwurf[m.id] || {}) };
+      if (status) koerper.uebersetzung_status = status;
+      await api.put(`/pflege/uebersetzungen/${m.id}`, koerper);
+      setMeldung(status === 'freigegeben'
+        ? `${m.codename}: englische Fassung freigegeben, ab sofort für englische Leser sichtbar.`
+        : `${m.codename}: gespeichert, weiterhin Entwurf.`);
+      setEntwurf((e) => { const n = { ...e }; delete n[m.id]; return n; });
+      await laden();
+    } catch (e) { setFehler(e.message); }
+    setBusy(false);
+  };
+
+  const vorbelegen = async (m) => {
+    setBusy(true); setFehler(''); setMeldung('');
+    try {
+      const r = await api.post(`/pflege/uebersetzungen/${m.id}/vorbelegen`, {});
+      setMeldung(`${m.codename}: ${r.vorbelegt} Feld(er) vorbelegt, bitte prüfen und freigeben.`);
       await laden();
     } catch (e) { setFehler(e.message); }
     setBusy(false);
@@ -388,6 +423,84 @@ export default function Datenpflege() {
           })}
           {!kampagnen.length && <p style={{ fontSize: '0.85rem', color: C.muted, margin: 0 }}>Noch kein Mailing angelegt.</p>}
         </div>
+
+        {/* ── Übersetzungen der Mandate ─────────────────────────────────── */}
+        {sprachen && (
+          <div style={{ ...KARTE, marginTop: '1.2rem' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1rem', color: C.navy, margin: '0 0 0.9rem' }}>
+              <Languages size={17} color={C.steel} /> Übersetzungen der Mandate
+            </h2>
+            <p style={{ fontSize: '0.83rem', color: C.muted, margin: '0 0 0.9rem', lineHeight: 1.6 }}>
+              Links steht die deutsche Fassung, rechts die englische. Gezeigt wird einem englischen
+              Leser nur, was freigegeben ist. Solange nichts freigegeben ist, sieht er den deutschen
+              Text mit einem Hinweis auf die Sprache, nie eine ungeprüfte Übersetzung.
+              {' '}{sprachen.offen > 0
+                ? <strong>{sprachen.offen} von {sprachen.mandate.length} Mandaten sind noch offen.</strong>
+                : <strong>Alle Mandate sind freigegeben.</strong>}
+              {!sprachen.dienst_eingerichtet && ' Ein Übersetzungsdienst ist nicht eingerichtet, die Vorbelegung steht daher nicht zur Verfügung.'}
+            </p>
+
+            {sprachen.mandate.map((m) => (
+              <div key={m.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem', marginBottom: '0.7rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.7rem' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.92rem' }}>{m.codename}</div>
+                    <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: 2 }}>
+                      erfasst auf {m.sprache === 'en' ? 'Englisch' : 'Deutsch'}
+                      {m.uebersetzt_am ? ` · zuletzt bearbeitet ${new Date(m.uebersetzt_am).toLocaleDateString('de-DE')}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: '0.72rem', fontWeight: 700, borderRadius: 20, padding: '0.2rem 0.6rem',
+                      background: m.uebersetzung_status === 'freigegeben' ? '#F0FDF4' : (m.uebersetzung_status === 'entwurf' ? '#FFFBEB' : C.bg),
+                      color: m.uebersetzung_status === 'freigegeben' ? '#166534' : (m.uebersetzung_status === 'entwurf' ? '#92400E' : C.muted),
+                      border: `1px solid ${m.uebersetzung_status === 'freigegeben' ? '#BBF7D0' : (m.uebersetzung_status === 'entwurf' ? '#FDE68A' : C.border)}`,
+                    }}>{m.uebersetzung_status}</span>
+                    {sprachen.dienst_eingerichtet && !m.vollstaendig && (
+                      <button type="button" style={KNOPF_HELL} onClick={() => vorbelegen(m)} disabled={busy}>
+                        <Wand2 size={13} /> Vorbelegen
+                      </button>
+                    )}
+                    <button type="button" style={KNOPF_HELL} onClick={() => uebersetzungSpeichern(m, 'entwurf')} disabled={busy}>
+                      Speichern
+                    </button>
+                    {m.uebersetzung_status !== 'freigegeben' && (
+                      <button type="button" style={KNOPF} onClick={() => uebersetzungSpeichern(m, 'freigegeben')} disabled={busy}>
+                        <CheckCircle size={13} /> Freigeben
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {m.felder.filter((f) => f.de || f.en).map((f) => (
+                  <div key={f.feld} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginBottom: '0.6rem' }}>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>
+                        {f.feld} · Deutsch
+                      </div>
+                      <div style={{ fontSize: '0.83rem', color: C.navy, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.5rem 0.65rem', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+                        {f.de || <span style={{ color: C.muted }}>leer</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>
+                        {f.feld} · Englisch
+                      </div>
+                      <textarea
+                        value={feldWert(m, f)}
+                        onChange={(e) => feldSetzen(m.id, f.feld, e.target.value)}
+                        rows={Math.min(10, Math.max(2, Math.ceil((feldWert(m, f) || f.de || '').length / 60)))}
+                        style={{ ...INPUT, width: '100%', fontSize: '0.83rem', lineHeight: 1.55, resize: 'vertical', fontFamily: 'inherit' }}
+                        placeholder="Englische Fassung"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ── Rundmail an alle registrierten Konten ─────────────────────── */}
         <div style={{ ...KARTE, marginTop: '1.2rem' }}>

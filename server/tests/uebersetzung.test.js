@@ -70,11 +70,20 @@ ok('ohne Schlüssel gilt der Dienst als nicht eingerichtet', !u.eingerichtet());
   const c = u.inSprache({ ...deutsch, uebersetzung_status: 'freigegeben' }, FELDER, 'de');
   gleich('wer deutsch liest, bekommt deutsch', c.short_description, 'Etablierter Betrieb.');
 
-  const englisch = { sprache: 'en', short_description: 'German deep-tech developer.' };
-  const d = u.inSprache(englisch, FELDER, 'de');
-  gleich('ein englisch erfasstes Mandat bleibt englisch, solange nichts vorliegt',
-    d.short_description, 'German deep-tech developer.');
-  gleich('das Kennzeichen sagt es ehrlich', d.text_sprache, 'en');
+  // Ein englisch erfasstes Mandat nach der Migration: Die Grundspalte fuehrt
+  // Deutsch, das Englische steht in der _en-Spalte. Das Feld sprache haelt nur
+  // die Herkunft fest und entscheidet nichts.
+  const englischErfasst = {
+    sprache: 'en', uebersetzung_status: 'freigegeben',
+    short_description: 'Deutscher Deep-Tech-Entwickler.',
+    short_description_en: 'German deep-tech developer.',
+  };
+  const d = u.inSprache(englischErfasst, FELDER, 'de');
+  gleich('wer deutsch liest, bekommt auch hier deutsch', d.short_description, 'Deutscher Deep-Tech-Entwickler.');
+  gleich('das Kennzeichen sagt es ehrlich', d.text_sprache, 'de');
+  const e = u.inSprache(englischErfasst, FELDER, 'en');
+  gleich('wer englisch liest, bekommt englisch', e.short_description, 'German deep-tech developer.');
+  gleich('die Herkunft entscheidet nichts mehr', e.text_sprache, 'en');
 
   ok('die Vorlage wird nie verändert', deutsch.short_description === 'Etablierter Betrieb.');
 
