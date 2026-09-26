@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { I18nProvider, useT } from './i18n';
+import { I18nProvider, useT, useI18n } from './i18n';
 import Navbar from './components/Navbar';
 import CapitalMatchLogo from './components/CapitalMatchLogo';
 import Landing from './pages/Landing';
@@ -85,6 +85,19 @@ function Footer() {
   );
 }
 
+/**
+ * Sprache aus dem Profil uebernehmen, sobald der Nutzer geladen ist.
+ * Nur als Vorschlag: Wer selbst gewaehlt hat, behaelt seine Wahl. Siehe i18n.
+ */
+function SpracheAusProfil() {
+  const { user } = useAuth();
+  const { ausProfil } = useI18n();
+  useEffect(() => {
+    if (user && user.language) ausProfil(user.language);
+  }, [user, ausProfil]);
+  return null;
+}
+
 function NavbarWennNoetig() {
   const location = useLocation();
   if (NO_NAVBAR_PATHS.includes(location.pathname)) return null;
@@ -94,6 +107,7 @@ function NavbarWennNoetig() {
 function AppRoutes() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <SpracheAusProfil />
       <BirdviewBanner />
       <NavbarWennNoetig />
       <main style={{ flex: 1 }}>

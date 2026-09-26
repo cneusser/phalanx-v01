@@ -9,8 +9,13 @@
 //
 // Die Wahl steht im localStorage (sofort wirksam) und wird beim eingeloggten
 // Nutzer zusätzlich im Profil gespeichert (users.language).
+//
+// Beim ersten Besuch wird die Sprache erkannt: erst die eigene Wahl, dann die
+// Sprache des Browsers, sonst Deutsch. Ist der Nutzer angemeldet, schlägt sein
+// Profil die Sprache vor, aber nur solange er noch nie selbst gewählt hat.
+// Eine getroffene Wahl wird nie überschrieben.
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 
 const EN = {
   // Navigation
@@ -119,16 +124,63 @@ const EN = {
 };
 
 const DICT = { de: {}, en: EN };
-const I18nCtx = createContext({ lang: 'de', t: (k, d) => d, setLang: () => {} });
+const I18nCtx = createContext({ lang: 'de', t: (k, d) => d, setLang: () => {}, gewaehlt: false });
+
+const SPRACHEN = ['de', 'en'];
+const normal = (l) => (SPRACHEN.includes(String(l || '').slice(0, 2).toLowerCase())
+  ? String(l).slice(0, 2).toLowerCase() : null);
+
+/**
+ * Welche Sprache gilt beim ersten Aufschlag?
+ *
+ * Reihenfolge, und die ist bewusst so:
+ *   1. die eigene Wahl, falls schon einmal getroffen. Sie gewinnt immer.
+ *   2. die Sprache des Browsers. Wer sein Geraet auf Englisch stellt, will
+ *      keine deutsche Seite.
+ *   3. Deutsch.
+ *
+ * Die Sprache aus dem Profil kommt spaeter dazu, sobald der Nutzer geladen
+ * ist, und nur dann, wenn er noch nie selbst gewaehlt hat.
+ */
+function ersteSprache() {
+  try {
+    const gewaehlt = normal(localStorage.getItem('cm_lang'));
+    if (gewaehlt) return { lang: gewaehlt, gewaehlt: true };
+  } catch { /* privater Modus */ }
+  try {
+    const liste = navigator.languages && navigator.languages.length
+      ? navigator.languages : [navigator.language];
+    for (const l of liste) { const n = normal(l); if (n) return { lang: n, gewaehlt: false }; }
+  } catch { /* kein Browser */ }
+  return { lang: 'de', gewaehlt: false };
+}
 
 export function I18nProvider({ children }) {
-  const [lang, setLangState] = useState(() => {
-    try { return localStorage.getItem('cm_lang') === 'en' ? 'en' : 'de'; } catch { return 'de'; }
-  });
+  const start = ersteSprache();
+  const [lang, setLangState] = useState(start.lang);
+  // Hat der Nutzer selbst gewaehlt? Dann ueberschreibt nichts mehr seine Wahl.
+  const [gewaehlt, setGewaehlt] = useState(start.gewaehlt);
+
+  // Das Sprachattribut des Dokuments mitfuehren: Vorleseprogramme, Suchmaschinen
+  // und die Silbentrennung des Browsers richten sich danach.
+  useEffect(() => {
+    try { document.documentElement.lang = lang; } catch { /* SSR */ }
+  }, [lang]);
+
+  /**
+   * Sprache aus dem Profil uebernehmen, aber nur als Vorschlag.
+   * Wer schon selbst gewaehlt hat, behaelt seine Wahl.
+   */
+  const ausProfil = useCallback((sprache) => {
+    const l = normal(sprache);
+    if (!l || gewaehlt) return;
+    setLangState(l);
+  }, [gewaehlt]);
 
   const setLang = useCallback((next) => {
     const l = next === 'en' ? 'en' : 'de';
     setLangState(l);
+    setGewaehlt(true);
     try { localStorage.setItem('cm_lang', l); } catch { /* privater Modus */ }
     try { document.documentElement.lang = l; } catch { /* SSR-Sicherheit */ }
     // Beim eingeloggten Nutzer die Präferenz mitschreiben (still, ohne UI-Effekt)
@@ -150,7 +202,8 @@ export function I18nProvider({ children }) {
     return DICT[lang]?.[key] ?? de;
   }, [lang]);
 
-  const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t]);
+  const value = useMemo(() => ({ lang, setLang, t, gewaehlt, ausProfil }),
+    [lang, setLang, t, gewaehlt, ausProfil]);
   return <I18nCtx.Provider value={value}>{children}</I18nCtx.Provider>;
 }
 
