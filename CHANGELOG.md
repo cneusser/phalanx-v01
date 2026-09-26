@@ -25,6 +25,7 @@ Anlass war das Feedback eines Nutzers: Die Seite habe nach schnell zusammengeste
 **Mails**
 - **Alle Mails sehen neu aus.** Das Layout steht an einer einzigen Stelle, deshalb gilt es sofort für Registrierung, Freischaltung, Passwort, Benachrichtigungen und Kampagnen
 - Jede Mail bietet einen Termin an und verweist auf die aktuellen Mandate
+- **Die eingebettete Auswahl fügt sich ein.** Phalanx OS liefert die Buchungsseite im Rahmen ohne eigene Kopfzeile, ohne eigene Karte und mit Georgia-Überschriften. Vorher stand eine Karte in einer Karte in einer Karte (setzt Phalanx OS ab v6.49.0 voraus)
 - **Die Terminauswahl ist eingebettet.** Freie Termine stehen direkt im Abschlussbereich der Startseite, niemand muss die Website verlassen. Alle Terminknöpfe springen dorthin, statt ein neues Fenster zu öffnen. Voraussetzung ist Phalanx OS ab v6.48.0, das die Einbettung für genau diese eine Seite erlaubt. Klemmt dort etwas, schaltet `VITE_TERMIN_EMBED=0` zurück auf den Knopf, ohne Codeänderung
 - **Die Terminbuchung läuft über Phalanx OS**, nicht über einen fremden Dienst. Der Kalender wird an einer Stelle gepflegt, und die Daten der Anfragenden bleiben im Haus. Der Link steht in `VITE_TERMIN_URL` und `TERMIN_URL`, damit er ohne Codeänderung getauscht werden kann
 - **Neue Rundmail an registrierte Konten**: nur bestätigte, aktive und freigeschaltete Adressen, Widerspruch im CRM und Sperrliste gelten auch hier, Versand in Rationen von Hand, Abmeldung über einen Einmal-Link, unzustellbare Adressen werden mit Grund im Klartext gesperrt

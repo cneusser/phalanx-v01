@@ -375,12 +375,15 @@ export default function Landing() {
             oder Telefon. Sie erhalten sofort eine Bestätigung.
           </p>
           {/* Die Auswahl läuft eingebettet, damit niemand die Seite verlassen muss.
-              Der Rahmen lädt erst, wenn er in Sichtweite kommt. Blockiert ein
-              Browser die Einbettung, bleibt der Link darunter als Weg. */}
+              Der Parameter einbettung=1 lässt Phalanx OS seine eigene Kopfzeile
+              und Karte weg, sonst stünde eine Karte in der Karte. Neuere Browser
+              erkennen das ohnehin selbst über Sec-Fetch-Dest, der Parameter ist
+              der Rückfall. Der Rahmen lädt erst, wenn er in Sichtweite kommt.
+              Blockiert ein Browser die Einbettung, bleibt der Link darunter. */}
           {TERMIN_EINGEBETTET && (
             <div className="termin-rahmen">
               <iframe
-                src={TERMIN}
+                src={`${TERMIN}${TERMIN.includes('?') ? '&' : '?'}einbettung=1`}
                 title="Freie Termine bei Dr. Christian Neusser"
                 loading="lazy"
                 referrerPolicy="strict-origin-when-cross-origin"

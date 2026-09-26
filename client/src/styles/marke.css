@@ -230,13 +230,16 @@
 .marke .terminkarte p { color: #b8c5ce; line-height: 1.6; margin: 0 0 22px; font-size: 15px; }
 .marke .terminkarte small { display: block; color: #8ea4b4; font-size: 13px; margin-top: 18px; line-height: 1.6; }
 
-/* Eingebettete Terminauswahl. Der Rahmen bekommt eine feste Höhe und scrollt
-   selbst, damit die Seite darunter nicht springt, sobald die Liste der freien
-   Termine länger oder kürzer wird. Weißer Grund, weil die Buchungsseite hell
-   ist und auf dem dunklen Block sonst ein Rand aufblitzt. */
+/* Eingebettete Terminauswahl.
+   Die Buchungsseite läuft im Einbettungsmodus, bringt also weder Kopfzeile noch
+   eigene Karte mit (siehe Phalanx OS ab v6.48.0). Deshalb genügt hier eine
+   schlichte weiße Fläche mit etwas Innenabstand: Das Formular sitzt dann direkt
+   in der Terminkarte und nicht als Karte in der Karte.
+   Feste Höhe mit eigenem Rollbalken, damit die Seite darunter nicht springt,
+   wenn die Liste der freien Termine länger oder kürzer wird. */
 .marke .termin-rahmen {
-  background: #fff; border: 1px solid rgba(255, 255, 255, .16);
-  height: 520px; overflow: hidden; margin-bottom: 14px;
+  background: #fff; height: 540px; overflow: hidden; margin-bottom: 16px;
+  padding: 18px 18px 0;
 }
 .marke .termin-rahmen iframe { width: 100%; height: 100%; border: 0; display: block; }
 .marke .termin-extern {
