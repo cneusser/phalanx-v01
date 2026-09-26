@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Folder, FileText, ChevronRight, Search, CornerLeftUp } from 'lucide-react';
+import { useT } from '../i18n';
 
 // Ordner-navigierbarer Käufer-Datenraum. Baut den Baum aus dem Feld doc.folder
 // (Pfad mit „/") und spiegelt so die Ablage aus dem Safe. Nur Ansicht + Download.
 export default function DataRoomBrowser({ docs, C, renderDownload, onSearch }) {
+  const t = useT();
   const [path, setPath] = useState([]);      // aktueller Ordnerpfad als Segmente
   const [q, setQ] = useState('');
   const [remoteHits, setRemoteHits] = useState(null);   // Serversuche (Inhalt)
@@ -126,7 +128,7 @@ export default function DataRoomBrowser({ docs, C, renderDownload, onSearch }) {
           )}
 
           {folders.length === 0 && files.length === 0 && (
-            <p style={{ color: C.muted, fontSize: '0.83rem' }}>Dieser Ordner ist leer.</p>
+            <p style={{ color: C.muted, fontSize: '0.83rem' }}>{t('dr.leer', 'Dieser Ordner ist leer.')}</p>
           )}
 
           {/* Ordner */}

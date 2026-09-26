@@ -57,6 +57,30 @@ ok(`jede Datei mit t() bindet die Übersetzung ein`
   + (ohneEinbindung.length ? `  (fehlt in: ${ohneEinbindung.join(', ')})` : ''),
   ohneEinbindung.length === 0);
 
+
+// ── t() am Modulrand stürzt die ganze Anwendung ab ─────────────────────────
+// Ein t('…') ausserhalb jeder Funktion läuft beim Laden des Moduls, also lange
+// bevor es eine gewählte Sprache gibt. Die Folge ist kein falscher Text,
+// sondern eine weisse Seite mit "t is not defined", und zwar auf jeder Seite,
+// weil App.jsx alle Seiten fest einbindet. Genau das ist v0.414 zweimal
+// passiert: einmal in einer Statustabelle, einmal in einer Hilfsfunktion.
+const amModulrand = [];
+for (const p of alle) {
+  if (p.includes(path.join('i18n', 'index.jsx'))) continue;
+  const zeilen = fs.readFileSync(p, 'utf8').split('\n');
+  let drin = false;
+  zeilen.forEach((z, i) => {
+    if (/^(export default )?(async )?function |^const \w+ = \(.*\) => \{/.test(z)) drin = true;
+    if (drin && /^\}/.test(z)) drin = false;
+    if (!drin && /(?<![\w.])(t|uebersetze)\('[a-z][a-z0-9_]*\./.test(z)) {
+      amModulrand.push(`${path.basename(p)}:${i + 1}`);
+    }
+  });
+}
+ok(`kein t() ausserhalb einer Funktion`
+  + (amModulrand.length ? `  (${amModulrand.join(', ')})` : ''),
+  amModulrand.length === 0);
+
 // ── Die Texte der Startseite liegen in beiden Sprachen vor ──────────────────
 const texte = fs.readFileSync(path.join(client, 'pages', 'landingTexte.js'), 'utf8');
 ok('die Startseite führt einen deutschen und einen englischen Zweig',

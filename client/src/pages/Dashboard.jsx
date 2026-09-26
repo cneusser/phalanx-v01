@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useT } from '../i18n';
 import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User, Award, Lock, FileCheck, Database, MessageSquare, ArrowRight, Target, Users, ClipboardList } from 'lucide-react';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB', lightBg: '#EDF4FA', gray: '#5d6670' };
@@ -73,10 +74,10 @@ function DealCard({ d }) {
 
       {/* Für Sie freigegeben */}
       <div style={{ background: C.bg, borderRadius: 8, padding: '0.6rem 0.7rem', margin: '0.7rem 0' }}>
-        <div style={{ fontSize: '0.66rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }}>Für Sie freigegeben</div>
+        <div style={{ fontSize: '0.66rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }}>{t('db.freigegeben', 'Für Sie freigegeben')}</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
           {resources.map(r => (
-            <span key={r.key} title={r.on ? 'freigegeben' : 'noch gesperrt'}
+            <span key={r.key} title={r.on ? 'freigegeben' : t('db.gesperrt', 'noch gesperrt')}
               style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', fontWeight: 600,
                 background: r.on ? '#d1fae5' : '#f1f5f9', color: r.on ? '#065f46' : '#94a3b8',
                 padding: '0.15rem 0.5rem', borderRadius: 20 }}>
@@ -109,6 +110,7 @@ const statusMap = {
 };
 
 export default function Dashboard() {
+  const t = useT();
   const { user, isSeller, isSuccessor } = useAuth();
   const navigate = useNavigate();
   const [ndas, setNdas] = useState([]);
@@ -173,7 +175,7 @@ export default function Dashboard() {
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
         <div style={{ marginBottom: '1.5rem' }}>
           <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.navy }}>Willkommen, {user?.first_name}</h1>
-          <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>Ihr persönlicher Nachfolge-Bereich</p>
+          <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>{t('db.bereich_nachfolge', 'Ihr persönlicher Nachfolge-Bereich')}</p>
         </div>
 
         {/* Fragebogen / Profil */}
@@ -184,14 +186,14 @@ export default function Dashboard() {
                 <ClipboardList size={22} color={C.navy} />
               </div>
               <div>
-                <div style={{ fontWeight: 800, color: C.navy, fontSize: '0.98rem' }}>Ihr Nachfolge-Profil</div>
+                <div style={{ fontWeight: 800, color: C.navy, fontSize: '0.98rem' }}>{t('db.profil_nachfolge', 'Ihr Nachfolge-Profil')}</div>
                 <div style={{ fontSize: '0.82rem', color: '#666' }}>
-                  {succProfile && succProfile.id ? `Zu ${pct}% ausgefüllt. Je vollständiger, desto besser das Matching.` : 'Noch nicht ausgefüllt. Der Fragebogen ist die Grundlage für passende Mandate.'}
+                  {succProfile && succProfile.id ? `Zu ${pct}% ausgefüllt. Je vollständiger, desto besser das Matching.` : t('db.fragebogen_offen', 'Noch nicht ausgefüllt. Der Fragebogen ist die Grundlage für passende Mandate.')}
                 </div>
               </div>
             </div>
             <Link to="/nachfolge-profil" style={{ background: C.navy, color: '#fff', padding: '0.6rem 1.3rem', borderRadius: 8, textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-              {succProfile && succProfile.id ? 'Fragebogen bearbeiten' : 'Fragebogen ausfüllen'}
+              {succProfile && succProfile.id ? 'Fragebogen bearbeiten' : t('db.fragebogen_ausfuellen', 'Fragebogen ausfüllen')}
             </Link>
           </div>
           <div style={{ height: 8, background: '#eef2f7', borderRadius: 5, overflow: 'hidden', marginTop: '1rem' }}>
@@ -202,7 +204,7 @@ export default function Dashboard() {
         {/* KPIs */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
           {[
-            { label: 'Profil ausgefüllt', value: `${pct}%`, icon: ClipboardList, color: C.navy },
+            { label: t('db.profil_fertig', 'Profil ausgefüllt'), value: `${pct}%`, icon: ClipboardList, color: C.navy },
             { label: 'Passende Mandate', value: succMatches.length, icon: Target, color: '#10b981' },
             { label: 'Meine Anfragen', value: myDeals.length, icon: MessageSquare, color: '#7c3aed' },
           ].map(({ label, value, icon: Icon, color }) => (
@@ -227,11 +229,11 @@ export default function Dashboard() {
           {topMatches.length === 0 ? (
             <div style={{ ...card, textAlign: 'center', padding: '2.2rem' }}>
               <Target size={32} color="#c7d7e6" style={{ marginBottom: '0.7rem' }} />
-              <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.3rem' }}>Noch keine Treffer</div>
+              <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.3rem' }}>{t('db.keine_treffer', 'Noch keine Treffer')}</div>
               <p style={{ color: '#777', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '1rem' }}>
                 Füllen Sie zuerst Ihr Nachfolge-Profil aus. Danach schlagen wir Ihnen passende Unternehmen zur Nachfolge vor.
               </p>
-              <Link to="/nachfolge-profil" style={{ background: C.navy, color: '#fff', padding: '0.6rem 1.3rem', borderRadius: 8, textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem' }}>Profil ausfüllen</Link>
+              <Link to="/nachfolge-profil" style={{ background: C.navy, color: '#fff', padding: '0.6rem 1.3rem', borderRadius: 8, textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem' }}>{t('db.profil_ausfuellen', 'Profil ausfüllen')}</Link>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
@@ -253,12 +255,12 @@ export default function Dashboard() {
 
         {/* So läuft Ihre Nachfolge */}
         <div style={{ ...card }}>
-          <div style={{ fontWeight: 700, color: C.navy, fontSize: '1rem', marginBottom: '0.9rem' }}>So finden Sie Ihr Unternehmen</div>
+          <div style={{ fontWeight: 700, color: C.navy, fontSize: '1rem', marginBottom: '0.9rem' }}>{t('db.so_finden_sie', 'So finden Sie Ihr Unternehmen')}</div>
           {[
-            ['Nachfolge-Profil ausfüllen', 'Erfahrung, Zielbranchen, Region, Budget und Szenario (MBI/MBO).'],
+            [t('db.nachfolgeprofil_ausfuellen', 'Nachfolge-Profil ausfüllen'), t('db.schritt1', 'Erfahrung, Zielbranchen, Region, Budget und Szenario (MBI/MBO).')],
             ['Passende Mandate ansehen', 'Wir schlagen Ihnen anonymisierte Nachfolge-Mandate vor.'],
-            ['Interesse bekunden', 'Bei einem passenden Mandat NDA zeichnen und Unterlagen anfragen.'],
-            ['In den Prozess gehen', 'Datenraum, Gespräche mit dem Übergeber, bis zur Übernahme.'],
+            ['Interesse bekunden', t('db.schritt2', 'Bei einem passenden Mandat NDA zeichnen und Unterlagen anfragen.')],
+            [t('db.schritt3_titel', 'In den Prozess gehen'), t('db.schritt3', 'Datenraum, Gespräche mit dem Übergeber, bis zur Übernahme.')],
           ].map(([t, d], i) => (
             <div key={i} style={{ display: 'flex', gap: '0.8rem', padding: '0.5rem 0', borderTop: i ? '1px solid #eef2f7' : 'none' }}>
               <div style={{ width: 26, height: 26, borderRadius: '50%', background: `${C.navy}12`, color: C.navy, fontWeight: 800, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
@@ -278,7 +280,7 @@ export default function Dashboard() {
       {/* Welcome */}
       <div style={{ marginBottom: '1.25rem' }}>
         <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.navy }}>Willkommen, {user?.first_name}</h1>
-        <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>Ihr persönlicher M&A-Bereich</p>
+        <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>{t('db.bereich_ma', 'Ihr persönlicher M&A-Bereich')}</p>
       </div>
 
       {/* So funktioniert's: jederzeit sichtbare Schritt-für-Schritt-Anleitung */}
@@ -293,10 +295,10 @@ export default function Dashboard() {
           <div style={{ padding: '1.1rem 1.2rem' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.9rem' }}>
               {[
-                ['1', 'Mandat auswählen', 'Öffnen Sie im Marktplatz ein anonymes Kurzprofil, das zu Ihnen passt.', FileText],
-                ['2', 'NDA digital zeichnen', 'Fordern Sie den Zugang an und zeichnen Sie die Vertraulichkeitsvereinbarung direkt online. Das dauert zwei Minuten.', FileCheck],
-                ['3', 'Unterlagen & Datenraum', 'Nach der Unterschrift schalten wir Exposé, Information Memorandum und den Datenraum für Sie frei.', Database],
-                ['4', 'Gespräch & Angebot', 'Stellen Sie Fragen über Q&A, dann folgen Management-Gespräch und indikatives Angebot.', MessageSquare],
+                ['1', t('db.ma_schritt1_titel', 'Mandat auswählen'), t('db.ma_schritt1', 'Öffnen Sie im Marktplatz ein anonymes Kurzprofil, das zu Ihnen passt.'), FileText],
+                ['2', 'NDA digital zeichnen', t('db.ma_schritt2', 'Fordern Sie den Zugang an und zeichnen Sie die Vertraulichkeitsvereinbarung direkt online. Das dauert zwei Minuten.'), FileCheck],
+                ['3', 'Unterlagen & Datenraum', t('db.ma_schritt3', 'Nach der Unterschrift schalten wir Exposé, Information Memorandum und den Datenraum für Sie frei.'), Database],
+                ['4', t('db.ma_schritt4_titel', 'Gespräch & Angebot'), t('db.ma_schritt4', 'Stellen Sie Fragen über Q&A, dann folgen Management-Gespräch und indikatives Angebot.'), MessageSquare],
               ].map(([n, title, desc, Icon]) => (
                 <div key={n} style={{ background: C.bg, borderRadius: 10, padding: '0.85rem 0.9rem', position: 'relative' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
@@ -312,7 +314,7 @@ export default function Dashboard() {
               <Link to="/projekte" style={{ background: C.navy, color: '#fff', padding: '0.6rem 1.3rem', borderRadius: 8, textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 Mandate ansehen <ArrowRight size={15} />
               </Link>
-              <span style={{ fontSize: '0.78rem', color: '#888' }}>Ihren aktuellen Stand je Mandat sehen Sie unten unter „Meine Deals".</span>
+              <span style={{ fontSize: '0.78rem', color: '#888' }}>{t('db.stand_unten', 'Ihren aktuellen Stand je Mandat sehen Sie unten unter „Meine Deals".')}</span>
             </div>
           </div>
         )}
@@ -323,9 +325,9 @@ export default function Dashboard() {
         <div style={{ background: '#fff', border: `2px solid ${C.navy}`, borderRadius: 12, padding: '1.1rem 1.25rem', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.7rem' }}>
             <Target size={18} color={C.navy} />
-            <span style={{ fontWeight: 800, color: C.navy, fontSize: '1.02rem' }}>Für Sie vorbereitete Mandate</span>
+            <span style={{ fontWeight: 800, color: C.navy, fontSize: '1.02rem' }}>{t('db.vorbereitete', 'Für Sie vorbereitete Mandate')}</span>
           </div>
-          <p style={{ fontSize: '0.82rem', color: '#555', margin: '0 0 0.9rem' }}>Diese Mandate haben wir für Sie vorbereitet. Zeichnen Sie die Vertraulichkeitserklärung, dann schalten wir die Unterlagen frei.</p>
+          <p style={{ fontSize: '0.82rem', color: '#555', margin: '0 0 0.9rem' }}>{t('db.vorbereitete_text', 'Diese Mandate haben wir für Sie vorbereitet. Zeichnen Sie die Vertraulichkeitserklärung, dann schalten wir die Unterlagen frei.')}</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.8rem' }}>
             {prepared.map(m => {
               const signed = m.nda_status === 'approved' || m.nda_status === 'signed';
@@ -338,7 +340,7 @@ export default function Dashboard() {
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#666' }}>{[m.industry, m.region].filter(Boolean).join(' · ')}</div>
                   <Link to={`/projekte/${m.id}`} style={{ marginTop: 4, textAlign: 'center', background: signed ? '#10b981' : C.navy, color: '#fff', padding: '0.5rem 0.8rem', borderRadius: 8, textDecoration: 'none', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    {signed ? 'Unterlagen ansehen' : isFund ? 'Ansehen und Zugang anfragen' : 'Ansehen und NDA zeichnen'} <ArrowRight size={14} />
+                    {signed ? 'Unterlagen ansehen' : isFund ? t('db.ansehen_zugang', 'Ansehen und Zugang anfragen') : t('db.ansehen_nda', 'Ansehen und NDA zeichnen')} <ArrowRight size={14} />
                   </Link>
                 </div>
               );
@@ -358,8 +360,8 @@ export default function Dashboard() {
               </div>
               <div style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.5, maxWidth: 620 }}>
                 {platformNda.signed_at
-                  ? 'Ihr Gütesiegel ist aktiv. Verkäufer sehen, dass Sie Diskretion zusichern.'
-                  : 'Ein einmaliges, plattformweites Vertraulichkeitsversprechen. Es signalisiert Ernsthaftigkeit und verbessert Ihre Chancen, das richtige Unternehmen zu finden.'}
+                  ? t('db.siegel_aktiv', 'Ihr Gütesiegel ist aktiv. Verkäufer sehen, dass Sie Diskretion zusichern.')
+                  : t('db.siegel_text', 'Ein einmaliges, plattformweites Vertraulichkeitsversprechen. Es signalisiert Ernsthaftigkeit und verbessert Ihre Chancen, das richtige Unternehmen zu finden.')}
               </div>
             </div>
           </div>
@@ -376,8 +378,8 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <ClipboardList size={19} color={C.navy} />
           <div>
-            <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.92rem' }}>Suchen Sie ein Unternehmen zur Nachfolge?</div>
-            <div style={{ fontSize: '0.8rem', color: '#666' }}>Füllen Sie das Nachfolge-Profil aus und erhalten Sie passende Mandate.</div>
+            <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.92rem' }}>{t('db.suchen_nachfolge', 'Suchen Sie ein Unternehmen zur Nachfolge?')}</div>
+            <div style={{ fontSize: '0.8rem', color: '#666' }}>{t('db.suchen_nachfolge_text', 'Füllen Sie das Nachfolge-Profil aus und erhalten Sie passende Mandate.')}</div>
           </div>
         </div>
         <Link to="/nachfolge-profil" style={{ background: C.navy, color: '#fff', padding: '0.55rem 1.2rem', borderRadius: 7, textDecoration: 'none', fontWeight: 700, fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
@@ -401,7 +403,7 @@ export default function Dashboard() {
                 <div style={{ width: `${xp.progress_pct}%`, height: '100%', background: '#174a6a', borderRadius: 5 }} />
               </div>
               <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>
-                {xp.next ? `Noch ${xp.to_next} XP bis „${xp.next}"` : 'Höchstes Level erreicht 🎉'}
+                {xp.next ? `Noch ${xp.to_next} XP bis „${xp.next}"` : t('db.hoechstes_level', 'Höchstes Level erreicht 🎉')}
               </div>
             </div>
           </div>
@@ -440,7 +442,7 @@ export default function Dashboard() {
         {myDeals.length === 0 ? (
           <div style={{ background: '#fff', border: '1px solid #dce8f2', borderRadius: 12, padding: '2.5rem', textAlign: 'center' }}>
             <FileText size={34} color="#c7d7e6" style={{ marginBottom: '0.8rem' }} />
-            <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.3rem' }}>Noch kein Deal begonnen</div>
+            <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.3rem' }}>{t('db.kein_deal', 'Noch kein Deal begonnen')}</div>
             <p style={{ color: '#777', fontSize: '0.86rem', marginBottom: '1.1rem', lineHeight: 1.6 }}>
               Sobald Sie bei einem Unternehmen Interesse bekunden, erscheint es hier mit Ihrem Prozessstand und den für Sie freigegebenen Unterlagen.
             </p>
@@ -460,8 +462,8 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <User size={18} color={C.navy} />
           <div>
-            <div style={{ fontWeight: 600, color: C.navy, fontSize: '0.9rem' }}>Käuferprofil vervollständigen</div>
-            <div style={{ fontSize: '0.8rem', color: '#666' }}>Definieren Sie Ihre Suchkriterien für automatisches Matching</div>
+            <div style={{ fontWeight: 600, color: C.navy, fontSize: '0.9rem' }}>{t('db.kaeuferprofil', 'Käuferprofil vervollständigen')}</div>
+            <div style={{ fontSize: '0.8rem', color: '#666' }}>{t('db.kaeuferprofil_text', 'Definieren Sie Ihre Suchkriterien für automatisches Matching')}</div>
           </div>
         </div>
         <Link to="/profil" style={{ background: C.navy, color: '#fff', padding: '0.55rem 1.25rem', borderRadius: 7, textDecoration: 'none', fontWeight: 600, fontSize: '0.825rem' }}>

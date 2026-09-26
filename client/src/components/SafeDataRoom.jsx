@@ -11,6 +11,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Folder, FileText, Lock, Download, Eye, Search, ChevronRight, ChevronUp, ChevronDown, Package, CornerLeftUp } from 'lucide-react';
 import { api } from '../api/client';
+import { useT } from '../i18n';
 
 const kb = (n) => {
   if (!n) return '';
@@ -30,7 +31,9 @@ function authHeaders() {
 }
 
 // Datei oder Archiv holen und als Download anstoßen (Bearer-Token nötig).
-async function hole(pfad, dateiname, setFehler, body = null) {
+// Der Fehlertext kommt von aussen herein: diese Funktion steht am Modulrand
+// und kennt die gewählte Sprache nicht.
+async function hole(pfad, dateiname, setFehler, body = null, fehlertext = 'Download nicht möglich.') {
   try {
     const res = await fetch(pfad, {
       method: body ? 'POST' : 'GET',
@@ -38,7 +41,7 @@ async function hole(pfad, dateiname, setFehler, body = null) {
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) {
-      let m = 'Download nicht möglich.';
+      let m = fehlertext;
       try { const d = await res.json(); if (d.error) m = d.error; } catch { /* Binärantwort */ }
       setFehler(m); return false;
     }
@@ -52,6 +55,8 @@ async function hole(pfad, dateiname, setFehler, body = null) {
 }
 
 export default function SafeDataRoom({ projectId, C }) {
+  const uebersetze = useT();
+  const fehlertext = uebersetze('dr.download_fehler', 'Download nicht möglich.');
   const [daten, setDaten] = useState({ items: [], breadcrumb: [] });
   const [parent, setParent] = useState(null);
   const [laden, setLaden] = useState(true);
@@ -117,19 +122,19 @@ export default function SafeDataRoom({ projectId, C }) {
   async function ladeAuswahl() {
     if (!auswahl.length) return;
     setBusy('auswahl');
-    await hole(`/api/safe/${projectId}/zip`, 'Auswahl.zip', setFehler, { ids: auswahl });
+    await hole(`/api/safe/${projectId}/zip`, 'Auswahl.zip', setFehler, { ids: auswahl }, fehlertext);
     setBusy('');
   }
 
   async function ladeAlles() {
     setBusy('alles');
-    await hole(`/api/safe/${projectId}/zip`, 'Datenraum.zip', setFehler, {});
+    await hole(`/api/safe/${projectId}/zip`, 'Datenraum.zip', setFehler, {}, fehlertext);
     setBusy('');
   }
 
   async function ladeOrdner(f) {
     setBusy('o' + f.id);
-    await hole(`/api/safe/${projectId}/folder/${f.id}/zip`, `${f.name}.zip`, setFehler);
+    await hole(`/api/safe/${projectId}/folder/${f.id}/zip`, `${f.name}.zip`, setFehler, null, fehlertext);
     setBusy('');
   }
 
@@ -188,7 +193,7 @@ export default function SafeDataRoom({ projectId, C }) {
             </>
           ) : (
             <><strong>Datenraum</strong>
-              <div style={{ fontSize: '0.74rem', color: C.muted, marginTop: 2 }}>Ordner öffnen Sie mit einem Klick, ansehen können Sie jedes Dokument.</div>
+              <div style={{ fontSize: '0.74rem', color: C.muted, marginTop: 2 }}>{uebersetze('dr.hinweis', 'Ordner öffnen Sie mit einem Klick, ansehen können Sie jedes Dokument.')}</div>
             </>
           )}
         </div>
@@ -201,7 +206,7 @@ export default function SafeDataRoom({ projectId, C }) {
           </span>
         ) : (
           <Knopf onClick={ladeAlles} disabled={busy === 'alles'} ton="stark" titel="Den gesamten freigegebenen Datenraum als ZIP laden">
-            <Package size={14} /> {busy === 'alles' ? 'Archiv wird gepackt…' : 'Alles herunterladen'}
+            <Package size={14} /> {busy === 'alles' ? uebersetze('dr.archiv_packt', 'Archiv wird gepackt…') : 'Alles herunterladen'}
           </Knopf>
         )}
       </div>
@@ -211,7 +216,7 @@ export default function SafeDataRoom({ projectId, C }) {
         <div style={{ position: 'relative', flex: 1 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: C.muted }} />
           <input value={suche} onChange={(e) => { setSuche(e.target.value); if (!e.target.value) setTreffer(null); }}
-            placeholder="Im Datenraum suchen, auch im Text der Dokumente"
+            placeholder={uebersetze('dr.suche', 'Im Datenraum suchen, auch im Text der Dokumente')}
             style={{ width: '100%', boxSizing: 'border-box', padding: '0.5rem 0.7rem 0.5rem 2rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.83rem' }} />
         </div>
         <button type="submit" style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>Suchen</button>
@@ -223,7 +228,7 @@ export default function SafeDataRoom({ projectId, C }) {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
             <strong style={{ fontSize: '0.85rem', color: C.text }}>{treffer.length} Treffer</strong>
-            <button onClick={() => { setTreffer(null); setSuche(''); }} style={{ background: 'none', border: 'none', color: C.navy, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>Zurück zum Ordner</button>
+            <button onClick={() => { setTreffer(null); setSuche(''); }} style={{ background: 'none', border: 'none', color: C.navy, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>{uebersetze('dr.zurueck', 'Zurück zum Ordner')}</button>
           </div>
           {treffer.length === 0 && <p style={{ color: C.muted, fontSize: '0.83rem' }}>Nichts gefunden.</p>}
           {treffer.map((t) => (
@@ -235,7 +240,7 @@ export default function SafeDataRoom({ projectId, C }) {
                   {t.snippet && <div style={{ fontSize: '0.74rem', color: C.muted, marginTop: 3 }} dangerouslySetInnerHTML={{ __html: t.snippet.replace(/«/g, '<mark>').replace(/»/g, '</mark>') }} />}
                 </div>
                 {t.darf_download && (
-                  <Knopf onClick={() => hole(`/api/safe/${projectId}/item/${t.id}/download`, t.name, setFehler)}>
+                  <Knopf onClick={() => hole(`/api/safe/${projectId}/item/${t.id}/download`, t.name, setFehler, null, fehlertext)}>
                     <Download size={12} /> Laden
                   </Knopf>
                 )}
@@ -250,7 +255,7 @@ export default function SafeDataRoom({ projectId, C }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', flexWrap: 'wrap' }}>
               {parent && (
                 <button onClick={() => { const bc = daten.breadcrumb || []; lade(bc.length > 1 ? bc[bc.length - 2].id : null); }}
-                  title="Eine Ebene höher (Rücktaste)"
+                  title={uebersetze('dr.hoeher', 'Eine Ebene höher (Rücktaste)')}
                   style={{ display: 'inline-flex', alignItems: 'center', background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.2rem 0.35rem', marginRight: 4, cursor: 'pointer', color: C.navy }}>
                   <CornerLeftUp size={13} />
                 </button>
@@ -266,7 +271,7 @@ export default function SafeDataRoom({ projectId, C }) {
             {parent && (
               <Knopf onClick={() => ladeOrdner({ id: parent, name: (daten.breadcrumb || []).slice(-1)[0]?.name || 'Ordner' })}
                 disabled={busy === 'o' + parent} ton="gut" titel="Diesen Ordner mit allen Unterordnern laden">
-                <Package size={13} /> {busy === 'o' + parent ? 'Archiv wird gepackt…' : 'Diesen Ordner laden'}
+                <Package size={13} /> {busy === 'o' + parent ? uebersetze('dr.archiv_packt', 'Archiv wird gepackt…') : 'Diesen Ordner laden'}
               </Knopf>
             )}
           </div>
@@ -277,14 +282,14 @@ export default function SafeDataRoom({ projectId, C }) {
               background: '#EFF6FF', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.5rem 0.8rem', marginBottom: '0.5rem' }}>
               <span style={{ fontSize: '0.8rem', color: '#1e3a8a', fontWeight: 600 }}>
                 {gewaehlteDateien > 0 && `${gewaehlteDateien} ${gewaehlteDateien === 1 ? 'Dokument' : 'Dokumente'}`}
-                {gewaehlteDateien > 0 && gewaehlteOrdner > 0 && ' und '}
+                {gewaehlteDateien > 0 && gewaehlteOrdner > 0 && uebersetze('dr.und', ' und ')}
                 {gewaehlteOrdner > 0 && `${gewaehlteOrdner} ${gewaehlteOrdner === 1 ? 'Ordner' : 'Ordner'}`}
                 {' '}markiert
               </span>
               <span style={{ display: 'flex', gap: '0.4rem' }}>
                 <Knopf onClick={() => setAuswahl([])}>Auswahl aufheben</Knopf>
                 <Knopf onClick={ladeAuswahl} disabled={busy === 'auswahl'} ton="stark">
-                  <Download size={13} /> {busy === 'auswahl' ? 'Archiv wird gepackt…' : 'Auswahl herunterladen'}
+                  <Download size={13} /> {busy === 'auswahl' ? uebersetze('dr.archiv_packt', 'Archiv wird gepackt…') : 'Auswahl herunterladen'}
                 </Knopf>
               </span>
             </div>
@@ -293,18 +298,18 @@ export default function SafeDataRoom({ projectId, C }) {
           {laden ? <p style={{ color: C.muted, fontSize: '0.83rem' }}>Laden…</p> : (
             <div ref={listeRef} style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
               {zeilen.length === 0 ? (
-                <p style={{ color: C.muted, fontSize: '0.83rem', padding: '1rem', margin: 0 }}>Dieser Ordner ist leer.</p>
+                <p style={{ color: C.muted, fontSize: '0.83rem', padding: '1rem', margin: 0 }}>{uebersetze('dr.leer', 'Dieser Ordner ist leer.')}</p>
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#F8FAFC', borderBottom: `1px solid ${C.border}` }}>
                       <th style={{ width: 34, padding: '0.5rem 0 0.5rem 0.7rem' }}>
-                        <input type="checkbox" checked={alleGewaehlt} title="Alles auf dieser Ebene markieren"
+                        <input type="checkbox" checked={alleGewaehlt} title={uebersetze('dr.alles_markieren', 'Alles auf dieser Ebene markieren')}
                           onChange={() => setAuswahl(alleGewaehlt ? [] : waehlbar.map((i) => i.id))} />
                       </th>
                       <Kopf feld="name">Name</Kopf>
-                      <Kopf feld="size" breite={90}>Größe</Kopf>
-                      <Kopf feld="datum" breite={110}>Geändert</Kopf>
+                      <Kopf feld="size" breite={90}>{uebersetze('dr.groesse', 'Größe')}</Kopf>
+                      <Kopf feld="datum" breite={110}>{uebersetze('dr.geaendert', 'Geändert')}</Kopf>
                       <th style={{ width: 168 }} />
                     </tr>
                   </thead>
@@ -333,7 +338,7 @@ export default function SafeDataRoom({ projectId, C }) {
                                   {f.name}
                                   {f.vertraulich && !f.gesperrt && <span style={{ marginLeft: 6, background: '#fef3c7', color: '#92400e', borderRadius: 20, padding: '1px 7px', fontSize: '0.66rem', fontWeight: 700 }}>vertraulich</span>}
                                 </div>
-                                {f.gesperrt && <div style={{ fontSize: '0.72rem', color: '#b45309' }}>Vertraulich, Freigabe erforderlich. Sprechen Sie uns an.</div>}
+                                {f.gesperrt && <div style={{ fontSize: '0.72rem', color: '#b45309' }}>{uebersetze('dr.vertraulich', 'Vertraulich, Freigabe erforderlich. Sprechen Sie uns an.')}</div>}
                               </div>
                             </div>
                           </td>
@@ -356,7 +361,7 @@ export default function SafeDataRoom({ projectId, C }) {
                                   <Eye size={12} /> Ansehen
                                 </Knopf>
                                 {f.darf_download && (
-                                  <Knopf onClick={() => hole(`/api/safe/${projectId}/item/${f.id}/download`, f.name, setFehler)} ton="gut">
+                                  <Knopf onClick={() => hole(`/api/safe/${projectId}/item/${f.id}/download`, f.name, setFehler, null, fehlertext)} ton="gut">
                                     <Download size={12} /> Laden
                                   </Knopf>
                                 )}

@@ -5,6 +5,7 @@ import SuccessionCandidates from '../components/SuccessionCandidates';
 import TeamModal from '../components/TeamModal';
 import { api, getToken } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useT, useI18n } from '../i18n';
 import NDASignModal from '../components/NDASignModal';
 import DataRoomBrowser from '../components/DataRoomBrowser';
 import SafeDataRoom from '../components/SafeDataRoom';
@@ -27,15 +28,19 @@ const C = {
   muted:  '#64748B',
 };
 
+// Der Schlüssel steht neben dem deutschen Text. Übersetzt wird erst beim
+// Zeichnen: am Modulrand gibt es weder eine gewählte Sprache noch t().
 const statusMap = {
-  requested: { label: 'NDA angefordert - Prüfung ausstehend', icon: Clock,       color: '#f59e0b', bg: '#fef3c7' },
-  sent:      { label: 'NDA versendet - bitte unterschreiben', icon: PenLine,      color: '#3b82f6', bg: '#dbeafe' },
-  signed:    { label: 'NDA unterschrieben - Freigabe ausstehend', icon: Clock,    color: '#8b5cf6', bg: '#ede9fe' },
-  approved:  { label: 'Zugang freigeschaltet',                icon: CheckCircle,  color: '#10b981', bg: '#d1fae5' },
-  rejected:  { label: 'Zugang abgelehnt',                    icon: AlertCircle,  color: '#ef4444', bg: '#fee2e2' },
+  requested: { schluessel: 'pd.nda_angefordert', label: 'NDA angefordert - Prüfung ausstehend', icon: Clock,       color: '#f59e0b', bg: '#fef3c7' },
+  sent:      { schluessel: 'pd.nda_versendet',   label: 'NDA versendet - bitte unterschreiben', icon: PenLine,     color: '#3b82f6', bg: '#dbeafe' },
+  signed:    { schluessel: 'pd.nda_unterschrieben', label: 'NDA unterschrieben - Freigabe ausstehend', icon: Clock, color: '#8b5cf6', bg: '#ede9fe' },
+  approved:  { schluessel: 'pd.zugang_frei',     label: 'Zugang freigeschaltet',                icon: CheckCircle, color: '#10b981', bg: '#d1fae5' },
+  rejected:  { schluessel: 'pd.zugang_abgelehnt', label: 'Zugang abgelehnt',                    icon: AlertCircle, color: '#ef4444', bg: '#fee2e2' },
 };
 
-const fmt = (v) => v != null ? `${v.toLocaleString('de-DE')} Mio. €` : 'k. A.';
+// Die Sprache kommt als Parameter herein, damit die Funktion am Modulrand
+// stehen bleiben kann.
+const fmt = (v, lang) => v != null ? `${v.toLocaleString(lang === 'en' ? 'en-GB' : 'de-DE')} Mio. €` : 'k. A.';
 
 function KpiCard({ label, value, icon: Icon }) {
   return (
@@ -50,14 +55,16 @@ function KpiCard({ label, value, icon: Icon }) {
 }
 
 // Alle Tabs: immer gleich für beide Mandate-Typen
+// Der Schlüssel steht neben dem deutschen Text: übersetzt wird erst beim
+// Zeichnen, denn am Modulrand gibt es noch keine gewählte Sprache.
 const ALL_TABS = [
-  ['overview',  'Überblick'],
-  ['company',   'Unternehmen'],
-  ['market',    'Markt & Potenzial'],
-  ['financials','Finanzen'],
-  ['documents', 'Dokumente'],
-  ['qa',        'Q&A'],
-  ['contact',   'Kontakt'],
+  ['overview',   'pd.tab_overview',   'Überblick'],
+  ['company',    'pd.tab_company',    'Unternehmen'],
+  ['market',     'pd.tab_market',     'Markt & Potenzial'],
+  ['financials', 'pd.tab_financials', 'Finanzen'],
+  ['documents',  'pd.tab_documents',  'Dokumente'],
+  ['qa',         'qa.titel',          'Q&A'],
+  ['contact',    'pd.tab_contact',    'Kontakt'],
 ];
 
 // Tabs die immer zugänglich sind (ohne NDA)
@@ -68,12 +75,12 @@ function LockedTabPlaceholder({ onRequestNDA, onSign, user, ndaStatus, navigate 
   // hier NICHT nur „wird geprüft" zeigen, sondern aktiv zum Unterzeichnen führen.
   const needsSign = ndaStatus === 'requested' || ndaStatus === 'sent';
   const message = !user
-    ? 'Registrieren Sie sich, um Zugang zu vertraulichen Informationen anzufordern.'
+    ? t('pd.hinweis_registrieren', 'Registrieren Sie sich, um Zugang zu vertraulichen Informationen anzufordern.')
     : ndaStatus === 'signed'
-      ? 'Ihre Vertraulichkeitsvereinbarung ist unterzeichnet und wird kurz geprüft. Danach schalten wir Datenraum und Q&A frei.'
+      ? t('pd.hinweis_unterzeichnet', 'Ihre Vertraulichkeitsvereinbarung ist unterzeichnet und wird kurz geprüft. Danach schalten wir Datenraum und Q&A frei.')
       : needsSign
-        ? 'Nur noch ein Schritt: Zeichnen Sie die Vertraulichkeitsvereinbarung digital, das dauert zwei Minuten. Danach sind Kurzprofil, Unterlagen und Datenraum sofort für Sie frei.'
-        : 'Fordern Sie Zugang an, dann können Sie die Vertraulichkeitsvereinbarung direkt digital zeichnen und erhalten die Unterlagen.';
+        ? t('pd.hinweis_ein_schritt', 'Nur noch ein Schritt: Zeichnen Sie die Vertraulichkeitsvereinbarung digital, das dauert zwei Minuten. Danach sind Kurzprofil, Unterlagen und Datenraum sofort für Sie frei.')
+        : t('pd.hinweis_zugang_anfordern', 'Fordern Sie Zugang an, dann können Sie die Vertraulichkeitsvereinbarung direkt digital zeichnen und erhalten die Unterlagen.');
   return (
     <div style={{
       background: C.bg,
@@ -118,6 +125,8 @@ function LockedTabPlaceholder({ onRequestNDA, onSign, user, ndaStatus, navigate 
 }
 
 export default function ProjectDetail() {
+  const t = useT();
+  const { lang } = useI18n();
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -237,7 +246,7 @@ export default function ProjectDetail() {
     <div style={{ padding: '4rem', textAlign: 'center', color: C.muted }}>
       <div style={{ width: 36, height: 36, margin: '0 auto 1rem', border: `3px solid ${C.border}`, borderTop: `3px solid ${C.navy}`, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <div style={{ fontSize: '0.875rem' }}>Mandat wird geladen...</div>
+      <div style={{ fontSize: '0.875rem' }}>{t('pd.laedt', 'Mandat wird geladen...')}</div>
     </div>
   );
   if (error) return (
@@ -309,10 +318,10 @@ export default function ProjectDetail() {
           {(imUnlocked || teaser.can_manage) && (
             <Link to={`/projekte/${teaser.id}/expose`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', background: C.navy, color: '#fff', borderRadius: 8, padding: '0.9rem 1.1rem', textDecoration: 'none', marginBottom: '1.25rem' }}>
               <span style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Vollständiges Exposé ansehen</span>
+                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{t('pd.expose_ansehen', 'Vollständiges Exposé ansehen')}</span>
                 <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.7)' }}>{teaser.can_manage ? 'Editor / Vorschau des Verkaufs-Exposés' : 'Eckdaten, Unternehmensprofil & Kaufpreisvorstellung'}</span>
               </span>
-              <span style={{ background: '#c9a96e', color: '#10202c', borderRadius: 6, padding: '0.35rem 0.8rem', fontSize: '0.78rem', fontWeight: 700 }}>Öffnen →</span>
+              <span style={{ background: '#c9a96e', color: '#10202c', borderRadius: 6, padding: '0.35rem 0.8rem', fontSize: '0.78rem', fontWeight: 700 }}>{t('pd.oeffnen', 'Öffnen')} →</span>
             </Link>
           )}
 
@@ -332,13 +341,13 @@ export default function ProjectDetail() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                 <Lock size={14} color={C.navy} />
                 <span style={{ fontWeight: 600, color: C.text, fontSize: '0.88rem' }}>
-                  {isStartup ? 'Unterlagen nach Freigabe' : 'Vollständige Informationen nach NDA-Freigabe'}
+                  {isStartup ? t('pd.unterlagen_nach_freigabe', 'Unterlagen nach Freigabe') : t('pd.infos_nach_nda', 'Vollständige Informationen nach NDA-Freigabe')}
                 </span>
               </div>
               <p style={{ color: C.muted, fontSize: '0.82rem', lineHeight: 1.6, marginBottom: '1rem' }}>
                 {isStartup
-                  ? 'Pitch Deck und Kurzprofil geben wir nach kurzer Prüfung frei, ein NDA ist dafür nicht nötig. Für den Datenraum sprechen wir Sie gesondert an.'
-                  : 'Vollständige Unternehmensbeschreibung, Finanzdaten, Teamdetails und vertrauliche Dokumente werden nach NDA-Freigabe zugänglich.'}
+                  ? t('pd.hinweis_pitchdeck', 'Pitch Deck und Kurzprofil geben wir nach kurzer Prüfung frei, ein NDA ist dafür nicht nötig. Für den Datenraum sprechen wir Sie gesondert an.')
+                  : t('pd.hinweis_nach_nda', 'Vollständige Unternehmensbeschreibung, Finanzdaten, Teamdetails und vertrauliche Dokumente werden nach NDA-Freigabe zugänglich.')}
               </p>
               {!user ? (
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -352,8 +361,8 @@ export default function ProjectDetail() {
               ) : (
                 <div style={{ fontSize: '0.82rem', color: '#666' }}>
                   {isStartup && ndaStatus === 'requested'
-                    ? 'Angefragt. Wir prüfen kurz und geben die Unterlagen dann frei.'
-                    : (statusMap[ndaStatus]?.label || 'NDA-Status: ' + ndaStatus)}
+                    ? t('pd.hinweis_angefragt', 'Angefragt. Wir prüfen kurz und geben die Unterlagen dann frei.')
+                    : (statusMap[ndaStatus] ? t(statusMap[ndaStatus].schluessel, statusMap[ndaStatus].label) : 'NDA-Status: ' + ndaStatus)}
                 </div>
               )}
             </div>
@@ -364,7 +373,7 @@ export default function ProjectDetail() {
             <>
               {fullData.details?.full_description && fullData.details.full_description !== teaser.short_description && (
                 <div style={{ marginTop: '1.25rem' }}>
-                  <h4 style={{ fontWeight: 700, color: C.text, marginBottom: '0.6rem', fontSize: '0.88rem' }}>Vollständige Beschreibung</h4>
+                  <h4 style={{ fontWeight: 700, color: C.text, marginBottom: '0.6rem', fontSize: '0.88rem' }}>{t('pd.beschreibung_voll', 'Vollständige Beschreibung')}</h4>
                   <p style={{ color: '#444', lineHeight: 1.8, fontSize: '0.9rem' }}>{fullData.details.full_description}</p>
                 </div>
               )}
@@ -373,7 +382,7 @@ export default function ProjectDetail() {
                 <div style={{ background: `${C.navy}06`, borderRadius: 6, padding: '1.1rem', marginTop: '1.25rem', border: `1px solid ${C.border}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
                     <Lightbulb size={14} color={C.navy} />
-                    <span style={{ fontWeight: 700, color: C.text, fontSize: '0.85rem' }}>Problem & Lösung</span>
+                    <span style={{ fontWeight: 700, color: C.text, fontSize: '0.85rem' }}>{t('pd.problem_loesung', 'Problem & Lösung')}</span>
                   </div>
                   <p style={{ color: '#555', fontSize: '0.83rem', lineHeight: 1.65 }}>{fullData.details.problem_solution}</p>
                 </div>
@@ -391,7 +400,7 @@ export default function ProjectDetail() {
           {/* Sprint 18: Ähnliche Mandate: Cross-Discovery, auch ohne NDA sichtbar */}
           {similar.length > 0 && (
             <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: `1px solid ${C.border}` }}>
-              <h4 style={{ fontWeight: 700, color: C.text, marginBottom: '0.9rem', fontSize: '0.88rem' }}>Ähnliche Mandate</h4>
+              <h4 style={{ fontWeight: 700, color: C.text, marginBottom: '0.9rem', fontSize: '0.88rem' }}>{t('pd.aehnliche', 'Ähnliche Mandate')}</h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem' }}>
                 {similar.map(s => (
                   <Link key={s.id} to={`/projekte/${s.id}`} style={{ textDecoration: 'none', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.85rem 1rem', display: 'block' }}>
@@ -421,13 +430,13 @@ export default function ProjectDetail() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
             {isStartup ? (
               <>
-                <KpiCard label="GRÜNDUNGSJAHR" value={fullData?.details?.founding_year || 'k. A.'} icon={Calendar} />
+                <KpiCard label={t('pd.gruendungsjahr', 'GRÜNDUNGSJAHR')} value={fullData?.details?.founding_year || 'k. A.'} icon={Calendar} />
                 <KpiCard label="MITARBEITER" value={fullData?.details?.employees ? `${fullData.details.employees} Personen` : 'k. A.'} icon={Users} />
               </>
             ) : (
               <>
                 <KpiCard label="MITARBEITER" value={fullData?.details?.employees || 'k. A.'} icon={Users} />
-                <KpiCard label="GRÜNDUNGSJAHR" value={fullData?.details?.founding_year || 'k. A.'} icon={Calendar} />
+                <KpiCard label={t('pd.gruendungsjahr', 'GRÜNDUNGSJAHR')} value={fullData?.details?.founding_year || 'k. A.'} icon={Calendar} />
                 <KpiCard label="STANDORT" value={teaser.location_city || teaser.region || 'k. A.'} icon={MapPin} />
                 <KpiCard label="BRANCHE" value={teaser.industry || 'k. A.'} icon={Building2} />
               </>
@@ -439,7 +448,7 @@ export default function ProjectDetail() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.6rem' }}>
                 <Users size={14} color={C.navy} />
                 <h4 style={{ fontWeight: 700, color: C.text, fontSize: '0.9rem', margin: 0 }}>
-                  {isStartup ? 'Gründerteam' : 'Management'}
+                  {isStartup ? t('pd.gruenderteam', 'Gründerteam') : t('pd.management', 'Management')}
                 </h4>
               </div>
               <p style={{ color: '#444', fontSize: '0.85rem', lineHeight: 1.75, whiteSpace: 'pre-line' }}>
@@ -473,7 +482,7 @@ export default function ProjectDetail() {
           })()}
 
           {!fullData?.details && (
-            <p style={{ color: C.muted, fontSize: '0.875rem' }}>Unternehmensdetails werden im CIM bereitgestellt.</p>
+            <p style={{ color: C.muted, fontSize: '0.875rem' }}>{t('pd.details_im_cim', 'Unternehmensdetails werden im CIM bereitgestellt.')}</p>
           )}
         </div>
       );
@@ -542,7 +551,7 @@ export default function ProjectDetail() {
             )}
 
             {!fullData?.details?.use_of_funds && !fullData?.details?.milestones && (
-              <p style={{ color: C.muted, fontSize: '0.875rem' }}>Detaillierter Finanzplan im CIM verfügbar.</p>
+              <p style={{ color: C.muted, fontSize: '0.875rem' }}>{t('pd.finanzplan_im_cim', 'Detaillierter Finanzplan im CIM verfügbar.')}</p>
             )}
           </div>
         );
@@ -553,8 +562,8 @@ export default function ProjectDetail() {
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
             {[
-              { label: 'Umsatz (IST)',        value: fmt(fullData?.details?.revenue_actual) },
-              { label: 'EBITDA (IST)',        value: fmt(fullData?.details?.ebitda_actual) },
+              { label: 'Umsatz (IST)',        value: fmt(fullData?.details?.revenue_actual, lang) },
+              { label: 'EBITDA (IST)',        value: fmt(fullData?.details?.ebitda_actual, lang) },
               { label: 'Umsatz-Trend',        value: fullData?.details?.revenue_trend || 'k. A.' },
               { label: 'Kaufpreisindikation', value: fullData?.details?.asking_price_band || 'k. A.' },
             ].map(({ label, value }) => (
@@ -587,9 +596,10 @@ export default function ProjectDetail() {
           const a = document.createElement('a');
           a.href = link.url; a.download = doc.filename; a.click();
         } catch (e) {
+          // Die Servermeldung ist deutsch, der Vergleich muss es also auch sein.
           alert(e.message?.includes('nicht gefunden')
-            ? `${e.message}: Die Datei wurde noch nicht hochgeladen.`
-            : (e.message || 'Download fehlgeschlagen: bitte später erneut versuchen.'));
+            ? `${e.message}: ${t('pd.datei_nicht_hochgeladen', 'Die Datei wurde noch nicht hochgeladen.')}`
+            : (e.message || t('pd.download_fehler', 'Download fehlgeschlagen: bitte später erneut versuchen.')));
         }
       };
 
@@ -598,13 +608,13 @@ export default function ProjectDetail() {
       const exposePdf = async () => {
         try {
           const res = await fetch(`/api/exposes/${id}/pdf`, { headers: { Authorization: `Bearer ${getToken()}` } });
-          if (!res.ok) throw new Error('Exposé-PDF nicht verfügbar');
+          if (!res.ok) throw new Error(t('pd.expose_fehlt', 'Exposé-PDF nicht verfügbar'));
           const b = await res.blob();
           const u = URL.createObjectURL(b);
           const a = document.createElement('a');
           a.href = u; a.download = `Expose_${fullData?.project?.codename || id}.pdf`; a.click();
           URL.revokeObjectURL(u);
-        } catch (e) { alert(e.message || 'Exposé-PDF nicht verfügbar'); }
+        } catch (e) { alert(e.message || t('pd.expose_fehlt', 'Exposé-PDF nicht verfügbar')); }
       };
 
       // Download-Button: deaktiviert, wenn (noch) keine physische Datei hinterlegt ist
@@ -628,7 +638,7 @@ export default function ProjectDetail() {
           <button
             onClick={() => !fileMissing && downloadDoc(doc)}
             disabled={fileMissing}
-            title={fileMissing ? 'Die Datei wird vom Berater in Kürze bereitgestellt' : 'Herunterladen'}
+            title={fileMissing ? t('pd.datei_folgt', 'Die Datei wird vom Berater in Kürze bereitgestellt') : 'Herunterladen'}
             style={{
               display: 'flex', alignItems: 'center', gap: '0.35rem',
               background: fileMissing ? '#e2e8f0' : C.navy,
@@ -637,7 +647,7 @@ export default function ProjectDetail() {
               cursor: fileMissing ? 'not-allowed' : 'pointer', fontSize: '0.75rem', fontWeight: 600,
             }}
           >
-            <Download size={12} /> {fileMissing ? 'Folgt in Kürze' : 'Download'}
+            <Download size={12} /> {fileMissing ? t('pd.folgt_in_kuerze', 'Folgt in Kürze') : 'Download'}
           </button>
         );
       };
@@ -648,12 +658,12 @@ export default function ProjectDetail() {
           <div style={{ marginBottom: '2rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
               <Globe size={15} color={C.navy} />
-              <h4 style={{ fontWeight: 700, color: C.text, fontSize: '0.9rem', margin: 0 }}>Öffentliche Dokumente</h4>
-              <span style={{ background: '#dcfce7', color: '#166534', padding: '0.1rem 0.4rem', borderRadius: 4, fontSize: '0.65rem', fontWeight: 700 }}>Ohne NDA verfügbar</span>
+              <h4 style={{ fontWeight: 700, color: C.text, fontSize: '0.9rem', margin: 0 }}>{t('pd.dok_oeffentlich', 'Öffentliche Dokumente')}</h4>
+              <span style={{ background: '#dcfce7', color: '#166534', padding: '0.1rem 0.4rem', borderRadius: 4, fontSize: '0.65rem', fontWeight: 700 }}>{t('pd.ohne_nda', 'Ohne NDA verfügbar')}</span>
             </div>
 
             {publicDocs.length === 0 ? (
-              <p style={{ color: C.muted, fontSize: '0.83rem' }}>Kein öffentlicher Teaser verfügbar.</p>
+              <p style={{ color: C.muted, fontSize: '0.83rem' }}>{t('pd.kein_teaser', 'Kein öffentlicher Teaser verfügbar.')}</p>
             ) : (
               publicDocs.map(doc => (
                 <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: C.bg, borderRadius: 6, marginBottom: '0.5rem', border: `1px solid ${C.border}` }}>
@@ -689,7 +699,7 @@ export default function ProjectDetail() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: '0.83rem', color: C.text }}>Informationsmemorandum (IM/CIM)</div>
-                  <div style={{ fontSize: '0.72rem', color: C.muted }}>Vollständige Unterlagen nach NDA-Freigabe</div>
+                  <div style={{ fontSize: '0.72rem', color: C.muted }}>{t('pd.unterlagen_nach_nda', 'Vollständige Unterlagen nach NDA-Freigabe')}</div>
                 </div>
                 <span style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: 600 }}>NDA erforderlich</span>
               </div>
@@ -698,7 +708,7 @@ export default function ProjectDetail() {
                  Suche, Archiv-Download und gesperrten Clean-Team-Bereichen. */
               <SafeDataRoom projectId={id} C={C} />
             ) : ndaDocs.length === 0 ? (
-              <p style={{ color: C.muted, fontSize: '0.83rem' }}>Noch keine vertraulichen Dokumente hochgeladen.</p>
+              <p style={{ color: C.muted, fontSize: '0.83rem' }}>{t('pd.keine_vertraulichen', 'Noch keine vertraulichen Dokumente hochgeladen.')}</p>
             ) : (
               <DataRoomBrowser docs={ndaDocs} C={C} renderDownload={(d) => <DownloadButton doc={d} />}
                 onSearch={async (query) => { const r = await api.get(`/documents/${id}/search?q=${encodeURIComponent(query)}`); return r.results || []; }} />
@@ -719,7 +729,7 @@ export default function ProjectDetail() {
           await api.post(`/projects/${id}/questions`, { question: newQuestion });
           setNewQuestion('');
           setQuestions(await api.get(`/projects/${id}/questions`));
-          setQaMsg('Frage übermittelt: Sie werden per E-Mail informiert, sobald eine Antwort vorliegt.');
+          setQaMsg(t('pd.frage_uebermittelt', 'Frage übermittelt: Sie werden per E-Mail informiert, sobald eine Antwort vorliegt.'));
         } catch (e) { setQaMsg('Fehler: ' + e.message); }
       };
 
@@ -731,7 +741,7 @@ export default function ProjectDetail() {
           await api.put(`/admin/questions/${qId}/answer`, { answer: text });
           setQaDrafts(s => ({ ...s, [qId]: '' }));
           setQuestions(await api.get(`/projects/${id}/questions`));
-          setQaMsg('Antwort gespeichert und dem Fragenden per E-Mail zugestellt.');
+          setQaMsg(t('pd.antwort_gespeichert', 'Antwort gespeichert und dem Fragenden per E-Mail zugestellt.'));
         } catch (e) { setQaMsg('Fehler: ' + e.message); }
       };
 
@@ -745,7 +755,7 @@ export default function ProjectDetail() {
             <input
               value={newQuestion}
               onChange={e => setNewQuestion(e.target.value)}
-              placeholder="Ihre Frage zum Mandat…"
+              placeholder={t('pd.frage_platzhalter', 'Ihre Frage zum Mandat…')}
               style={{ flex: 1, padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.85rem', outline: 'none' }}
             />
             <button onClick={askQuestion} style={{ padding: '0.6rem 1.25rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}>
@@ -755,7 +765,7 @@ export default function ProjectDetail() {
           {qaMsg && <div style={{ background: qaMsg.startsWith('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 6, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: qaMsg.startsWith('Fehler') ? '#991b1b' : '#065f46' }}>{qaMsg}</div>}
 
           {questions.length === 0 ? (
-            <p style={{ color: C.muted, fontSize: '0.83rem' }}>Noch keine Fragen gestellt.</p>
+            <p style={{ color: C.muted, fontSize: '0.83rem' }}>{t('pd.keine_fragen', 'Noch keine Fragen gestellt.')}</p>
           ) : questions.map(q => (
             <div key={q.id} style={{
               background: q.is_public === 1 && !q.is_mine ? '#f4f6f7' : C.bg,
@@ -766,14 +776,14 @@ export default function ProjectDetail() {
                 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: C.text, marginBottom: '0.3rem' }}>{q.question}</div>
                 {q.is_public === 1 && (
                   <span style={{ background: '#dbeafe', color: '#1e40af', padding: '0.1rem 0.45rem', borderRadius: 20, fontSize: '0.64rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                    {q.is_mine === false || q.is_mine === 0 ? 'Häufige Frage' : 'Für alle sichtbar'}
+                    {q.is_mine === false || q.is_mine === 0 ? t('pd.haeufige_frage', 'Häufige Frage') : t('pd.fuer_alle_sichtbar', 'Für alle sichtbar')}
                   </span>
                 )}
               </div>
               <div style={{ fontSize: '0.7rem', color: C.muted, marginBottom: q.answer ? '0.5rem' : 0 }}>
                 {q.is_mine === false || q.is_mine === 0
-                  ? 'Von einem anderen Interessenten gestellt'
-                  : `Gestellt am ${new Date(q.asked_at).toLocaleString('de-DE')} · ${q.status === 'answered' ? 'Beantwortet' : 'Wartet auf Antwort'}`}
+                  ? t('pd.frage_von_anderem', 'Von einem anderen Interessenten gestellt')
+                  : `${t('pd.gestellt_am', 'Gestellt am')} ${new Date(q.asked_at).toLocaleString(lang === 'en' ? 'en-GB' : 'de-DE')} · ${q.status === 'answered' ? t('pd.beantwortet', 'Beantwortet') : t('pd.wartet_auf_antwort', 'Wartet auf Antwort')}`}
               </div>
               {q.buyer_name && isAdmin && (
                 <div style={{ fontSize: '0.68rem', color: C.muted, marginBottom: '0.4rem' }}>Von: {q.buyer_name}</div>
@@ -807,7 +817,7 @@ export default function ProjectDetail() {
             border: 'none', borderRadius: 8, padding: '0.7rem 1.2rem', fontSize: '0.9rem', fontWeight: 700,
             cursor: contacting ? 'default' : 'pointer', marginBottom: '1.25rem',
           }}>
-            <MessageSquare size={16} /> {contacting ? 'Wird geöffnet…' : 'Chat mit Ihrem Berater starten'}
+            <MessageSquare size={16} /> {contacting ? t('pd.wird_geoeffnet', 'Wird geöffnet…') : t('pd.chat_starten', 'Chat mit Ihrem Berater starten')}
           </button>
           <div style={{ background: C.bg, borderRadius: 6, padding: '1.25rem', border: `1px solid ${C.border}` }}>
             <div style={{ fontWeight: 700, color: C.text, marginBottom: '0.15rem', fontSize: '0.95rem' }}>Christian Neusser</div>
@@ -847,21 +857,21 @@ export default function ProjectDetail() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
                 <button
                   onClick={toggleFollow}
-                  title={watched ? 'Diesem Mandat nicht mehr folgen' : 'Diesem Mandat folgen, Sie werden über Änderungen informiert'}
+                  title={watched ? t('pd.nicht_mehr_folgen', 'Diesem Mandat nicht mehr folgen') : t('pd.folgen', 'Diesem Mandat folgen, Sie werden über Änderungen informiert')}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
                     background: watched ? '#fef3c7' : C.bg, color: watched ? '#92400e' : C.muted,
                     border: `1px solid ${watched ? '#fcd34d' : C.border}`, borderRadius: 20,
                     padding: '0.3rem 0.75rem', fontSize: '0.75rem', fontWeight: 700,
                   }}>
-                  {watched ? '★ Sie folgen' : '☆ Folgen'}
+                  {watched ? t('pd.sie_folgen', '★ Sie folgen') : t('pd.folgen_kurz', '☆ Folgen')}
                 </button>
               </div>
               {/* Badges: Typ + Branche + Region + Status, klickbar als Live-Filter im Marktplatz */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
                 <span
                   onClick={() => navigate(`/projekte?mandate_type=${encodeURIComponent(teaser.mandate_type || 'ma')}`)}
-                  title="Ähnliche Mandate anzeigen"
+                  title={t('pd.aehnliche_anzeigen', 'Ähnliche Mandate anzeigen')}
                   style={{
                     background: teaser.mandate_type === 'fundraising' ? '#EDE9FE' : '#EDF4FA',
                     color: teaser.mandate_type === 'fundraising' ? '#5B21B6' : C.navy,
@@ -873,7 +883,7 @@ export default function ProjectDetail() {
                 {(teaser.stage || teaser.deal_type) && (
                   <span
                     onClick={() => teaser.deal_type && navigate(`/projekte?deal_type=${encodeURIComponent(teaser.deal_type)}`)}
-                    title="Mandate mit diesem Deal-Typ anzeigen"
+                    title={t('pd.dealtyp_anzeigen', 'Mandate mit diesem Deal-Typ anzeigen')}
                     style={{ background: '#fef3c7', color: '#92400e', padding: '0.22rem 0.6rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}>
                     {teaser.stage || teaser.deal_type}
                   </span>
@@ -976,7 +986,7 @@ export default function ProjectDetail() {
                 display: 'flex', gap: 0, borderBottom: `1px solid ${C.border}`,
                 overflowX: 'auto',
               }}>
-                {ALL_TABS.map(([key, label]) => {
+                {ALL_TABS.map(([key, schluessel, label]) => {
                   const isPublic = PUBLIC_TABS.includes(key);
                   const accessible = isPublic || approved;
                   const isActive = activeTab === key;
@@ -998,7 +1008,7 @@ export default function ProjectDetail() {
                       }}
                     >
                       {!accessible && <Lock size={9} style={{ opacity: 0.5 }} />}
-                      {label}
+                      {t(schluessel, label)}
                     </button>
                   );
                 })}
@@ -1015,7 +1025,7 @@ export default function ProjectDetail() {
           <div style={{ position: 'sticky', top: 80 }}>
             {/* Zugang-Box */}
             <div style={{ background: C.card, borderRadius: 6, padding: '1.5rem', border: `1px solid ${C.border}`, marginBottom: '1rem' }}>
-              <h3 style={{ fontWeight: 700, color: C.text, marginBottom: '1rem', fontSize: '0.95rem' }}>Ihr Zugang</h3>
+              <h3 style={{ fontWeight: 700, color: C.text, marginBottom: '1rem', fontSize: '0.95rem' }}>{t('pd.ihr_zugang', 'Ihr Zugang')}</h3>
 
               {!user ? (
                 <>
@@ -1054,7 +1064,7 @@ export default function ProjectDetail() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
                     }}>
                       <PenLine size={14} />
-                      {ndaStatus === 'sent' ? 'NDA jetzt unterzeichnen' : 'NDA vorab ansehen & unterzeichnen'}
+                      {ndaStatus === 'sent' ? t('pd.nda_unterzeichnen', 'NDA jetzt unterzeichnen') : 'NDA vorab ansehen & unterzeichnen'}
                     </button>
                   )}
                   {ndaStatus === 'signed' && (
@@ -1078,8 +1088,8 @@ export default function ProjectDetail() {
                 <>
                   <p style={{ color: C.muted, fontSize: '0.83rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
                     {isStartup
-                      ? 'Fordern Sie eine NDA an, um das vollständige CIM, Teamdetails und Finanzplan zu erhalten.'
-                      : 'Fordern Sie eine Vertraulichkeitsvereinbarung (NDA) an, um Zugang zu erhalten.'}
+                      ? t('pd.nda_anfordern_cim', 'Fordern Sie eine NDA an, um das vollständige CIM, Teamdetails und Finanzplan zu erhalten.')
+                      : t('pd.nda_anfordern_zugang', 'Fordern Sie eine Vertraulichkeitsvereinbarung (NDA) an, um Zugang zu erhalten.')}
                   </p>
                   <button onClick={requestNDA} disabled={requesting} style={{
                     width: '100%', background: C.navy, color: '#fff', border: 'none',

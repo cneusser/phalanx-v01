@@ -363,3 +363,71 @@
   .marke * { animation: none !important; transition: none !important; }
 }
 
+
+/* ── Kontakt ──────────────────────────────────────────────────────────────
+   Dieselbe Handschrift wie die Startseite: dunkler Kopf, darunter zwei
+   gleichberechtigte Wege, schreiben oder sprechen.                        */
+.marke .kontakt-kopf {
+  background: linear-gradient(110deg, #123049, #245577); color: #fff;
+  padding-bottom: clamp(40px, 6vw, 70px);
+}
+.marke .kontakt-kopf .kicker { color: var(--pxl-gold); }
+.marke .kontakt-kopf h1 {
+  font: 400 clamp(30px, 4.4vw, 54px)/1.1 Georgia, serif;
+  letter-spacing: -.03em; margin: 14px 0 18px; max-width: 18ch; color: #fff; text-wrap: balance;
+}
+.marke .kontakt-kopf > p { color: #d5e2ea; max-width: 620px; font: clamp(16px, 2.1vw, 18px)/1.7 Georgia, serif; margin: 0; }
+
+.marke .kontakt-raster {
+  background: var(--pxl-papier);
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
+  gap: clamp(30px, 5vw, 72px); align-items: start;
+}
+.marke .kontakt-formular { background: #fff; border: 1px solid var(--pxl-linie); padding: clamp(26px, 3.4vw, 38px); }
+.marke .kontakt-formular h2 { font-size: clamp(24px, 2.8vw, 30px); margin: 0 0 24px; }
+.marke .kontakt-formular label {
+  display: block; font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+  font-weight: 700; color: #4e6a7d; margin: 18px 0 7px;
+}
+.marke .kontakt-formular input[type="text"],
+.marke .kontakt-formular input[type="email"],
+.marke .kontakt-formular input:not([type]),
+.marke .kontakt-formular textarea {
+  width: 100%; padding: 13px 14px; border: 1px solid var(--pxl-linie); border-radius: 0;
+  font: 15px/1.5 Arial, Helvetica, sans-serif; color: var(--pxl-ink); background: #fff;
+  box-sizing: border-box; outline: none;
+}
+.marke .kontakt-formular textarea { resize: vertical; min-height: 130px; }
+.marke .kontakt-formular input:focus-visible,
+.marke .kontakt-formular textarea:focus-visible { border-color: var(--pxl-primaer); box-shadow: 0 0 0 3px #174a6a22; }
+.marke .kontakt-formular label.kontakt-haken {
+  display: flex; align-items: center; gap: 10px; margin: 22px 0 0;
+  font-size: 14px; letter-spacing: 0; text-transform: none; font-weight: 400;
+  color: var(--pxl-ink); cursor: pointer;
+}
+.marke .kontakt-formular label.kontakt-haken input { width: 17px; height: 17px; flex: 0 0 auto; accent-color: var(--pxl-primaer); }
+.marke .kontakt-formular .knopf { margin-top: 22px; width: 100%; justify-content: center; border: 0; cursor: pointer; font: 700 15px Arial, Helvetica, sans-serif; }
+.marke .kontakt-formular .knopf svg { width: 16px; height: 16px; }
+.marke .kontakt-formular .knopf[disabled] { opacity: .6; cursor: default; }
+.marke .kontakt-formular > form > small { display: block; margin-top: 16px; color: var(--pxl-leise); font-size: 13px; line-height: 1.6; }
+.marke .kontakt-fehler { background: #fdecec; border-left: 3px solid #b3261e; color: #7f1d1d; padding: 11px 14px; margin: 18px 0 0; font-size: 14px; }
+.marke .honigtopf { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.marke .kontakt-danke { text-align: center; padding: clamp(24px, 4vw, 44px) 0; }
+.marke .kontakt-danke svg { width: 38px; height: 38px; color: var(--pxl-gold); }
+.marke .kontakt-danke h2 { margin: 18px 0 10px; }
+.marke .kontakt-danke p { color: var(--pxl-leise); margin: 0; }
+
+.marke .kontakt-angaben { margin-top: 26px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, .16); }
+.marke .kontakt-angaben h4 { font: 400 18px Georgia, serif; color: #fff; margin: 0 0 14px; }
+.marke .kontakt-angaben p { display: flex; align-items: center; gap: 11px; margin: 0 0 11px; color: #cfe0ea; font-size: 14.5px; }
+.marke .kontakt-angaben svg { width: 16px; height: 16px; color: var(--pxl-gold); flex: 0 0 auto; }
+.marke .kontakt-angaben a { color: #fff; border-bottom: 1px solid rgba(255, 255, 255, .4); }
+.marke .kontakt-angaben small { display: block; margin-top: 16px; color: #8ea4b4; font-size: 13px; line-height: 1.7; }
+.marke .kontakt-angaben small a { color: #cfe0ea; }
+
+@media (max-width: 960px) {
+  .marke .kontakt-raster { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .marke .kontakt-formular .knopf { width: 100%; }
+}
