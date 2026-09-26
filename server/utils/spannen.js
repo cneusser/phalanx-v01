@@ -30,25 +30,46 @@ function istSpanne(text) {
 }
 
 /**
+ * Sieht der Text nach einem Geldbetrag aus?
+ *
+ * Diese Pruefung ist der Kern, und sie war zuerst zu grosszuegig: Aus
+ * "ca. 8 %" wurde "5 bis 10 Mio." und aus einer nackten Zahl "über 500 Mio.".
+ * Das Feld ebitda_band traegt in der Praxis auch Margen und Freitext, nicht nur
+ * Betraege. Umgerechnet wird deshalb nur noch, was eindeutig Geld ist.
+ */
+function istBetrag(text) {
+  const t = String(text || '');
+  if (/%/.test(t)) return false;                       // Marge, kein Betrag
+  if (/€|eur\b|mio|mrd|million|milliarde|teur|tsd|tausend/i.test(t)) return true;
+  // Eine blanke Zahl gilt nur ab Zehntausend als Betrag. Alles darunter kann
+  // eine Jahreszahl, ein Prozentwert oder sonst etwas sein.
+  const blank = t.replace(/[\s.,]/g, '');
+  return /^\d+$/.test(blank) && Number(blank) >= 10000;
+}
+
+/**
  * Einen Betrag auf eine Spanne runden.
- * „8.400.000 EUR" wird zu „5 bis 10 Mio.", „0,9 Mio." zu „0,5 bis 1 Mio.".
- * Was schon eine Spanne ist, bleibt unverändert. Was sich nicht lesen lässt,
- * wird nicht geraten, sondern als „k. A." ausgewiesen.
+ * "8.400.000 EUR" wird zu "5 bis 10 Mio.", "0,9 Mio." zu "0,5 bis 1 Mio.".
+ *
+ * Was schon eine Spanne ist, bleibt unveraendert. Was kein Betrag ist, bleibt
+ * ebenfalls unveraendert: lieber eine Angabe stehen lassen, die der Mensch
+ * geschrieben hat, als sie in eine falsche Zahl zu verwandeln.
  */
 function zuSpanne(text) {
   const roh = String(text == null ? '' : text).trim();
   if (!roh) return 'k. A.';
   if (istSpanne(roh)) return roh;
+  if (!istBetrag(roh)) return roh;
 
   let wert = zahl(roh);
-  if (wert == null || !Number.isFinite(wert)) return 'k. A.';
+  if (wert == null || !Number.isFinite(wert)) return roh;
 
   // Einheit erkennen und auf Millionen bringen.
   if (/mrd|milliarde/i.test(roh)) wert *= 1000;
   else if (/mio|million/i.test(roh)) { /* schon Millionen */ }
   else if (/t\s?€|teur|tsd|tausend|k\s?€|keur/i.test(roh)) wert /= 1000;
-  else if (wert >= 10000) wert /= 1e6;        // blanke Eurobeträge
-  if (wert <= 0) return 'k. A.';
+  else if (wert >= 10000) wert /= 1e6;        // blanke Eurobetraege
+  if (wert <= 0) return roh;
 
   const fmt = (n) => String(n).replace('.', ',');
   if (wert < STUFEN[0]) return `unter ${fmt(STUFEN[0])} Mio.`;
@@ -103,5 +124,5 @@ function fuerOeffentlich(zeile, user) {
 
 module.exports = {
   STUFEN, MITARBEITER, NUR_INTERN,
-  istSpanne, zuSpanne, mitarbeiterSpanne, darfAufloesen, fuerOeffentlich,
+  istSpanne, istBetrag, zuSpanne, mitarbeiterSpanne, darfAufloesen, fuerOeffentlich,
 };

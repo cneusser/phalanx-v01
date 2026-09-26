@@ -27,8 +27,24 @@ for (const s of ['5 bis 10 Mio.', '€ 10–20 Mio.', 'ab 3 Mio.', 'unter 1 Mio.
   gleich(`unveraendert: ${s}`, sp.zuSpanne(s), s);
 }
 gleich('leer bleibt k. A.', sp.zuSpanne(''), 'k. A.');
-gleich('Unsinn bleibt k. A.', sp.zuSpanne('auf Anfrage'), 'k. A.');
 gleich('null bleibt k. A.', sp.zuSpanne(null), 'k. A.');
+
+// Der Kern der Korrektur: Was kein Geldbetrag ist, wird nicht umgerechnet,
+// sondern bleibt stehen. Im Marktplatz stand sonst "EBITDA über 500 Mio."
+// bei einem Unternehmen mit 10 bis 13 Mio. Umsatz.
+gleich('Freitext bleibt stehen', sp.zuSpanne('auf Anfrage'), 'auf Anfrage');
+gleich('eine Marge bleibt eine Marge', sp.zuSpanne('ca. 8 %'), 'ca. 8 %');
+gleich('Marge mit Zusatz bleibt stehen', sp.zuSpanne('12 % Marge'), '12 % Marge');
+gleich('eine Jahreszahl wird nicht zu Millionen', sp.zuSpanne('2025'), '2025');
+gleich('eine kleine blanke Zahl bleibt stehen', sp.zuSpanne('800'), '800');
+gleich('EBIT-Marge mit Klammerzusatz bleibt stehen',
+  sp.zuSpanne('14-15 % EBIT-Marge (Branche 8-10 %)'), '14-15 % EBIT-Marge (Branche 8-10 %)');
+
+ok('Prozent ist kein Betrag', !sp.istBetrag('ca. 8 %'));
+ok('eine Jahreszahl ist kein Betrag', !sp.istBetrag('2025'));
+ok('mit Waehrung ist es ein Betrag', sp.istBetrag('8.400.000 EUR'));
+ok('mit Einheit ist es ein Betrag', sp.istBetrag('0,9 Mio.'));
+ok('eine blanke Zahl ab Zehntausend ist ein Betrag', sp.istBetrag('8400000'));
 
 // ── Mitarbeitende ───────────────────────────────────────────────────────────
 gleich('34 Mitarbeitende', sp.mitarbeiterSpanne(34), '25 bis 50');
