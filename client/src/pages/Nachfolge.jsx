@@ -45,7 +45,7 @@ export default function Nachfolge() {
             {t('succ.hero_text', 'CapitalMatch bringt Menschen mit unternehmerischem Anspruch und Übergeber zusammen, die einen Nachfolger suchen. Auf der Plattform, bei Matching-Events und im persönlichen Austausch. Für Nachfolge-Interessierte kostenfrei.')}
           </p>
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link to="/registrieren" style={{ background: C.accent, color: '#0f1c28', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+            <Link to="/registrieren" style={{ background: '#c9a96e', color: '#10202c', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
               {t('succ.cta_free', 'Kostenfrei registrieren')}<ArrowRight size={16} />
             </Link>
             <Link to="/kontakt" style={{ border: '1px solid rgba(255,255,255,0.4)', color: '#fff', fontWeight: 600, padding: '0.75rem 1.5rem', borderRadius: 8, textDecoration: 'none' }}>
@@ -117,7 +117,7 @@ export default function Nachfolge() {
           <p style={{ fontSize: '0.98rem', color: 'rgba(255,255,255,0.85)', lineHeight: 1.6, margin: '0 0 1.5rem' }}>
             {t('succ.first_step_text', 'Die Registrierung dauert zwei Minuten. Danach kümmern wir uns um die passenden Vorschläge.')}
           </p>
-          <Link to="/registrieren" style={{ background: C.accent, color: '#0f1c28', fontWeight: 700, padding: '0.8rem 1.8rem', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+          <Link to="/registrieren" style={{ background: '#c9a96e', color: '#10202c', fontWeight: 700, padding: '0.8rem 1.8rem', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
             {t('succ.join_now', 'Jetzt kostenfrei dabei sein')}<ArrowRight size={16} />
           </Link>
         </div>

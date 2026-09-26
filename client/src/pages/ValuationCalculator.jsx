@@ -206,7 +206,7 @@ export default function ValuationCalculator() {
                 <span>Ich willige ein, dass meine Angaben zur Erstellung und Zusendung des Reports sowie zur projektbezogenen Ansprache gespeichert und genutzt werden (<Link to="/datenschutz" style={{ color: C.navy }}>Datenschutz</Link>). Widerruf jederzeit möglich.</span>
               </label>
               {leadMsg && <div style={{ background: leadMsg.startsWith('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '0.75rem', fontSize: '0.82rem', color: leadMsg.startsWith('Fehler') ? '#991b1b' : '#065f46' }}>{leadMsg}</div>}
-              <button onClick={requestReport} disabled={leadLoading} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 1.5rem', background: C.steel, color: C.navy, border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem', opacity: leadLoading ? 0.6 : 1 }}>
+              <button onClick={requestReport} disabled={leadLoading} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 1.5rem', background: '#c9a96e', color: '#10202c', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem', opacity: leadLoading ? 0.6 : 1 }}>
                 <Download size={15} /> {leadLoading ? 'Wird erstellt…' : 'PDF-Report anfordern'}
               </button>
             </div>
@@ -217,7 +217,7 @@ export default function ValuationCalculator() {
         <div style={{ background: C.navy, borderRadius: 10, padding: '1.75rem', color: '#fff', textAlign: 'center' }}>
           <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: '0.4rem' }}>Verkauf oder Nachfolge geplant?</div>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', marginBottom: '1.1rem' }}>Wir begleiten Sie von der belastbaren Bewertung bis zum Abschluss, vertraulich und professionell.</p>
-          <Link to="/registrieren" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: C.steel, color: C.navy, padding: '0.7rem 1.75rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '0.9rem' }}>
+          <Link to="/registrieren" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: '#c9a96e', color: '#10202c', padding: '0.7rem 1.75rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '0.9rem' }}>
             Jetzt Mandat starten <ChevronRight size={15} />
           </Link>
         </div>

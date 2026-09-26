@@ -67,7 +67,7 @@ export default function ExposeView() {
             <Link to={`/projekte/${pid}`} style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}><ChevronLeft size={14} /> Zum Mandat</Link>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               {can_manage && expose.status !== 'published' && <span style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', padding: '0.2rem 0.6rem', borderRadius: 20, fontSize: '0.7rem', fontWeight: 700 }}>VORSCHAU (ENTWURF)</span>}
-              <button onClick={downloadPdf} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.steel, color: C.navy, border: 'none', borderRadius: 7, padding: '0.45rem 0.9rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}><Download size={14} /> PDF</button>
+              <button onClick={downloadPdf} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#c9a96e', color: '#10202c', border: 'none', borderRadius: 7, padding: '0.45rem 0.9rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}><Download size={14} /> PDF</button>
             </div>
           </div>
           <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.6)', fontWeight: 600, marginTop: '1rem' }}>Vertrauliches Unternehmens-Exposé</div>

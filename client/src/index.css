@@ -9,7 +9,10 @@ html, body, #root {
   margin: 0;
   padding: 0;
   max-width: 100%;
-  overflow-x: hidden;                /* verhindert horizontales Scrollen */
+  /* clip statt hidden: hidden erzeugt einen Scroll-Container und setzt
+     damit jedes position:sticky darin ausser Kraft (Kopfleiste). */
+  overflow-x: hidden;
+  overflow-x: clip;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -78,3 +81,18 @@ a { -webkit-tap-highlight-color: transparent; }
 
 /* Nutzbar für horizontal scrollbare Bereiche (Tabellen) */
 .cm-scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+
+/* ── Zurueck nach oben: erscheint erst nach einer Bildschirmhoehe ───────── */
+.nach-oben {
+  position: fixed; right: 22px; bottom: 86px; z-index: 101;
+  width: 46px; height: 46px; display: none; align-items: center; justify-content: center;
+  background: #111820; color: #fff; border: 0; border-radius: 3px; cursor: pointer;
+  box-shadow: 0 8px 35px #0f172a33; padding: 0;
+}
+.nach-oben.sichtbar { display: inline-flex; }
+.nach-oben:hover { background: #174a6a; }
+.nach-oben svg { width: 20px; height: 20px; }
+@media (max-width: 600px) {
+  .nach-oben { right: 14px; bottom: 78px; width: 42px; height: 42px; }
+}

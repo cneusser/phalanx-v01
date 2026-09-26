@@ -135,7 +135,7 @@ export default function ExposeEditor() {
               <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>{saved}</span>
               <span style={{ background: status === 'published' ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', padding: '0.2rem 0.6rem', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700 }}>{status === 'published' ? 'VERÖFFENTLICHT' : 'ENTWURF'}</span>
               <Link to={`/projekte/${pid}/expose`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.78rem', textDecoration: 'none', fontWeight: 600 }}><Eye size={14} /> Vorschau</Link>
-              <button onClick={downloadPdf} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.steel, color: C.navy, border: 'none', borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}><Download size={14} /> PDF</button>
+              <button onClick={downloadPdf} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#c9a96e', color: '#10202c', border: 'none', borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}><Download size={14} /> PDF</button>
               {/* Fertiges Exposé-PDF hochladen (landet im Safe, ersetzt die Generierung) */}
               {pdfItemId ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(34,197,94,0.22)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 7, padding: '0.35rem 0.7rem', fontSize: '0.74rem', fontWeight: 700 }}>

@@ -10,7 +10,11 @@ import { api } from '../api/client';
 // CapitalMatch brand palette – exported for use across the platform
 export const C = {
   navy:    '#174a6a',   // Primary deep blue (CapitalMatch "Match" color)
-  steel:   '#174a6a',   // Accent sky blue (CapitalMatch "Capital" color)
+  steel:   '#174a6a',   // Flaechenfarbe der Marke
+  // Akzent fuer alles, was AUF der navyfarbenen Leiste sitzt. Ohne eigenen
+  // Wert waere er mit der Leiste identisch und der aktive Punkt unsichtbar.
+  akzent:  '#c9a96e',
+  akzentText: '#10202c',
   lightBg: '#f7f5f0',   // Light blue tint background
   xLight:  '#f4f6f7',   // Extra light section background
   gray:    '#5d6670',   // Muted text
@@ -68,8 +72,8 @@ export default function Navbar() {
     return (
       <Link to="/nachrichten" onClick={() => setOpen(false)} style={{
         display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', position: 'relative',
-        color: '#fff', background: active ? C.steel : 'rgba(255,255,255,0.14)',
-        border: `1px solid ${active ? C.steel : 'rgba(255,255,255,0.28)'}`, borderRadius: 8,
+        color: active ? C.akzentText : '#fff', background: active ? C.akzent : 'rgba(255,255,255,0.14)',
+        border: `1px solid ${active ? C.akzent : 'rgba(255,255,255,0.28)'}`, borderRadius: 8,
         padding: mobile ? '0.6rem 0.9rem' : '0.35rem 0.75rem', fontWeight: 700, fontSize: mobile ? '1rem' : '0.9rem',
       }}>
         <MessageSquare size={16} /> {t('nav.messages', 'Nachrichten')}
@@ -90,13 +94,13 @@ export default function Navbar() {
     const active = location.pathname === to || location.pathname.startsWith(to + '/');
     return (
       <Link to={to} onClick={() => setOpen(false)} style={{
-        color: active ? C.steel : 'rgba(255,255,255,0.80)',
+        color: active ? '#fff' : 'rgba(255,255,255,0.80)',
         textDecoration: 'none',
         fontWeight: active ? 600 : 400,
         fontSize: '0.9rem',
         letterSpacing: '0.01em',
         padding: '0.25rem 0',
-        borderBottom: active ? `2px solid ${C.steel}` : '2px solid transparent',
+        borderBottom: active ? `2px solid ${C.akzent}` : '2px solid transparent',
         transition: 'all 0.2s',
       }}>
         {label}
@@ -185,7 +189,7 @@ export default function Navbar() {
                 {t('nav.login', 'Anmelden')}
               </Link>
               <Link to="/registrieren" style={{
-                background: C.steel, color: '#fff',
+                background: C.akzent, color: C.akzentText,
                 padding: '0.45rem 1.1rem', borderRadius: 6,
                 fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none',
                 letterSpacing: '0.02em',
@@ -307,7 +311,7 @@ export default function Navbar() {
             {!user ? (
               <>
                 <Link to="/login" onClick={() => setOpen(false)} style={{ color: '#fff', textDecoration: 'none', padding: '0.6rem 0.25rem', fontSize: '0.95rem' }}>{t('nav.login', 'Anmelden')}</Link>
-                <Link to="/registrieren" onClick={() => setOpen(false)} style={{ background: C.steel, color: '#fff', padding: '0.7rem', borderRadius: 8, fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>{t('nav.register', 'Registrieren')}</Link>
+                <Link to="/registrieren" onClick={() => setOpen(false)} style={{ background: C.akzent, color: C.akzentText, padding: '0.7rem', borderRadius: 8, fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>{t('nav.register', 'Registrieren')}</Link>
               </>
             ) : (
               <>

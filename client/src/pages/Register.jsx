@@ -11,7 +11,7 @@ const C = {
   steel:   '#174a6a',
   lightBg: '#f7f5f0',
   xLight:  '#f4f6f7',
-  gray:    '#64748B',
+  gray:    '#5a6472',   // dunkler als #64748B: sonst 4,39 zu 1 auf der hellen Flaeche
   border:  '#C8E4F4',
 };
 

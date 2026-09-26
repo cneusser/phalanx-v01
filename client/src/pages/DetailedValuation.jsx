@@ -190,7 +190,7 @@ export default function DetailedValuation() {
                         <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.codename || 'k. A.'}</td>
                         <td style={{ padding: '0.7rem 1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <button onClick={() => openOne(r)} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', cursor: 'pointer', marginRight: 6 }}>Öffnen</button>
-                          {r.status !== 'draft' && <button onClick={() => downloadPdf(r.id)} style={{ background: C.steel, color: C.navy, border: 'none', borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>PDF</button>}
+                          {r.status !== 'draft' && <button onClick={() => downloadPdf(r.id)} style={{ background: '#c9a96e', color: '#10202c', border: 'none', borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>PDF</button>}
                         </td>
                       </tr>
                     ))}
@@ -456,7 +456,7 @@ export default function DetailedValuation() {
                   )}
 
                   <div style={{ background: '#EDF4FA', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.75rem 1rem', marginTop: '1rem', fontSize: '0.76rem', color: '#475569', lineHeight: 1.5 }}><strong>Wichtig:</strong> {result.disclaimer} Indikativ, kein IDW-S1-Gutachten.</div>
-                  <button onClick={() => id && downloadPdf(id)} style={{ marginTop: '1.1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 1.4rem', background: C.steel, color: C.navy, border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem' }}><Download size={15} /> Ausführlichen PDF-Report herunterladen</button>
+                  <button onClick={() => id && downloadPdf(id)} style={{ marginTop: '1.1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 1.4rem', background: '#c9a96e', color: '#10202c', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem' }}><Download size={15} /> Ausführlichen PDF-Report herunterladen</button>
                 </div>
               )}
             </div>

@@ -572,7 +572,7 @@ export default function Projects() {
                       {t('projects.locked_text', 'Kostenlos registrieren, Vertraulichkeitsvereinbarung anfordern und vollständige Unterlagen erhalten.')}
                     </p>
                     <Link to="/registrieren" style={{
-                      background: C.steel, color: C.navy,
+                      background: '#c9a96e', color: '#10202c',
                       padding: '0.65rem 1.75rem', borderRadius: 6,
                       fontWeight: 700, textDecoration: 'none', fontSize: '0.875rem',
                       display: 'inline-flex', alignItems: 'center', gap: '0.4rem',

@@ -20,6 +20,7 @@ import React, { createContext, useContext, useState, useCallback, useMemo, useEf
 const EN = {
   // Navigation
   'nav.marketplace': 'Marketplace',
+  'allgemein.nach_oben': 'Back to top',
   'nav.valuation': 'Company value',
   'nav.detailed_valuation': 'Valuation',
   'nav.messages': 'Messages',

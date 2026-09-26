@@ -312,7 +312,7 @@ export default function ProjectDetail() {
                 <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Vollständiges Exposé ansehen</span>
                 <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.7)' }}>{teaser.can_manage ? 'Editor / Vorschau des Verkaufs-Exposés' : 'Eckdaten, Unternehmensprofil & Kaufpreisvorstellung'}</span>
               </span>
-              <span style={{ background: C.steel, color: C.navy, borderRadius: 6, padding: '0.35rem 0.8rem', fontSize: '0.78rem', fontWeight: 700 }}>Öffnen →</span>
+              <span style={{ background: '#c9a96e', color: '#10202c', borderRadius: 6, padding: '0.35rem 0.8rem', fontSize: '0.78rem', fontWeight: 700 }}>Öffnen →</span>
             </Link>
           )}
 

@@ -11,7 +11,34 @@ const path = require('path');
 const fs = require('fs');
 const router = express.Router();
 
-const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, visibility, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type, sprache, uebersetzung_status, short_description_en, deal_type_en, industry_en, highlights_en, (image_path IS NOT NULL)::int AS has_image';
+// Felder, die es immer gibt.
+const BASIS_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status, visibility, created_at, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city, mandate_type, (image_path IS NOT NULL)::int AS has_image';
+
+// Felder der Zweisprachigkeit. Sie entstehen erst mit der Migration.
+//
+// Warum das hier geprüft wird und nicht einfach in der Abfrage steht: Ein
+// Deploy bringt zuerst den neuen Code und dann die Migration. Zwischen beiden
+// liegen Sekunden, in denen die Spalten noch fehlen. Eine Abfrage, die sie
+// fest nennt, läuft in dieser Zeit auf einen Fehler, und der Marktplatz zeigt
+// nur noch "Interner Serverfehler". Genau das ist einmal passiert.
+const SPRACH_FELDER = ['sprache', 'uebersetzung_status',
+  'short_description_en', 'deal_type_en', 'industry_en', 'highlights_en'];
+
+let _publicFields = null;
+async function publicFields() {
+  if (_publicFields) return _publicFields;
+  const da = await db.all(`
+    SELECT column_name FROM information_schema.columns WHERE table_name = 'projects'`).catch(() => []);
+  const hat = new Set(da.map((r) => r.column_name));
+  const zusatz = SPRACH_FELDER.filter((f) => hat.has(f));
+  _publicFields = zusatz.length ? `${BASIS_FIELDS}, ${zusatz.join(', ')}` : BASIS_FIELDS;
+  if (zusatz.length < SPRACH_FELDER.length) {
+    console.log('ℹ️  Marktplatz läuft ohne Zweisprachigkeit, die Migration ist noch nicht durch.');
+    // Nicht merken: Nach der Migration soll der nächste Aufruf die Spalten finden.
+    const roh = _publicFields; _publicFields = null; return roh;
+  }
+  return _publicFields;
+}
 
 // ── Pflege-Berechtigung (Sprint 19: rollenbewusst) ──────────────────────────
 // Admin/Berater/Tenant-Owner, Ersteller oder Mitglied mit member_role='editor'.
@@ -27,6 +54,15 @@ const SPRACHFELDER = ['short_description', 'deal_type', 'industry', 'highlights'
  * In welcher Sprache will der Aufrufer lesen?
  * Der Parameter gewinnt, sonst entscheidet der Browser, sonst Deutsch.
  */
+/** Aus einem Feld eine Liste machen, egal ob JSON oder Fließtext. */
+function listeAus(wert) {
+  if (Array.isArray(wert)) return wert;
+  const t = String(wert == null ? '' : wert).trim();
+  if (!t) return [];
+  try { const j = JSON.parse(t); return Array.isArray(j) ? j : [String(j)]; }
+  catch { return t.split(/\r?\n|\s*·\s*/).map((x) => x.trim()).filter(Boolean); }
+}
+
 function spracheVon(req) {
   const p = String(req.query.sprache || req.query.lang || '').slice(0, 2).toLowerCase();
   if (p === 'en' || p === 'de') return p;
@@ -136,7 +172,7 @@ router.get('/stats', optionalAuth, wrap(async (req, res) => {
 // ── GET /: Public list (active projects only) ─────────────────────────────
 router.get('/', optionalAuth, wrap(async (req, res) => {
   const { industry, region, deal_type, search, mandate_type, revenue_band, ebitda_band } = req.query;
-  let query = `SELECT ${PUBLIC_FIELDS} FROM projects WHERE status = 'active'`;
+  let query = `SELECT ${await publicFields()} FROM projects WHERE status = 'active'`;
   const params = [];
   // Ein eingeloggter Nutzer sieht seine EIGENEN Mandate (als Verkäufer/Ersteller)
   // nicht im Käufer-Marktplatz, er soll dort nicht auf sich selbst bieten.
@@ -162,7 +198,10 @@ router.get('/', optionalAuth, wrap(async (req, res) => {
   const sprache = spracheVon(req);
   const projects = (await db.all(query, params))
     .map(p => uebersetzung.inSprache(p, SPRACHFELDER, sprache))
-    .map(p => ({ ...p, highlights: JSON.parse(p.highlights || '[]') }))
+    // highlights liegt als JSON vor, die englische Fassung aber womöglich als
+    // Fließtext. Ein harter JSON.parse hätte die ganze Liste zum Absturz
+    // gebracht, deshalb wird hier aufgefangen statt vertraut.
+    .map(p => ({ ...p, highlights: listeAus(p.highlights) }))
     .map(p => spannen.fuerOeffentlich(p, req.user));
 
   // Filteroptionen aus derselben Sicht ableiten, damit keine Optionen ohne Treffer erscheinen
@@ -188,7 +227,7 @@ router.get('/my-projects', authenticate, wrap(async (req, res) => {
     return res.status(403).json({ success: false, error: 'Nicht berechtigt' });
   }
   const projects = (await db.all(
-    `SELECT ${PUBLIC_FIELDS}, created_by, review_note, submitted_at FROM projects
+    `SELECT ${await publicFields()}, created_by, review_note, submitted_at FROM projects
       WHERE created_by = ?
          OR id IN (SELECT dp.project_id FROM crm_deal_parties dp JOIN crm_contacts k ON k.id = dp.contact_id
                     WHERE dp.party_role = 'seller' AND k.user_id = ?)
@@ -464,12 +503,12 @@ router.get('/my-deals', authenticate, wrap(async (req, res) => {
 // ── GET /:id/teaser: Public teaser (+ can_manage für eingeloggte Pfleger) ─
 router.get('/:id/teaser', optionalAuth, wrap(async (req, res) => {
   // Pfleger (Admin/Ersteller/Mitglied) sehen den Teaser auch im Entwurfsstatus
-  let project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
+  let project = await db.get(`SELECT ${await publicFields()} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
   // Sprint 19: Rolle auflösen: Pflegende UND Betrachter sehen das Mandat auch im Entwurf
   const role = req.user ? await projectRole(req.user, req.params.id) : null;
   const canManage = role === 'manager';
   if (!project && role) {
-    project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ?`, [req.params.id]);
+    project = await db.get(`SELECT ${await publicFields()} FROM projects WHERE id = ?`, [req.params.id]);
   }
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
   // Vertrauliches Mandat: nur Team, Ersteller, Mitglieder und Eingeladene
@@ -497,8 +536,8 @@ router.get('/:id/teaser', optionalAuth, wrap(async (req, res) => {
 // ── GET /:id/teaser.pdf: Kurzprofil als PDF (mit Audit-Trail & Markierung) ──
 router.get('/:id/teaser.pdf', authenticate, wrap(async (req, res) => {
   const canManage = await canManageProject(req.user, req.params.id);
-  let project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
-  if (!project && canManage) project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ?`, [req.params.id]);
+  let project = await db.get(`SELECT ${await publicFields()} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
+  if (!project && canManage) project = await db.get(`SELECT ${await publicFields()} FROM projects WHERE id = ?`, [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
   const { generateTeaserReport } = require('../valuation/teaserReport');
   const pdf = await generateTeaserReport({
@@ -713,7 +752,7 @@ router.get('/:id/questions', authenticate, wrap(async (req, res) => {
 
 // ── GET /:id: Full detail (requires auth + vollständiges Profil + NDA) ───
 router.get('/:id', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
-  const project = await db.get(`SELECT ${PUBLIC_FIELDS} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
+  const project = await db.get(`SELECT ${await publicFields()} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
   // Vertrauliches Mandat: nur Team, Ersteller, Mitglieder und Eingeladene
   if (!(await maySeeProject(req.user, req.params.id))) {

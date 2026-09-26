@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { I18nProvider, useT, useI18n } from './i18n';
+import NachOben from './components/NachOben';
 import Navbar from './components/Navbar';
 import CapitalMatchLogo from './components/CapitalMatchLogo';
 import Landing from './pages/Landing';
@@ -110,6 +111,7 @@ function AppRoutes() {
       <SpracheAusProfil />
       <BirdviewBanner />
       <NavbarWennNoetig />
+      <NachOben />
       <main style={{ flex: 1 }}>
         <ErrorBoundary>
         <Routes>
