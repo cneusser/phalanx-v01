@@ -49,8 +49,11 @@ import NotFound from './pages/NotFound';
 
 const C = { navy: '#1A4D8A', steel: '#29ABE2', lightBg: '#EBF7FC' };
 
-// Routes that have their own footer
+// Seiten, die Kopf und Fuss selbst mitbringen. Die Startseite hat seit v0.409
+// eine eigene Kopfzeile in der Phalanx-Bildsprache; die globale Navigation
+// stuende sonst doppelt darueber.
 const NO_FOOTER_PATHS = ['/'];
+const NO_NAVBAR_PATHS = ['/'];
 
 function ProtectedRoute({ children, adminOnly = false, sellerOk = false }) {
   const { user, loading } = useAuth();
@@ -82,11 +85,17 @@ function Footer() {
   );
 }
 
+function NavbarWennNoetig() {
+  const location = useLocation();
+  if (NO_NAVBAR_PATHS.includes(location.pathname)) return null;
+  return <Navbar />;
+}
+
 function AppRoutes() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <BirdviewBanner />
-      <Navbar />
+      <NavbarWennNoetig />
       <main style={{ flex: 1 }}>
         <ErrorBoundary>
         <Routes>

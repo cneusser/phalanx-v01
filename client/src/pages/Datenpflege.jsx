@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
-import { ListChecks, Mail, Send, RefreshCw, Users, AlertCircle, CheckCircle, Eye } from 'lucide-react';
+import { ListChecks, Mail, Send, RefreshCw, Users, AlertCircle, CheckCircle, Eye, Megaphone } from 'lucide-react';
 
 const C = { navy: '#0D1B36', accent: '#1D4E89', steel: '#29ABE2', bg: '#F4F8FC', card: '#FFFFFF', border: '#DDE8F3', muted: '#64748B' };
 const INPUT = { padding: '0.5rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', outline: 'none', background: '#fff' };
@@ -43,18 +43,21 @@ export default function Datenpflege() {
   const [vok, setVok] = useState({ sektoren: [], schwerpunkte: {}, laender: [] });
   const [kampagnen, setKampagnen] = useState([]);
   const [vorschau, setVorschau] = useState(null);
+  const [rundmails, setRundmails] = useState([]);
+  const [rundVorschau, setRundVorschau] = useState(null);
   const [meldung, setMeldung] = useState('');
   const [fehler, setFehler] = useState('');
   const [busy, setBusy] = useState(false);
 
   const laden = useCallback(async () => {
     try {
-      const [u, k, v] = await Promise.all([
+      const [u, k, v, r] = await Promise.all([
         api.get(`/pflege/pflege/uebersicht${filter ? `?fehlt=${encodeURIComponent(filter)}` : ''}`),
         api.get('/pflege/kampagnen'),
         api.get('/crm/vokabular'),
+        api.get('/pflege/rundmails').catch(() => []),
       ]);
-      setUebersicht(u); setKampagnen(k); setVok(v);
+      setUebersicht(u); setKampagnen(k); setVok(v); setRundmails(r || []);
     } catch (e) { setFehler(e.message); }
   }, [filter]);
 
@@ -127,6 +130,49 @@ export default function Datenpflege() {
 
   // Beim Schwerpunkt nur die Werte des gewählten Sektors anbieten. Alles andere
   // wäre eine Liste, aus der man garantiert das Falsche nimmt.
+  // ── Rundmail an registrierte Konten ──────────────────────────────────────
+  const rundVorschauHolen = async () => {
+    setBusy(true); setFehler('');
+    try { setRundVorschau(await api.get('/pflege/rundmail/empfaenger-vorschau')); }
+    catch (e) { setFehler(e.message); }
+    setBusy(false);
+  };
+
+  const rundAnlegen = async () => {
+    setBusy(true); setFehler(''); setMeldung('');
+    try {
+      const r = await api.post('/pflege/rundmails', {});
+      setMeldung(`Rundmail angelegt: ${r.angelegt} Empfänger aus ${r.geprueft} geprüften Konten. ${(r.ausgeschlossen || []).length} ausgeschlossen.`);
+      await laden();
+    } catch (e) { setFehler(e.message); }
+    setBusy(false);
+  };
+
+  const rundStatus = async (id, status) => {
+    setBusy(true); setFehler(''); setMeldung('');
+    try {
+      await api.put(`/pflege/rundmails/${id}`, { status });
+      setMeldung(status === 'laeuft'
+        ? 'Rundmail ist freigegeben. Versendet wird erst, wenn Sie eine Ration anstoßen.'
+        : 'Rundmail angehalten.');
+      await laden();
+    } catch (e) { setFehler(e.message); }
+    setBusy(false);
+  };
+
+  const rundSenden = async (id) => {
+    setBusy(true); setFehler(''); setMeldung('');
+    try {
+      const r = await api.post(`/pflege/rundmails/${id}/senden`, {});
+      if (r.uebersprungen) setMeldung(`Nichts versendet: ${r.uebersprungen}.`);
+      else if (r.fehler && r.fehler.length) {
+        setMeldung(`${r.versendet} von ${r.betrachtet} versendet. Nicht zugestellt: ${r.fehler.map((f) => f.grund).join('; ')}`);
+      } else setMeldung(`${r.versendet} von ${r.betrachtet} Mails versendet.`);
+      await laden();
+    } catch (e) { setFehler(e.message); }
+    setBusy(false);
+  };
+
   const stapelWerte = stapelFeld === 'sektor' ? (vok.sektoren || [])
     : stapelFeld === 'country' ? (vok.laender || [])
       : stapelFeld === 'schwerpunkt' ? ((vok.schwerpunkte || {})[stapelSektor] || [])
@@ -341,6 +387,85 @@ export default function Datenpflege() {
             );
           })}
           {!kampagnen.length && <p style={{ fontSize: '0.85rem', color: C.muted, margin: 0 }}>Noch kein Mailing angelegt.</p>}
+        </div>
+
+        {/* ── Rundmail an alle registrierten Konten ─────────────────────── */}
+        <div style={{ ...KARTE, marginTop: '1.2rem' }}>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1rem', color: C.navy, margin: '0 0 0.9rem' }}>
+            <Megaphone size={17} color={C.steel} /> Rundmail an registrierte Konten
+          </h2>
+          <p style={{ fontSize: '0.83rem', color: C.muted, margin: '0 0 0.9rem', lineHeight: 1.6 }}>
+            Für Mitteilungen, die den Zugang betreffen. Angeschrieben werden nur Konten mit bestätigter
+            Adresse, die aktiv und freigeschaltet sind. Widerspruch im CRM und die Sperrliste gelten auch
+            hier. Jede Ration stoßen Sie selbst an.
+          </p>
+
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <button type="button" style={KNOPF_HELL} onClick={rundVorschauHolen} disabled={busy}>
+              <Eye size={14} /> Empfänger prüfen
+            </button>
+            <button type="button" style={KNOPF} onClick={rundAnlegen} disabled={busy}>
+              <Megaphone size={14} /> Rundmail anlegen
+            </button>
+          </div>
+
+          {rundVorschau && (
+            <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '0.8rem', fontSize: '0.83rem', color: C.navy, marginBottom: '1rem', lineHeight: 1.7 }}>
+              <strong>{rundVorschau.anzahl}</strong> Empfänger aus {rundVorschau.konten_geprueft} geprüften Konten.
+              {' '}<span style={{ color: C.muted }}>{rundVorschau.ausgeschlossen} wegen Widerspruch oder Sperre ausgeschlossen.</span>
+              {!!(rundVorschau.beispiele || []).length && (
+                <div style={{ color: C.muted, marginTop: '0.4rem' }}>
+                  Beispiele: {rundVorschau.beispiele.map((b) => b.email).join(', ')}
+                </div>
+              )}
+            </div>
+          )}
+
+          {rundmails.map((r) => {
+            const z = r.zahlen || {};
+            return (
+              <div key={r.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem', marginBottom: '0.7rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.6rem' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.92rem' }}>{r.name}</div>
+                    <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: 2 }}>
+                      Betreff: {r.betreff} · Ration {r.ration} · Fenster {r.fenster_von} bis {r.fenster_bis}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>
+                    <span style={{
+                      fontSize: '0.72rem', fontWeight: 700, borderRadius: 20, padding: '0.2rem 0.6rem',
+                      background: r.status === 'laeuft' ? '#F0FDF4' : C.bg,
+                      color: r.status === 'laeuft' ? '#166534' : C.muted,
+                      border: `1px solid ${r.status === 'laeuft' ? '#BBF7D0' : C.border}`,
+                    }}>{r.status}</span>
+                    {r.status === 'laeuft' ? (
+                      <>
+                        <button type="button" style={KNOPF} onClick={() => rundSenden(r.id)} disabled={busy}>
+                          <Send size={13} /> Ration senden
+                        </button>
+                        <button type="button" style={KNOPF_HELL} onClick={() => rundStatus(r.id, 'pausiert')} disabled={busy}>
+                          Anhalten
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" style={KNOPF} onClick={() => rundStatus(r.id, 'laeuft')} disabled={busy}>
+                        Freigeben
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
+                  <Zahl label="Empfänger" wert={z.gesamt ?? 0} />
+                  <Zahl label="offen" wert={z.offen ?? 0} ton={C.muted} />
+                  <Zahl label="versendet" wert={z.versendet ?? 0} ton={C.accent} />
+                  <Zahl label="abgemeldet" wert={z.abgemeldet ?? 0} ton={C.muted} />
+                  <Zahl label="unzustellbar" wert={z.unzustellbar ?? 0} ton={z.unzustellbar ? '#991B1B' : C.muted} />
+                </div>
+              </div>
+            );
+          })}
+          {!rundmails.length && <p style={{ fontSize: '0.85rem', color: C.muted, margin: 0 }}>Noch keine Rundmail angelegt.</p>}
         </div>
       </div>
     </div>

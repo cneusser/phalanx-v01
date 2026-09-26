@@ -17,6 +17,7 @@ const PUBLIC_FIELDS = 'id, codename, industry, region, revenue_band, ebitda_band
 // Admin/Berater/Tenant-Owner, Ersteller oder Mitglied mit member_role='editor'.
 // Ein „Betrachter" (member_role='viewer') darf NICHT pflegen.
 const access = require('../utils/projectAccess');
+const spannen = require('../utils/spannen');
 const _get = (sql, p) => db.get(sql, p);
 
 async function canManageProject(user, projectId) {
@@ -138,7 +139,12 @@ router.get('/', optionalAuth, wrap(async (req, res) => {
   if (search) { query += ' AND (codename ILIKE ? OR short_description ILIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
   query += ' ORDER BY created_at DESC';
 
-  const projects = (await db.all(query, params)).map(p => ({ ...p, highlights: JSON.parse(p.highlights || '[]') }));
+  // Vor der Freischaltung werden die Angaben vergroebert: Spannen statt Zahlen,
+  // Region statt Stadt, keine Highlights. Ein Unternehmensverkauf bleibt
+  // vertraulich, bis die verkaufende Seite etwas anderes entscheidet.
+  const projects = (await db.all(query, params))
+    .map(p => ({ ...p, highlights: JSON.parse(p.highlights || '[]') }))
+    .map(p => spannen.fuerOeffentlich(p, req.user));
 
   // Filteroptionen aus derselben Sicht ableiten, damit keine Optionen ohne Treffer erscheinen
   const own = hidesOwnMandates(req.user) ? ' AND (created_by IS NULL OR created_by <> ?)' : '';

@@ -13,6 +13,7 @@ const { authenticate } = require('../middleware/auth');
 const mailing = require('../utils/pflegeMailing');
 const voll = require('../utils/vollstaendigkeit');
 const vokabular = require('../utils/vokabular');
+const rundmail = require('../utils/rundmail');
 
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
 const qFor = (req) => ({
@@ -146,6 +147,41 @@ publicRouter.post('/:token/abmelden', pflegeLimiter, wrap(async (req, res) => {
      ON CONFLICT (tenant_id, email) DO NOTHING`, [e.tenant_id || 1, e.email]).catch(() => {});
   db.auditLog(null, 'STAMMDATEN_ABGEMELDET', 'crm_contact', e.contact_id, 'Abmeldung vom Pflege-Mailing', req.ip);
   res.json({ success: true });
+}));
+
+// ── Abmeldung von Rundmails (v0.409) ────────────────────────────────────────
+// Eigener Weg, weil eine Rundmail kein Pflegemailing ist. Die Abmeldung gilt
+// nur für Hinweise zur Plattform, der Zugang bleibt unberührt.
+// Wer auf einen Abmeldelink klickt, erwartet eine Seite, keine Datenstruktur.
+// Deshalb antwortet diese Route mit HTML, in der Bildsprache der Mails.
+const abmeldeSeite = (titel, text) => `<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>${titel} · CapitalMatch</title></head>
+<body style="margin:0;background:#f7f5f0;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:48px 20px;">
+    <div style="background:#0f1c28;padding:26px 30px;">
+      <div style="font:700 10px Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#8fa3b2;">Eine Marke der Phalanx GmbH</div>
+      <div style="font:400 26px Georgia,serif;color:#fff;margin-top:8px;">CapitalMatch</div>
+    </div>
+    <div style="height:3px;background:#c9a96e;font-size:0;">&nbsp;</div>
+    <div style="background:#fff;border:1px solid #d8dde1;border-top:0;padding:30px;">
+      <h1 style="font:400 26px/1.25 Georgia,serif;color:#111820;margin:0 0 16px;">${titel}</h1>
+      <p style="font:15px/1.7 Arial,sans-serif;color:#2f383f;margin:0;">${text}</p>
+    </div>
+  </div>
+</body></html>`;
+
+publicRouter.get('/rundmail-abmelden/:token', pflegeLimiter, wrap(async (req, res) => {
+  const r = await rundmail.abmelden(req.params.token);
+  res.type('html');
+  if (!r.ok) {
+    return res.status(404).send(abmeldeSeite('Der Link ist nicht mehr gültig',
+      'Diese Abmeldung wurde bereits vorgenommen, oder der Link stammt aus einer alten Nachricht. Wenn Sie sicher gehen wollen, schreiben Sie kurz an datenschutz@phalanx.de.'));
+  }
+  res.send(abmeldeSeite('Abgemeldet',
+    'Sie erhalten von uns keine Hinweise mehr zur Plattform. Ihr Zugang und alle Nachrichten, die zu einem laufenden Vorgang gehören, bleiben davon unberührt.'));
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -295,6 +331,68 @@ router.get('/empfaenger-vorschau', wrap(async (req, res) => {
     ohne_ansprechperson: r.ohneAnsprechperson.slice(0, 50),
     beispiele: r.zeilen.slice(0, 10).map((z) => ({ firma: z.firma, email: z.email, fehlend: z.labels })),
   } });
+}));
+
+// ── Rundmails (v0.409) ──────────────────────────────────────────────────────
+// Angeschrieben werden nur bestätigte, aktive und freigeschaltete Konten.
+// Jede Ration wird von Hand angestoßen, damit ein Massenversand nie aus
+// Versehen loslaufen kann.
+router.get('/rundmails', wrap(async (req, res) => {
+  const q = qFor(req);
+  const zeilen = await q.all('SELECT * FROM rundmails ORDER BY id DESC LIMIT 50').catch(() => []);
+  const mit = [];
+  for (const k of zeilen) mit.push({ ...k, zahlen: await rundmail.dashboard(q, k.id) });
+  res.json({ success: true, data: mit });
+}));
+
+router.get('/rundmail/empfaenger-vorschau', wrap(async (req, res) => {
+  const r = await rundmail.empfaenger(qFor(req), { tenant: req.tenantId || 1 });
+  res.json({ success: true, data: {
+    anzahl: r.zeilen.length,
+    konten_geprueft: r.geprueft,
+    ausgeschlossen: r.ausgeschlossen.length,
+    beispiele: r.zeilen.slice(0, 10).map((z) => ({ email: z.email, rolle: z.rolle })),
+  } });
+}));
+
+router.post('/rundmails', wrap(async (req, res) => {
+  const q = qFor(req);
+  const name = String(req.body.name || '').trim() || `Rundmail ${new Date().toLocaleDateString('de-DE')}`;
+  const id = await q.insert(
+    `INSERT INTO rundmails (tenant_id, name, betreff, titel, text, created_by)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [req.tenantId || 1, name,
+     req.body.betreff || rundmail.STANDARD_BETREFF,
+     req.body.titel || rundmail.STANDARD_TITEL,
+     req.body.text || rundmail.STANDARD_TEXT, req.user.id]);
+  const angelegt = await rundmail.empfaengerAnlegen(q, { tenant: req.tenantId || 1, rundmailId: id });
+  db.auditLog(req.user.id, 'RUNDMAIL_ANGELEGT', 'rundmail', id, `${angelegt.angelegt} Empfänger`, req.ip);
+  res.status(201).json({ success: true, data: { id, ...angelegt } });
+}));
+
+router.put('/rundmails/:id', wrap(async (req, res) => {
+  const q = qFor(req);
+  const erlaubt = ['name', 'betreff', 'titel', 'text', 'status', 'ration', 'pause_sekunden', 'fenster_von', 'fenster_bis'];
+  const patch = {};
+  for (const f of erlaubt) if (req.body[f] !== undefined) patch[f] = req.body[f];
+  if (!Object.keys(patch).length) return res.json({ success: true });
+  await q.run(`UPDATE rundmails SET ${Object.keys(patch).map((k) => `${k} = ?`).join(', ')}, updated_at = now() WHERE id = ?`,
+    [...Object.values(patch), req.params.id]);
+  res.json({ success: true });
+}));
+
+router.post('/rundmails/:id/senden', wrap(async (req, res) => {
+  const appUrl = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
+  const r = await rundmail.versendeRation(qFor(req), {
+    tenant: req.tenantId || 1, rundmailId: Number(req.params.id), appUrl,
+  });
+  db.auditLog(req.user.id, 'RUNDMAIL_RATION', 'rundmail', req.params.id,
+    r.uebersprungen || `${r.versendet} versendet`, req.ip);
+  res.json({ success: true, data: r });
+}));
+
+router.get('/rundmails/:id/dashboard', wrap(async (req, res) => {
+  res.json({ success: true, data: await rundmail.dashboard(qFor(req), Number(req.params.id)) });
 }));
 
 module.exports = { router, publicRouter };

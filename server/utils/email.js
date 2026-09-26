@@ -290,37 +290,125 @@ async function resolvePerson(person, to) {
   return person || {};
 }
 
-// Werblicher CTA-Button (optional)
-const ctaButton = (label, url) => label && url ? `
-  <p style="text-align:center; margin: 26px 0 6px;">
-    <a href="${url}" style="background:#0D2A4A;color:#fff;padding:13px 30px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block;">${label}</a>
-  </p>` : '';
+// ── Bildsprache der Mails (v0.409) ──────────────────────────────────────────
+// Dieselben Werte wie auf phalanx.de und der neuen Startseite. Mails gehen
+// durch mailShell, deshalb aendert diese eine Stelle das Aussehen aller
+// bestehenden Nachrichten mit.
+//
+// Zwei Eigenheiten von E-Mail, die hier bewusst anders geloest sind als im
+// Web: Es gibt keine Stylesheets, also steht alles inline. Und es gibt keine
+// verlaesslichen Webfonts, deshalb Georgia fuer Ueberschriften und Arial fuer
+// Fliesstext. Beide sind ueberall vorhanden, es wird nichts nachgeladen.
+const MARKE = {
+  ink: '#111820',
+  tief: '#0f1c28',
+  gold: '#c9a96e',
+  linie: '#d8dde1',
+  papier: '#f7f5f0',
+  leise: '#5d6670',
+};
 
-// Zentrales Mail-Layout: Phalanx-Header, Fließtext, werblicher Abbinder + Impressum-Footer.
+// Hauptaktion. Eckig und ruhig, wie die Knoepfe auf der Website.
+const ctaButton = (label, url) => label && url ? `
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 8px;">
+    <tr><td style="background:${MARKE.ink};">
+      <a href="${url}" style="display:inline-block;padding:15px 26px;color:#ffffff;text-decoration:none;font:700 14px Arial,Helvetica,sans-serif;letter-spacing:.01em;">${label}</a>
+    </td></tr>
+  </table>` : '';
+
+// Zweitrangige Aktion, etwa die Terminbuchung neben der Hauptaktion.
+const goldButton = (label, url) => label && url ? `
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:10px 0 8px;">
+    <tr><td style="background:${MARKE.gold};">
+      <a href="${url}" style="display:inline-block;padding:14px 24px;color:#10202c;text-decoration:none;font:700 14px Arial,Helvetica,sans-serif;">${label}</a>
+    </td></tr>
+  </table>` : '';
+
+// Zentrales Mail-Layout. Jede Mail der Plattform laeuft hier durch.
+//
+// opts.promo    false schaltet den Abbinder ab (z. B. bei Passwort-Reset)
+// opts.termin   false schaltet die Terminzeile ab
+// opts.abmelden { text, url } setzt eine Abmeldezeile in den Fuss (Mailings)
+const TERMIN_URL = process.env.TERMIN_URL || 'https://calendly.com/neusser/kaffee-chat';
+
 const mailShell = (title, bodyHtml, opts = {}) => {
   const p = PHALANX_IMPRINT;
-  const promo = opts.promo !== false ? `
-    <div style="margin-top: 26px; padding: 16px 18px; background: #0D2A4A; border-radius: 8px; color: #fff;">
-      <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">CapitalMatch, der Marktplatz für Unternehmenstransaktionen</div>
-      <div style="font-size: 12.5px; color: rgba(255,255,255,0.85); line-height: 1.6;">Kauf, Verkauf, Nachfolge, Wachstumsfinanzierung. Diskret, strukturiert und persönlich begleitet von der Phalanx GmbH. Rufen Sie an, wenn Sie ein Vorhaben besprechen möchten.</div>
-    </div>` : '';
+  const app = (process.env.FRONTEND_URL || 'https://www.capitalmatch.de').replace(/\/+$/, '');
+
+  const termin = opts.termin === false ? '' : `
+      <tr><td style="padding:0 30px 26px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+               style="border-top:1px solid ${MARKE.linie};">
+          <tr><td style="padding-top:18px;font:14px/1.6 Arial,Helvetica,sans-serif;color:${MARKE.leise};">
+            Lieber erst sprechen? <a href="${TERMIN_URL}" style="color:#174a6a;font-weight:700;text-decoration:none;">Termin mit Christian Neusser vereinbaren</a>
+          </td></tr>
+        </table>
+      </td></tr>`;
+
+  const promo = opts.promo === false ? '' : `
+      <tr><td style="padding:0 30px 30px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${MARKE.tief};">
+          <tr><td style="padding:22px 24px;">
+            <div style="font:400 19px Georgia,serif;color:#ffffff;margin-bottom:8px;">Der Marktplatz für Nachfolge und Beteiligung</div>
+            <div style="font:14px/1.65 Arial,Helvetica,sans-serif;color:#c4d0d7;">
+              Übergeben, kaufen oder ein Unternehmen übernehmen. Öffentlich stehen nur Größenordnungen,
+              Details erst nach Freischaltung und Vertraulichkeitsvereinbarung.
+            </div>
+            <div style="margin-top:16px;">
+              <a href="${app}/projekte" style="color:${MARKE.gold};font:700 14px Arial,Helvetica,sans-serif;text-decoration:none;">Aktuelle Mandate ansehen &rarr;</a>
+            </div>
+          </td></tr>
+        </table>
+      </td></tr>`;
+
+  const abmelden = opts.abmelden && opts.abmelden.url ? `
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e2e6e9;">
+          ${opts.abmelden.text || 'Diese Nachricht nicht mehr erhalten?'}
+          <a href="${opts.abmelden.url}" style="color:${MARKE.leise};text-decoration:underline;">Abmelden</a>
+        </div>` : '';
+
   return `
-  <div style="font-family: Arial, Helvetica, sans-serif; max-width: 620px; margin: 0 auto; color: #1a1a1a;">
-    <div style="background: #0D2A4A; padding: 22px 26px; border-radius: 8px 8px 0 0;">
-      <div style="color: #fff; font-size: 20px; font-weight: 800; letter-spacing: -0.01em;">CapitalMatch</div>
-      <div style="color: #8AB4D4; margin: 2px 0 0; font-size: 12px;">eine Marke der Phalanx GmbH · ${p.tagline}</div>
-    </div>
-    <div style="background: #fff; padding: 26px; border: 1px solid #DDE8F3; border-top: none; font-size: 14px; line-height: 1.65;">
-      <h1 style="color: #0D2A4A; margin: 0 0 14px; font-size: 17px;">${title}</h1>
-      ${bodyHtml}
-      ${promo}
-    </div>
-    <div style="background: #F4F8FC; padding: 16px 26px; border: 1px solid #DDE8F3; border-top: none; border-radius: 0 0 8px 8px; font-size: 11px; color: #6B6B6B; line-height: 1.7;">
-      <div style="color:#5B8FC9; font-weight:700; margin-bottom:6px;">${p.tagline} &nbsp;·&nbsp; <a href="https://${p.web}" style="color:#5B8FC9; text-decoration:none;">${p.web}</a></div>
-      <strong style="color:#0D2A4A;">${p.name}</strong> · ${p.street} · ${p.city}<br/>
-      Tel ${p.tel} · <a href="mailto:${p.email}" style="color:#6B6B6B;">${p.email}</a> · ${p.ceo} · ${p.court} · ${p.vat}
-    </div>
-  </div>`;
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${MARKE.papier};padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="620" cellpadding="0" cellspacing="0" border="0"
+             style="width:620px;max-width:100%;background:#ffffff;border:1px solid ${MARKE.linie};">
+
+        <!-- Kopf: dezent die Muttermarke, darunter der Name -->
+        <tr><td style="background:${MARKE.tief};padding:26px 30px;">
+          <div style="font:700 10px Arial,Helvetica,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#8fa3b2;">Eine Marke der Phalanx GmbH</div>
+          <div style="font:400 26px Georgia,serif;color:#ffffff;letter-spacing:-.01em;margin-top:8px;">CapitalMatch</div>
+        </td></tr>
+
+        <!-- Goldene Trennlinie, der einzige Akzent -->
+        <tr><td style="height:3px;background:${MARKE.gold};font-size:0;line-height:0;">&nbsp;</td></tr>
+
+        <tr><td style="padding:30px 30px 6px;">
+          <h1 style="font:400 26px/1.2 Georgia,serif;color:${MARKE.ink};margin:0 0 18px;letter-spacing:-.02em;">${title}</h1>
+          <div style="font:15px/1.7 Arial,Helvetica,sans-serif;color:#2f383f;">${bodyHtml}</div>
+        </td></tr>
+        <tr><td style="padding:0 30px 24px;"></td></tr>
+        ${termin}
+        ${promo}
+
+        <!-- Fuss mit Impressum -->
+        <tr><td style="background:#101f2b;padding:22px 30px;font:12px/1.75 Arial,Helvetica,sans-serif;color:#a0b4c1;">
+          <div style="color:#ffffff;font:400 15px Georgia,serif;margin-bottom:8px;">${p.name}</div>
+          ${p.street} · ${p.city}<br/>
+          Tel ${p.tel} · <a href="mailto:${p.email}" style="color:#d7e2e8;text-decoration:none;">${p.email}</a> ·
+          <a href="https://${p.web}" style="color:#d7e2e8;text-decoration:none;">${p.web}</a><br/>
+          ${p.ceo} · ${p.court} · ${p.vat}
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.14);">
+            <a href="${app}/impressum" style="color:#a0b4c1;text-decoration:underline;">Impressum</a> ·
+            <a href="${app}/datenschutz" style="color:#a0b4c1;text-decoration:underline;">Datenschutz</a> ·
+            Server in der Europäischen Union
+          </div>
+        </td></tr>
+      </table>
+      ${abmelden ? `<table role="presentation" width="620" cellpadding="0" cellspacing="0" border="0" style="width:620px;max-width:100%;">
+        <tr><td style="padding:14px 30px;font:12px/1.7 Arial,Helvetica,sans-serif;color:${MARKE.leise};">${abmelden}</td></tr>
+      </table>` : ''}
+    </td></tr>
+  </table>`;
 };
 
 // Passwort-Reset-Link an den Nutzer
@@ -479,6 +567,8 @@ async function sendCampaignEmail({ to, subject, title, salutation, bodyHtml, cta
 }
 
 module.exports = {
+  // Bausteine, damit Mailings dasselbe Aussehen benutzen und nicht nachbauen
+  mailShell, ctaButton, goldButton, MARKE,
   sendDownloadNotification,
   logMail,
   greetingLine,

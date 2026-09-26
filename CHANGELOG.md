@@ -3,6 +3,30 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.409 · 26.09.2026 · Neues Gesicht, und ein ehrlicheres dazu
+Anlass war das Feedback eines Nutzers: Die Seite habe nach schnell zusammengestellter Software ausgesehen, und er habe sie anfangs für eine Seite zum Abgreifen von Daten gehalten. Beides war berechtigt, und die Ursache lag nicht nur in der Gestaltung.
+
+**Aussagen**
+- **Jede Behauptung gestrichen, die sich nicht belegen lässt.** „100 Prozent Vertraulichkeit" war ein Werbeversprechen im Zahlenkleid. Die „Identitätsprüfung" gab es in der Registrierung nie. „Verifizierte Investorenprofile" war ein manueller Freigabeklick. Genau solche Sätze liest jemand, der Betrug vermutet, als Bestätigung
+- **Die Zahlenleiste ist weg**, solange sie auf „k. A." fallen kann. Eine leere Plattform sieht sonst aus wie eine kaputte
+- **Stattdessen steht dort, wer dahintersteht**: Werdegang, Transaktionen, Handelsregister, Promotion, Lehrstuhl. Alles von außen nachprüfbar
+
+**Gestaltung**
+- **Die Bildsprache von phalanx.de**, mit deren eigenen Werten: Georgia für Überschriften, Navy `#111820`, ein einziger Goldakzent `#c9a96e`, Trennlinien statt bunter Karten, kein Icon-Raster
+- **Ein Designsystem in einer Datei** statt fünf verschiedener Blautöne in fünf Dateien
+- **Unten rechts läuft der Markenwechsler mit**, unten links die Terminbuchung, beides wie auf phalanx.de. Der Wechsel zwischen den drei Auftritten fühlt sich nicht mehr wie ein Bruch an
+- **Durchgehend responsiv**, geprüft auf 360, 390, 834 und 1440 Pixel. Auf kleinen Geräten bleiben Anmelden, Registrieren und alle Abschnitte ohne Klappmenü erreichbar
+- **Termin auf jeder Seite**, in der Kopfzeile, im Hero, als Karte im Abschluss und als mitlaufender Knopf
+
+**Vertraulichkeit**
+- **Öffentlich nur noch Größenordnungen.** Aus „8.400.000 EUR" wird „5 bis 10 Mio.", aus 34 Mitarbeitenden „25 bis 50". Stadt, Highlights, Bewertung und Anteil erscheinen erst nach der Freischaltung, Unterlagen erst nach unterzeichneter Vertraulichkeitsvereinbarung
+- Eine bereits gepflegte Spanne wird nicht ein zweites Mal gerundet
+
+**Mails**
+- **Alle Mails sehen neu aus.** Das Layout steht an einer einzigen Stelle, deshalb gilt es sofort für Registrierung, Freischaltung, Passwort, Benachrichtigungen und Kampagnen
+- Jede Mail bietet einen Termin an und verweist auf die aktuellen Mandate
+- **Neue Rundmail an registrierte Konten**: nur bestätigte, aktive und freigeschaltete Adressen, Widerspruch im CRM und Sperrliste gelten auch hier, Versand in Rationen von Hand, Abmeldung über einen Einmal-Link, unzustellbare Adressen werden mit Grund im Klartext gesperrt
+
 ## v0.408 · 24.09.2026 · Venture Capital ergänzt, Stapel setzt den Sektor mit
 - **Venture Capital** steht jetzt neben Private Equity als Schwerpunkt der Finanz- und Beteiligungswirtschaft
 - **Ein Schwerpunkt braucht einen Sektor.** Wer ihn im Stapel setzen wollte, scheiterte an jeder Firma, bei der noch kein Sektor steht. Jetzt wird der Sektor in derselben Zeile mitgewählt und in einem Zug mitgesetzt
