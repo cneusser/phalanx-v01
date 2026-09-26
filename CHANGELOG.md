@@ -25,6 +25,7 @@ Anlass war das Feedback eines Nutzers: Die Seite habe nach schnell zusammengeste
 **Mails**
 - **Alle Mails sehen neu aus.** Das Layout steht an einer einzigen Stelle, deshalb gilt es sofort für Registrierung, Freischaltung, Passwort, Benachrichtigungen und Kampagnen
 - Jede Mail bietet einen Termin an und verweist auf die aktuellen Mandate
+- **Die Terminbuchung läuft über Phalanx OS**, nicht über einen fremden Dienst. Der Kalender wird an einer Stelle gepflegt, und die Daten der Anfragenden bleiben im Haus. Der Link steht in `VITE_TERMIN_URL` und `TERMIN_URL`, damit er ohne Codeänderung getauscht werden kann
 - **Neue Rundmail an registrierte Konten**: nur bestätigte, aktive und freigeschaltete Adressen, Widerspruch im CRM und Sperrliste gelten auch hier, Versand in Rationen von Hand, Abmeldung über einen Einmal-Link, unzustellbare Adressen werden mit Grund im Klartext gesperrt
 
 ## v0.408 · 24.09.2026 · Venture Capital ergänzt, Stapel setzt den Sektor mit

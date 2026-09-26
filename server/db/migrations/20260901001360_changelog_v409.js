@@ -12,6 +12,7 @@ const ENTRY = {
     'Öffentlich zeigt der Marktplatz nur noch Größenordnungen. Stadt, Highlights, Bewertung und Anteil erscheinen erst nach Freischaltung, Unterlagen erst nach Vertraulichkeitsvereinbarung',
     'Alle Mails der Plattform sehen neu aus. Das Layout steht an einer Stelle, deshalb gilt es sofort für Registrierung, Freischaltung, Passwort, Benachrichtigungen und Kampagnen',
     'Jede Mail bietet jetzt einen Termin an und verweist auf die aktuellen Mandate',
+    'Die Terminbuchung läuft über Phalanx OS statt über einen fremden Dienst. Der Kalender wird an einer Stelle gepflegt, die Daten der Anfragenden bleiben im Haus',
     'Neue Rundmail an registrierte Konten: nur bestätigte, aktive und freigeschaltete Adressen, Widerspruch und Sperrliste gelten, Versand in Rationen von Hand, Abmeldung über einen Einmal-Link',
   ],
 };

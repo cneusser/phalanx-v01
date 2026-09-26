@@ -329,7 +329,9 @@ const goldButton = (label, url) => label && url ? `
 // opts.promo    false schaltet den Abbinder ab (z. B. bei Passwort-Reset)
 // opts.termin   false schaltet die Terminzeile ab
 // opts.abmelden { text, url } setzt eine Abmeldezeile in den Fuss (Mailings)
-const TERMIN_URL = process.env.TERMIN_URL || 'https://calendly.com/neusser/kaffee-chat';
+// Terminbuchung über Phalanx OS. Über TERMIN_URL austauschbar, ohne Code.
+const TERMIN_URL = process.env.TERMIN_URL
+  || 'https://phalanx-os-production.up.railway.app/api/termine/a9a267e1c8385afadc70e5fd2545c958bcf6cb0e73dd51e8?typ=8&fest=1';
 
 const mailShell = (title, bodyHtml, opts = {}) => {
   const p = PHALANX_IMPRINT;

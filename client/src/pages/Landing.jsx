@@ -30,9 +30,15 @@ import '../styles/marke.css';
 
 const API = import.meta.env.VITE_API_URL || '';
 
-// Terminbuchung. Läuft über dieselbe Weiche wie auf phalanx.de, damit der
-// Kalender an einer Stelle gepflegt wird.
-const TERMIN = 'https://calendly.com/neusser/kaffee-chat';
+// Terminbuchung läuft über Phalanx OS, nicht über einen fremden Dienst. Der
+// Kalender wird damit an einer Stelle gepflegt, und die Daten der Anfragenden
+// bleiben im eigenen Haus.
+//
+// Der Link enthält eine Kennung. Deshalb steht er in einer Umgebungsvariablen:
+// Wird sie einmal getauscht, muss niemand Code anfassen. Der Standard hier ist
+// nur der Rückfall, damit die Seite auch ohne gesetzte Variable funktioniert.
+const TERMIN = import.meta.env.VITE_TERMIN_URL
+  || 'https://phalanx-os-production.up.railway.app/api/termine/a9a267e1c8385afadc70e5fd2545c958bcf6cb0e73dd51e8?typ=8&fest=1';
 
 const ABSCHNITTE = [
   ['markt', 'Marktplatz'],
@@ -351,7 +357,7 @@ export default function Landing() {
             Ein Erstgespräch kostet nichts und verpflichtet zu nichts.
           </p>
           <ul>
-            <li><Check aria-hidden="true" /><span>30 Minuten, per Video oder Telefon</span></li>
+            <li><Check aria-hidden="true" /><span>15 Minuten Klärungsgespräch, per Video oder Telefon</span></li>
             <li><Check aria-hidden="true" /><span>Sie sprechen mit mir, nicht mit einem Vertrieb</span></li>
             <li><Check aria-hidden="true" /><span>Vertraulich, auch ohne Konto und ohne Registrierung</span></li>
           </ul>
@@ -361,8 +367,8 @@ export default function Landing() {
           <CalendarDays aria-hidden="true" />
           <h3>Direkt einen Termin buchen</h3>
           <p>
-            Wählen Sie einen freien Termin für ein unverbindliches Erstgespräch per Video oder
-            Telefon. Sie erhalten sofort eine Bestätigung.
+            Wählen Sie einen freien Termin für ein kurzes Klärungsgespräch, 15 Minuten, per Video
+            oder Telefon. Sie erhalten sofort eine Bestätigung.
           </p>
           <a className="knopf gold" href={TERMIN} target="_blank" rel="noreferrer">
             Termin wählen <span aria-hidden="true">&nearr;</span>
