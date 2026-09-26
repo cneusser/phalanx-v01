@@ -389,11 +389,11 @@ export default function Landing() {
           )}
           {TERMIN_EINGEBETTET ? (
             <a className="termin-extern" href={TERMIN} target="_blank" rel="noreferrer">
-              Auswahl in einem eigenen Fenster öffnen <span aria-hidden="true">&nearr;</span>
+              Auswahl in einem eigenen Fenster öffnen <span aria-hidden="true">↗</span>
             </a>
           ) : (
             <a className="knopf gold" href={TERMIN} target="_blank" rel="noreferrer">
-              Termin wählen <span aria-hidden="true">&nearr;</span>
+              Termin wählen <span aria-hidden="true">↗</span>
             </a>
           )}
           <small>Dr. Christian Neusser · Phalanx GmbH · Erlangen</small>
