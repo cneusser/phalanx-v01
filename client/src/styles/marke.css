@@ -215,7 +215,8 @@
 /* ── Abschluss mit Terminkarte ────────────────────────────────────────── */
 .marke .abschluss {
   background: linear-gradient(110deg, #123049, #245577); color: #fff;
-  display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: clamp(30px, 5vw, 72px); align-items: start;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
+  gap: clamp(30px, 5vw, 72px); align-items: start;
 }
 .marke .abschluss h2 { color: #fff; margin-top: 14px; max-width: 16ch; }
 .marke .abschluss .kicker { color: var(--pxl-gold); }
@@ -228,6 +229,20 @@
 .marke .terminkarte h3 { font: 400 clamp(24px, 2.8vw, 28px)/1.2 Georgia, serif; margin: 16px 0 12px; color: #fff; }
 .marke .terminkarte p { color: #b8c5ce; line-height: 1.6; margin: 0 0 22px; font-size: 15px; }
 .marke .terminkarte small { display: block; color: #8ea4b4; font-size: 13px; margin-top: 18px; line-height: 1.6; }
+
+/* Eingebettete Terminauswahl. Der Rahmen bekommt eine feste Höhe und scrollt
+   selbst, damit die Seite darunter nicht springt, sobald die Liste der freien
+   Termine länger oder kürzer wird. Weißer Grund, weil die Buchungsseite hell
+   ist und auf dem dunklen Block sonst ein Rand aufblitzt. */
+.marke .termin-rahmen {
+  background: #fff; border: 1px solid rgba(255, 255, 255, .16);
+  height: 520px; overflow: hidden; margin-bottom: 14px;
+}
+.marke .termin-rahmen iframe { width: 100%; height: 100%; border: 0; display: block; }
+.marke .termin-extern {
+  display: inline-block; color: var(--pxl-gold); font-size: 13px; font-weight: 700;
+  border-bottom: 1px solid rgba(201, 169, 110, .45); padding-bottom: 3px;
+}
 
 /* ── Mitlaufend: Termin links, Markenwechsel rechts wie auf phalanx.de ── */
 .marke .termin-fest {
@@ -329,6 +344,7 @@
   .marke .portrait { max-width: none; box-shadow: 12px 12px 0 #e3e0d8; aspect-ratio: 1/1; }
   .marke .portrait img { object-position: 50% 12%; }
   .marke .terminkarte { max-width: none; }
+  .marke .termin-rahmen { height: 460px; }
   .marke .mandat .meta { flex-direction: column; gap: 3px; }
 }
 @media (max-width: 430px) {

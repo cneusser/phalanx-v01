@@ -40,6 +40,12 @@ const API = import.meta.env.VITE_API_URL || '';
 const TERMIN = import.meta.env.VITE_TERMIN_URL
   || 'https://phalanx-os-production.up.railway.app/api/termine/a9a267e1c8385afadc70e5fd2545c958bcf6cb0e73dd51e8?typ=8&fest=1';
 
+// Die Terminauswahl läuft eingebettet, damit niemand die Seite verlassen muss.
+// Das setzt voraus, dass Phalanx OS die Einbettung für diese Herkunft erlaubt
+// (frame-ancestors). Sollte dort etwas klemmen, schaltet VITE_TERMIN_EMBED=0
+// den Rahmen ab, und es bleibt beim Knopf. Kein Deploy von Code nötig.
+const TERMIN_EINGEBETTET = import.meta.env.VITE_TERMIN_EMBED !== '0';
+
 const ABSCHNITTE = [
   ['markt', 'Marktplatz'],
   ['netzwerk', 'Nachfolge-Netzwerk'],
@@ -144,9 +150,7 @@ export default function Landing() {
             <a key={id} href={`#${id}`} onClick={zu}>{label}</a>
           ))}
           <span className="kopf-trenner" aria-hidden="true" />
-          <a className="kopf-knopf termin" href={TERMIN} target="_blank" rel="noreferrer" onClick={zu}>
-            Termin vereinbaren
-          </a>
+          <a className="kopf-knopf termin" href="#termin" onClick={zu}>Termin vereinbaren</a>
           <Link className="kopf-knopf" to="/login" onClick={zu}>Anmelden</Link>
           <Link className="kopf-knopf primaer" to="/registrieren" onClick={zu}>Registrieren</Link>
         </nav>
@@ -156,7 +160,7 @@ export default function Landing() {
           ohne dass jemand erst das Klappmenü öffnen muss. */}
       <nav className="sprungleiste" aria-label="Abschnitte">
         {ABSCHNITTE.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}
-        <a className="hervor" href={TERMIN} target="_blank" rel="noreferrer">Termin</a>
+        <a className="hervor" href="#termin">Termin</a>
       </nav>
 
       {/* Hero */}
@@ -171,8 +175,8 @@ export default function Landing() {
         </p>
         <div className="hero-aktionen">
           <Link className="knopf hell" to="/registrieren">Registrieren <span aria-hidden="true">&rarr;</span></Link>
-          <a className="textlink aufhell" href={TERMIN} target="_blank" rel="noreferrer">
-            Lieber erst sprechen? Termin vereinbaren <span aria-hidden="true">&rarr;</span>
+          <a className="textlink aufhell" href="#termin">
+            Lieber erst sprechen? Termin wählen <span aria-hidden="true">&rarr;</span>
           </a>
         </div>
         <div className="hero-leiste">
@@ -370,15 +374,34 @@ export default function Landing() {
             Wählen Sie einen freien Termin für ein kurzes Klärungsgespräch, 15 Minuten, per Video
             oder Telefon. Sie erhalten sofort eine Bestätigung.
           </p>
-          <a className="knopf gold" href={TERMIN} target="_blank" rel="noreferrer">
-            Termin wählen <span aria-hidden="true">&nearr;</span>
-          </a>
+          {/* Die Auswahl läuft eingebettet, damit niemand die Seite verlassen muss.
+              Der Rahmen lädt erst, wenn er in Sichtweite kommt. Blockiert ein
+              Browser die Einbettung, bleibt der Link darunter als Weg. */}
+          {TERMIN_EINGEBETTET && (
+            <div className="termin-rahmen">
+              <iframe
+                src={TERMIN}
+                title="Freie Termine bei Dr. Christian Neusser"
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            </div>
+          )}
+          {TERMIN_EINGEBETTET ? (
+            <a className="termin-extern" href={TERMIN} target="_blank" rel="noreferrer">
+              Auswahl in einem eigenen Fenster öffnen <span aria-hidden="true">&nearr;</span>
+            </a>
+          ) : (
+            <a className="knopf gold" href={TERMIN} target="_blank" rel="noreferrer">
+              Termin wählen <span aria-hidden="true">&nearr;</span>
+            </a>
+          )}
           <small>Dr. Christian Neusser · Phalanx GmbH · Erlangen</small>
         </aside>
       </section>
 
       {/* Mitlaufend, wie auf phalanx.de */}
-      <a className="termin-fest" href={TERMIN} target="_blank" rel="noreferrer" aria-label="Termin vereinbaren">
+      <a className="termin-fest" href="#termin" aria-label="Termin vereinbaren">
         <CalendarDays aria-hidden="true" /><span>Termin vereinbaren</span>
       </a>
       <div className="wechsler" aria-label="Zwischen Websites wechseln">

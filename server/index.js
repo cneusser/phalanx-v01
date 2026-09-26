@@ -32,7 +32,10 @@ app.use(helmet({
       imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
       fontSrc: ["'self'", 'data:'],
       connectSrc: ["'self'", 'https:'],
-      frameSrc: ["'self'", 'https://challenges.cloudflare.com'],
+      // Phalanx OS liefert die eingebettete Terminauswahl. Ueber
+      // TERMIN_ORIGIN austauschbar, ohne Code anzufassen.
+      frameSrc: ["'self'", 'https://challenges.cloudflare.com',
+        process.env.TERMIN_ORIGIN || 'https://phalanx-os-production.up.railway.app'],
       objectSrc: ["'self'", 'blob:'],
       baseUri: ["'self'"],
       frameAncestors: ["'self'"],
