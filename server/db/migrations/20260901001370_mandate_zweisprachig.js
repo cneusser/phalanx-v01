@@ -6,9 +6,17 @@
  * Sprachumschaltung allein löst das nicht: Was es nur einmal gibt, lässt sich
  * nicht umschalten.
  *
- * Deshalb bekommt jedes sichtbare Textfeld eine zweite Fassung. Die bisherigen
- * Spalten bleiben die deutsche Fassung und werden nicht angefasst, damit der
- * Bestand unverändert bleibt und nichts nachträglich verschoben wird.
+ * Deshalb bekommt jedes sichtbare Textfeld eine zweite Fassung. Die Regel ist
+ * ab hier eindeutig und gilt ohne Ausnahme:
+ *
+ *   die bisherige Spalte  = Deutsch
+ *   die Spalte mit _en    = Englisch
+ *
+ * `sprache` hält fest, in welcher Sprache ein Mandat ursprünglich erfasst
+ * wurde. Das ist eine Information über die Herkunft, keine Weiche: Auch ein
+ * englisch erfasstes Mandat führt seinen deutschen Text in der Grundspalte,
+ * sobald er vorliegt. Ohne diese Regel gäbe es für die deutsche Fassung eines
+ * englisch erfassten Mandats gar keinen Platz.
  *
  * `uebersetzung_status` sagt, woher die englische Fassung stammt:
  *   fehlt      es gibt keine, das Feld wird in der Datenpflege ausgewiesen
@@ -20,7 +28,7 @@
  * kein Schönheitsfehler, sondern ein Sachfehler.
  */
 const FELDER = [
-  ['projects', ['short_description', 'highlights', 'deal_type']],
+  ['projects', ['short_description', 'highlights', 'deal_type', 'industry']],
   ['project_details', ['full_description', 'growth_strategy', 'key_risks']],
 ];
 
