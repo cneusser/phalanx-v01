@@ -3,10 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Send, UserPlus, Check, X, MessageSquare, ShieldCheck, ArrowUpRight, Pencil, Trash2, Clock } from 'lucide-react';
+import { useT } from '../i18n';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 
 export default function Messages() {
+  const t = useT();
   const { user, isAdmin } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -81,7 +83,7 @@ export default function Messages() {
   }
 
   async function nimmZurueck(id) {
-    if (!window.confirm('Diese Nachricht zurücknehmen? Sie wurde noch nicht zugestellt.')) return;
+    if (!window.confirm(t('msg.zuruecknehmen_frage', 'Diese Nachricht zurücknehmen? Sie wurde noch nicht zugestellt.'))) return;
     setMsg('');
     try { await api.delete(`/messages/${id}`); openThread(active); }
     catch (e) { setMsg('Fehler: ' + e.message); }
@@ -92,7 +94,7 @@ export default function Messages() {
     setMsg('');
     try {
       const d = await api.post(`/admin/projects/${projectId}/interests/${active}/approve-nda`, {});
-      setMsg(d.nda ? 'NDA freigegeben, Datenraum geöffnet ✓' : 'Datenraum freigegeben ✓');
+      setMsg(d.nda ? t('msg.nda_freigegeben', 'NDA freigegeben, Datenraum geöffnet ✓') : 'Datenraum freigegeben ✓');
       openThread(active);
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }
@@ -120,7 +122,7 @@ export default function Messages() {
       <div style={{ background: C.navy, color: '#fff', padding: '1.5rem' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MessageSquare size={20} /> Nachrichten</h1>
-          <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.85rem', marginTop: 2 }}>Diskreter Austausch mit Ihren bestätigten Kontakten.</p>
+          <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.85rem', marginTop: 2 }}>{t('msg.intro', 'Diskreter Austausch mit Ihren bestätigten Kontakten.')}</p>
         </div>
       </div>
 
@@ -128,7 +130,7 @@ export default function Messages() {
         {/* Linke Spalte: Kontakt hinzufügen + Anfragen + Konversationen */}
         <div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1rem', marginBottom: '1rem' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: C.muted, marginBottom: '0.5rem' }}>KONTAKT HINZUFÜGEN</div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: C.muted, marginBottom: '0.5rem' }}>{t('msg.kontakt_hinzufuegen', 'KONTAKT HINZUFÜGEN')}</div>
             <div style={{ display: 'flex', gap: '0.4rem' }}>
               <input value={addEmail} onChange={e => setAddEmail(e.target.value)} placeholder="E-Mail-Adresse" style={{ flex: 1, padding: '0.5rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.82rem', outline: 'none' }} />
               <button onClick={addContact} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 7, padding: '0 0.7rem', cursor: 'pointer' }}><UserPlus size={15} /></button>
@@ -153,7 +155,7 @@ export default function Messages() {
 
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
             <div style={{ fontSize: '0.75rem', fontWeight: 700, color: C.muted, padding: '0.8rem 1rem 0.4rem' }}>KONVERSATIONEN</div>
-            {list.length === 0 ? <div style={{ padding: '1.5rem', textAlign: 'center', color: C.muted, fontSize: '0.82rem' }}>Noch keine Kontakte. Fügen Sie oben jemanden per E-Mail hinzu.</div>
+            {list.length === 0 ? <div style={{ padding: '1.5rem', textAlign: 'center', color: C.muted, fontSize: '0.82rem' }}>{t('msg.keine_kontakte', 'Noch keine Kontakte. Fügen Sie oben jemanden per E-Mail hinzu.')}</div>
               : list.map(t => (
                 <div key={t.partner_id} onClick={() => openThread(t.partner_id)} style={{ padding: '0.7rem 1rem', borderTop: `1px solid ${C.border}`, cursor: 'pointer', background: active === t.partner_id ? C.bg : '#fff' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -169,14 +171,14 @@ export default function Messages() {
         {/* Rechte Spalte: Thread */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, minHeight: 420, display: 'flex', flexDirection: 'column' }}>
           {!thread ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: '0.88rem' }}>Wählen Sie links eine Konversation.</div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: '0.88rem' }}>{t('msg.links_waehlen', 'Wählen Sie links eine Konversation.')}</div>
           ) : (
             <>
               <div style={{ padding: '0.9rem 1.1rem', borderBottom: `1px solid ${C.border}`, fontWeight: 700, color: C.navy }}>{thread.partner.name}{thread.partner.company ? ` · ${thread.partner.company}` : ''}</div>
               {isAdmin && mandateCtx && (
                 <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', padding: '0.55rem 1.1rem', borderBottom: `1px solid ${C.border}`, background: '#f8fbff' }}>
                   <span style={{ fontSize: '0.72rem', color: C.muted, fontWeight: 600 }}>Mandat {mandateCtx.project_codename || `#${mandateCtx.project_id}`}:</span>
-                  <button onClick={() => approveNda(mandateCtx.project_id)} title="NDA freigeben und Datenraum für diesen Kontakt öffnen" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#065f46', color: '#fff', border: 'none', borderRadius: 7, padding: '0.35rem 0.75rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
+                  <button onClick={() => approveNda(mandateCtx.project_id)} title={t('msg.nda_freigeben', 'NDA freigeben und Datenraum für diesen Kontakt öffnen')} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#065f46', color: '#fff', border: 'none', borderRadius: 7, padding: '0.35rem 0.75rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
                     <ShieldCheck size={13} /> NDA freigeben und Datenraum
                   </button>
                   <button onClick={() => navigate(`/projekte/${mandateCtx.project_id}`)} title="Zum Mandat" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.35rem 0.75rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
@@ -189,7 +191,7 @@ export default function Messages() {
               )}
               {isAdmin && msg && <div style={{ padding: '0.4rem 1.1rem', fontSize: '0.78rem', color: msg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{msg}</div>}
               <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', maxHeight: 440 }}>
-                {thread.messages.length === 0 ? <div style={{ color: C.muted, fontSize: '0.83rem', textAlign: 'center', marginTop: '2rem' }}>Noch keine Nachrichten. Schreiben Sie die erste.</div>
+                {thread.messages.length === 0 ? <div style={{ color: C.muted, fontSize: '0.83rem', textAlign: 'center', marginTop: '2rem' }}>{t('msg.keine_nachrichten', 'Noch keine Nachrichten. Schreiben Sie die erste.')}</div>
                   : thread.messages.map(m => {
                     // Sprint 15: Systemnachrichten (Prozess-Ereignisse) als zentrierte Timeline-Einträge
                     if (m.type === 'system') {
@@ -215,7 +217,7 @@ export default function Messages() {
                                 style={{ width: 'min(420px, 60vw)', background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 7, padding: '0.45rem 0.6rem', fontSize: '0.85rem', lineHeight: 1.45, resize: 'vertical', fontFamily: 'inherit' }} />
                               <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
                                 <button onClick={() => { setBearbeitet(null); setEntwurf(''); }} style={{ background: 'transparent', color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, padding: '0.22rem 0.6rem', fontSize: '0.72rem', cursor: 'pointer' }}>Abbrechen</button>
-                                <button onClick={() => speichereAenderung(m.id)} style={{ background: '#fff', color: C.navy, border: 'none', borderRadius: 6, padding: '0.22rem 0.7rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>Übernehmen</button>
+                                <button onClick={() => speichereAenderung(m.id)} style={{ background: '#fff', color: C.navy, border: 'none', borderRadius: 6, padding: '0.22rem 0.7rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>{t('msg.uebernehmen', 'Übernehmen')}</button>
                               </div>
                             </>
                           ) : (
@@ -230,7 +232,7 @@ export default function Messages() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, fontSize: '0.68rem', color: C.muted }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Clock size={11} /> wird in {mmss(offen)} zugestellt</span>
                             <button onClick={() => { setBearbeitet(m.id); setEntwurf(m.body); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: C.accent, fontSize: '0.68rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}><Pencil size={11} /> Bearbeiten</button>
-                            <button onClick={() => nimmZurueck(m.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: '#991b1b', fontSize: '0.68rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}><Trash2 size={11} /> Zurücknehmen</button>
+                            <button onClick={() => nimmZurueck(m.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', color: '#991b1b', fontSize: '0.68rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}><Trash2 size={11} /> {t('msg.zuruecknehmen', 'Zurücknehmen')}</button>
                           </div>
                         )}
                       </div>
@@ -242,9 +244,9 @@ export default function Messages() {
                 <div style={{ padding: '0.75rem', borderTop: `1px solid ${C.border}` }}>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
                     <textarea ref={feldRef} value={body} onChange={e => setBody(e.target.value)} onKeyDown={tastendruck} rows={1}
-                      placeholder="Nachricht…  Enter macht eine neue Zeile."
+                      placeholder={t('msg.platzhalter', 'Nachricht…  Enter macht eine neue Zeile.')}
                       style={{ flex: 1, padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', lineHeight: 1.45, outline: 'none', resize: 'none', overflowY: 'auto', maxHeight: 200, fontFamily: 'inherit' }} />
-                    <button onClick={send} disabled={!body.trim()} title="Senden (Cmd oder Strg + Enter)"
+                    <button onClick={send} disabled={!body.trim()} title={t('msg.senden_tastatur', 'Senden (Cmd oder Strg + Enter)')}
                       style={{ background: body.trim() ? C.navy : '#94a3b8', color: '#fff', border: 'none', borderRadius: 8, padding: '0.62rem 1rem', cursor: body.trim() ? 'pointer' : 'default' }}><Send size={16} /></button>
                   </div>
                   <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 5 }}>
@@ -252,7 +254,7 @@ export default function Messages() {
                   </div>
                 </div>
               ) : (
-                <div style={{ padding: '0.9rem', borderTop: `1px solid ${C.border}`, fontSize: '0.8rem', color: C.muted, textAlign: 'center' }}>Nachrichten sind möglich, sobald die Kontaktanfrage angenommen wurde.</div>
+                <div style={{ padding: '0.9rem', borderTop: `1px solid ${C.border}`, fontSize: '0.8rem', color: C.muted, textAlign: 'center' }}>{t('msg.erst_nach_annahme', 'Nachrichten sind möglich, sobald die Kontaktanfrage angenommen wurde.')}</div>
               )}
             </>
           )}

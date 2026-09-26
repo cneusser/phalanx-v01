@@ -8,6 +8,7 @@ import GroupedSelect from '../components/GroupedSelect';
 import SellerFunnel from '../components/SellerFunnel';
 import ListingWizard from '../components/ListingWizard';
 import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING } from '../constants/projectOptions';
+import { useT } from '../i18n';
 
 const C = {
   navy:    '#174a6a',
@@ -32,6 +33,7 @@ const INPUT = {
 };
 
 export default function SellerDashboard() {
+  const t = useT();
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [myProjects, setMyProjects] = useState([]);
@@ -60,7 +62,7 @@ export default function SellerDashboard() {
   async function openPreview(pid) {
     setPreviewBusy(true);
     try { setPreview(await api.get(`/projects/${pid}/funnel-preview`)); }
-    catch (e) { setMsg('Prozessstand nicht verfügbar: ' + e.message); }
+    catch (e) { setMsg(t('vk.stand_fehlt', 'Prozessstand nicht verfügbar: ') + e.message); }
     finally { setPreviewBusy(false); }
   }
 
@@ -89,7 +91,7 @@ export default function SellerDashboard() {
     setSaving(true);
     try {
       await api.post('/projects/my-project', { ...form, highlights: [] });
-      showMsg('Projekt eingereicht! Es wird nach Prüfung durch den Admin sichtbar.');
+      showMsg(t('vk.eingereicht', 'Projekt eingereicht! Es wird nach Prüfung durch den Admin sichtbar.'));
       setShowForm(false);
       setForm({ codename: '', industry: '', region: '', revenue_band: '', ebitda_band: '', deal_type: 'Nachfolge', short_description: '', mandate_type: 'ma' });
       loadMyProjects();
@@ -111,7 +113,7 @@ export default function SellerDashboard() {
     if (confirmText && !window.confirm(confirmText)) return;
     try {
       await api.post(`/projects/${pid}/lifecycle`, { status });
-      showMsg(status === 'paused' ? 'Inserat pausiert.' : status === 'active' ? 'Inserat wieder aktiv.' : status === 'closed' ? 'Inserat geschlossen.' : 'Status geändert.');
+      showMsg(status === 'paused' ? 'Inserat pausiert.' : status === 'active' ? 'Inserat wieder aktiv.' : status === 'closed' ? 'Inserat geschlossen.' : t('vk.status_geaendert', 'Status geändert.'));
       loadMyProjects();
     } catch (e) { showMsg('Fehler: ' + e.message); }
   }
@@ -129,7 +131,7 @@ export default function SellerDashboard() {
 
   const STATUS_META = {
     draft: { label: 'Entwurf', bg: '#f1f5f9', color: '#64748b' },
-    in_review: { label: 'In Prüfung', bg: '#fef3c7', color: '#92400e' },
+    in_review: { label: t('vk.in_pruefung', 'In Prüfung'), bg: '#fef3c7', color: '#92400e' },
     active: { label: 'Aktiv', bg: '#d1fae5', color: '#065f46' },
     paused: { label: 'Pausiert', bg: '#e0f2fe', color: '#0369a1' },
     closed: { label: 'Geschlossen', bg: '#f1f5f9', color: '#64748b' },
@@ -212,7 +214,7 @@ export default function SellerDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
             {[
               ['Aktiv', overview.byStatus?.active || 0, '#065f46', '#d1fae5'],
-              ['In Prüfung', overview.byStatus?.in_review || 0, '#92400e', '#fef3c7'],
+              [t('vk.in_pruefung', 'In Prüfung'), overview.byStatus?.in_review || 0, '#92400e', '#fef3c7'],
               ['Entwurf', overview.byStatus?.draft || 0, '#64748b', '#f1f5f9'],
               ['Pausiert', overview.byStatus?.paused || 0, '#0369a1', '#e0f2fe'],
               ['Interessenten', overview.totalInterested || 0, C.navy, C.lightBg],
@@ -232,7 +234,7 @@ export default function SellerDashboard() {
                 <h3 style={{ fontWeight: 800, color: C.navy, fontSize: '0.95rem' }}>Interessenten</h3>
               </div>
               {overview.mandates.filter(m => m.parties.length).length === 0 && (
-                <div style={{ color: C.gray, fontSize: '0.85rem' }}>Noch keine Interessenten in Ihren Mandaten.</div>
+                <div style={{ color: C.gray, fontSize: '0.85rem' }}>{t('vk.keine_interessenten', 'Noch keine Interessenten in Ihren Mandaten.')}</div>
               )}
               {overview.mandates.filter(m => m.parties.length).map(m => (
                 <div key={m.id} style={{ marginBottom: '1rem' }}>
@@ -264,7 +266,7 @@ export default function SellerDashboard() {
                 <h3 style={{ fontWeight: 800, color: C.navy, fontSize: '0.95rem' }}>Aktuelles</h3>
               </div>
               {(!overview.recent || overview.recent.length === 0) && (
-                <div style={{ color: C.gray, fontSize: '0.85rem' }}>Keine Bewegungen in den letzten 14 Tagen.</div>
+                <div style={{ color: C.gray, fontSize: '0.85rem' }}>{t('vk.keine_bewegung', 'Keine Bewegungen in den letzten 14 Tagen.')}</div>
               )}
               {(overview.recent || []).map((r, i) => (
                 <div key={i} style={{ padding: '0.4rem 0', borderTop: i ? '1px solid #F1F5F9' : 'none', fontSize: '0.8rem', color: '#334155' }}>
@@ -283,8 +285,8 @@ export default function SellerDashboard() {
       ) : myProjects.length === 0 ? (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '3rem', textAlign: 'center' }}>
           <Building2 size={40} color={C.border} style={{ marginBottom: '1rem' }} />
-          <h3 style={{ color: C.navy, marginBottom: '0.5rem' }}>Noch kein Unternehmen eingereicht</h3>
-          <p style={{ color: C.gray, fontSize: '0.875rem', marginBottom: '1.5rem' }}>Klicken Sie auf „Unternehmen einreichen", um anzufangen.</p>
+          <h3 style={{ color: C.navy, marginBottom: '0.5rem' }}>{t('vk.kein_unternehmen', 'Noch kein Unternehmen eingereicht')}</h3>
+          <p style={{ color: C.gray, fontSize: '0.875rem', marginBottom: '1.5rem' }}>{t('vk.kein_unternehmen_text', 'Klicken Sie auf „Unternehmen einreichen", um anzufangen.')}</p>
           <button
             onClick={() => setWizardEditId(null)}
             style={{ background: C.navy, color: '#fff', border: 'none', padding: '0.75rem 1.5rem', borderRadius: 8, cursor: 'pointer', fontWeight: 700 }}
@@ -301,7 +303,7 @@ export default function SellerDashboard() {
                   <span style={{ fontWeight: 700, color: C.navy, fontSize: '1rem' }}>{p.codename}</span>
                   <span style={statusStyle(p.status)}>{statusLabel(p.status)}</span>
                   {p.visibility === 'invite_only' && (
-                    <span title="Vertraulich: nur für eingeladene Personen sichtbar"
+                    <span title={t('vk.vertraulich', 'Vertraulich: nur für eingeladene Personen sichtbar')}
                       style={{ background: '#fef3c7', color: '#92400e', padding: '0.2rem 0.6rem', borderRadius: 6, fontSize: '0.72rem', fontWeight: 700 }}>
                       Vertraulich
                     </span>
@@ -338,7 +340,7 @@ export default function SellerDashboard() {
                   <button onClick={() => lifecycle(p.id, 'active')} style={{ ...smallBtn, borderColor: '#065f46', color: '#065f46' }}>Reaktivieren</button>
                 )}
                 {['active', 'paused'].includes(p.status) && (
-                  <button onClick={() => lifecycle(p.id, 'closed', 'Inserat wirklich schließen? Es ist danach nicht mehr sichtbar.')} style={{ ...smallBtn, borderColor: '#fecaca', color: '#b91c1c' }}>Schließen</button>
+                  <button onClick={() => lifecycle(p.id, 'closed', t('vk.schliessen_frage', 'Inserat wirklich schließen? Es ist danach nicht mehr sichtbar.'))} style={{ ...smallBtn, borderColor: '#fecaca', color: '#b91c1c' }}>{t('vk.schliessen', 'Schließen')}</button>
                 )}
                 {p.status === 'closed' && (
                   <button onClick={() => lifecycle(p.id, 'active')} style={{ ...smallBtn, borderColor: '#065f46', color: '#065f46' }}>Reaktivieren</button>
@@ -374,7 +376,7 @@ export default function SellerDashboard() {
                 <p style={{ fontSize: '0.78rem', color: C.gray, marginBottom: '1rem', lineHeight: 1.5 }}>
                   Sie sehen die interessierten Parteien und wie weit sie im Prozess sind. Aus Vertraulichkeitsgründen zeigen wir keine Kontaktdaten.
                 </p>
-                {!active.length && <div style={{ color: C.gray, fontSize: '0.85rem' }}>Noch keine Interessenten im Prozess.</div>}
+                {!active.length && <div style={{ color: C.gray, fontSize: '0.85rem' }}>{t('vk.keine_im_prozess', 'Noch keine Interessenten im Prozess.')}</div>}
                 {active.map(s => (
                   <div key={s.key} style={{ marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.4rem' }}>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api, getToken } from '../api/client';
 import { VALUATION_INDUSTRIES as INDUSTRIES } from '../constants/valuationIndustries';
 import { FileText, Plus, Download, ChevronLeft, ChevronRight, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useT, useI18n } from '../i18n';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.6rem 0.75rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' };
@@ -9,17 +10,23 @@ const LABEL = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '
 const eur = (n) => (Math.round(Number(n) || 0)).toLocaleString('de-DE') + ' €';
 const num = (v) => { const n = parseFloat(String(v).replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 
+// Je Zeile: Feld, Schlüssel und deutscher Text für Beschriftung und Frage.
+// Übersetzt wird beim Zeichnen, hier gibt es noch keine gewählte Sprache.
 const SCORECARD = [
-  ['owner_dependence', 'Inhaberabhängigkeit', 'Läuft das Geschäft ohne den Inhaber?'],
-  ['customer_concentration', 'Kundenstreuung', 'Wie breit ist die Kundenbasis?'],
-  ['second_level', 'Zweite Führungsebene', 'Trägt ein Team die Verantwortung?'],
-  ['market_position', 'Marktposition', 'Wie stark ist die Wettbewerbsposition?'],
-  ['cyclicality', 'Stabilität', 'Wie konjunktur-/saisonunabhängig?'],
-  ['investment_backlog', 'Investitionslage', 'Besteht Investitionsstau?'],
-  ['digitalization', 'Digitalisierung', 'Wie reif sind Prozesse/IT?'],
+  ['owner_dependence',       'ab.f_inhaber',      'Inhaberabhängigkeit', 'ab.f_inhaber_frage',      'Läuft das Geschäft ohne den Inhaber?'],
+  ['customer_concentration', 'ab.f_kunden',       'Kundenstreuung',      'ab.f_kunden_frage',       'Wie breit ist die Kundenbasis?'],
+  ['second_level',           'ab.f_fuehrung',     'Zweite Führungsebene', 'ab.f_fuehrung_frage',    'Trägt ein Team die Verantwortung?'],
+  ['market_position',        'ab.f_markt',        'Marktposition',       'ab.f_wettbewerb_frage',   'Wie stark ist die Wettbewerbsposition?'],
+  ['cyclicality',            'ab.f_stabilitaet',  'Stabilität',          'ab.f_stabilitaet_frage',  'Wie konjunktur-/saisonunabhängig?'],
+  ['investment_backlog',     'ab.f_investition',  'Investitionslage',    'ab.f_investition_frage',  'Besteht Investitionsstau?'],
+  ['digitalization',         'ab.f_digital',      'Digitalisierung',     'ab.f_prozesse_frage',     'Wie reif sind Prozesse/IT?'],
 ];
 const SC_OPTS = [['−2', -2], ['−1', -1], ['0', 0], ['+1', 1], ['+2', 2]];
-const STATUS_LABEL = { draft: 'Entwurf', submitted: 'Berechnet', reviewed: 'Geprüft' };
+const STATUS_LABEL = {
+  draft:     ['ab.st_entwurf',  'Entwurf'],
+  submitted: ['ab.st_berechnet', 'Berechnet'],
+  reviewed:  ['ab.geprueft',    'Geprüft'],
+};
 const STATUS_COLOR = { draft: '#64748B', submitted: '#1D4E89', reviewed: '#166534' };
 
 const emptyInputs = () => ({
@@ -40,6 +47,8 @@ const pctOrUndef = (v) => {
 };
 
 export default function DetailedValuation() {
+  const t = useT();
+  const { lang } = useI18n();
   const [view, setView] = useState('list');  // list | edit
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +133,7 @@ export default function DetailedValuation() {
   }
 
   async function submit() {
-    if (!inputs.industry) { setMsg('Bitte Branche wählen.'); setStep(0); return; }
+    if (!inputs.industry) { setMsg(t('ab.fehlt_branche', 'Bitte Branche wählen.')); setStep(0); return; }
     setBusy(true); setMsg('');
     try {
       let vid = id;
@@ -157,23 +166,23 @@ export default function DetailedValuation() {
       <div style={{ background: C.bg, minHeight: '100vh' }}>
         <div style={{ background: C.navy, color: '#fff', padding: '2.5rem 1.5rem 2rem' }}>
           <div style={{ maxWidth: 900, margin: '0 auto' }}>
-            <h1 style={{ fontSize: '1.7rem', fontWeight: 700, marginBottom: '0.4rem' }}>Ausführliche Unternehmensbewertung</h1>
-            <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.92rem', maxWidth: 640 }}>Geführte, mehrstufige Bewertung mit Bereinigungsrechnung, Qualitäts-Scorecard, Ertragswert und Kapitaldienst-Check, als ausführlicher PDF-Report. Indikativ, kein IDW-S1-Gutachten.</p>
+            <h1 style={{ fontSize: '1.7rem', fontWeight: 700, marginBottom: '0.4rem' }}>{t('ab.titel', 'Ausführliche Unternehmensbewertung')}</h1>
+            <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.92rem', maxWidth: 640 }}>{t('ab.intro', 'Geführte, mehrstufige Bewertung mit Bereinigungsrechnung, Qualitäts-Scorecard, Ertragswert und Kapitaldienst-Check, als ausführlicher PDF-Report. Indikativ, kein IDW-S1-Gutachten.')}</p>
           </div>
         </div>
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.75rem 1.5rem 4rem' }}>
           {access && (access.requires_payment
             ? <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.7rem 1rem', marginBottom: '1rem', fontSize: '0.83rem', color: '#92400e' }}>Die ausführliche Bewertung ist seit {new Date(access.free_until).toLocaleDateString('de-DE')} kostenpflichtig. Bitte sprechen Sie uns zur Freischaltung an.</div>
             : access.in_free_period && access.paywall_enabled
-              ? <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 8, padding: '0.7rem 1rem', marginBottom: '1rem', fontSize: '0.83rem', color: '#065f46' }}>Die ausführliche Bewertung ist bis zum <strong>{new Date(access.free_until).toLocaleDateString('de-DE')}</strong> kostenlos.</div>
+              ? <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 8, padding: '0.7rem 1rem', marginBottom: '1rem', fontSize: '0.83rem', color: '#065f46' }}>{t('ab.frei_bis', 'Die ausführliche Bewertung ist bis zum')} <strong>{new Date(access.free_until).toLocaleDateString(lang === 'en' ? 'en-GB' : 'de-DE')}</strong> {t('ab.kostenlos', 'kostenlos.')}</div>
               : null)}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{ fontWeight: 700, color: C.navy }}>Ihre Bewertungen</div>
+            <div style={{ fontWeight: 700, color: C.navy }}>{t('ab.ihre_bewertungen', 'Ihre Bewertungen')}</div>
             <button onClick={startNew} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}><Plus size={15} /> Neue Bewertung</button>
           </div>
           {msg && <div style={{ background: msg.startsWith('Fehler') || msg.includes('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '0.9rem', fontSize: '0.82rem', color: msg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{msg}</div>}
           {loading ? <div style={{ padding: '3rem', textAlign: 'center', color: C.muted }}>Wird geladen…</div>
-            : list.length === 0 ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '3rem', textAlign: 'center', color: C.muted }}>Noch keine Bewertung. Legen Sie oben rechts eine neue an.</div>
+            : list.length === 0 ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '3rem', textAlign: 'center', color: C.muted }}>{t('ab.keine', 'Noch keine Bewertung. Legen Sie oben rechts eine neue an.')}</div>
             : (
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
@@ -185,11 +194,11 @@ export default function DetailedValuation() {
                       <tr key={r.id} style={{ borderBottom: `1px solid ${C.border}` }}>
                         <td style={{ padding: '0.7rem 1rem', fontWeight: 600, color: C.text, cursor: 'pointer' }} onClick={() => openOne(r)}>{r.title || '(ohne Titel)'}</td>
                         <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.industry || 'k. A.'}</td>
-                        <td style={{ padding: '0.7rem 1rem' }}><span style={{ background: STATUS_COLOR[r.status] + '18', color: STATUS_COLOR[r.status], fontWeight: 600, fontSize: '0.72rem', padding: '0.15rem 0.55rem', borderRadius: 20 }}>{STATUS_LABEL[r.status] || r.status}</span></td>
+                        <td style={{ padding: '0.7rem 1rem' }}><span style={{ background: STATUS_COLOR[r.status] + '18', color: STATUS_COLOR[r.status], fontWeight: 600, fontSize: '0.72rem', padding: '0.15rem 0.55rem', borderRadius: 20 }}>{STATUS_LABEL[r.status] ? t(STATUS_LABEL[r.status][0], STATUS_LABEL[r.status][1]) : r.status}</span></td>
                         <td style={{ padding: '0.7rem 1rem', fontWeight: 600 }}>{r.positive && r.corridor_base != null ? eur(r.corridor_base) : (r.status === 'draft' ? 'k. A.' : 'n. b.')}</td>
                         <td style={{ padding: '0.7rem 1rem', color: '#555' }}>{r.codename || 'k. A.'}</td>
                         <td style={{ padding: '0.7rem 1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          <button onClick={() => openOne(r)} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', cursor: 'pointer', marginRight: 6 }}>Öffnen</button>
+                          <button onClick={() => openOne(r)} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', cursor: 'pointer', marginRight: 6 }}>{t('ab.oeffnen', 'Öffnen')}</button>
                           {r.status !== 'draft' && <button onClick={() => downloadPdf(r.id)} style={{ background: '#c9a96e', color: '#10202c', border: 'none', borderRadius: 6, padding: '0.35rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>PDF</button>}
                         </td>
                       </tr>
@@ -204,14 +213,14 @@ export default function DetailedValuation() {
   }
 
   // ── EDIT / STEPPER VIEW ─────────────────────────────────────────────────
-  const steps = ['Finanzdaten', 'Scorecard', 'Substanz & Käufer', 'Planung & DCF', 'Ergebnis'];
+  const steps = ['Finanzdaten', 'Scorecard', t('ab.substanz', 'Substanz & Käufer'), 'Planung & DCF', 'Ergebnis'];
   const yearLabels = ['Vor 2 Jahren', 'Vorjahr', 'Letztes Jahr'];
   const locked = status === 'reviewed';
 
   return (
     <div style={{ background: C.bg, minHeight: '100vh' }}>
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '1.75rem 1.5rem 4rem' }}>
-        <button onClick={() => { setView('list'); loadList(); }} style={{ background: 'none', border: 'none', color: C.accent, cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: '1rem' }}><ChevronLeft size={15} /> Zur Übersicht</button>
+        <button onClick={() => { setView('list'); loadList(); }} style={{ background: 'none', border: 'none', color: C.accent, cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: '1rem' }}><ChevronLeft size={15} /> {t('ab.uebersicht', 'Zur Übersicht')}</button>
 
         {/* Stepper header */}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
@@ -231,7 +240,7 @@ export default function DetailedValuation() {
                 <div><label style={LABEL}>Unternehmen / Titel</label><input value={title} onChange={e => setTitle(e.target.value)} disabled={locked} placeholder="z. B. Muster GmbH" style={INPUT} /></div>
                 <div><label style={LABEL}>Branche *</label>
                   <select value={inputs.industry} onChange={e => setInp('industry', e.target.value)} disabled={locked} style={INPUT}>
-                    <option value="">Bitte wählen …</option>
+                    <option value="">{t('bw.bitte_waehlen', 'Bitte wählen …')}</option>
                     {INDUSTRIES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                   </select>
                 </div>
@@ -246,10 +255,10 @@ export default function DetailedValuation() {
               </div>
               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Bereinigungen</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div><label style={LABEL}>Kalk. GF-Gehalt p. a. (€)</label><input value={inputs.ownerSalaryAdjustment} onChange={e => setInp('ownerSalaryAdjustment', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>wird vom EBIT abgezogen</div></div>
-                <div><label style={LABEL}>Einmaleffekte (€)</label><input value={inputs.oneOffs} onChange={e => setInp('oneOffs', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>Sondererträge, werden bereinigt</div></div>
-                <div><label style={LABEL}>Bereinigung Gesellschafter-Miete (€)</label><input value={inputs.shareholderRentAddback} onChange={e => setInp('shareholderRentAddback', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>Überzahlung an Gesellschafter → Addback</div></div>
-                <div><label style={LABEL}>Netto-Finanzschulden (€)</label><input value={inputs.netDebt} onChange={e => setInp('netDebt', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>für Equity-Value</div></div>
+                <div><label style={LABEL}>Kalk. GF-Gehalt p. a. (€)</label><input value={inputs.ownerSalaryAdjustment} onChange={e => setInp('ownerSalaryAdjustment', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{t('ab.vom_ebit_ab', 'wird vom EBIT abgezogen')}</div></div>
+                <div><label style={LABEL}>Einmaleffekte (€)</label><input value={inputs.oneOffs} onChange={e => setInp('oneOffs', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{t('bw.sondertraege', 'Sondererträge, werden bereinigt')}</div></div>
+                <div><label style={LABEL}>Bereinigung Gesellschafter-Miete (€)</label><input value={inputs.shareholderRentAddback} onChange={e => setInp('shareholderRentAddback', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{t('ab.ueberzahlung', 'Überzahlung an Gesellschafter → Addback')}</div></div>
+                <div><label style={LABEL}>Netto-Finanzschulden (€)</label><input value={inputs.netDebt} onChange={e => setInp('netDebt', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{t('ab.fuer_equity', 'für Equity-Value')}</div></div>
               </div>
             </div>
           )}
@@ -257,10 +266,10 @@ export default function DetailedValuation() {
           {/* STEP 1: Scorecard */}
           {step === 1 && (
             <div>
-              <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: '1rem' }}>Bewerten Sie je Faktor von −2 (sehr schwach) bis +2 (sehr gut). Das verschiebt Multiple und Risikozins.</div>
-              {SCORECARD.map(([key, label, hint]) => (
+              <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: '1rem' }}>{t('ab.scorecard_hinweis', 'Bewerten Sie je Faktor von −2 (sehr schwach) bis +2 (sehr gut). Das verschiebt Multiple und Risikozins.')}</div>
+              {SCORECARD.map(([key, kLabel, label, kHint, hint]) => (
                 <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.7rem', flexWrap: 'wrap' }}>
-                  <div><div style={{ fontSize: '0.88rem', fontWeight: 600, color: C.text }}>{label}</div><div style={{ fontSize: '0.72rem', color: C.muted }}>{hint}</div></div>
+                  <div><div style={{ fontSize: '0.88rem', fontWeight: 600, color: C.text }}>{t(kLabel, label)}</div><div style={{ fontSize: '0.72rem', color: C.muted }}>{t(kHint, hint)}</div></div>
                   <div style={{ display: 'flex', gap: '0.3rem' }}>
                     {SC_OPTS.map(([lbl, val]) => {
                       const active = (inputs.scorecard[key] ?? 0) === val;
@@ -280,7 +289,7 @@ export default function DetailedValuation() {
                 <div><label style={LABEL}>Verkehrswerte Anlagen/Immobilien (€)</label><input value={inputs.assetValue} onChange={e => setInp('assetValue', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /></div>
                 <div><label style={LABEL}>Zugeordnete Schulden (€)</label><input value={inputs.assetDebt} onChange={e => setInp('assetDebt', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /></div>
               </div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Kapitaldienst-Annahmen (Käufersicht)</div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>{t('ab.kapitaldienst', 'Kapitaldienst-Annahmen (Käufersicht)')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div><label style={LABEL}>Finanzierungslaufzeit (Jahre)</label><input value={inputs.buyerYears} onChange={e => setInp('buyerYears', e.target.value)} disabled={locked} placeholder="7" style={INPUT} inputMode="numeric" /></div>
                 <div><label style={LABEL}>Finanzierungszins (%)</label><input value={inputs.buyerInterest} onChange={e => setInp('buyerInterest', e.target.value)} disabled={locked} placeholder="6,5" style={INPUT} inputMode="decimal" /></div>
@@ -298,8 +307,8 @@ export default function DetailedValuation() {
 
               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Planungsannahmen</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-                <div><label style={LABEL}>Umsatzwachstum p. a. (%)</label><input value={inputs.revenueGrowth} onChange={e => setInp('revenueGrowth', e.target.value)} disabled={locked} placeholder="aus Historie" style={INPUT} inputMode="decimal" /></div>
-                <div><label style={LABEL}>EBIT-Marge (%)</label><input value={inputs.ebitMargin} onChange={e => setInp('ebitMargin', e.target.value)} disabled={locked} placeholder="aus Historie" style={INPUT} inputMode="decimal" /></div>
+                <div><label style={LABEL}>Umsatzwachstum p. a. (%)</label><input value={inputs.revenueGrowth} onChange={e => setInp('revenueGrowth', e.target.value)} disabled={locked} placeholder={t('ab.ph_historie', 'aus Historie')} style={INPUT} inputMode="decimal" /></div>
+                <div><label style={LABEL}>EBIT-Marge (%)</label><input value={inputs.ebitMargin} onChange={e => setInp('ebitMargin', e.target.value)} disabled={locked} placeholder={t('ab.ph_historie', 'aus Historie')} style={INPUT} inputMode="decimal" /></div>
                 <div><label style={LABEL}>Planungsjahre</label><input value={inputs.planYears} onChange={e => setInp('planYears', e.target.value)} disabled={locked} placeholder="5" style={INPUT} inputMode="numeric" /></div>
                 <div><label style={LABEL}>Abschreibungen (% vom Umsatz)</label><input value={inputs.depreciationPct} onChange={e => setInp('depreciationPct', e.target.value)} disabled={locked} placeholder="3,0" style={INPUT} inputMode="decimal" /></div>
                 <div><label style={LABEL}>Investitionen / Capex (% vom Umsatz)</label><input value={inputs.capexPct} onChange={e => setInp('capexPct', e.target.value)} disabled={locked} placeholder="3,0" style={INPUT} inputMode="decimal" /></div>
@@ -309,14 +318,14 @@ export default function DetailedValuation() {
               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Kapitalkosten (WACC)</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
                 <div><label style={LABEL}>Beta</label><input value={inputs.beta} onChange={e => setInp('beta', e.target.value)} disabled={locked} placeholder="1,0" style={INPUT} inputMode="decimal" /></div>
-                <div><label style={LABEL}>Small-Size-Prämie (%)</label><input value={inputs.sizePremium} onChange={e => setInp('sizePremium', e.target.value)} disabled={locked} placeholder="4,0" style={INPUT} inputMode="decimal" /></div>
+                <div><label style={LABEL}>{t('ab.small_size', 'Small-Size-Prämie (%)')}</label><input value={inputs.sizePremium} onChange={e => setInp('sizePremium', e.target.value)} disabled={locked} placeholder="4,0" style={INPUT} inputMode="decimal" /></div>
                 <div><label style={LABEL}>Fremdkapitalquote (%)</label><input value={inputs.debtRatio} onChange={e => setInp('debtRatio', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="decimal" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>0 = cash-/debt-free</div></div>
                 <div><label style={LABEL}>Ewiges Wachstum (%)</label><input value={inputs.terminalGrowth} onChange={e => setInp('terminalGrowth', e.target.value)} disabled={locked} placeholder="1,0" style={INPUT} inputMode="decimal" /></div>
               </div>
 
               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Benchmarking (optional)</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div><label style={LABEL}>Personalkosten p. a. (€)</label><input value={inputs.personnelCosts} onChange={e => setInp('personnelCosts', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>für den Branchenvergleich der Personalkostenquote</div></div>
+                <div><label style={LABEL}>Personalkosten p. a. (€)</label><input value={inputs.personnelCosts} onChange={e => setInp('personnelCosts', e.target.value)} disabled={locked} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{t('ab.personalquote', 'für den Branchenvergleich der Personalkostenquote')}</div></div>
               </div>
             </div>
           )}
@@ -326,10 +335,10 @@ export default function DetailedValuation() {
             <div>
               {!result ? (
                 <div style={{ textAlign: 'center', padding: '2rem 1rem', color: C.muted }}>
-                  <AlertTriangle size={22} style={{ marginBottom: 8 }} /><div>Noch kein Ergebnis. Klicken Sie auf „Berechnen".</div>
+                  <AlertTriangle size={22} style={{ marginBottom: 8 }} /><div>{t('ab.kein_ergebnis', 'Noch kein Ergebnis. Klicken Sie auf „Berechnen".')}</div>
                 </div>
               ) : !result.positive ? (
-                <div style={{ display: 'flex', gap: '0.6rem', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '1rem', fontSize: '0.85rem', color: '#92400e' }}><AlertTriangle size={18} style={{ flexShrink: 0 }} /><span>Das bereinigte nachhaltige Ergebnis ist nicht positiv, ertragsorientierte Verfahren liefern hier keinen sinnvollen Wert.</span></div>
+                <div style={{ display: 'flex', gap: '0.6rem', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '1rem', fontSize: '0.85rem', color: '#92400e' }}><AlertTriangle size={18} style={{ flexShrink: 0 }} /><span>{t('ab.nicht_positiv', 'Das bereinigte nachhaltige Ergebnis ist nicht positiv, ertragsorientierte Verfahren liefern hier keinen sinnvollen Wert.')}</span></div>
               ) : (
                 <div>
                   <div style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '0.9rem' }}>Enterprise Value · {result.industryLabel} · {result.sizeBand?.label}</div>
@@ -341,7 +350,7 @@ export default function DetailedValuation() {
                       </div>
                     ))}
                   </div>
-                  {result.equity && <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: '0.8rem' }}>Equity Value (nach Netto-Finanzschulden): ca. <strong style={{ color: C.text }}>{eur(result.equity.base)}</strong> (Basis).</div>}
+                  {result.equity && <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: '0.8rem' }}>{t('ab.equity_value', 'Equity Value (nach Netto-Finanzschulden): ca.')} <strong style={{ color: C.text }}>{eur(result.equity.base)}</strong> (Basis).</div>}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', fontSize: '0.8rem', color: '#475569', borderTop: `1px solid ${C.border}`, paddingTop: '0.9rem' }}>
                     <div><strong>Bereinigtes EBIT:</strong> {eur(result.inputsSummary.adjustedEbit)}</div>
                     <div><strong>Multiple:</strong> {String(result.methods.multiple.chosenMultiple).replace('.', ',')}× (Band {String(result.methods.multiple.band.min).replace('.', ',')}–{String(result.methods.multiple.band.max).replace('.', ',')}×)</div>
@@ -385,7 +394,7 @@ export default function DetailedValuation() {
                           ['Ewiges Wachstum', `${(result.dcf.terminalGrowth * 100).toFixed(1).replace('.', ',')} %`],
                           ['Enterprise Value', eur(result.dcf.enterpriseValue)],
                           ['Equity Value', eur(result.dcf.equityValue)],
-                          ['Anteil Fortführungswert', `${String(result.dcf.terminalShare).replace('.', ',')} %`],
+                          [t('ab.fortfuehrungswert', 'Anteil Fortführungswert'), `${String(result.dcf.terminalShare).replace('.', ',')} %`],
                         ].map(([l, v]) => (
                           <div key={l} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem' }}>
                             <div style={{ fontSize: '0.66rem', color: C.muted, fontWeight: 600 }}>{l}</div>
@@ -456,7 +465,7 @@ export default function DetailedValuation() {
                   )}
 
                   <div style={{ background: '#EDF4FA', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.75rem 1rem', marginTop: '1rem', fontSize: '0.76rem', color: '#475569', lineHeight: 1.5 }}><strong>Wichtig:</strong> {result.disclaimer} Indikativ, kein IDW-S1-Gutachten.</div>
-                  <button onClick={() => id && downloadPdf(id)} style={{ marginTop: '1.1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 1.4rem', background: '#c9a96e', color: '#10202c', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem' }}><Download size={15} /> Ausführlichen PDF-Report herunterladen</button>
+                  <button onClick={() => id && downloadPdf(id)} style={{ marginTop: '1.1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 1.4rem', background: '#c9a96e', color: '#10202c', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem' }}><Download size={15} /> {t('ab.report_laden', 'Ausführlichen PDF-Report herunterladen')}</button>
                 </div>
               )}
             </div>
@@ -465,7 +474,7 @@ export default function DetailedValuation() {
           {/* Footer actions */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: `1px solid ${C.border}`, gap: '0.75rem', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button disabled={step === 0} onClick={() => setStep(s => Math.max(0, s - 1))} style={{ padding: '0.6rem 1rem', border: `1px solid ${C.border}`, background: '#fff', borderRadius: 8, cursor: step === 0 ? 'default' : 'pointer', opacity: step === 0 ? 0.4 : 1, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}><ChevronLeft size={15} /> Zurück</button>
+              <button disabled={step === 0} onClick={() => setStep(s => Math.max(0, s - 1))} style={{ padding: '0.6rem 1rem', border: `1px solid ${C.border}`, background: '#fff', borderRadius: 8, cursor: step === 0 ? 'default' : 'pointer', opacity: step === 0 ? 0.4 : 1, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}><ChevronLeft size={15} /> {t('ab.zurueck', 'Zurück')}</button>
               {step < 4 && <button onClick={() => setStep(s => Math.min(4, s + 1))} style={{ padding: '0.6rem 1rem', border: `1px solid ${C.border}`, background: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>Weiter <ChevronRight size={15} /></button>}
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>

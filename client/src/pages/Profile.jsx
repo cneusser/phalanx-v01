@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import TwoFactorCard from '../components/TwoFactorCard';
 import { useAuth } from '../context/AuthContext';
 import { Save, User, Download, AlertTriangle } from 'lucide-react';
+import { useT } from '../i18n';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB' };
 
@@ -33,6 +34,7 @@ const MultiSelect = ({ label, options, value = [], onChange }) => (
 );
 
 export default function Profile() {
+  const t = useT();
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [industries, setIndustries] = useState([]);
@@ -136,7 +138,7 @@ export default function Profile() {
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.9rem 1rem', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#92400e' }}>
           <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
           <div>
-            <strong>Profil unvollständig.</strong> Bitte vervollständigen Sie Ihre Kontaktdaten, sie sind Voraussetzung,
+            <strong>{t('prof.unvollstaendig', 'Profil unvollständig.')}</strong> Bitte vervollständigen Sie Ihre Kontaktdaten, sie sind Voraussetzung,
             um Mandate im Detail einzusehen, Interesse zu bekunden{user?.role === 'seller' ? ' bzw. Mandate anzulegen' : ''}.
           </div>
         </div>
@@ -147,12 +149,12 @@ export default function Profile() {
       <form onSubmit={save}>
         {/* Kontaktdaten (Pflicht) */}
         <div style={card}>
-          <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '1.5rem', fontSize: '1rem' }}>Kontaktdaten <span style={{ color: '#c00', fontWeight: 400, fontSize: '0.8rem' }}>(Pflicht für die Prozessteilnahme)</span></h2>
+          <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '1.5rem', fontSize: '1rem' }}>Kontaktdaten <span style={{ color: '#c00', fontWeight: 400, fontSize: '0.8rem' }}>{t('prof.pflicht', '(Pflicht für die Prozessteilnahme)')}</span></h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Anrede *</label>
               <select value={contact.salutation} onChange={setC('salutation')} style={{ ...INPUT, background: '#fff', borderColor: missingFields.includes('salutation') ? '#f59e0b' : '#ddd' }}>
-                <option value="">Bitte wählen…</option>
+                <option value="">{t('prof.bitte_waehlen', 'Bitte wählen…')}</option>
                 <option value="Herr">Herr</option>
                 <option value="Frau">Frau</option>
                 <option value="Divers">Divers</option>
@@ -162,7 +164,7 @@ export default function Profile() {
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Titel (optional)</label>
               <input value={contact.title} onChange={setC('title')} placeholder="z. B. Dr., Prof." style={INPUT} />
             </div>
-            {[['Vorname *', 'first_name'], ['Nachname *', 'last_name'], ['Unternehmen *', 'company'], ['Position *', 'position'], ['Mobilnummer *', 'mobile'], ['Telefon (optional)', 'phone'], ['Straße + Hausnummer *', 'street']].map(([label, key]) => (
+            {[['Vorname *', 'first_name'], ['Nachname *', 'last_name'], ['Unternehmen *', 'company'], ['Position *', 'position'], ['Mobilnummer *', 'mobile'], ['Telefon (optional)', 'phone'], [t('prof.strasse', 'Straße + Hausnummer *'), 'street']].map(([label, key]) => (
               <div key={key}>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>{label}</label>
                 <input value={contact[key]} onChange={setC(key)} style={{ ...INPUT, borderColor: missingFields.includes(key) ? '#f59e0b' : '#ddd' }} />
@@ -183,15 +185,15 @@ export default function Profile() {
 
         {/* Pitchbook-Selbstdarstellung */}
         <div style={card}>
-          <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '0.5rem', fontSize: '1rem' }}>Ihr Profil (Pitchbook)</h2>
+          <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '0.5rem', fontSize: '1rem' }}>{t('prof.pitchbook', 'Ihr Profil (Pitchbook)')}</h2>
           <p style={{ color: '#888', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
             Stellen Sie sich {isBuyer ? 'als Investor' : 'als Unternehmen'} vor, diese Angaben helfen bei der Einordnung Ihrer Anfragen im Prozess.
           </p>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>
-              {isBuyer ? 'Über uns / Investment-Ansatz' : 'Über das Unternehmen'}
+              {isBuyer ? t('prof.ueber_uns', 'Über uns / Investment-Ansatz') : t('prof.ueber_unternehmen', 'Über das Unternehmen')}
             </label>
-            <textarea value={contact.about} onChange={setC('about')} rows={5} placeholder={isBuyer ? 'z. B. Fokus, Ticketgrößen, bisherige Beteiligungen, Wertbeitrag…' : 'z. B. Geschäftsmodell, Historie, Anlass der Transaktion…'} style={{ ...INPUT, resize: 'vertical' }} />
+            <textarea value={contact.about} onChange={setC('about')} rows={5} placeholder={isBuyer ? t('prof.ph_ansatz', 'z. B. Fokus, Ticketgrößen, bisherige Beteiligungen, Wertbeitrag…') : t('prof.ph_unternehmen', 'z. B. Geschäftsmodell, Historie, Anlass der Transaktion…')} style={{ ...INPUT, resize: 'vertical' }} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
@@ -208,7 +210,7 @@ export default function Profile() {
         {/* Suchkriterien (nur Investoren) */}
         {isBuyer && (
           <div style={card}>
-            <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '1.5rem', fontSize: '1rem' }}>Suchkriterien & Investment-Präferenzen</h2>
+            <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '1.5rem', fontSize: '1rem' }}>{t('prof.suchkriterien', 'Suchkriterien & Investment-Präferenzen')}</h2>
 
             <MultiSelect label="Branchen" options={INDUSTRIES} value={industries} onChange={setIndustries} />
             <MultiSelect label="Regionen" options={REGIONS} value={regions} onChange={setRegions} />
@@ -216,7 +218,7 @@ export default function Profile() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Umsatz von (Mio. €)</label>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>{t('prof.umsatz_von', 'Umsatz von (Mio. €)')}</label>
                 <input type="number" value={revenueMin} onChange={e => setRevenueMin(Number(e.target.value))} min={0} style={INPUT} />
               </div>
               <div>
@@ -250,17 +252,17 @@ export default function Profile() {
                 catch (err) { setNotifyMsg('Fehler: ' + err.message); }
               }}
               style={{ padding: '0.5rem 0.6rem', border: '1px solid #C8E4F4', borderRadius: 7, fontSize: '0.85rem', minWidth: 260 }}>
-              <option value="sofort">Sofort, sobald etwas eingestellt wird</option>
+              <option value="sofort">{t('prof.sofort', 'Sofort, sobald etwas eingestellt wird')}</option>
               <option value="taeglich">Einmal am Tag, gesammelt</option>
-              <option value="woechentlich">Einmal in der Woche, gesammelt</option>
-              <option value="aus">Gar nicht</option>
+              <option value="woechentlich">{t('prof.woechentlich', 'Einmal in der Woche, gesammelt')}</option>
+              <option value="aus">{t('prof.gar_nicht', 'Gar nicht')}</option>
             </select>
             {notifyMsg && <span style={{ marginLeft: 10, fontSize: '0.78rem', color: notifyMsg.startsWith('Fehler') ? '#c00' : '#166534' }}>{notifyMsg}</span>}
           </div>
           {[
-            ['newsletter', 'Newsletter: neue Mandate', 'Ein Hinweis, sobald ein neues Mandat im Marktplatz veröffentlicht wird.'],
-            ['follow_updates', 'Updates zu Mandaten, denen ich folge', 'Änderungen, neue Unterlagen, Exposé und Statuswechsel (Due Diligence, LOI, Abschluss). Sie folgen einem Mandat automatisch, sobald Sie Interesse bekunden, oder manuell über den Stern.'],
-            ['similar_suggestions', 'Hinweise auf ähnliche Mandate', 'Passende neue Mandate auf Basis der Mandate, für die Sie sich bisher interessiert haben.'],
+            ['newsletter', 'Newsletter: neue Mandate', t('prof.hinweis_neu', 'Ein Hinweis, sobald ein neues Mandat im Marktplatz veröffentlicht wird.')],
+            ['follow_updates', 'Updates zu Mandaten, denen ich folge', t('prof.hinweis_folgen', 'Änderungen, neue Unterlagen, Exposé und Statuswechsel (Due Diligence, LOI, Abschluss). Sie folgen einem Mandat automatisch, sobald Sie Interesse bekunden, oder manuell über den Stern.')],
+            ['similar_suggestions', t('prof.hinweis_aehnlich_titel', 'Hinweise auf ähnliche Mandate'), t('prof.hinweis_aehnlich', 'Passende neue Mandate auf Basis der Mandate, für die Sie sich bisher interessiert haben.')],
           ].map(([key, label, hint]) => (
             <label key={key} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', padding: '0.75rem 0', borderTop: '1px solid #eef4f9', cursor: 'pointer' }}>
               <input

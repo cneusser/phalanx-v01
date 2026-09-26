@@ -2,11 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { MessageSquarePlus, Send, Sparkles, CheckCircle } from 'lucide-react';
 import { ROADMAP_INTRO, PUBLIC_ROADMAP, ROADMAP_STATUS } from '../constants/publicRoadmap';
+import { useT } from '../i18n';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
-const CATS = [['idea', 'Idee / Wunsch'], ['change', 'Änderungswunsch'], ['bug', 'Fehler melden'], ['other', 'Sonstiges']];
+// Schlüssel neben dem deutschen Text: am Modulrand gibt es noch keine Sprache.
+const CATS = [
+  ['idea',   'fb.kat_idee',    'Idee / Wunsch'],
+  ['change', 'fb.aenderungswunsch', 'Änderungswunsch'],
+  ['bug',    'fb.kat_fehler',  'Fehler melden'],
+  ['other',  'fb.kat_sonst',   'Sonstiges'],
+];
 
 export default function Feedback() {
+  const t = useT();
   const [category, setCategory] = useState('idea');
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
@@ -19,8 +27,8 @@ export default function Feedback() {
   useEffect(() => { api.get('/community/changelog').then(d => setChanges((d || []).slice(0, 4))).catch(() => {}); }, []);
 
   async function submit() {
-    if (message.trim().length < 5) { setMsg('Bitte formulieren Sie Ihre Nachricht (mind. 5 Zeichen).'); return; }
-    if (!human) { setMsg('Bitte bestätigen Sie, dass Sie kein Roboter sind.'); return; }
+    if (message.trim().length < 5) { setMsg(t('fb.zu_kurz', 'Bitte formulieren Sie Ihre Nachricht (mind. 5 Zeichen).')); return; }
+    if (!human) { setMsg(t('fb.kein_roboter', 'Bitte bestätigen Sie, dass Sie kein Roboter sind.')); return; }
     setBusy(true); setMsg('');
     try { await api.post('/community/feedback', { category, message, human, company_website: hp }); setSent(true); setMessage(''); setHuman(false); }
     catch (e) { setMsg('Fehler: ' + e.message); }
@@ -39,23 +47,23 @@ export default function Feedback() {
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.75rem 1.5rem 4rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
         {/* Feedback-Formular */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '1.5rem' }}>
-          <div style={{ fontWeight: 700, color: C.navy, marginBottom: '1rem' }}>Nachricht an das Team</div>
+          <div style={{ fontWeight: 700, color: C.navy, marginBottom: '1rem' }}>{t('fb.an_team', 'Nachricht an das Team')}</div>
           {sent ? (
             <div style={{ textAlign: 'center', padding: '1.5rem 0.5rem' }}>
               <CheckCircle size={30} color="#16a34a" style={{ marginBottom: 10 }} />
-              <div style={{ fontWeight: 700, color: C.navy, marginBottom: 4 }}>Vielen Dank für Ihr Feedback!</div>
-              <div style={{ fontSize: '0.85rem', color: C.muted, marginBottom: '1rem' }}>Wir prüfen jeden Hinweis und melden uns bei Rückfragen.</div>
+              <div style={{ fontWeight: 700, color: C.navy, marginBottom: 4 }}>{t('fb.danke', 'Vielen Dank für Ihr Feedback!')}</div>
+              <div style={{ fontSize: '0.85rem', color: C.muted, marginBottom: '1rem' }}>{t('fb.danke_text', 'Wir prüfen jeden Hinweis und melden uns bei Rückfragen.')}</div>
               <button onClick={() => setSent(false)} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 1rem', cursor: 'pointer', fontSize: '0.83rem', color: C.navy }}>Weitere Nachricht senden</button>
             </div>
           ) : (
             <>
               <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: C.muted, marginBottom: '0.35rem' }}>KATEGORIE</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
-                {CATS.map(([k, l]) => (
-                  <button key={k} onClick={() => setCategory(k)} style={{ padding: '0.4rem 0.8rem', borderRadius: 20, fontSize: '0.78rem', cursor: 'pointer', border: `1.5px solid ${category === k ? C.navy : C.border}`, background: category === k ? C.navy : '#fff', color: category === k ? '#fff' : C.muted, fontWeight: category === k ? 600 : 400 }}>{l}</button>
+                {CATS.map(([k, schluessel, l]) => (
+                  <button key={k} onClick={() => setCategory(k)} style={{ padding: '0.4rem 0.8rem', borderRadius: 20, fontSize: '0.78rem', cursor: 'pointer', border: `1.5px solid ${category === k ? C.navy : C.border}`, background: category === k ? C.navy : '#fff', color: category === k ? '#fff' : C.muted, fontWeight: category === k ? 600 : 400 }}>{t(schluessel, l)}</button>
                 ))}
               </div>
-              <textarea value={message} onChange={e => setMessage(e.target.value)} rows={6} placeholder="Was können wir besser machen? Welche Funktion würden Sie sich wünschen?" style={{ width: '100%', padding: '0.7rem 0.85rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.88rem', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
+              <textarea value={message} onChange={e => setMessage(e.target.value)} rows={6} placeholder={t('fb.platzhalter', 'Was können wir besser machen? Welche Funktion würden Sie sich wünschen?')} style={{ width: '100%', padding: '0.7rem 0.85rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.88rem', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
               {/* Honeypot (für Menschen unsichtbar) */}
               <input value={hp} onChange={e => setHp(e.target.value)} name="company_website" tabIndex={-1} autoComplete="off" style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }} aria-hidden="true" />
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.85rem', fontSize: '0.83rem', color: C.text, cursor: 'pointer' }}>
@@ -87,7 +95,7 @@ export default function Feedback() {
 
           {changes.length > 0 && (
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '1.5rem' }}>
-              <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.9rem' }}>Was ist neu</div>
+              <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.9rem' }}>{t('fb.was_ist_neu', 'Was ist neu')}</div>
               {changes.map(c => (
                 <div key={c.id} style={{ marginBottom: '0.8rem' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 700, color: C.text }}>{c.title} <span style={{ color: C.muted, fontWeight: 400, fontSize: '0.72rem' }}>· {c.version}{c.released_on ? ' · ' + new Date(c.released_on).toLocaleDateString('de-DE') : ''}</span></div>

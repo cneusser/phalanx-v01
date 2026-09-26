@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Save, CheckCircle, UserCog, Target, ArrowRight, HelpCircle } from 'lucide-react';
 import { NACE_INDUSTRIES, BUNDESLAENDER } from '../constants/projectOptions';
+import { useT } from '../i18n';
 
 const C = { navy: '#174a6a', accent: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
@@ -13,8 +14,11 @@ const SPECIALS = ['Seed / Start-up', 'Spin-off', 'Growth / Internationalisierung
 const LAENDER = ['Deutschland', 'Österreich', 'Schweiz'];
 // Nur die Bundesländer (die Länder-/DACH-Einträge stehen bereits bei „Zielländer")
 const REGIONEN = BUNDESLAENDER.filter(r => !['Deutschland (bundesweit)', 'Österreich', 'Schweiz', 'DACH'].includes(r));
-const UMSATZ = [['<1', 'unter 1 Mio.'], ['1-3', '1 bis 3 Mio.'], ['3-10', '3 bis 10 Mio.'], ['10-30', '10 bis 30 Mio.'], ['>30', 'über 30 Mio.']];
-const MBI = [['reine_beteiligung', 'Reine Beteiligung'], ['partnerschaft', 'Strategische Partnerschaft'], ['operative_fuehrung', 'Übernahme der operativen Führung'], ['andere', 'Andere']];
+// Code und Beschriftung getrennt: gespeichert wird der Code, übersetzt die
+// Beschriftung. Die Branchen- und Regionslisten können das nicht, dort IST
+// der deutsche Text der gespeicherte Wert.
+const UMSATZ = [['<1', 'nf.umsatz_1', 'unter 1 Mio.'], ['1-3', 'nf.umsatz_1_3', '1 bis 3 Mio.'], ['3-10', 'nf.umsatz_3_10', '3 bis 10 Mio.'], ['10-30', 'nf.umsatz_10_30', '10 bis 30 Mio.'], ['>30', 'nf.umsatz_30', 'über 30 Mio.']];
+const MBI = [['reine_beteiligung', 'nf.mbi_beteiligung', 'Reine Beteiligung'], ['partnerschaft', 'nf.mbi_partnerschaft', 'Strategische Partnerschaft'], ['operative_fuehrung', 'nf.mbi_fuehrung', 'Übernahme der operativen Führung'], ['andere', 'nf.mbi_andere', 'Andere']];
 
 function CheckGroup({ options, value, onChange }) {
   const list = value || [];
@@ -60,6 +64,7 @@ const Section = ({ title, children }) => (
 );
 
 export default function SuccessionProfile() {
+  const t = useT();
   const { user } = useAuth();
   const [f, setF] = useState({
     plz_ort: '', branchenerfahrung: '', funktionale_erfahrung: '', fuehrungserfahrung: '', budgetverantwortung: '',
@@ -89,13 +94,13 @@ export default function SuccessionProfile() {
     const payload = { ...f };
     try {
       await api.put('/succession/profile', payload);
-      setMsg('Gespeichert. Danke, Ihr Nachfolge-Profil ist aktualisiert.');
+      setMsg(t('nf.gespeichert', 'Gespeichert. Danke, Ihr Nachfolge-Profil ist aktualisiert.'));
       loadMatches();
     } catch (e) { setMsg('Fehler: ' + e.message); }
     finally { setSaving(false); }
   }
 
-  if (loading) return <div style={{ padding: '3rem', textAlign: 'center', color: C.muted }}>Profil wird geladen...</div>;
+  if (loading) return <div style={{ padding: '3rem', textAlign: 'center', color: C.muted }}>{t('nf.laedt', 'Profil wird geladen...')}</div>;
 
   return (
     <div style={{ background: C.bg, minHeight: '100vh', padding: '2.5rem 1.5rem' }}>
@@ -117,9 +122,9 @@ export default function SuccessionProfile() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.9rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Target size={20} color="#fff" />
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: 0 }}>Passende Nachfolge-Mandate für Sie</h3>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: 0 }}>{t('nf.passende', 'Passende Nachfolge-Mandate für Sie')}</h3>
               </div>
-              <button onClick={() => setShowHelp(v => !v)} title="Wie wird die Übereinstimmung berechnet?"
+              <button onClick={() => setShowHelp(v => !v)} title={t('nf.wie_berechnet', 'Wie wird die Übereinstimmung berechnet?')}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '0.28rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
                 <HelpCircle size={14} /> Wie wird das berechnet?
               </button>
@@ -148,7 +153,7 @@ export default function SuccessionProfile() {
                           {m.reasons.map(r => <span key={r} style={{ fontSize: '0.68rem', fontWeight: 700, color: '#065f46', background: '#d1fae5', borderRadius: 20, padding: '0.1rem 0.5rem' }}>{r}</span>)}
                         </div>
                       ) : (
-                        <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: 5 }}>Basiswert. Ergänzen Sie Branche, Region und Umsatz, dann steigt der Wert.</div>
+                        <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: 5 }}>{t('nf.basiswert', 'Basiswert. Ergänzen Sie Branche, Region und Umsatz, dann steigt der Wert.')}</div>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', flexShrink: 0 }}>
@@ -173,15 +178,15 @@ export default function SuccessionProfile() {
         </p>
 
         <Section title="Zur Person">
-          <label style={LABEL}>PLZ und Wohnort</label>
-          <input value={f.plz_ort} onChange={set('plz_ort')} placeholder="z. B. 90402 Nürnberg" style={INPUT} />
+          <label style={LABEL}>{t('nf.plz_ort', 'PLZ und Wohnort')}</label>
+          <input value={f.plz_ort} onChange={set('plz_ort')} placeholder={t('nf.ph_plz', 'z. B. 90402 Nürnberg')} style={INPUT} />
         </Section>
 
         <Section title="Berufliche Erfahrung">
-          <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Branchenerfahrung</label><textarea value={f.branchenerfahrung} onChange={set('branchenerfahrung')} rows={2} placeholder="In welchen Branchen waren Sie tätig?" style={{ ...INPUT, resize: 'vertical' }} /></div>
-          <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Funktionale Erfahrung</label><textarea value={f.funktionale_erfahrung} onChange={set('funktionale_erfahrung')} rows={2} placeholder="z. B. Vertrieb, Produktion, Finanzen, Geschäftsführung" style={{ ...INPUT, resize: 'vertical' }} /></div>
+          <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Branchenerfahrung</label><textarea value={f.branchenerfahrung} onChange={set('branchenerfahrung')} rows={2} placeholder={t('nf.ph_branchen', 'In welchen Branchen waren Sie tätig?')} style={{ ...INPUT, resize: 'vertical' }} /></div>
+          <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Funktionale Erfahrung</label><textarea value={f.funktionale_erfahrung} onChange={set('funktionale_erfahrung')} rows={2} placeholder={t('nf.ph_funktionen', 'z. B. Vertrieb, Produktion, Finanzen, Geschäftsführung')} style={{ ...INPUT, resize: 'vertical' }} /></div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-            <div><label style={LABEL}>Führungserfahrung (Mitarbeiterzahl)</label><input value={f.fuehrungserfahrung} onChange={set('fuehrungserfahrung')} placeholder="z. B. bis 50 Mitarbeitende" style={INPUT} /></div>
+            <div><label style={LABEL}>{t('nf.fuehrung', 'Führungserfahrung (Mitarbeiterzahl)')}</label><input value={f.fuehrungserfahrung} onChange={set('fuehrungserfahrung')} placeholder="z. B. bis 50 Mitarbeitende" style={INPUT} /></div>
             <div><label style={LABEL}>Bisher maximale Budgetverantwortung</label><input value={f.budgetverantwortung} onChange={set('budgetverantwortung')} placeholder="z. B. 10 Mio. Euro" style={INPUT} /></div>
           </div>
           <div style={{ marginTop: '0.9rem' }}><label style={LABEL}>Erfahrung in Sondersituationen</label>
@@ -190,38 +195,38 @@ export default function SuccessionProfile() {
         </Section>
 
         <Section title="Gesuchtes Unternehmen">
-          <div style={{ marginBottom: '0.9rem' }}><label style={LABEL}>Zielländer</label>
+          <div style={{ marginBottom: '0.9rem' }}><label style={LABEL}>{t('nf.zielllaender', 'Zielländer')}</label>
             <CheckGroup options={LAENDER} value={f.ziel_laender} onChange={setArr('ziel_laender')} />
           </div>
-          <div style={{ marginBottom: '0.9rem' }}><label style={LABEL}>Regionen / Bundesländer (mehrere möglich, leer = bundesweit)</label>
+          <div style={{ marginBottom: '0.9rem' }}><label style={LABEL}>{t('nf.regionen', 'Regionen / Bundesländer (mehrere möglich, leer = bundesweit)')}</label>
             <CheckGroup options={REGIONEN} value={f.ziel_regionen} onChange={setArr('ziel_regionen')} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '0.9rem' }}>
-            <div><label style={LABEL}>Umsatzgröße</label>
+            <div><label style={LABEL}>{t('nf.umsatzgroesse', 'Umsatzgröße')}</label>
               <select value={f.umsatz_band} onChange={set('umsatz_band')} style={INPUT}>
-                <option value="">Bitte wählen</option>
-                {UMSATZ.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                <option value="">{t('nf.bitte_waehlen', 'Bitte wählen')}</option>
+                {UMSATZ.map(([v, k, bez]) => <option key={v} value={v}>{t(k, bez)}</option>)}
               </select>
             </div>
             <div><label style={LABEL}>MBI-Szenario</label>
               <select value={f.mbi_szenario} onChange={set('mbi_szenario')} style={INPUT}>
-                <option value="">Bitte wählen</option>
-                {MBI.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                <option value="">{t('nf.bitte_waehlen', 'Bitte wählen')}</option>
+                {MBI.map(([v, k, bez]) => <option key={v} value={v}>{t(k, bez)}</option>)}
               </select>
             </div>
           </div>
-          <div><label style={LABEL}>Branchenfokus (mehrere möglich)</label>
+          <div><label style={LABEL}>{t('nf.branchenfokus', 'Branchenfokus (mehrere möglich)')}</label>
             <GroupedCheck groups={NACE_INDUSTRIES} value={f.branchenfokus} onChange={setArr('branchenfokus')} />
           </div>
         </Section>
 
-        <Section title="Finanzierung und Verfügbarkeit">
-          <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Vorhandenes Eigenkapital / Finanzierungsinstrumente</label><textarea value={f.eigenkapital} onChange={set('eigenkapital')} rows={2} placeholder="z. B. 300.000 Euro Eigenmittel, Förderdarlehen denkbar" style={{ ...INPUT, resize: 'vertical' }} /></div>
-          <div><label style={LABEL}>Verfügbarkeit</label><input value={f.verfuegbarkeit} onChange={set('verfuegbarkeit')} placeholder="z. B. ab sofort, oder in 3 Monaten" style={INPUT} /></div>
+        <Section title={t('nf.finanzierung', 'Finanzierung und Verfügbarkeit')}>
+          <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Vorhandenes Eigenkapital / Finanzierungsinstrumente</label><textarea value={f.eigenkapital} onChange={set('eigenkapital')} rows={2} placeholder={t('nf.ph_mittel', 'z. B. 300.000 Euro Eigenmittel, Förderdarlehen denkbar')} style={{ ...INPUT, resize: 'vertical' }} /></div>
+          <div><label style={LABEL}>{t('nf.verfuegbarkeit', 'Verfügbarkeit')}</label><input value={f.verfuegbarkeit} onChange={set('verfuegbarkeit')} placeholder={t('nf.ph_ab_wann', 'z. B. ab sofort, oder in 3 Monaten')} style={INPUT} /></div>
         </Section>
 
         <Section title="Bemerkungen">
-          <textarea value={f.bemerkungen} onChange={set('bemerkungen')} rows={3} placeholder="Was sollten wir noch wissen?" style={{ ...INPUT, resize: 'vertical' }} />
+          <textarea value={f.bemerkungen} onChange={set('bemerkungen')} rows={3} placeholder={t('nf.ph_sonstiges', 'Was sollten wir noch wissen?')} style={{ ...INPUT, resize: 'vertical' }} />
         </Section>
 
         <button onClick={save} disabled={saving} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.8rem 1.6rem', fontWeight: 700, fontSize: '0.92rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', opacity: saving ? 0.7 : 1 }}>

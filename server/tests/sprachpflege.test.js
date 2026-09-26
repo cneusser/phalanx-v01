@@ -62,20 +62,47 @@ ok(`jede Datei mit t() bindet die Übersetzung ein`
 // Ein t('…') ausserhalb jeder Funktion läuft beim Laden des Moduls, also lange
 // bevor es eine gewählte Sprache gibt. Die Folge ist kein falscher Text,
 // sondern eine weisse Seite mit "t is not defined", und zwar auf jeder Seite,
-// weil App.jsx alle Seiten fest einbindet. Genau das ist v0.414 zweimal
-// passiert: einmal in einer Statustabelle, einmal in einer Hilfsfunktion.
+// weil App.jsx alle Seiten fest einbindet.
+//
+// Die erste Fassung dieser Prüfung suchte nach Zeilenmustern und hat eine
+// Tabelle übersehen, die über mehrere Zeilen ging. Deshalb zählt sie jetzt
+// echte Klammertiefe: Tiefe 0 heisst, das läuft beim Laden.
+function modulrandTreffer(quelle) {
+  const treffer = [];
+  let tiefe = 0, zeile = 1;
+  for (let i = 0; i < quelle.length; i++) {
+    const c = quelle[i];
+    if (c === '\n') { zeile++; continue; }
+    if (c === '/' && quelle[i + 1] === '/') { while (i < quelle.length && quelle[i] !== '\n') i++; zeile++; continue; }
+    if (c === '/' && quelle[i + 1] === '*') {
+      i += 2;
+      while (i + 1 < quelle.length && !(quelle[i] === '*' && quelle[i + 1] === '/')) { if (quelle[i] === '\n') zeile++; i++; }
+      i++; continue;
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      // Vor dem Überspringen prüfen: steht hier ein Aufruf auf Modulebene?
+      i++;
+      while (i < quelle.length && quelle[i] !== c) { if (quelle[i] === '\\') i++; else if (quelle[i] === '\n') zeile++; i++; }
+      continue;
+    }
+    if (c === '{') { tiefe++; continue; }
+    if (c === '}') { tiefe--; continue; }
+    if (tiefe === 0 && /[a-z]/.test(c)) {
+      const rest = quelle.slice(i, i + 24);
+      const m = rest.match(/^(t|uebersetze)\('[a-z][a-z0-9_]*\./);
+      const davor = i === 0 ? '' : quelle[i - 1];
+      if (m && !/[\w.$]/.test(davor)) treffer.push(zeile);
+    }
+  }
+  return treffer;
+}
+
 const amModulrand = [];
 for (const p of alle) {
   if (p.includes(path.join('i18n', 'index.jsx'))) continue;
-  const zeilen = fs.readFileSync(p, 'utf8').split('\n');
-  let drin = false;
-  zeilen.forEach((z, i) => {
-    if (/^(export default )?(async )?function |^const \w+ = \(.*\) => \{/.test(z)) drin = true;
-    if (drin && /^\}/.test(z)) drin = false;
-    if (!drin && /(?<![\w.])(t|uebersetze)\('[a-z][a-z0-9_]*\./.test(z)) {
-      amModulrand.push(`${path.basename(p)}:${i + 1}`);
-    }
-  });
+  for (const z of modulrandTreffer(fs.readFileSync(p, 'utf8'))) {
+    amModulrand.push(`${path.basename(p)}:${z}`);
+  }
 }
 ok(`kein t() ausserhalb einer Funktion`
   + (amModulrand.length ? `  (${amModulrand.join(', ')})` : ''),
