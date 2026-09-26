@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Users, Calendar, Building2, ShieldCheck, ArrowRight, CheckCircle } from 'lucide-react';
@@ -28,26 +29,27 @@ const Step = ({ n, title, text }) => (
 );
 
 export default function Nachfolge() {
+  const t = useT();
   return (
     <div style={{ background: C.bg, minHeight: '100vh' }}>
       {/* Hero */}
       <section style={{ background: C.heroBg, color: '#fff', padding: '4rem 1.5rem 3.5rem' }}>
         <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
           <div style={{ display: 'inline-block', background: 'rgba(41,171,226,0.18)', color: '#9AD6F0', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', padding: '0.3rem 0.8rem', borderRadius: 20, marginBottom: '1.2rem' }}>
-            NACHFOLGE-NETZWERK
+            {t('succ.kicker', 'NACHFOLGE-NETZWERK')}
           </div>
           <h1 style={{ fontSize: '2.3rem', fontWeight: 800, lineHeight: 1.15, margin: '0 0 1rem' }}>
-            Ein Unternehmen übernehmen, statt die nächste Stelle antreten
+            {t('succ.hero_title', 'Ein Unternehmen übernehmen, statt die nächste Stelle antreten')}
           </h1>
           <p style={{ fontSize: '1.05rem', color: 'rgba(255,255,255,0.85)', lineHeight: 1.6, maxWidth: 680, margin: '0 auto 1.8rem' }}>
-            CapitalMatch bringt Menschen mit unternehmerischem Anspruch und Übergeber zusammen, die einen Nachfolger suchen. Auf der Plattform, bei Matching-Events und im persönlichen Austausch. Für Nachfolge-Interessierte kostenfrei.
+            {t('succ.hero_text', 'CapitalMatch bringt Menschen mit unternehmerischem Anspruch und Übergeber zusammen, die einen Nachfolger suchen. Auf der Plattform, bei Matching-Events und im persönlichen Austausch. Für Nachfolge-Interessierte kostenfrei.')}
           </p>
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link to="/registrieren" style={{ background: C.accent, color: '#0f1c28', fontWeight: 700, padding: '0.75rem 1.5rem', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-              Kostenfrei registrieren <ArrowRight size={16} />
+              {t('succ.cta_free', 'Kostenfrei registrieren')}<ArrowRight size={16} />
             </Link>
             <Link to="/kontakt" style={{ border: '1px solid rgba(255,255,255,0.4)', color: '#fff', fontWeight: 600, padding: '0.75rem 1.5rem', borderRadius: 8, textDecoration: 'none' }}>
-              Fragen? Sprechen Sie uns an
+              {t('succ.questions', 'Fragen? Sprechen Sie uns an')}
             </Link>
           </div>
         </div>
@@ -56,9 +58,9 @@ export default function Nachfolge() {
       {/* Für wen */}
       <section style={{ padding: '3.5rem 1.5rem 1rem' }}>
         <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: C.text, margin: '0 0 0.8rem' }}>Für wen ist das Netzwerk gedacht?</h2>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: C.text, margin: '0 0 0.8rem' }}>{t('succ.for_whom', 'Für wen ist das Netzwerk gedacht?')}</h2>
           <p style={{ fontSize: '0.95rem', color: C.muted, lineHeight: 1.65, maxWidth: 700, margin: '0 auto' }}>
-            Für angehende Unternehmer, erfahrene Führungskräfte und Investoren, die ein Unternehmen übernehmen möchten. Ob als Geschäftsführer mit Beteiligung (MBI), im Rahmen eines Management-Buy-out (MBO) oder als Nachfolger, der selbst Kapital einbringt. Ob mit oder ohne eigene Beteiligung, Sie finden hier den passenden Weg.
+            {t('succ.for_whom_text', 'Für angehende Unternehmer, erfahrene Führungskräfte und Investoren, die ein Unternehmen übernehmen möchten. Ob als Geschäftsführer mit Beteiligung (MBI), im Rahmen eines Management-Buy-out (MBO) oder als Nachfolger, der selbst Kapital einbringt. Ob mit oder ohne eigene Beteiligung, Sie finden hier den passenden Weg.')}
           </p>
         </div>
       </section>
@@ -66,24 +68,24 @@ export default function Nachfolge() {
       {/* Drei Säulen */}
       <section style={{ padding: '2rem 1.5rem 3.5rem' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
-          <Pillar icon={Building2} title="Matching auf der Plattform"
-            text="Sie hinterlegen Ihr Profil und Ihre Suchkriterien. Passende Nachfolge-Situationen schlagen wir Ihnen vor, diskret und ohne dass Ihre Daten offen liegen." />
-          <Pillar icon={Users} title="Matching-Events"
-            text="Bei unseren Veranstaltungen lernen Sie Übergeber persönlich kennen. Ein Gespräch sagt oft mehr als jedes Exposé, gerade bei der Nachfolge." />
-          <Pillar icon={Calendar} title="Veranstaltungen und Austausch"
-            text="Impulse, Erfahrungsberichte und ein Netzwerk aus Menschen, die denselben Schritt gehen oder ihn schon gegangen sind." />
+          <Pillar icon={Building2} title={t('succ.p1_t', 'Matching auf der Plattform')}
+            text={t('succ.text1', 'Sie hinterlegen Ihr Profil und Ihre Suchkriterien. Passende Nachfolge-Situationen schlagen wir Ihnen vor, diskret und ohne dass Ihre Daten offen liegen.')} />
+          <Pillar icon={Users} title={t('succ.p2_t', 'Matching-Events')}
+            text={t('succ.text2', 'Bei unseren Veranstaltungen lernen Sie Übergeber persönlich kennen. Ein Gespräch sagt oft mehr als jedes Exposé, gerade bei der Nachfolge.')} />
+          <Pillar icon={Calendar} title={t('succ.p3_t', 'Veranstaltungen und Austausch')}
+            text={t('succ.text3', 'Impulse, Erfahrungsberichte und ein Netzwerk aus Menschen, die denselben Schritt gehen oder ihn schon gegangen sind.')} />
         </div>
       </section>
 
       {/* So funktioniert es */}
       <section style={{ padding: '0 1.5rem 3.5rem' }}>
         <div style={{ maxWidth: 760, margin: '0 auto', background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '2rem' }}>
-          <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: C.text, margin: '0 0 1.4rem' }}>So einfach starten Sie</h2>
+          <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: C.text, margin: '0 0 1.4rem' }}>{t('succ.how_start', 'So einfach starten Sie')}</h2>
           <div style={{ display: 'grid', gap: '1.1rem' }}>
-            <Step n="1" title="Kostenfrei registrieren" text="Sie melden sich als Nachfolge-Interessent an und wählen, ob Sie mit oder ohne Kapitalbeteiligung suchen." />
-            <Step n="2" title="Profil und Suchkriterien anlegen" text="Branche, Region, Größenordnung und Ihre Erfahrung. Je klarer Ihr Profil, desto besser die Vorschläge." />
-            <Step n="3" title="Passende Nachfolgen entdecken" text="Sie erhalten Vorschläge auf der Plattform und Einladungen zu Matching-Events." />
-            <Step n="4" title="Ins Gespräch kommen" text="Wenn es passt, stellen wir den Kontakt zum Übergeber her und begleiten den weiteren Weg." />
+            <Step n="1" title={t('succ.cta_free', 'Kostenfrei registrieren')} text={t('succ.text4', 'Sie melden sich als Nachfolge-Interessent an und wählen, ob Sie mit oder ohne Kapitalbeteiligung suchen.')} />
+            <Step n="2" title={t('succ.s1_t', 'Profil und Suchkriterien anlegen')} text={t('succ.text5', 'Branche, Region, Größenordnung und Ihre Erfahrung. Je klarer Ihr Profil, desto besser die Vorschläge.')} />
+            <Step n="3" title={t('succ.s2_t', 'Passende Nachfolgen entdecken')} text={t('succ.text6', 'Sie erhalten Vorschläge auf der Plattform und Einladungen zu Matching-Events.')} />
+            <Step n="4" title={t('succ.s3_t', 'Ins Gespräch kommen')} text={t('succ.text7', 'Wenn es passt, stellen wir den Kontakt zum Übergeber her und begleiten den weiteren Weg.')} />
           </div>
         </div>
       </section>
@@ -93,16 +95,16 @@ export default function Nachfolge() {
         <div style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
           <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 12, padding: '1.6rem' }}>
             <CheckCircle size={22} color="#166534" />
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#065f46', margin: '0.6rem 0 0.4rem' }}>Kostenfrei für Nachfolge-Interessierte</h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#065f46', margin: '0.6rem 0 0.4rem' }}>{t('succ.free_title', 'Kostenfrei für Nachfolge-Interessierte')}</h3>
             <p style={{ fontSize: '0.88rem', color: '#065f46', lineHeight: 1.6, margin: 0 }}>
-              Ihre Teilnahme am Netzwerk, das Matching und die Events kosten Sie nichts. Getragen wird das Netzwerk von den Übergebern, die einen Nachfolger suchen.
+              {t('succ.free_text', 'Ihre Teilnahme am Netzwerk, das Matching und die Events kosten Sie nichts. Getragen wird das Netzwerk von den Übergebern, die einen Nachfolger suchen.')}
             </p>
           </div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '1.6rem' }}>
             <ShieldCheck size={22} color={C.navy} />
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: C.text, margin: '0.6rem 0 0.4rem' }}>Diskret und DSGVO-konform</h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: C.text, margin: '0.6rem 0 0.4rem' }}>{t('succ.discreet_title', 'Diskret und DSGVO-konform')}</h3>
             <p style={{ fontSize: '0.88rem', color: C.muted, lineHeight: 1.6, margin: 0 }}>
-              Ihre Daten liegen nicht offen. Sie entscheiden, wann und mit wem Sie ins Gespräch gehen. Alles läuft vertraulich über die Plattform.
+              {t('succ.discreet_text', 'Ihre Daten liegen nicht offen. Sie entscheiden, wann und mit wem Sie ins Gespräch gehen. Alles läuft vertraulich über die Plattform.')}
             </p>
           </div>
         </div>
@@ -111,12 +113,12 @@ export default function Nachfolge() {
       {/* Abschluss-CTA */}
       <section style={{ background: C.navy, color: '#fff', padding: '3rem 1.5rem', textAlign: 'center' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0 0 0.7rem' }}>Machen Sie den ersten Schritt</h2>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0 0 0.7rem' }}>{t('succ.first_step', 'Machen Sie den ersten Schritt')}</h2>
           <p style={{ fontSize: '0.98rem', color: 'rgba(255,255,255,0.85)', lineHeight: 1.6, margin: '0 0 1.5rem' }}>
-            Die Registrierung dauert zwei Minuten. Danach kümmern wir uns um die passenden Vorschläge.
+            {t('succ.first_step_text', 'Die Registrierung dauert zwei Minuten. Danach kümmern wir uns um die passenden Vorschläge.')}
           </p>
           <Link to="/registrieren" style={{ background: C.accent, color: '#0f1c28', fontWeight: 700, padding: '0.8rem 1.8rem', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-            Jetzt kostenfrei dabei sein <ArrowRight size={16} />
+            {t('succ.join_now', 'Jetzt kostenfrei dabei sein')}<ArrowRight size={16} />
           </Link>
         </div>
       </section>

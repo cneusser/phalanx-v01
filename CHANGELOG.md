@@ -3,6 +3,12 @@
 Wird bei jeder Release mitgeführt. Die In-App-Ansicht (Admin → „Changelog") wird
 über Seed-Migrationen gespeist; diese Datei ist die kuratierte Gesamtübersicht.
 
+## v0.412 · 26.09.2026 · Die öffentlichen Seiten sprechen beide Sprachen
+- **Marktplatz, Nachfolge-Netzwerk und Kontakt** sind jetzt zweisprachig, zusammen mit Startseite, Anmelden und Registrieren
+- **Geprüft, nicht angenommen:** Alle sechs Seiten mit einem englischen und einem deutschen Browser aufgerufen und im gerenderten Text nach Wörtern der jeweils anderen Sprache gesucht. Null Treffer in beide Richtungen
+- **Der Stand einer Anfrage** heißt nicht mehr fest „NDA angefordert", sondern wird übersetzt und ausgeschrieben: „Vertraulichkeitsvereinbarung angefordert", auf Englisch „Non-disclosure agreement requested"
+- **156 Schlüssel im Einsatz**, alle mit englischer Fassung. Die Prüfung läuft bei jedem Testlauf mit, ein neuer Schlüssel ohne Übersetzung fällt sofort auf
+
 ## v0.411 · 26.09.2026 · Eine Palette, eine Schrift, zwei Sprachen
 - **Die ganze Plattform steht auf der Phalanx-Palette.** 188 Farbwerte in 58 Dateien umgestellt. Das Neon-Hellblau, der stärkste Grund für den Baukasten-Eindruck, kommt nur noch im Logo vor, dort gehört es hin
 - **Überschriften in Georgia, Bedienelemente in Arial**, über alle Seiten hinweg. Beide Schriften sind auf jedem System vorhanden, es wird nichts nachgeladen. Genau deshalb dürfen wir „Server in der Europäischen Union" schreiben

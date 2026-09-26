@@ -203,7 +203,9 @@ export default function Register() {
 
           {/* Company / Position */}
           <Field
-            label={roleType === 'seller' ? t('reg.company_selling', 'Unternehmen (zu verkaufen)') : 'Unternehmen'}
+            label={roleType === 'seller'
+              ? t('reg.company_selling', 'Unternehmen (zu verkaufen)')
+              : t('reg.company', 'Unternehmen')}
             value={form.company}
             onChange={set('company')}
             placeholder={roleType === 'seller' ? 'Müller GmbH' : 'Müller Holding GmbH'}
@@ -264,7 +266,7 @@ export default function Register() {
           {/* Seller info box */}
           {roleType === 'seller' && (
             <div style={{ background: C.xLight, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.85rem 1rem', marginBottom: '0.9rem', fontSize: '0.8rem', color: C.gray, lineHeight: 1.6 }}>
-              <strong style={{ color: C.navy }}>{t('reg.as_seller', 'Als Verkäufer')}</strong> registrieren Sie sich kostenlos. Nach Admin-Freigabe können Sie Ihr Unternehmensprofil erstellen und Dokumente hochladen.
+              <strong style={{ color: C.navy }}>{t('reg.as_seller', 'Als Verkäufer')}</strong>{' '}{t('reg.seller_note', 'registrieren Sie sich kostenlos. Nach der Freischaltung können Sie Ihr Unternehmensprofil erstellen und Dokumente hochladen.')}
             </div>
           )}
 

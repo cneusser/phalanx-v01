@@ -166,6 +166,8 @@ const EN = {
   'reg.seg_successor_note': 'MBI or MBO, I would like to take over a company',
   'reg.seg_professional_note': 'Strategic buyer, investor, family office, adviser',
   'reg.company_selling': 'Company (for sale)',
+  'reg.company': 'Company',
+  'reg.seller_note': 'you register free of charge. Once your account is approved you can create your company profile and upload documents.',
   'reg.network_note': 'As someone interested in succession you are part of our succession network, free of charge, with matching and events.',
 
   // Käufertypen
@@ -179,6 +181,71 @@ const EN = {
   // Allgemein
   'common.cancel': 'Cancel',
   'common.choose': 'Please choose…',
+
+
+  // Marktplatz, ergänzt v0.412
+  'projects.filter': 'Filters',
+  'projects.filter_reset': 'Reset filters',
+  'projects.locked_title': 'Detailed information and documents after registration',
+  'projects.locked_text': 'Register free of charge, request a non-disclosure agreement and receive the full documentation.',
+  'projects.register_free': 'Register free of charge',
+  'projects.open': 'Open mandate',
+  'projects.watch': 'Add to watchlist',
+  'projects.unwatch': 'Remove from watchlist',
+  'projects.profile_prompt': 'A name for this search profile (we will notify you when a matching mandate comes up):',
+  'projects.profile_saved': 'Search profile saved. We will notify you when a mandate matches.',
+
+  // Stand einer Anfrage
+  'nda.requested': 'Non-disclosure agreement requested',
+  'nda.sent': 'Non-disclosure agreement sent',
+  'nda.signed': 'Non-disclosure agreement signed',
+  'nda.approved': 'Access granted',
+  'nda.rejected': 'Declined',
+
+  // Nachfolge-Netzwerk
+  'succ.kicker': 'SUCCESSION NETWORK',
+  'succ.hero_title': 'Take over a company rather than take the next job',
+  'succ.cta_free': 'Register free of charge',
+  'succ.hero_text': 'CapitalMatch brings together people with entrepreneurial ambition and owners looking for a successor. On the platform, at matching events and in person. Free of charge for those interested in succession.',
+  'succ.for_whom_text': 'For aspiring entrepreneurs, experienced managers and investors who would like to take over a company. As a managing director with a stake (MBI), as part of a management buy-out (MBO), or as a successor bringing in capital themselves. With or without an equity stake of your own, you will find the right route here.',
+  'succ.questions': 'Questions? Talk to us',
+  'succ.for_whom': 'Who is this network for?',
+  'succ.how_start': 'Getting started is simple',
+  'succ.p1_t': 'Matching on the platform',
+  'succ.p2_t': 'Matching events',
+  'succ.p3_t': 'Events and exchange',
+  'succ.text1': 'You record your profile and your search criteria. We suggest matching succession situations, discreetly and without putting your details on public display.',
+  'succ.text2': 'At our events you meet owners handing over in person. A conversation often says more than any prospectus, particularly in a succession.',
+  'succ.text3': 'Impulses, first-hand accounts and a network of people taking the same step, or who have already taken it.',
+  'succ.s1_t': 'Create a profile and search criteria',
+  'succ.s2_t': 'Discover matching successions',
+  'succ.s3_t': 'Start a conversation',
+  'succ.text4': 'You register as someone interested in succession and choose whether you are looking with or without an equity stake.',
+  'succ.text5': 'Industry, region, size and your experience. The clearer your profile, the better the suggestions.',
+  'succ.text6': 'You receive suggestions on the platform and invitations to matching events.',
+  'succ.text7': 'If it fits, we put you in touch with the owner and accompany the road from there.',
+  'succ.free_title': 'Free of charge for those interested in succession',
+  'succ.free_text': 'Your membership, the matching and the events cost you nothing. The network is funded by the owners who are looking for a successor.',
+  'succ.discreet_title': 'Discreet and compliant with data protection law',
+  'succ.discreet_text': 'Your details are not on public display. You decide when and with whom you enter a conversation. Everything runs confidentially through the platform.',
+  'succ.first_step': 'Take the first step',
+  'succ.first_step_text': 'Registration takes two minutes. After that we take care of finding the right suggestions.',
+  'succ.join_now': 'Join now, free of charge',
+
+  // Kontakt
+  'contact.name': 'Your name *',
+  'contact.email': 'Your email address *',
+  'contact.message': 'Your message *',
+  'contact.subject': 'Subject',
+  'contact.send': 'Send message',
+  'contact.sending': 'Sending…',
+  'contact.thanks': 'Thank you',
+  'contact.thanks_text': 'Your message has arrived, we will come back to you shortly.',
+  'contact.not_robot': 'I am not a robot.',
+  'contact.required': 'Please provide a name, an email address and a message.',
+  'contact.robot_required': 'Please confirm that you are not a robot.',
+  'contact.intro': 'Do you have questions about CapitalMatch, about a mandate or about our advisory work? We look forward to your message and will come back to you in person shortly.',
+  'contact.brand_note': 'CapitalMatch is a brand of Phalanx GmbH. Further details in the',
 
   // Footer
   'footer.imprint': 'Imprint',

@@ -52,12 +52,14 @@ function StageBadge({ label }) {
   );
 }
 
+// Zustand einer Anfrage. Statt fester Beschriftung ein Schluessel mit
+// deutschem Rueckfall, uebersetzt wird erst beim Anzeigen.
 const ndaStatusLabel = {
-  requested: { label: 'NDA angefordert', color: C.amber, bg: '#fef3c7', icon: Clock },
-  sent:      { label: 'NDA versendet',   color: C.blue,  bg: '#dbeafe', icon: Clock },
-  signed:    { label: 'NDA unterzeichnet', color: C.purple, bg: '#ede9fe', icon: CheckCircle },
-  approved:  { label: 'Zugang freigeschaltet', color: C.green, bg: '#d1fae5', icon: CheckCircle },
-  rejected:  { label: 'Abgelehnt',       color: '#ef4444', bg: '#fee2e2', icon: null },
+  requested: { key: 'nda.requested', label: 'Vertraulichkeitsvereinbarung angefordert', color: C.amber, bg: '#fef3c7', icon: Clock },
+  sent:      { key: 'nda.sent', label: 'Vertraulichkeitsvereinbarung versendet', color: C.blue, bg: '#dbeafe', icon: Clock },
+  signed:    { key: 'nda.signed', label: 'Vertraulichkeitsvereinbarung unterzeichnet', color: C.purple, bg: '#ede9fe', icon: CheckCircle },
+  approved:  { key: 'nda.approved', label: 'Zugang freigeschaltet', color: C.green, bg: '#d1fae5', icon: CheckCircle },
+  rejected:  { key: 'nda.rejected', label: 'Abgelehnt', color: '#ef4444', bg: '#fee2e2', icon: null },
 };
 
 // Initialen-Kreis aus den ersten 2 Buchstaben des Codenamens
@@ -120,6 +122,7 @@ function LoadingSpinner() {
 }
 
 function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched, onToggleWatch, lang }) {
+  const t = useT();
   const isStartup = p.mandate_type === 'fundraising';
   const statusInfo = ndaStatus ? ndaStatusLabel[ndaStatus] : null;
   // Liegt der Text nicht in der Lesesprache vor, wird das gesagt, statt ihn
@@ -145,11 +148,11 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched,
           padding: '0.18rem 0.5rem', borderRadius: 6,
           fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.04em',
         }}>
-          {isStartup ? 'Fundraising' : 'M&A'}
+          {isStartup ? t('projects.fundraising', 'Fundraising') : 'M&A'}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {onToggleWatch && (
-            <button title={watched ? 'Aus Merkliste entfernen' : 'Merken'} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleWatch(p.id); }}
+            <button title={watched ? t('projects.unwatch', 'Aus Merkliste entfernen') : t('projects.watch', 'Merken')} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleWatch(p.id); }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, color: watched ? '#f59e0b' : '#cbd5e1', padding: 0 }}>{watched ? '★' : '☆'}</button>
           )}
           <StageBadge label={p.stage || p.deal_type} />
@@ -190,7 +193,9 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched,
           marginBottom: '0.55rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
           alignSelf: 'flex-start',
         }}>
-          {lang === 'en' ? 'This mandate is described in German' : 'Dieses Mandat liegt auf Englisch vor'}
+          {lang === 'en'
+            ? 'This mandate is described in German'
+            : 'Dieses Mandat liegt auf Englisch vor'}
         </div>
       )}
 
@@ -225,7 +230,7 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched,
           padding: '0.3rem 0.75rem', borderRadius: 6,
           fontSize: '0.72rem', fontWeight: 600, marginBottom: '0.75rem', textAlign: 'center',
         }}>
-          {statusInfo.label}
+          {t(statusInfo.key, statusInfo.label)}
         </div>
       )}
 
@@ -237,7 +242,7 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched,
         textDecoration: 'none', fontSize: '0.81rem', fontWeight: 600,
         marginTop: 'auto',
       }}>
-        {ndaStatus === 'approved' ? 'Mandat öffnen' : 'Details ansehen'} <ChevronRight size={13} />
+        {ndaStatus === 'approved' ? t('projects.open', 'Mandat öffnen') : t('projects.details', 'Details ansehen')} <ChevronRight size={13} />
       </Link>
     </div>
   );
@@ -291,11 +296,11 @@ export default function Projects() {
   }
 
   async function saveSearch() {
-    const name = window.prompt('Name für dieses Suchprofil (Sie werden bei passenden neuen Mandaten benachrichtigt):');
+    const name = window.prompt(t('projects.profile_prompt', 'Name für dieses Suchprofil (Sie werden bei passenden neuen Mandaten benachrichtigt):'));
     if (!name) return;
     try {
       await api.post('/community/search-profiles', { name, criteria: { ...sel }, notify_frequency: 'instant' });
-      setSaveMsg('Suchprofil gespeichert: Sie werden bei passenden Mandaten benachrichtigt.');
+      setSaveMsg(t('projects.profile_saved', 'Suchprofil gespeichert: Sie werden bei passenden Mandaten benachrichtigt.'));
       setTimeout(() => setSaveMsg(''), 4000);
     } catch (e) { setSaveMsg('Fehler: ' + e.message); }
   }
@@ -409,7 +414,7 @@ export default function Projects() {
             position: isMobile ? 'static' : 'sticky', top: 80,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem', color: C.text, fontWeight: 600, fontSize: '0.85rem' }}>
-              <Filter size={14} /> Filter
+              <Filter size={14} /> {t('projects.filter', 'Filter')}
             </div>
 
             {/* Suche */}
@@ -462,7 +467,7 @@ export default function Projects() {
                   color: C.navy, background: 'transparent', marginTop: '0.25rem',
                 }}
               >
-                Filter zurücksetzen
+                {t('projects.filter_reset', 'Filter zurücksetzen')}
               </button>
             )}
           </aside>
@@ -561,10 +566,10 @@ export default function Projects() {
                   }}>
                     <Lock size={24} color={C.steel} style={{ marginBottom: '0.75rem' }} />
                     <h3 style={{ fontWeight: 700, marginBottom: '0.4rem', fontSize: '1.05rem' }}>
-                      Detailinformationen & CIM nach Registrierung
+                      {t('projects.locked_title', 'Detailinformationen und Unterlagen nach Registrierung')}
                     </h3>
                     <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-                      Kostenlos registrieren, NDA anfordern und vollständige Unterlagen erhalten.
+                      {t('projects.locked_text', 'Kostenlos registrieren, Vertraulichkeitsvereinbarung anfordern und vollständige Unterlagen erhalten.')}
                     </p>
                     <Link to="/registrieren" style={{
                       background: C.steel, color: C.navy,
@@ -572,7 +577,7 @@ export default function Projects() {
                       fontWeight: 700, textDecoration: 'none', fontSize: '0.875rem',
                       display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
                     }}>
-                      Kostenlos registrieren <ArrowUpRight size={14} />
+                      {t('projects.register_free', 'Kostenlos registrieren')} <ArrowUpRight size={14} />
                     </Link>
                   </div>
                 )}
