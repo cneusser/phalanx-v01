@@ -1,6 +1,7 @@
 // Cookie-Richtlinie: was CapitalMatch im Browser speichert und was nicht.
 import React from 'react';
 import { Link } from 'react-router-dom';
+import RechtsHinweis from '../components/RechtsHinweis';
 
 const C = { navy: '#111820', accent: '#1D4E89', border: '#E2E8F0', muted: '#64748B', bg: '#F8FAFC' };
 
@@ -33,6 +34,13 @@ export default function Cookies() {
     <div style={{ maxWidth: 820, margin: '0 auto', padding: '3rem 1.5rem' }}>
       <h1 style={{ color: C.navy, fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.4rem' }}>Cookie-Richtlinie</h1>
       <p style={{ color: C.muted, fontSize: '0.85rem', marginBottom: '2rem' }}>Stand: Juli 2026</p>
+      <RechtsHinweis punkte={[
+        'We use no analytics, advertising or tracking cookies at all.',
+        'Stored locally in your browser is only what the platform needs to work: your sign-in and your language choice.',
+        'Because none of this requires consent, there is no cookie banner asking you to accept tracking.',
+        'You can delete this local storage in your browser at any time; you will then simply be signed out.',
+      ]} />
+
 
       <div style={{ background: '#EDF4FA', border: '1px solid #bfdbfe', borderRadius: 10, padding: '1.1rem 1.25rem', marginBottom: '2rem' }}>
         <div style={{ fontWeight: 800, color: C.navy, marginBottom: 6 }}>Kurz gesagt</div>

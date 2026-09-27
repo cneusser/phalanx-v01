@@ -2,12 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { ShieldCheck, CheckCircle, AlertCircle } from 'lucide-react';
+import { useT } from '../i18n';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.88rem', outline: 'none', boxSizing: 'border-box' };
 const LABEL = { display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#333', marginBottom: '0.3rem' };
 
 export default function ConsentInvite() {
+  const t = useT();
   const [params] = useSearchParams();
   const token = params.get('token');
   const [inv, setInv] = useState(null);
@@ -48,7 +50,7 @@ export default function ConsentInvite() {
     finally { setBusy(false); }
   }
   async function decline() {
-    if (!window.confirm('Möchten Sie der Kontaktaufnahme widersprechen? Wir werden Sie dann nicht erneut anschreiben.')) return;
+    if (!window.confirm(t('ei.widerspruch', 'Möchten Sie der Kontaktaufnahme widersprechen? Wir werden Sie dann nicht erneut anschreiben.'))) return;
     setBusy(true);
     try { await api.post(`/crm/invite/${token}/decline`, {}); await load(); }
     catch (e) { setErr(e.message); }
@@ -57,7 +59,7 @@ export default function ConsentInvite() {
   // Kein Interesse mehr: Kontakt auf Wunsch vollständig löschen (DSGVO).
   const [erased, setErased] = useState(false);
   async function eraseData() {
-    if (!window.confirm('Kein Interesse mehr? Dann löschen wir Ihre bei uns gespeicherten Daten vollständig. Das lässt sich nicht rückgängig machen.')) return;
+    if (!window.confirm(t('ei.loeschen_frage', 'Kein Interesse mehr? Dann löschen wir Ihre bei uns gespeicherten Daten vollständig. Das lässt sich nicht rückgängig machen.'))) return;
     setBusy(true);
     try { await api.post(`/crm/invite/${token}/erase`, {}); setErased(true); }
     catch (e) { setErr(e.message); }
@@ -65,7 +67,7 @@ export default function ConsentInvite() {
   }
   async function register(e) {
     e.preventDefault();
-    if (!form.interest) { setErr('Bitte wählen Sie, ob Sie kaufen/investieren oder verkaufen möchten.'); return; }
+    if (!form.interest) { setErr(t('ei.seite_waehlen', 'Bitte wählen Sie, ob Sie kaufen/investieren oder verkaufen möchten.')); return; }
     setBusy(true); setErr('');
     const toArr = (s) => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
     const payload = {
@@ -84,12 +86,12 @@ export default function ConsentInvite() {
 
   const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 2px 12px rgba(13,27,54,0.06)' };
 
-  if (loading) return <div style={{ padding: '4rem', textAlign: 'center', color: C.muted }}>Einladung wird geprüft…</div>;
+  if (loading) return <div style={{ padding: '4rem', textAlign: 'center', color: C.muted }}>{t('ei.laedt', 'Einladung wird geprüft…')}</div>;
 
   if (!inv) return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '3rem 1.5rem' }}>
       <div style={card}>
-        <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', color: '#991b1b' }}><AlertCircle size={20} /> <strong>Einladung nicht verfügbar</strong></div>
+        <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', color: '#991b1b' }}><AlertCircle size={20} /> <strong>{t('ei.weg', 'Einladung nicht verfügbar')}</strong></div>
         <p style={{ color: C.muted, fontSize: '0.88rem', marginTop: '0.75rem' }}>{err}</p>
         <Link to="/" style={{ color: C.accent, fontSize: '0.85rem', fontWeight: 600 }}>Zur Startseite</Link>
       </div>
@@ -99,7 +101,7 @@ export default function ConsentInvite() {
   if (erased) return (
     <div style={{ maxWidth: 620, margin: '0 auto', padding: '3rem 1.5rem' }}>
       <div style={card}>
-        <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', color: '#065f46' }}><CheckCircle size={20} /> <strong>Ihre Daten wurden gelöscht</strong></div>
+        <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', color: '#065f46' }}><CheckCircle size={20} /> <strong>{t('ei.geloescht', 'Ihre Daten wurden gelöscht')}</strong></div>
         <p style={{ color: C.text, fontSize: '0.88rem', marginTop: '0.75rem', lineHeight: 1.7 }}>
           Wir haben Ihre bei uns gespeicherten Daten entfernt und werden Sie nicht mehr kontaktieren. Danke, dass Sie uns kurz Bescheid gegeben haben.
         </p>
@@ -139,7 +141,7 @@ export default function ConsentInvite() {
         )}
         {inv.status === 'registered' && (
           <div style={{ background: '#d1fae5', borderRadius: 8, padding: '1rem', fontSize: '0.87rem', color: '#065f46' }}>
-            <CheckCircle size={15} style={{ verticalAlign: -2 }} /> Ihr Konto wurde bereits angelegt. <Link to="/login" style={{ color: '#065f46', fontWeight: 700 }}>Zur Anmeldung</Link>
+            <CheckCircle size={15} style={{ verticalAlign: -2 }} /> {t('ei.konto_da', 'Ihr Konto wurde bereits angelegt.')} <Link to="/login" style={{ color: '#065f46', fontWeight: 700 }}>{t('ei.zur_anmeldung', 'Zur Anmeldung')}</Link>
           </div>
         )}
 
@@ -160,7 +162,7 @@ export default function ConsentInvite() {
                   Ich willige ein, dass die Phalanx GmbH meine Kontaktdaten (<strong>{inv.email}</strong>) speichert und mich
                   im Rahmen von CapitalMatch zu M&A-Mandaten und passenden Transaktionsgelegenheiten kontaktiert.
                   Ich kann diese Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, per E-Mail oder direkt in
-                  meinem Profil. Es gilt die <Link to="/datenschutz" target="_blank" style={{ color: C.accent }}>Datenschutzerklärung</Link>.
+                  meinem Profil. Es gilt die <Link to="/datenschutz" target="_blank" style={{ color: C.accent }}>{t('allg.datenschutz', 'Datenschutzerklärung')}</Link>.
                 </span>
               </label>
               <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: '0.6rem' }}>
@@ -173,7 +175,7 @@ export default function ConsentInvite() {
                 background: accepted ? C.navy : '#cbd5e1', color: '#fff', border: 'none', borderRadius: 8,
                 padding: '0.75rem 1.5rem', fontWeight: 700, fontSize: '0.9rem', cursor: accepted ? 'pointer' : 'default',
               }}>
-                {busy ? 'Wird bestätigt…' : 'Einwilligung bestätigen'}
+                {busy ? t('ei.wird_bestaetigt', 'Wird bestätigt…') : t('ei.bestaetigen', 'Einwilligung bestätigen')}
               </button>
               <button onClick={decline} disabled={busy} style={{ background: '#fff', color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.75rem 1.25rem', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer' }}>
                 Nicht kontaktieren
@@ -196,15 +198,15 @@ export default function ConsentInvite() {
             </div>
             {inv.has_account ? (
               <div style={{ fontSize: '0.87rem', color: C.text }}>
-                Für <strong>{inv.email}</strong> besteht bereits ein Konto. <Link to="/login" style={{ color: C.accent, fontWeight: 700 }}>Bitte melden Sie sich an.</Link>
+                Für <strong>{inv.email}</strong> besteht bereits ein Konto. <Link to="/login" style={{ color: C.accent, fontWeight: 700 }}>{t('ei.bitte_anmelden', 'Bitte melden Sie sich an.')}</Link>
               </div>
             ) : (
               <>
                 {/* Interesse: die zentrale Weiche */}
                 <label style={LABEL}>Ich interessiere mich als *</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginBottom: '1rem' }}>
-                  {[['buyer', 'Käufer / Investor', 'Ich suche Unternehmen oder Beteiligungen'],
-                    ['seller', 'Verkäufer / Kapitalsuchend', 'Ich möchte verkaufen oder Kapital aufnehmen']].map(([val, t, sub]) => (
+                  {[['buyer', t('ei.kaeufer', 'Käufer / Investor'), t('ei.kaeufer_text', 'Ich suche Unternehmen oder Beteiligungen')],
+                    ['seller', t('ei.verkaeufer', 'Verkäufer / Kapitalsuchend'), t('ei.verkaeufer_text', 'Ich möchte verkaufen oder Kapital aufnehmen')]].map(([val, t, sub]) => (
                     <button type="button" key={val} onClick={() => setForm(f => ({ ...f, interest: val }))}
                       style={{ textAlign: 'left', padding: '0.7rem 0.85rem', borderRadius: 8, cursor: 'pointer',
                         border: `1.5px solid ${form.interest === val ? C.accent : C.border}`,
@@ -218,7 +220,7 @@ export default function ConsentInvite() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
                   <div><label style={LABEL}>Anrede *</label>
                     <select value={form.salutation} onChange={set('salutation')} required style={INPUT}>
-                      <option value="">Bitte wählen</option><option>Herr</option><option>Frau</option><option>Divers</option>
+                      <option value="">{t('nf.bitte_waehlen', 'Bitte wählen')}</option><option>Herr</option><option>Frau</option><option>Divers</option>
                     </select>
                   </div>
                   <div><label style={LABEL}>Titel</label><input value={form.title} onChange={set('title')} style={INPUT} /></div>
@@ -234,11 +236,11 @@ export default function ConsentInvite() {
                 {/* Käuferprofil (optional, schnell) */}
                 {form.interest === 'buyer' && (
                   <div style={{ marginTop: '1rem', padding: '0.9rem 1rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8 }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.navy, marginBottom: '0.6rem' }}>Ihr Investitionsfokus (optional)</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.navy, marginBottom: '0.6rem' }}>{t('ei.fokus', 'Ihr Investitionsfokus (optional)')}</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
-                      <div><label style={LABEL}>Käufertyp</label>
+                      <div><label style={LABEL}>{t('ei.kaeufertyp', 'Käufertyp')}</label>
                         <select value={form.buyer_type} onChange={set('buyer_type')} style={INPUT}>
-                          <option value="">Bitte wählen</option>
+                          <option value="">{t('nf.bitte_waehlen', 'Bitte wählen')}</option>
                           <option value="strategic">Stratege</option>
                           <option value="financial">Finanzinvestor / PE</option>
                           <option value="business_angel">Business Angel</option>
@@ -246,15 +248,15 @@ export default function ConsentInvite() {
                           <option value="family_office">Family Office</option>
                           <option value="successor">Nachfolger / MBI / MBO</option>
                           <option value="private">Privat</option>
-                          <option value="advisor_mandate">Berater mit Mandat</option>
+                          <option value="advisor_mandate">{t('ei.berater', 'Berater mit Mandat')}</option>
                         </select>
                       </div>
                       {form.buyer_type === 'successor' ? (
                         <div><label style={LABEL}>Nachfolge-Interesse</label>
                           <select value={form.succession_type} onChange={set('succession_type')} style={INPUT}>
-                            <option value="">Bitte wählen</option>
+                            <option value="">{t('nf.bitte_waehlen', 'Bitte wählen')}</option>
                             <option value="mit_beteiligung">Mit Kapitalbeteiligung</option>
-                            <option value="ohne_beteiligung">Ohne Beteiligung (operative Führung)</option>
+                            <option value="ohne_beteiligung">{t('ei.ohne_beteiligung', 'Ohne Beteiligung (operative Führung)')}</option>
                           </select>
                         </div>
                       ) : (
@@ -262,7 +264,7 @@ export default function ConsentInvite() {
                       )}
                       <div><label style={LABEL}>Wunschbranchen</label><input value={form.industries} onChange={set('industries')} placeholder="Komma-getrennt" style={INPUT} /></div>
                       <div><label style={LABEL}>Regionen</label><input value={form.regions} onChange={set('regions')} placeholder="z. B. DACH, Bayern" style={INPUT} /></div>
-                      <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Stichworte / Fokus</label><textarea value={form.investment_focus} onChange={set('investment_focus')} rows={2} placeholder="Worauf achten Sie besonders?" style={{ ...INPUT, resize: 'vertical' }} /></div>
+                      <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Stichworte / Fokus</label><textarea value={form.investment_focus} onChange={set('investment_focus')} rows={2} placeholder={t('ei.ph_fokus', 'Worauf achten Sie besonders?')} style={{ ...INPUT, resize: 'vertical' }} /></div>
                     </div>
                   </div>
                 )}
@@ -270,17 +272,17 @@ export default function ConsentInvite() {
                 {/* Verkäufer-/Vorhaben-Angaben (optional) */}
                 {form.interest === 'seller' && (
                   <div style={{ marginTop: '1rem', padding: '0.9rem 1rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8 }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.navy, marginBottom: '0.6rem' }}>Ihr Vorhaben (optional)</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.8rem', color: C.navy, marginBottom: '0.6rem' }}>{t('ei.vorhaben', 'Ihr Vorhaben (optional)')}</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
                       <div><label style={LABEL}>Branche</label><input value={form.industries} onChange={set('industries')} placeholder="z. B. Maschinenbau" style={INPUT} /></div>
                       <div><label style={LABEL}>Umsatzband</label><input value={form.deal_types} onChange={set('deal_types')} placeholder="z. B. 5-10 Mio." style={INPUT} /></div>
-                      <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Anlass und Vorhaben</label><textarea value={form.investment_focus} onChange={set('investment_focus')} rows={2} placeholder="Nachfolge, Wachstum, Kapitalbedarf …" style={{ ...INPUT, resize: 'vertical' }} /></div>
+                      <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>{t('ei.anlass', 'Anlass und Vorhaben')}</label><textarea value={form.investment_focus} onChange={set('investment_focus')} rows={2} placeholder="Nachfolge, Wachstum, Kapitalbedarf …" style={{ ...INPUT, resize: 'vertical' }} /></div>
                     </div>
                   </div>
                 )}
 
                 <button type="submit" disabled={busy} style={{ marginTop: '1rem', width: '100%', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.8rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
-                  {busy ? 'Konto wird angelegt…' : 'Konto anlegen'}
+                  {busy ? t('ei.konto_anlegen', 'Konto wird angelegt…') : 'Konto anlegen'}
                 </button>
               </>
             )}

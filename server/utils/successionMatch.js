@@ -4,6 +4,8 @@
 // damit beide Seiten identisch bewerten.
 // ─────────────────────────────────────────────────────────────────────────────
 
+const tax = require('./taxonomie');
+
 // Mandate, die eine Nachfolge sind (Käuferseite: MBI/MBO/Nachfolge).
 const SUCCESSION_DEAL_TYPES = ['Nachfolge', 'MBO', 'MBI'];
 const UMSATZ_RANGE = { '<1': [0, 1], '1-3': [1, 3], '3-10': [3, 10], '10-30': [10, 30], '>30': [30, Infinity] };
@@ -29,12 +31,18 @@ function scoreMatch(profile, p) {
   const reasons = [];
   let score = WEIGHTS.base; // Grundgewicht: es ist ein Nachfolge-Mandat
 
+  // Erst die Taxonomie fragen, dann wie bisher auf Teilstrings ausweichen.
+  // Der Teilstringvergleich bleibt, weil das Branchenfeld eines Mandats
+  // Freitext ist und auch etwas enthalten kann, das in keiner Liste steht.
   const branchen = profile.branchenfokus || [];
   const ind = String(p.industry || '').toLowerCase();
-  if (branchen.length && ind && branchen.some(b => {
+  const brancheTrifft = branchen.length && ind && branchen.some(b => {
+    const code = tax.brancheVon(b) ? b : tax.brancheAus(b);
+    if (code && tax.brancheTrifft(code, p.industry)) return true;
     const x = String(b).toLowerCase();
     return ind.includes(x) || x.includes(ind.split(/[ /]/)[0]);
-  })) { score += WEIGHTS.branche; reasons.push('Branche passt'); }
+  });
+  if (brancheTrifft) { score += WEIGHTS.branche; reasons.push('Branche passt'); }
 
   const regionen = [...(profile.ziel_regionen || []), ...(profile.ziel_laender || [])];
   const reg = String(p.region || '').toLowerCase();
@@ -42,6 +50,8 @@ function scoreMatch(profile, p) {
   const regCountry = /österreich/.test(reg) ? 'österreich' : /schweiz/.test(reg) ? 'schweiz'
     : (DE_REGIONS.some(d => reg.includes(d)) || /dach/.test(reg)) ? 'deutschland' : null;
   const regionMatch = (regionen.length && reg && regionen.some(r => {
+    const code = tax.regionVon(r) ? r : tax.regionAus(r);
+    if (code && tax.regionTrifft(code, p.region)) return true;
     const x = String(r).toLowerCase();
     return reg.includes(x) || x.includes(reg);
   })) || (regCountry && laender.includes(regCountry)) || (/dach/.test(reg) && laender.length > 0);

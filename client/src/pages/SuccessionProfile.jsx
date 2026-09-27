@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Save, CheckCircle, UserCog, Target, ArrowRight, HelpCircle } from 'lucide-react';
-import { NACE_INDUSTRIES, BUNDESLAENDER } from '../constants/projectOptions';
-import { useT } from '../i18n';
+import { NACE_INDUSTRIES } from '../constants/projectOptions';
+import { REGIONEN as TAX_REGIONEN, auswahl } from '../constants/taxonomie';
+import { useT, useI18n } from '../i18n';
 
 const C = { navy: '#174a6a', accent: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
@@ -13,7 +14,6 @@ const LABEL = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C
 const SPECIALS = ['Seed / Start-up', 'Spin-off', 'Growth / Internationalisierung', 'Buy-out / Buy-in', 'Turnaround', 'IPO'];
 const LAENDER = ['Deutschland', 'Österreich', 'Schweiz'];
 // Nur die Bundesländer (die Länder-/DACH-Einträge stehen bereits bei „Zielländer")
-const REGIONEN = BUNDESLAENDER.filter(r => !['Deutschland (bundesweit)', 'Österreich', 'Schweiz', 'DACH'].includes(r));
 // Code und Beschriftung getrennt: gespeichert wird der Code, übersetzt die
 // Beschriftung. Die Branchen- und Regionslisten können das nicht, dort IST
 // der deutsche Text der gespeicherte Wert.
@@ -23,11 +23,13 @@ const MBI = [['reine_beteiligung', 'nf.mbi_beteiligung', 'Reine Beteiligung'], [
 function CheckGroup({ options, value, onChange }) {
   const list = value || [];
   const toggle = (o) => onChange(list.includes(o) ? list.filter(x => x !== o) : [...list, o]);
+  // Zeichenkette oder Paar aus Code und Beschriftung. Gespeichert wird der Code.
+  const paare = (options || []).map(o => (typeof o === 'string' ? { wert: o, label: o } : o));
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.35rem' }}>
-      {options.map(o => (
-        <label key={o} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.83rem', color: C.text, cursor: 'pointer', padding: '0.25rem 0' }}>
-          <input type="checkbox" checked={list.includes(o)} onChange={() => toggle(o)} /> {o}
+      {paare.map(({ wert, label, bestand }) => (
+        <label key={wert} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.83rem', color: C.text, cursor: 'pointer', padding: '0.25rem 0', fontStyle: bestand ? 'italic' : 'normal' }}>
+          <input type="checkbox" checked={list.includes(wert)} onChange={() => toggle(wert)} /> {label}
         </label>
       ))}
     </div>
@@ -65,6 +67,7 @@ const Section = ({ title, children }) => (
 
 export default function SuccessionProfile() {
   const t = useT();
+  const { lang } = useI18n();
   const { user } = useAuth();
   const [f, setF] = useState({
     plz_ort: '', branchenerfahrung: '', funktionale_erfahrung: '', fuehrungserfahrung: '', budgetverantwortung: '',
@@ -199,7 +202,7 @@ export default function SuccessionProfile() {
             <CheckGroup options={LAENDER} value={f.ziel_laender} onChange={setArr('ziel_laender')} />
           </div>
           <div style={{ marginBottom: '0.9rem' }}><label style={LABEL}>{t('nf.regionen', 'Regionen / Bundesländer (mehrere möglich, leer = bundesweit)')}</label>
-            <CheckGroup options={REGIONEN} value={f.ziel_regionen} onChange={setArr('ziel_regionen')} />
+            <CheckGroup options={auswahl(TAX_REGIONEN, f.ziel_regionen, lang)} value={f.ziel_regionen} onChange={setArr('ziel_regionen')} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '0.9rem' }}>
             <div><label style={LABEL}>{t('nf.umsatzgroesse', 'Umsatzgröße')}</label>

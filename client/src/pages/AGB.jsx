@@ -3,6 +3,7 @@
 // Livegang anwaltlich prüfen lassen (siehe Hinweis am Ende der Seite).
 import React from 'react';
 import { Link } from 'react-router-dom';
+import RechtsHinweis from '../components/RechtsHinweis';
 
 const C = { navy: '#111820', accent: '#1D4E89', border: '#E2E8F0', muted: '#64748B' };
 
@@ -24,6 +25,15 @@ export default function AGB() {
       <p style={{ color: C.muted, fontSize: '0.85rem', marginBottom: '2rem' }}>
         Für die Plattform CapitalMatch · Stand: Juli 2026
       </p>
+      <RechtsHinweis punkte={[
+        'CapitalMatch is operated by Phalanx GmbH, Erlangen, Germany, as a platform for confidential M&A and succession mandates.',
+        'Registration is free. We decide who is approved; there is no entitlement to access.',
+        'Mandate information is confidential. Passing it on to third parties requires our written consent.',
+        'We broker contacts; we are not a party to any transaction between users and give no warranty for the accuracy of information provided by third parties.',
+        'Liability is limited as set out in the German text; liability for intent and gross negligence is unaffected.',
+        'German law applies. Place of jurisdiction is Erlangen where legally permissible.',
+      ]} />
+
 
       <S n="1" title="Anbieter und Gegenstand">
         Anbieterin der Plattform CapitalMatch ist die <strong>Phalanx GmbH</strong>, Helene-Lange-Straße 28,

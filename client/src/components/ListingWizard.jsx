@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { X, Check, Lock, Cloud, ChevronLeft, ChevronRight, Send } from 'lucide-react';
 import GroupedSelect from './GroupedSelect';
 import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING } from '../constants/projectOptions';
+import { useT } from '../i18n';
 
 // Geführtes Erstellen eines Inserats (DUB-Benchmark, Stufe B).
 // Der Entwurf wird früh angelegt (nur der Name genügt), danach speichert der
@@ -18,15 +19,20 @@ const INPUT = {
 };
 const LBL = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: C.navy, marginBottom: '0.3rem' };
 
-const STEPS = ['Grundlagen', 'Einordnung', 'Kennzahlen', 'Beschreibung', 'Sichtbarkeit', 'Prüfen'];
+// Schlüssel neben dem deutschen Text: am Modulrand gibt es noch keine Sprache.
+const STEPS = [
+  ['lw.s_grundlagen', 'Grundlagen'], ['lw.s_einordnung', 'Einordnung'], ['lw.s_kennzahlen', 'Kennzahlen'],
+  ['lw.s_beschreibung', 'Beschreibung'], ['lw.s_sichtbarkeit', 'Sichtbarkeit'], ['lw.pruefen', 'Prüfen'],
+];
 const BUYER_GROUPS = [
-  ['strategic', 'Strategischer Käufer'], ['financial', 'Finanzinvestor'],
-  ['business_angel', 'Business Angel'], ['venture_capital', 'Venture Capital'],
-  ['family_office', 'Family Office'], ['successor', 'Nachfolger (MBO/MBI)'],
-  ['private', 'Privatperson'], ['advisor_mandate', 'M&A-Berater mit Suchmandat'],
+  ['strategic', 'lw.strategisch', 'Strategischer Käufer'], ['financial', 'lw.finanzinvestor', 'Finanzinvestor'],
+  ['business_angel', 'lw.angel', 'Business Angel'], ['venture_capital', 'lw.vc', 'Venture Capital'],
+  ['family_office', 'lw.family_office', 'Family Office'], ['successor', 'lw.nachfolger', 'Nachfolger (MBO/MBI)'],
+  ['private', 'lw.privat_person', 'Privatperson'], ['advisor_mandate', 'lw.berater', 'M&A-Berater mit Suchmandat'],
 ];
 
 export default function ListingWizard({ existingId = null, onClose, onDone }) {
+  const t = useT();
   const [step, setStep] = useState(0);
   const [draftId, setDraftId] = useState(existingId);
   const [status, setStatus] = useState('draft'); // Lebenszyklus des geladenen Mandats
@@ -61,7 +67,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
           post_money_valuation: d.post_money_valuation || '', tam_band: d.tam_band || '',
           buyer_groups: Array.isArray(d.buyer_groups) ? d.buyer_groups : [], keywords: d.keywords || '',
         }));
-      } catch (e) { setErr('Entwurf konnte nicht geladen werden: ' + e.message); }
+      } catch (e) { setErr(t('lw.entwurf_fehler', 'Entwurf konnte nicht geladen werden: ') + e.message); }
     })();
   }, [existingId]);
 
@@ -89,7 +95,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
   // Entwurf beim Verlassen von Schritt 1 anlegen (Name genügt)
   async function ensureDraft() {
     if (draftId) return draftId;
-    if (!form.codename.trim()) { setErr('Bitte einen Unternehmensnamen oder Codenamen angeben'); return null; }
+    if (!form.codename.trim()) { setErr(t('lw.name_fehlt', 'Bitte einen Unternehmensnamen oder Codenamen angeben')); return null; }
     setBusy(true); setErr('');
     try {
       const r = await api.post('/projects/my-project', { codename: form.codename.trim(), mandate_type: form.mandate_type });
@@ -112,14 +118,14 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
     try {
       await saveNow();
       await api.post(`/projects/${draftId}/submit`, {});
-      onDone && onDone('Zur Prüfung eingereicht. Wir prüfen dein Inserat und schalten es frei.');
+      onDone && onDone(t('lw.eingereicht', 'Zur Prüfung eingereicht. Wir prüfen dein Inserat und schalten es frei.'));
     } catch (e) { setErr(e.message); }
     finally { setBusy(false); }
   }
 
   async function saveAndClose() {
     await saveNow();
-    onDone && onDone(draftId ? 'Entwurf gespeichert. Du kannst später weitermachen.' : '');
+    onDone && onDone(draftId ? t('lw.entwurf_da', 'Entwurf gespeichert. Du kannst später weitermachen.') : '');
   }
 
   const isMa = form.mandate_type === 'ma';
@@ -133,7 +139,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
           <div>
             <h2 style={{ fontWeight: 800, color: C.navy, fontSize: '1.05rem' }}>{editMode ? 'Inserat pflegen' : 'Inserat erstellen'}</h2>
             <div style={{ fontSize: '0.72rem', color: C.gray, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Lock size={11} /> {editMode ? 'Änderungen werden automatisch gespeichert' : 'Privat, bis du einreichst und wir freigeben'}
+              <Lock size={11} /> {editMode ? t('lw.autosave', 'Änderungen werden automatisch gespeichert') : t('lw.privat', 'Privat, bis du einreichst und wir freigeben')}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -146,7 +152,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
 
         {/* Fortschritt */}
         <div style={{ display: 'flex', gap: 6, padding: '0.9rem 1.4rem', flexWrap: 'wrap' }}>
-          {STEPS.map((s, i) => (
+          {STEPS.map(([schluessel, s], i) => (
             <div key={s} style={{
               display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', fontWeight: 700,
               color: i === step ? C.navy : i < step ? '#059669' : '#94a3b8',
@@ -155,7 +161,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
                 width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 background: i === step ? C.navy : i < step ? '#d1fae5' : '#f1f5f9', color: i === step ? '#fff' : i < step ? '#059669' : '#94a3b8', fontSize: '0.68rem',
               }}>{i < step ? <Check size={12} /> : i + 1}</span>
-              {s}{i < STEPS.length - 1 && <span style={{ color: '#cbd5e1', marginLeft: 2 }}>›</span>}
+              {t(schluessel, s)}{i < STEPS.length - 1 && <span style={{ color: '#cbd5e1', marginLeft: 2 }}>›</span>}
             </div>
           ))}
         </div>
@@ -177,7 +183,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
                 ))}
               </div>
               <label style={LBL}>Unternehmensname / Codename *</label>
-              <input value={form.codename} onChange={set('codename')} placeholder="z. B. Müller GmbH oder Projekt Alpha" style={INPUT} />
+              <input value={form.codename} onChange={set('codename')} placeholder={t('lw.ph_name', 'z. B. Müller GmbH oder Projekt Alpha')} style={INPUT} />
               <p style={{ fontSize: '0.75rem', color: C.gray, marginTop: 6, lineHeight: 1.5 }}>
                 Der Name ist intern. Für Käufer bleibt das Inserat anonym, bis du die Namensnennung freigibst.
               </p>
@@ -192,7 +198,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
               <label style={LBL}>Region *</label>
               <div style={{ marginBottom: '0.9rem' }}><GroupedSelect value={form.region} onChange={set('region')} groups={BUNDESLAENDER} style={INPUT} /></div>
               <label style={LBL}>Standort (Stadt, optional)</label>
-              <input value={form.location_city} onChange={set('location_city')} placeholder="z. B. Nürnberg" style={INPUT} />
+              <input value={form.location_city} onChange={set('location_city')} placeholder={t('lw.ph_ort', 'z. B. Nürnberg')} style={INPUT} />
             </>
           )}
 
@@ -210,7 +216,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
                   <div><label style={LBL}>Kapitalbedarf</label><input value={form.investment_needed} onChange={set('investment_needed')} placeholder="0,5–1 Mio. €" style={INPUT} /></div>
                   <div><label style={LBL}>Anteil</label><input value={form.equity_stake} onChange={set('equity_stake')} placeholder="bis 25 %" style={INPUT} /></div>
                   <div><label style={LBL}>Post-Money (ca.)</label><input value={form.post_money_valuation} onChange={set('post_money_valuation')} placeholder="4 Mio. €" style={INPUT} /></div>
-                  <div><label style={LBL}>Marktgröße (TAM)</label><input value={form.tam_band} onChange={set('tam_band')} placeholder="> 1 Mrd. €" style={INPUT} /></div>
+                  <div><label style={LBL}>{t('lw.tam', 'Marktgröße (TAM)')}</label><input value={form.tam_band} onChange={set('tam_band')} placeholder="> 1 Mrd. €" style={INPUT} /></div>
                 </div>
               )}
               <label style={LBL}>Deal-Typ</label>
@@ -223,7 +229,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
             <>
               <label style={LBL}>Kurzbeschreibung *</label>
               <textarea value={form.short_description} onChange={set('short_description')} rows={5}
-                placeholder="Beschreibe das Unternehmen kurz: Tätigkeit, Alleinstellungsmerkmale, Anlass und Ziel des Prozesses. Nichts, was dich verrät."
+                placeholder={t('lw.ph_beschreibung', 'Beschreibe das Unternehmen kurz: Tätigkeit, Alleinstellungsmerkmale, Anlass und Ziel des Prozesses. Nichts, was dich verrät.')}
                 style={{ ...INPUT, resize: 'vertical', lineHeight: 1.5 }} />
               <label style={{ ...LBL, marginTop: '0.9rem' }}>Highlights (je Zeile ein Punkt, optional)</label>
               <textarea
@@ -237,23 +243,23 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
           {/* Schritt 5: Sichtbarkeit & Auffindbarkeit */}
           {step === 4 && (
             <>
-              <label style={LBL}>Welche Käufergruppen soll das Inserat erreichen?</label>
+              <label style={LBL}>{t('lw.kaeufergruppen', 'Welche Käufergruppen soll das Inserat erreichen?')}</label>
               <p style={{ fontSize: '0.75rem', color: C.gray, margin: '2px 0 0.6rem', lineHeight: 1.5 }}>
                 Keine Auswahl bedeutet: für alle sichtbar. Sonst matchen wir gezielt die gewählten Typen.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: '1rem' }}>
-                {BUYER_GROUPS.map(([v, l]) => {
+                {BUYER_GROUPS.map(([v, schluessel, l]) => {
                   const on = (form.buyer_groups || []).includes(v);
                   return (
                     <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: C.text, cursor: 'pointer', padding: '0.4rem 0.6rem', border: `1px solid ${on ? C.steel : C.border}`, borderRadius: 7, background: on ? C.lightBg : '#fff' }}>
                       <input type="checkbox" checked={on} onChange={() => setVal('buyer_groups', on ? form.buyer_groups.filter(x => x !== v) : [...(form.buyer_groups || []), v])} />
-                      {l}
+                      {t(schluessel, l)}
                     </label>
                   );
                 })}
               </div>
-              <label style={LBL}>Schlagwörter (für die Auffindbarkeit, kommagetrennt)</label>
-              <input value={form.keywords} onChange={set('keywords')} placeholder="z. B. Tabakwaren, Großhandel, Nachfolge, Nürnberg" style={INPUT} />
+              <label style={LBL}>{t('lw.schlagwoerter', 'Schlagwörter (für die Auffindbarkeit, kommagetrennt)')}</label>
+              <input value={form.keywords} onChange={set('keywords')} placeholder={t('lw.ph_schlagwoerter', 'z. B. Tabakwaren, Großhandel, Nachfolge, Nürnberg')} style={INPUT} />
               <p style={{ fontSize: '0.75rem', color: C.gray, marginTop: 6, lineHeight: 1.5 }}>
                 Schlagwörter helfen beim Matching und der Suche. Sie sind intern und verraten nichts über die Identität.
               </p>
@@ -265,8 +271,8 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
             <>
               <p style={{ fontSize: '0.82rem', color: C.gray, marginBottom: '0.9rem', lineHeight: 1.5 }}>
                 {editMode
-                  ? 'So sieht die anonyme Kurzansicht aus. Deine Änderungen sind gespeichert. Mit „Speichern & schließen" bist du fertig.'
-                  : 'So sieht die anonyme Kurzansicht aus. Passt alles? Dann reiche zur Prüfung ein. Nach der Freigabe ist das Inserat für qualifizierte Investoren sichtbar.'}
+                  ? t('lw.vorschau_fertig', 'So sieht die anonyme Kurzansicht aus. Deine Änderungen sind gespeichert. Mit „Speichern & schließen" bist du fertig.')
+                  : t('lw.vorschau', 'So sieht die anonyme Kurzansicht aus. Passt alles? Dann reiche zur Prüfung ein. Nach der Freigabe ist das Inserat für qualifizierte Investoren sichtbar.')}
               </p>
               <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '1rem 1.2rem', background: C.xLight }}>
                 <div style={{ fontSize: '0.72rem', color: C.gray, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>{isMa ? 'M&A / Unternehmensverkauf' : 'Startup-Finanzierung'} · {form.deal_type || 'k. A.'}</div>
@@ -294,7 +300,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
         {/* Fuß */}
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '1rem 1.4rem', borderTop: `1px solid ${C.border}` }}>
           <button onClick={step === 0 ? saveAndClose : back} disabled={busy} style={{ padding: '0.65rem 1.1rem', border: `1px solid ${C.border}`, borderRadius: 8, background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', color: C.navy, display: 'flex', alignItems: 'center', gap: 6 }}>
-            {step === 0 ? 'Später fortsetzen' : <><ChevronLeft size={15} /> Zurück</>}
+            {step === 0 ? t('lw.spaeter', 'Später fortsetzen') : <><ChevronLeft size={15} /> {t('ab.zurueck', 'Zurück')}</>}
           </button>
           {step < STEPS.length - 1 ? (
             <button onClick={next} disabled={busy} style={{ padding: '0.65rem 1.3rem', background: C.navy, color: '#fff', border: 'none', borderRadius: 8, cursor: busy ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem', opacity: busy ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -306,7 +312,7 @@ export default function ListingWizard({ existingId = null, onClose, onDone }) {
             </button>
           ) : (
             <button onClick={submit} disabled={busy || !form.industry || !form.region || !form.short_description} style={{ padding: '0.65rem 1.3rem', background: (!form.industry || !form.region || !form.short_description) ? '#94a3b8' : '#059669', color: '#fff', border: 'none', borderRadius: 8, cursor: busy ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Send size={15} /> {busy ? 'Wird eingereicht…' : 'Zur Prüfung einreichen'}
+              <Send size={15} /> {busy ? 'Wird eingereicht…' : t('lw.einreichen', 'Zur Prüfung einreichen')}
             </button>
           )}
         </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import RechtsHinweis from '../components/RechtsHinweis';
 
 const C = { navy: '#174a6a', steel: '#174a6a', bg: '#f7f5f0' };
 
@@ -18,6 +19,15 @@ export default function Datenschutz() {
         <h1 style={{ fontSize: '2rem', fontWeight: 700, color: C.navy, marginTop: '1rem', marginBottom: '0.4rem' }}>Datenschutzerklärung</h1>
         <p style={{ color: '#888', fontSize: '0.875rem' }}>Stand: Juni 2026</p>
       </div>
+      <RechtsHinweis punkte={[
+        'Phalanx GmbH in Erlangen, Germany, is the controller for data processed on this platform.',
+        'We process the data you enter yourself (account, profile, search criteria) and technical data needed to run the platform.',
+        'No analytics, advertising or tracking cookies are used. Storage is limited to what the platform needs to work.',
+        'Servers are located in the European Union.',
+        'You may request access, correction, deletion, restriction, portability and object to processing, and you may complain to a supervisory authority.',
+        'To exercise any of these rights, write to info@phalanx.de.',
+      ]} />
+
 
       <div style={{ background: '#fff', borderRadius: 12, padding: '2.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #dce8f2' }}>
 

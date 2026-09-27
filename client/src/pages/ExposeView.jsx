@@ -2,11 +2,21 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
 import { ChevronLeft, Download, Lock } from 'lucide-react';
+import { useT } from '../i18n';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const eur = (n) => (Math.round(Number(n) || 0)).toLocaleString('de-DE') + ' €';
 const authHeaders = () => ({ Authorization: `Bearer ${getToken()}` });
-const KF = [['country', 'Land'], ['region', 'Region'], ['industries', 'Branche(n)'], ['founding_year', 'Gründungsjahr'], ['legal_form', 'Rechtsform'], ['employees', 'Mitarbeiter'], ['locations', 'Standorte'], ['revenue_band', 'Umsatzband'], ['ebit_band', 'Operatives Ergebnis'], ['gf_availability', 'GF-Verfügbarkeit'], ['stake_offered', 'Abzugebender Anteil'], ['participation_type', 'Beteiligungsart'], ['price_band', 'Preisvorstellung'], ['purchase_modalities', 'Kaufpreismodalitäten']];
+// Kennfeld: Feldname, Schlüssel, deutsche Beschriftung.
+const KF = [
+  ['country', 'ex.kf_land', 'Land'], ['region', 'ex.kf_region', 'Region'],
+  ['industries', 'ex.kf_branchen', 'Branche(n)'], ['founding_year', 'bw.gruendungsjahr', 'Gründungsjahr'],
+  ['legal_form', 'ex.kf_rechtsform', 'Rechtsform'], ['employees', 'ex.kf_mitarbeiter', 'Mitarbeiter'],
+  ['locations', 'ex.kf_standorte', 'Standorte'], ['revenue_band', 'ex.kf_umsatz', 'Umsatzband'],
+  ['ebit_band', 'ex.kf_ebit', 'Operatives Ergebnis'], ['gf_availability', 'ex.gf_verfuegbar', 'GF-Verfügbarkeit'],
+  ['stake_offered', 'ex.kf_anteil', 'Abzugebender Anteil'], ['participation_type', 'ex.kf_beteiligungsart', 'Beteiligungsart'],
+  ['price_band', 'ex.kf_preis', 'Preisvorstellung'], ['purchase_modalities', 'ex.kaufpreis', 'Kaufpreismodalitäten'],
+];
 
 function GalleryImg({ pid, safeId }) {
   const [url, setUrl] = useState(null);
@@ -15,6 +25,7 @@ function GalleryImg({ pid, safeId }) {
 }
 
 export default function ExposeView() {
+  const t = useT();
   const { id: pid } = useParams();
   const [data, setData] = useState(null);
   const [hero, setHero] = useState(null);
@@ -33,7 +44,7 @@ export default function ExposeView() {
   useEffect(() => { load(); }, [load]);
 
   async function downloadPdf() {
-    setPdfMsg('PDF wird erstellt…');
+    setPdfMsg(t('ex.pdf_laeuft', 'PDF wird erstellt…'));
     try {
       const res = await fetch(`/api/exposes/${pid}/pdf`, { headers: authHeaders() });
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `Fehler ${res.status}`); }
@@ -47,8 +58,8 @@ export default function ExposeView() {
   if (state === 'locked') return (
     <div style={{ maxWidth: 620, margin: '4rem auto', padding: '2rem', textAlign: 'center', background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
       <Lock size={28} color={C.muted} style={{ marginBottom: 12 }} />
-      <h2 style={{ color: C.navy, fontSize: '1.2rem', marginBottom: '0.5rem' }}>Exposé erst nach NDA verfügbar</h2>
-      <p style={{ color: C.muted, fontSize: '0.9rem', marginBottom: '1.25rem' }}>Das vollständige Exposé wird nach unterzeichneter Vertraulichkeitsvereinbarung freigeschaltet.</p>
+      <h2 style={{ color: C.navy, fontSize: '1.2rem', marginBottom: '0.5rem' }}>{t('ex.erst_nach_nda', 'Exposé erst nach NDA verfügbar')}</h2>
+      <p style={{ color: C.muted, fontSize: '0.9rem', marginBottom: '1.25rem' }}>{t('ex.nach_nda_text', 'Das vollständige Exposé wird nach unterzeichneter Vertraulichkeitsvereinbarung freigeschaltet.')}</p>
       <Link to={`/projekte/${pid}`} style={{ color: C.accent, fontWeight: 600, textDecoration: 'none' }}>Zum Mandat & NDA anfordern →</Link>
     </div>
   );
@@ -80,10 +91,10 @@ export default function ExposeView() {
 
         {facts.length === 0 && activeSections.length === 0 && gallery.length === 0 && !(corridor && corridor.base) ? (
           <div style={{ background: C.card, border: `1px dashed ${C.border}`, borderRadius: 12, padding: '2.5rem 1.5rem', textAlign: 'center' }}>
-            <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>Dieses Exposé hat noch keine Inhalte</div>
+            <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>{t('ex.leer', 'Dieses Exposé hat noch keine Inhalte')}</div>
             {can_manage
-              ? <div style={{ fontSize: '0.88rem', color: C.muted }}>Befüllen Sie Eckdaten, Sektionen und Bilder im <Link to={`/mandat/${pid}/expose`} style={{ color: C.accent, fontWeight: 600 }}>Exposé-Editor</Link>.</div>
-              : <div style={{ fontSize: '0.88rem', color: C.muted }}>Das Exposé wird derzeit vorbereitet und in Kürze verfügbar sein.</div>}
+              ? <div style={{ fontSize: '0.88rem', color: C.muted }}>{t('ex.leer_text', 'Befüllen Sie Eckdaten, Sektionen und Bilder im')} <Link to={`/mandat/${pid}/expose`} style={{ color: C.accent, fontWeight: 600 }}>Exposé-Editor</Link>.</div>
+              : <div style={{ fontSize: '0.88rem', color: C.muted }}>{t('ex.in_arbeit', 'Das Exposé wird derzeit vorbereitet und in Kürze verfügbar sein.')}</div>}
           </div>
         ) : null}
 
@@ -94,9 +105,9 @@ export default function ExposeView() {
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '1.25rem', marginBottom: '1.5rem' }}>
             <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.9rem' }}>Eckdaten</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.6rem' }}>
-              {facts.map(([k, l]) => (
+              {facts.map(([k, schluessel, l]) => (
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', background: C.bg, borderRadius: 7, padding: '0.5rem 0.7rem' }}>
-                  <span style={{ fontSize: '0.72rem', color: C.muted, textTransform: 'uppercase', letterSpacing: '0.02em' }}>{l}</span>
+                  <span style={{ fontSize: '0.72rem', color: C.muted, textTransform: 'uppercase', letterSpacing: '0.02em' }}>{t(schluessel, l)}</span>
                   <span style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, textAlign: 'right' }}>{expose.keyfacts[k]}</span>
                 </div>
               ))}

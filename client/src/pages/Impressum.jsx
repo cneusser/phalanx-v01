@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import RechtsHinweis from '../components/RechtsHinweis';
 
 const C = { navy: '#174a6a', steel: '#174a6a', bg: '#f7f5f0' };
 
@@ -11,6 +12,13 @@ export default function Impressum() {
         <h1 style={{ fontSize: '2rem', fontWeight: 700, color: C.navy, marginTop: '1rem', marginBottom: '0.4rem' }}>Impressum</h1>
         <p style={{ color: '#888', fontSize: '0.875rem' }}>Angaben gemäß § 5 TMG</p>
       </div>
+      <RechtsHinweis punkte={[
+        'This is the provider identification required by German law (section 5 TMG).',
+        'The operator is Phalanx GmbH, Helene-Lange-Strasse 28, 91056 Erlangen, Germany.',
+        'CapitalMatch is a brand of Phalanx GmbH, not a separate legal entity.',
+        'Contact: info@phalanx.de',
+      ]} />
+
 
       {/* CapitalMatch-Brand-Hinweis */}
       <div style={{ background: C.bg, borderRadius: 8, padding: '1rem 1.25rem', marginBottom: '1.5rem', border: `1px solid ${C.steel}30` }}>

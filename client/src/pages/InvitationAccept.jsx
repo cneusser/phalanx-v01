@@ -3,12 +3,14 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { CheckCircle, AlertCircle, Eye, PenLine } from 'lucide-react';
+import { useT } from '../i18n';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.88rem', outline: 'none', boxSizing: 'border-box' };
 const LABEL = { display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#333', marginBottom: '0.3rem' };
 
 export default function InvitationAccept() {
+  const t = useT();
   const [params] = useSearchParams();
   const token = params.get('token');
   const navigate = useNavigate();
@@ -61,7 +63,7 @@ export default function InvitationAccept() {
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
-  if (loading) return <div style={{ padding: '4rem', textAlign: 'center', color: C.muted }}>Einladung wird geprüft…</div>;
+  if (loading) return <div style={{ padding: '4rem', textAlign: 'center', color: C.muted }}>{t('ei.laedt', 'Einladung wird geprüft…')}</div>;
 
   const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 2px 12px rgba(13,27,54,0.06)' };
 
@@ -70,9 +72,9 @@ export default function InvitationAccept() {
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '3rem 1.5rem' }}>
         <div style={card}>
           <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', color: '#991b1b' }}>
-            <AlertCircle size={20} /> <strong>Einladung nicht verfügbar</strong>
+            <AlertCircle size={20} /> <strong>{t('ei.weg', 'Einladung nicht verfügbar')}</strong>
           </div>
-          <p style={{ color: C.muted, fontSize: '0.88rem', marginTop: '0.75rem' }}>{err || 'Diese Einladung existiert nicht.'}</p>
+          <p style={{ color: C.muted, fontSize: '0.88rem', marginTop: '0.75rem' }}>{err || t('ea.gibt_es_nicht', 'Diese Einladung existiert nicht.')}</p>
           <Link to="/" style={{ color: C.accent, fontSize: '0.85rem', fontWeight: 600 }}>Zur Startseite</Link>
         </div>
       </div>
@@ -101,8 +103,8 @@ export default function InvitationAccept() {
             <div style={{ fontWeight: 700, color: C.text, fontSize: '0.9rem' }}>Rolle: {inv.role_label}</div>
             <div style={{ fontSize: '0.78rem', color: C.muted }}>
               {isEditor
-                ? 'Sie dürfen das Mandat bearbeiten und pflegen (Daten, Exposé, Unterlagen).'
-                : 'Sie erhalten Leserechte: ansehen, aber keine Änderungen.'}
+                ? t('ea.rolle_pflege', 'Sie dürfen das Mandat bearbeiten und pflegen (Daten, Exposé, Unterlagen).')
+                : t('ea.rolle_lesen', 'Sie erhalten Leserechte: ansehen, aber keine Änderungen.')}
             </div>
           </div>
         </div>
@@ -125,10 +127,10 @@ export default function InvitationAccept() {
         {/* Bereits abgeschlossen */}
         {closed && (
           <div style={{ background: inv.status === 'accepted' ? '#d1fae5' : '#f1f5f9', borderRadius: 8, padding: '0.9rem 1rem', fontSize: '0.87rem', color: inv.status === 'accepted' ? '#065f46' : '#334155' }}>
-            {inv.status === 'accepted' && <><CheckCircle size={15} style={{ verticalAlign: -2 }} /> Diese Einladung wurde bereits angenommen.</>}
-            {inv.status === 'declined' && 'Diese Einladung wurde abgelehnt.'}
-            {inv.status === 'revoked' && 'Diese Einladung wurde zurückgezogen.'}
-            {inv.status === 'expired' && 'Diese Einladung ist abgelaufen. Bitte fordern Sie eine neue an.'}
+            {inv.status === 'accepted' && <><CheckCircle size={15} style={{ verticalAlign: -2 }} /> {t('ea.schon_angenommen', 'Diese Einladung wurde bereits angenommen.')}</>}
+            {inv.status === 'declined' && t('ea.abgelehnt', 'Diese Einladung wurde abgelehnt.')}
+            {inv.status === 'revoked' && t('ea.zurueckgezogen', 'Diese Einladung wurde zurückgezogen.')}
+            {inv.status === 'expired' && t('ea.abgelaufen', 'Diese Einladung ist abgelaufen. Bitte fordern Sie eine neue an.')}
           </div>
         )}
 
@@ -147,7 +149,7 @@ export default function InvitationAccept() {
         {/* Eingeloggt, aber falsches Konto */}
         {!closed && user && !inv.logged_in_matches && (
           <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.9rem 1rem', fontSize: '0.85rem', color: '#92400e' }}>
-            Sie sind als <strong>{user.email}</strong> angemeldet, die Einladung gilt aber für <strong>{inv.email}</strong>.
+            {t('ea.sie_sind_als', 'Sie sind als')} <strong>{user.email}</strong> {t('ea.andere_adresse', 'angemeldet, die Einladung gilt aber für')} <strong>{inv.email}</strong>.
             Bitte melden Sie sich mit der eingeladenen Adresse an.
           </div>
         )}
@@ -178,7 +180,7 @@ export default function InvitationAccept() {
               <div>
                 <label style={LABEL}>Anrede *</label>
                 <select value={form.salutation} onChange={set('salutation')} required style={INPUT}>
-                  <option value="">Bitte wählen</option>
+                  <option value="">{t('nf.bitte_waehlen', 'Bitte wählen')}</option>
                   <option value="Herr">Herr</option>
                   <option value="Frau">Frau</option>
                   <option value="Divers">Divers</option>
@@ -195,11 +197,11 @@ export default function InvitationAccept() {
 
             <label style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', fontSize: '0.8rem', color: '#444', margin: '0.75rem 0 1rem' }}>
               <input type="checkbox" checked={form.privacy_consent} onChange={set('privacy_consent')} required style={{ marginTop: 3 }} />
-              <span>Ich stimme der <Link to="/datenschutz" target="_blank" style={{ color: C.accent }}>Datenschutzerklärung</Link> zu (Speicherung und projektbezogene Nutzung meiner Daten). *</span>
+              <span>{t('ea.ich_stimme', 'Ich stimme der')} <Link to="/datenschutz" target="_blank" style={{ color: C.accent }}>{t('allg.datenschutz', 'Datenschutzerklärung')}</Link> {t('ea.zustimmung', 'zu (Speicherung und projektbezogene Nutzung meiner Daten). *')}</span>
             </label>
 
             <button type="submit" disabled={busy} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.8rem 1.5rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', width: '100%' }}>
-              {busy ? 'Konto wird angelegt…' : 'Konto anlegen & Einladung annehmen'}
+              {busy ? t('ei.konto_anlegen', 'Konto wird angelegt…') : 'Konto anlegen & Einladung annehmen'}
             </button>
           </form>
         )}

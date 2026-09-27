@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { X, FileText, CheckCircle, Download, Shield, AlertTriangle, Loader } from 'lucide-react';
+import { useT } from '../i18n';
+import RechtsHinweis from './RechtsHinweis';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB' };
 
@@ -59,6 +61,7 @@ const NDA_SECTIONS = [
  *  onSigned    – called after successful online signature
  */
 export default function NDASignModal({ projectId, projectName, onClose, onSigned }) {
+  const t = useT();
   const { user } = useAuth();
   const [step, setStep] = useState('read'); // 'read' | 'sign' | 'done'
   const [scrolled, setScrolled] = useState(false);
@@ -86,8 +89,8 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
 
   async function handleSign(e) {
     e.preventDefault();
-    if (!confirmed) { setError('Bitte bestätigen Sie, dass Sie die NDA gelesen und verstanden haben.'); return; }
-    if (!consentName || consentName.trim().length < 3) { setError('Bitte geben Sie Ihren vollständigen Namen ein.'); return; }
+    if (!confirmed) { setError(t('nda.bitte_bestaetigen', 'Bitte bestätigen Sie, dass Sie die NDA gelesen und verstanden haben.')); return; }
+    if (!consentName || consentName.trim().length < 3) { setError(t('nda.name_fehlt', 'Bitte geben Sie Ihren vollständigen Namen ein.')); return; }
     setSigning(true);
     setError('');
     try {
@@ -198,6 +201,18 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
               </div>
 
               {/* Preamble */}
+              {/* Der Vertragstext bleibt deutsch, er ist die verbindliche Fassung.
+                  Englische Unterzeichner bekommen die Kernpunkte in ihrer Sprache. */}
+              <RechtsHinweis punkte={[
+                'You undertake to keep all information about this mandate confidential and to use it only to assess the transaction.',
+                'The duty of confidentiality does not cover information that is already public or that you demonstrably knew beforehand.',
+                'You must report any loss of documents immediately.',
+                'Documents are provided free of charge and remain the property of the owner.',
+                'The agreement runs for the period stated in the German text.',
+                'German law applies, with the place of jurisdiction named in the German text.',
+                'Section 10 governs the online signature: typing your full name and confirming the checkbox creates a binding signature.',
+              ]} />
+
               <div style={{ marginBottom: '1.25rem' }}>
                 <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.88rem', marginBottom: '0.4rem' }}>Präambel</div>
                 <p style={{ fontSize: '0.83rem', color: '#444', lineHeight: 1.7 }}>
@@ -210,7 +225,7 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
                 <div key={s.num} style={{ marginBottom: '1rem', paddingLeft: '0.75rem', borderLeft: `3px solid ${s.num === '§10' ? C.steel : '#e0ddd6'}` }}>
                   <div style={{ fontWeight: 700, color: s.num === '§10' ? C.steel : C.navy, fontSize: '0.82rem', marginBottom: '0.3rem' }}>
                     {s.num} – {s.title}
-                    {s.num === '§10' && <span style={{ fontSize: '0.7rem', background: '#fef3c7', color: '#92400e', padding: '0.1rem 0.4rem', borderRadius: 10, marginLeft: '0.5rem' }}>Gilt für Online-Abschluss</span>}
+                    {s.num === '§10' && <span style={{ fontSize: '0.7rem', background: '#fef3c7', color: '#92400e', padding: '0.1rem 0.4rem', borderRadius: 10, marginLeft: '0.5rem' }}>{t('nda.online', 'Gilt für Online-Abschluss')}</span>}
                   </div>
                   <p style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.65 }}>{s.text}</p>
                 </div>
@@ -271,7 +286,7 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
                 <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
                   <Shield size={16} color="#1d4ed8" style={{ flexShrink: 0, marginTop: 2 }} />
                   <div style={{ fontSize: '0.8rem', color: '#1e3a8a', lineHeight: 1.65 }}>
-                    <strong>Online-Unterzeichnung gemäß §10 dieser Vereinbarung</strong><br />
+                    <strong>{t('nda.online_par10', 'Online-Unterzeichnung gemäß §10 dieser Vereinbarung')}</strong><br />
                     Durch Eingabe Ihres Namens und Bestätigung erkennen Sie die Verbindlichkeit dieser NDA an. Gemäß §10 hat Ihre Online-Zustimmung die gleiche rechtliche Wirkung wie eine handschriftliche Unterschrift. Ihre IP-Adresse, der Zeitstempel und Ihr Name werden im Audit Trail aufgezeichnet. Sie erhalten das unterzeichnete PDF als Nachweis.
                   </div>
                 </div>
@@ -302,7 +317,7 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
                 <div style={{ marginBottom: '1rem' }}>
                   <label style={{ display: 'block', fontWeight: 600, color: '#333', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
                     Vollständiger Name *
-                    <span style={{ fontWeight: 400, color: '#888', marginLeft: '0.4rem', fontSize: '0.75rem' }}>Bitte genau wie in Ihren Ausweisdokumenten</span>
+                    <span style={{ fontWeight: 400, color: '#888', marginLeft: '0.4rem', fontSize: '0.75rem' }}>{t('nda.wie_ausweis', 'Bitte genau wie in Ihren Ausweisdokumenten')}</span>
                   </label>
                   <input
                     type="text"
@@ -333,7 +348,7 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
                     {confirmed && <span style={{ color: '#fff', fontSize: '0.7rem', fontWeight: 700 }}>✓</span>}
                   </div>
                   <p style={{ fontSize: '0.83rem', color: '#444', lineHeight: 1.6, margin: 0, userSelect: 'none' }}>
-                    Ich, <strong>{consentName || '[Ihr Name]'}</strong>, habe die vorstehende Vertraulichkeitsvereinbarung vollständig gelesen und verstanden. Ich erkenne gemäß <strong>§10</strong> die rechtliche Verbindlichkeit dieser Vereinbarung ohne eigenhändige Unterschrift an und verpflichte mich zur Einhaltung aller darin enthaltenen Bestimmungen.
+                    Ich, <strong>{consentName || t('nda.ihr_name', '[Ihr Name]')}</strong>, habe die vorstehende Vertraulichkeitsvereinbarung vollständig gelesen und verstanden. Ich erkenne gemäß <strong>§10</strong> die rechtliche Verbindlichkeit dieser Vereinbarung ohne eigenhändige Unterschrift an und verpflichte mich zur Einhaltung aller darin enthaltenen Bestimmungen.
                   </p>
                 </div>
 
@@ -357,7 +372,7 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
                     }}
                   >
-                    {signing ? <><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> PDF wird generiert...</> : '✍ NDA jetzt verbindlich unterzeichnen'}
+                    {signing ? <><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> {t('nda.pdf_laeuft', 'PDF wird generiert...')}</> : t('nda.jetzt_zeichnen', '✍ NDA jetzt verbindlich unterzeichnen')}
                   </button>
                 </div>
               </form>
@@ -379,7 +394,7 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
             <div style={{ background: C.bg, borderRadius: 10, padding: '1rem 1.25rem', width: '100%', maxWidth: 380, marginBottom: '1.5rem', border: '1px solid #e0ddd6' }}>
               <div style={{ fontSize: '0.72rem', color: '#999', marginBottom: '0.5rem' }}>AUDIT TRAIL</div>
               <div style={{ fontSize: '0.8rem', color: '#444', lineHeight: 1.8 }}>
-                <div>Unterzeichnet von: <strong>{consentName}</strong></div>
+                <div>{t('nda.unterzeichnet_von', 'Unterzeichnet von:')} <strong>{consentName}</strong></div>
                 <div>Datum: <strong>{today}</strong></div>
                 {user?.company && <div>Unternehmen: <strong>{user.company}</strong></div>}
               </div>

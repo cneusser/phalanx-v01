@@ -2,16 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { ShieldCheck, CheckCircle, AlertCircle, Save } from 'lucide-react';
+import { useT, useI18n } from '../i18n';
+import { BRANCHEN, REGIONEN as TAX_REGIONEN, auswahl } from '../constants/taxonomie';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.88rem', outline: 'none', boxSizing: 'border-box' };
 const LABEL = { display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#333', marginBottom: '0.3rem' };
 
-const INDUSTRIES = ['Bau & Baustoffe', 'Industrie & Maschinenbau', 'Handel & Konsumgüter', 'IT & Software',
-  'Dienstleistung', 'Gesundheit & Pflege', 'Logistik & Transport', 'Energie & Umwelt', 'Lebensmittel',
-  'Handwerk', 'Immobilien', 'Medien & Marketing'];
-const REGIONS = ['Baden-Württemberg', 'Bayern', 'Berlin/Brandenburg', 'Hessen', 'NRW', 'Niedersachsen',
-  'Sachsen', 'Norddeutschland', 'Ostdeutschland', 'Deutschland (bundesweit)', 'Österreich', 'Schweiz', 'DACH'];
+// Branchen und Regionen kommen aus shared/taxonomie.json. Die beiden früheren
+// Listen an dieser Stelle waren die dritte und vierte Schreibweise derselben
+// Begriffe; ihre Werte leben als Synonyme in der Taxonomie weiter, damit
+// Bestandsprofile ihren Filter behalten.
 const SPECIALS = ['Seed / Start-up', 'Spin-off', 'Growth / Internationalisierung', 'Buy-out / Buy-in', 'Turnaround', 'IPO'];
 const LAENDER = ['Deutschland', 'Österreich', 'Schweiz'];
 const UMSATZ = [['<1', 'unter 1 Mio.'], ['1-3', '1 bis 3 Mio.'], ['3-10', '3 bis 10 Mio.'], ['10-30', '10 bis 30 Mio.'], ['>30', 'über 30 Mio.']];
@@ -21,18 +22,22 @@ const SZENARIO = [['mit_beteiligung', 'Mit eigener Beteiligung'], ['ohne_beteili
 // Mehrfachauswahl als Chips
 function Chips({ label, options, value, onChange }) {
   const toggle = (o) => onChange(value.includes(o) ? value.filter(x => x !== o) : [...value, o]);
+  // Eine Option ist entweder eine schlichte Zeichenkette oder ein Paar aus
+  // Code und Beschriftung. Gespeichert wird immer der Code.
+  const paare = (options || []).map(o => (typeof o === 'string' ? { wert: o, label: o } : o));
   return (
     <div style={{ marginBottom: '1rem' }}>
       <label style={LABEL}>{label}</label>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-        {options.map(o => {
-          const on = value.includes(o);
+        {paare.map(({ wert, label: beschriftung, bestand }) => {
+          const on = value.includes(wert);
           return (
-            <button key={o} type="button" onClick={() => toggle(o)} style={{
+            <button key={wert} type="button" onClick={() => toggle(wert)} style={{
               border: `1.5px solid ${on ? C.navy : C.border}`, background: on ? C.navy : '#fff',
               color: on ? '#fff' : C.muted, borderRadius: 20, padding: '0.3rem 0.75rem',
               fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
-            }}>{o}</button>
+              fontStyle: bestand ? 'italic' : 'normal',
+            }}>{beschriftung}</button>
           );
         })}
       </div>
@@ -41,6 +46,8 @@ function Chips({ label, options, value, onChange }) {
 }
 
 export default function ContactSelfService() {
+  const t = useT();
+  const { lang } = useI18n();
   const [params] = useSearchParams();
   const token = params.get('token');
   const [data, setData] = useState(null);
@@ -99,8 +106,8 @@ export default function ContactSelfService() {
 
   async function unsubscribe(full) {
     const msg = full
-      ? 'Möchten Sie der Kontaktaufnahme vollständig widersprechen? Wir werden Sie dann nicht mehr kontaktieren.'
-      : 'Möchten Sie vorerst keine E-Mails mehr von uns erhalten?';
+      ? t('sb.widerspruch', 'Möchten Sie der Kontaktaufnahme vollständig widersprechen? Wir werden Sie dann nicht mehr kontaktieren.')
+      : t('sb.keine_mails', 'Möchten Sie vorerst keine E-Mails mehr von uns erhalten?');
     if (!window.confirm(msg)) return;
     setBusy(true);
     try {
@@ -113,7 +120,7 @@ export default function ContactSelfService() {
 
   const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 2px 12px rgba(13,27,54,0.06)' };
 
-  if (loading) return <div style={{ padding: '4rem', textAlign: 'center', color: C.muted }}>Ihre Angaben werden geladen…</div>;
+  if (loading) return <div style={{ padding: '4rem', textAlign: 'center', color: C.muted }}>{t('sb.laedt', 'Ihre Angaben werden geladen…')}</div>;
 
   if (!data || !f) {
     return (
@@ -126,7 +133,7 @@ export default function ContactSelfService() {
           ) : (
             <>
               <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', color: '#991b1b' }}>
-                <AlertCircle size={20} /> <strong>Link nicht verfügbar</strong>
+                <AlertCircle size={20} /> <strong>{t('sb.link_weg', 'Link nicht verfügbar')}</strong>
               </div>
               <p style={{ color: C.muted, fontSize: '0.88rem', marginTop: '0.75rem' }}>{err}</p>
             </>
@@ -142,7 +149,7 @@ export default function ContactSelfService() {
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
           <ShieldCheck size={22} color={C.accent} />
-          <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: C.navy, margin: 0 }}>Ihre Angaben bei uns</h1>
+          <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: C.navy, margin: 0 }}>{t('sb.ihre_angaben', 'Ihre Angaben bei uns')}</h1>
         </div>
         <p style={{ fontSize: '0.88rem', color: C.text, lineHeight: 1.7 }}>
           Das ist alles, was die Phalanx GmbH zu Ihnen gespeichert hat. Bitte prüfen und korrigieren Sie es, 
@@ -188,14 +195,14 @@ export default function ContactSelfService() {
           </div>
 
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, letterSpacing: '0.05em', margin: '1.5rem 0 0.6rem' }}>WONACH SUCHEN SIE?</div>
-          <Chips label="Brancheninteressen" options={INDUSTRIES} value={f.focus_industries} onChange={(v) => setF(s => ({ ...s, focus_industries: v }))} />
-          <Chips label="Geografischer Fokus" options={REGIONS} value={f.focus_regions} onChange={(v) => setF(s => ({ ...s, focus_regions: v }))} />
+          <Chips label={t('sb.brancheninteressen', 'Brancheninteressen')} options={auswahl(BRANCHEN, f.focus_industries, lang)} value={f.focus_industries} onChange={(v) => setF(s => ({ ...s, focus_industries: v }))} />
+          <Chips label={t('sb.geo_fokus', 'Geografischer Fokus')} options={auswahl(TAX_REGIONEN, f.focus_regions, lang)} value={f.focus_regions} onChange={(v) => setF(s => ({ ...s, focus_regions: v }))} />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
-            <div><label style={LABEL}>Ticketgröße von (Mio. €)</label>
+            <div><label style={LABEL}>{t('sb.ticket_von', 'Ticketgröße von (Mio. €)')}</label>
               <input type="number" min={0} value={f.ticket_min ?? ''} onChange={set('ticket_min')} style={INPUT} />
             </div>
-            <div><label style={LABEL}>Ticketgröße bis (Mio. €)</label>
+            <div><label style={LABEL}>{t('sb.ticket_bis', 'Ticketgröße bis (Mio. €)')}</label>
               <input type="number" min={0} value={f.ticket_max ?? ''} onChange={set('ticket_max')} style={INPUT} />
             </div>
           </div>
@@ -206,9 +213,9 @@ export default function ContactSelfService() {
               style={{ ...INPUT, resize: 'vertical' }} />
           </div>
 
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, letterSpacing: '0.05em', margin: '1.5rem 0 0.6rem' }}>WIE DÜRFEN WIR SIE KONTAKTIEREN?</div>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, letterSpacing: '0.05em', margin: '1.5rem 0 0.6rem' }}>{t('sb.kontaktweg', 'WIE DÜRFEN WIR SIE KONTAKTIEREN?')}</div>
           <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-            {[['email', 'Per E-Mail'], ['phone', 'Lieber telefonisch'], ['none', 'Vorerst gar nicht']].map(([k, l]) => (
+            {[['email', 'Per E-Mail'], ['phone', 'Lieber telefonisch'], ['none', t('sb.vorerst_nicht', 'Vorerst gar nicht')]].map(([k, l]) => (
               <button key={k} type="button" onClick={() => setF(s => ({ ...s, comm_preference: k }))} style={{
                 border: `1.5px solid ${f.comm_preference === k ? C.navy : C.border}`,
                 background: f.comm_preference === k ? C.navy : '#fff',
@@ -237,28 +244,28 @@ export default function ContactSelfService() {
             {succDone && (
               <div style={{ background: '#d1fae5', color: '#065f46', borderRadius: 8, padding: '0.7rem 1rem', fontSize: '0.85rem', marginBottom: '1rem', display: 'flex', gap: 6, alignItems: 'center' }}><CheckCircle size={15} /> {succDone}</div>
             )}
-            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>PLZ und Wohnort</label><input value={sf.plz_ort} onChange={setS('plz_ort')} placeholder="z. B. 80333 München" style={INPUT} /></div>
-            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Branchenerfahrung</label><textarea value={sf.branchenerfahrung} onChange={setS('branchenerfahrung')} rows={2} placeholder="In welchen Branchen waren Sie tätig?" style={{ ...INPUT, resize: 'vertical' }} /></div>
-            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Funktionale Erfahrung</label><textarea value={sf.funktionale_erfahrung} onChange={setS('funktionale_erfahrung')} rows={2} placeholder="z. B. Vertrieb, Produktion, Finanzen, Geschäftsführung" style={{ ...INPUT, resize: 'vertical' }} /></div>
+            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>{t('nf.plz_ort', 'PLZ und Wohnort')}</label><input value={sf.plz_ort} onChange={setS('plz_ort')} placeholder={t('sb.ph_plz', 'z. B. 80333 München')} style={INPUT} /></div>
+            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Branchenerfahrung</label><textarea value={sf.branchenerfahrung} onChange={setS('branchenerfahrung')} rows={2} placeholder={t('nf.ph_branchen', 'In welchen Branchen waren Sie tätig?')} style={{ ...INPUT, resize: 'vertical' }} /></div>
+            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Funktionale Erfahrung</label><textarea value={sf.funktionale_erfahrung} onChange={setS('funktionale_erfahrung')} rows={2} placeholder={t('nf.ph_funktionen', 'z. B. Vertrieb, Produktion, Finanzen, Geschäftsführung')} style={{ ...INPUT, resize: 'vertical' }} /></div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginBottom: '0.4rem' }}>
-              <div><label style={LABEL}>Führungserfahrung (Mitarbeiterzahl)</label><input value={sf.fuehrungserfahrung} onChange={setS('fuehrungserfahrung')} placeholder="z. B. bis 50 Mitarbeitende" style={INPUT} /></div>
+              <div><label style={LABEL}>{t('nf.fuehrung', 'Führungserfahrung (Mitarbeiterzahl)')}</label><input value={sf.fuehrungserfahrung} onChange={setS('fuehrungserfahrung')} placeholder="z. B. bis 50 Mitarbeitende" style={INPUT} /></div>
               <div><label style={LABEL}>Bisher max. Budgetverantwortung</label><input value={sf.budgetverantwortung} onChange={setS('budgetverantwortung')} placeholder="z. B. 10 Mio. Euro" style={INPUT} /></div>
             </div>
-            <Chips label="Erfahrung in Sondersituationen" options={SPECIALS} value={sf.special_situations} onChange={(v) => setSf(s => ({ ...s, special_situations: v }))} />
-            <Chips label="Zielländer" options={LAENDER} value={sf.ziel_laender} onChange={(v) => setSf(s => ({ ...s, ziel_laender: v }))} />
-            <Chips label="Zielregionen" options={REGIONS} value={sf.ziel_regionen} onChange={(v) => setSf(s => ({ ...s, ziel_regionen: v }))} />
-            <Chips label="Branchenfokus" options={INDUSTRIES} value={sf.branchenfokus} onChange={(v) => setSf(s => ({ ...s, branchenfokus: v }))} />
+            <Chips label={t('sb.sondersituationen', 'Erfahrung in Sondersituationen')} options={SPECIALS} value={sf.special_situations} onChange={(v) => setSf(s => ({ ...s, special_situations: v }))} />
+            <Chips label={t('nf.zielllaender', 'Zielländer')} options={LAENDER} value={sf.ziel_laender} onChange={(v) => setSf(s => ({ ...s, ziel_laender: v }))} />
+            <Chips label={t('sb.zielregionen', 'Zielregionen')} options={auswahl(TAX_REGIONEN, sf.ziel_regionen, lang)} value={sf.ziel_regionen} onChange={(v) => setSf(s => ({ ...s, ziel_regionen: v }))} />
+            <Chips label={t('nf.branchenfokus', 'Branchenfokus (mehrere möglich)')} options={auswahl(BRANCHEN, sf.branchenfokus, lang)} value={sf.branchenfokus} onChange={(v) => setSf(s => ({ ...s, branchenfokus: v }))} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginBottom: '0.8rem' }}>
-              <div><label style={LABEL}>Gesuchte Umsatzgröße</label>
+              <div><label style={LABEL}>{t('sb.umsatzgroesse', 'Gesuchte Umsatzgröße')}</label>
                 <select value={sf.umsatz_band} onChange={setS('umsatz_band')} style={INPUT}><option value="">k. A.</option>{UMSATZ.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
               </div>
               <div><label style={LABEL}>Rolle im Unternehmen</label>
                 <select value={sf.mbi_szenario} onChange={setS('mbi_szenario')} style={INPUT}><option value="">k. A.</option>{MBI.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
               </div>
-              <div><label style={LABEL}>Verfügbares Eigenkapital</label><input value={sf.eigenkapital} onChange={setS('eigenkapital')} placeholder="z. B. 0,5 bis 1 Mio. Euro" style={INPUT} /></div>
-              <div><label style={LABEL}>Verfügbarkeit</label><input value={sf.verfuegbarkeit} onChange={setS('verfuegbarkeit')} placeholder="z. B. ab sofort, in 3 Monaten" style={INPUT} /></div>
+              <div><label style={LABEL}>{t('sb.eigenkapital', 'Verfügbares Eigenkapital')}</label><input value={sf.eigenkapital} onChange={setS('eigenkapital')} placeholder="z. B. 0,5 bis 1 Mio. Euro" style={INPUT} /></div>
+              <div><label style={LABEL}>{t('nf.verfuegbarkeit', 'Verfügbarkeit')}</label><input value={sf.verfuegbarkeit} onChange={setS('verfuegbarkeit')} placeholder="z. B. ab sofort, in 3 Monaten" style={INPUT} /></div>
             </div>
-            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>Nachfolge mit oder ohne eigene Beteiligung?</label>
+            <div style={{ marginBottom: '0.8rem' }}><label style={LABEL}>{t('sb.mit_beteiligung', 'Nachfolge mit oder ohne eigene Beteiligung?')}</label>
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                 {SZENARIO.map(([v, l]) => (
                   <button key={v} type="button" onClick={() => setSf(s => ({ ...s, succession_type: v }))} style={{ border: `1.5px solid ${sf.succession_type === v ? C.navy : C.border}`, background: sf.succession_type === v ? C.navy : '#fff', color: sf.succession_type === v ? '#fff' : C.muted, borderRadius: 8, padding: '0.45rem 0.9rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>{l}</button>
@@ -287,7 +294,7 @@ export default function ContactSelfService() {
             </button>
           </div>
           <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: '0.75rem' }}>
-            Weitere Informationen in unserer <Link to="/datenschutz" target="_blank" style={{ color: C.accent }}>Datenschutzerklärung</Link>.
+            Weitere Informationen in unserer <Link to="/datenschutz" target="_blank" style={{ color: C.accent }}>{t('allg.datenschutz', 'Datenschutzerklärung')}</Link>.
           </div>
         </div>
       </div>

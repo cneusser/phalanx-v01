@@ -1,0 +1,471 @@
+{
+  "_hinweis": "Eine Quelle fuer Branchen und Regionen. Server und Oberflaeche lesen diese Datei. 'wert' ist der gespeicherte Code und darf sich nie aendern. 'de' und 'en' sind nur Beschriftung. 'nace' bzw. 'synonyme' sind die Zeichenketten, gegen die der Freitext eines Mandats geprueft wird, einschliesslich der historischen Schreibweisen aus den vier alten Listen.",
+  "branchen": [
+    {
+      "wert": "bau",
+      "de": "Bau & Baustoffe",
+      "en": "Construction and building materials",
+      "nace": [
+        "F41",
+        "F42",
+        "F43",
+        "C23"
+      ],
+      "synonyme": [
+        "Bau & Baustoffe",
+        "Baugewerbe",
+        "Bau und Baustoffe",
+        "Glas, Keramik, Baustoffe"
+      ]
+    },
+    {
+      "wert": "maschinenbau",
+      "de": "Industrie & Maschinenbau",
+      "en": "Industry and mechanical engineering",
+      "nace": [
+        "C24",
+        "C25",
+        "C27",
+        "C28",
+        "C32",
+        "C33"
+      ],
+      "synonyme": [
+        "Maschinenbau",
+        "Industrie & Maschinenbau",
+        "Industrie und Maschinenbau",
+        "Metallerzeugung",
+        "Metallerzeugnisse",
+        "Elektrische Ausruestungen"
+      ]
+    },
+    {
+      "wert": "automotive",
+      "de": "Automotive & Zulieferer",
+      "en": "Automotive and suppliers",
+      "nace": [
+        "C29",
+        "C30",
+        "G45"
+      ],
+      "synonyme": [
+        "Automotive & Zulieferer",
+        "Automotive",
+        "Sonstiger Fahrzeugbau",
+        "Kfz-Handel & -Reparatur"
+      ]
+    },
+    {
+      "wert": "handel",
+      "de": "Handel & Konsumgüter",
+      "en": "Trade and consumer goods",
+      "nace": [
+        "G46",
+        "G47",
+        "C31"
+      ],
+      "synonyme": [
+        "Handel & Konsumgüter",
+        "Handel & E-Commerce",
+        "Handel und Konsumgueter",
+        "Großhandel",
+        "Einzelhandel & E-Commerce",
+        "Möbel"
+      ]
+    },
+    {
+      "wert": "it",
+      "de": "IT & Software",
+      "en": "IT and software",
+      "nace": [
+        "J58",
+        "J61",
+        "J62",
+        "J63"
+      ],
+      "synonyme": [
+        "IT & Software",
+        "Software & IT",
+        "IT und Software",
+        "Software-Entwicklung & IT-Dienstleistungen",
+        "Verlagswesen & Software-Publishing",
+        "Telekommunikation",
+        "Informationsdienstleistungen & Datenverarbeitung"
+      ]
+    },
+    {
+      "wert": "gesundheit",
+      "de": "Healthcare & Medizintechnik",
+      "en": "Healthcare and medical technology",
+      "nace": [
+        "Q86",
+        "Q87",
+        "Q88",
+        "C21"
+      ],
+      "synonyme": [
+        "Healthcare & Medizintechnik",
+        "Gesundheitswesen & Medizintechnik-Dienstleistungen",
+        "Heime & Sozialwesen",
+        "Pharmazeutische Erzeugnisse",
+        "Healthcare",
+        "Medizintechnik",
+        "Gesundheit & Pflege",
+        "Gesundheit und Pflege",
+        "Pflege"
+      ]
+    },
+    {
+      "wert": "chemie",
+      "de": "Chemie & Kunststoff",
+      "en": "Chemicals and plastics",
+      "nace": [
+        "C20",
+        "C22"
+      ],
+      "synonyme": [
+        "Chemie & Pharma",
+        "Chemische Erzeugnisse",
+        "Gummi- & Kunststoffwaren",
+        "Chemie und Kunststoff"
+      ]
+    },
+    {
+      "wert": "lebensmittel",
+      "de": "Lebensmittel & Getränke",
+      "en": "Food and beverages",
+      "nace": [
+        "C10",
+        "C11",
+        "A01",
+        "A02",
+        "A03",
+        "I55",
+        "I56"
+      ],
+      "synonyme": [
+        "Lebensmittel & Getränke",
+        "Nahrungs- & Futtermittel",
+        "Getränkeherstellung",
+        "Landwirtschaft & Jagd",
+        "Beherbergung & Gastronomie",
+        "Lebensmittel und Getraenke",
+        "Lebensmittel"
+      ]
+    },
+    {
+      "wert": "dienstleistung",
+      "de": "Business Services",
+      "en": "Business services",
+      "nace": [
+        "M69",
+        "M70",
+        "M71",
+        "M72",
+        "M73",
+        "M74",
+        "M75",
+        "N77",
+        "N78",
+        "N79",
+        "N80",
+        "N81",
+        "N82",
+        "S94",
+        "S95",
+        "S96"
+      ],
+      "synonyme": [
+        "Business Services",
+        "Unternehmensberatung & -führung",
+        "Rechts- & Steuerberatung, Wirtschaftsprüfung",
+        "Architektur- & Ingenieurbüros, technische Prüfung",
+        "Personaldienstleistungen",
+        "Werbung & Marktforschung",
+        "Sonstige Dienstleistungen",
+        "Dienstleistungen",
+        "Dienstleistung",
+        "Handwerk"
+      ]
+    },
+    {
+      "wert": "energie",
+      "de": "Energie & Umwelt",
+      "en": "Energy and environment",
+      "nace": [
+        "D35",
+        "E36",
+        "E37",
+        "E38",
+        "E39",
+        "B"
+      ],
+      "synonyme": [
+        "Energie & Umwelt",
+        "Energieversorgung",
+        "Wasser, Abwasser, Entsorgung, Recycling",
+        "Bergbau & Gewinnung von Steinen/Erden",
+        "Energie und Umwelt"
+      ]
+    },
+    {
+      "wert": "logistik",
+      "de": "Transport & Logistik",
+      "en": "Transport and logistics",
+      "nace": [
+        "H49",
+        "H50",
+        "H51",
+        "H52",
+        "H53"
+      ],
+      "synonyme": [
+        "Transport & Logistik",
+        "Verkehr, Logistik & Lagerei",
+        "Logistik",
+        "Transport und Logistik",
+        "Logistik & Transport"
+      ]
+    },
+    {
+      "wert": "finanzen",
+      "de": "Finanzen & Immobilien",
+      "en": "Finance and real estate",
+      "nace": [
+        "K64",
+        "K65",
+        "K66",
+        "L68"
+      ],
+      "synonyme": [
+        "Finanzen & Immobilien",
+        "Finanz- & Versicherungsdienstleistungen",
+        "Grundstücks- & Wohnungswesen",
+        "Immobilien",
+        "Finanzen und Immobilien"
+      ]
+    },
+    {
+      "wert": "medien",
+      "de": "Medien & Bildung",
+      "en": "Media and education",
+      "nace": [
+        "J59",
+        "J60",
+        "P85",
+        "R90",
+        "R91",
+        "R92",
+        "R93",
+        "C17",
+        "C18"
+      ],
+      "synonyme": [
+        "Medien & Bildung",
+        "Medien, Film & Rundfunk",
+        "Erziehung & Unterricht",
+        "Kunst, Unterhaltung, Sport & Erholung",
+        "Papier & Druck",
+        "Medien und Bildung",
+        "Medien & Marketing",
+        "Medien und Marketing"
+      ]
+    },
+    {
+      "wert": "sonstige_industrie",
+      "de": "Sonstige Industrie",
+      "en": "Other manufacturing",
+      "nace": [
+        "C13",
+        "C14",
+        "C15",
+        "C16",
+        "C26"
+      ],
+      "synonyme": [
+        "Sonstige Industrie",
+        "Textilien, Bekleidung, Leder",
+        "Holzwaren",
+        "Elektronik & Optik"
+      ]
+    }
+  ],
+  "regionen": [
+    {
+      "wert": "bw",
+      "de": "Baden-Württemberg",
+      "en": "Baden-Wuerttemberg",
+      "land": "deutschland",
+      "synonyme": [
+        "Baden-Württemberg",
+        "Baden-Wuerttemberg",
+        "BW"
+      ]
+    },
+    {
+      "wert": "by",
+      "de": "Bayern",
+      "en": "Bavaria",
+      "land": "deutschland",
+      "synonyme": [
+        "Bayern",
+        "Bavaria"
+      ]
+    },
+    {
+      "wert": "be_bb",
+      "de": "Berlin und Brandenburg",
+      "en": "Berlin and Brandenburg",
+      "land": "deutschland",
+      "synonyme": [
+        "Berlin und Brandenburg",
+        "Berlin / Brandenburg",
+        "Berlin/Brandenburg",
+        "Berlin",
+        "Brandenburg"
+      ]
+    },
+    {
+      "wert": "he",
+      "de": "Hessen",
+      "en": "Hesse",
+      "land": "deutschland",
+      "synonyme": [
+        "Hessen",
+        "Hesse"
+      ]
+    },
+    {
+      "wert": "nrw",
+      "de": "Nordrhein-Westfalen",
+      "en": "North Rhine-Westphalia",
+      "land": "deutschland",
+      "synonyme": [
+        "Nordrhein-Westfalen",
+        "NRW",
+        "North Rhine-Westphalia"
+      ]
+    },
+    {
+      "wert": "ni_hb",
+      "de": "Niedersachsen und Bremen",
+      "en": "Lower Saxony and Bremen",
+      "land": "deutschland",
+      "synonyme": [
+        "Niedersachsen und Bremen",
+        "Niedersachsen",
+        "Bremen"
+      ]
+    },
+    {
+      "wert": "rp_sl",
+      "de": "Rheinland-Pfalz und Saarland",
+      "en": "Rhineland-Palatinate and Saarland",
+      "land": "deutschland",
+      "synonyme": [
+        "Rheinland-Pfalz und Saarland",
+        "Rheinland-Pfalz",
+        "Saarland"
+      ]
+    },
+    {
+      "wert": "sn_st_th",
+      "de": "Sachsen, Sachsen-Anhalt und Thüringen",
+      "en": "Saxony, Saxony-Anhalt and Thuringia",
+      "land": "deutschland",
+      "synonyme": [
+        "Sachsen, Sachsen-Anhalt und Thüringen",
+        "Sachsen / Thüringen",
+        "Sachsen-Anhalt und Thüringen",
+        "Sachsen",
+        "Sachsen-Anhalt",
+        "Thüringen",
+        "Ostdeutschland"
+      ]
+    },
+    {
+      "wert": "sh_hh",
+      "de": "Schleswig-Holstein und Hamburg",
+      "en": "Schleswig-Holstein and Hamburg",
+      "land": "deutschland",
+      "synonyme": [
+        "Schleswig-Holstein und Hamburg",
+        "Schleswig-Holstein",
+        "Hamburg"
+      ]
+    },
+    {
+      "wert": "mv",
+      "de": "Mecklenburg-Vorpommern",
+      "en": "Mecklenburg-Western Pomerania",
+      "land": "deutschland",
+      "synonyme": [
+        "Mecklenburg-Vorpommern"
+      ]
+    },
+    {
+      "wert": "de",
+      "de": "Deutschland (bundesweit)",
+      "en": "Germany (nationwide)",
+      "land": "deutschland",
+      "synonyme": [
+        "Deutschland (bundesweit)",
+        "Deutschland",
+        "bundesweit",
+        "Germany"
+      ]
+    },
+    {
+      "wert": "at",
+      "de": "Österreich",
+      "en": "Austria",
+      "land": "oesterreich",
+      "synonyme": [
+        "Österreich",
+        "Oesterreich",
+        "Austria"
+      ]
+    },
+    {
+      "wert": "ch",
+      "de": "Schweiz",
+      "en": "Switzerland",
+      "land": "schweiz",
+      "synonyme": [
+        "Schweiz",
+        "Switzerland"
+      ]
+    },
+    {
+      "wert": "dach",
+      "de": "DACH",
+      "en": "DACH region",
+      "land": null,
+      "synonyme": [
+        "DACH",
+        "DACH+",
+        "D-A-CH"
+      ]
+    },
+    {
+      "wert": "sued",
+      "de": "Süddeutschland",
+      "en": "Southern Germany",
+      "land": "deutschland",
+      "synonyme": [
+        "Süddeutschland",
+        "Sueddeutschland"
+      ]
+    },
+    {
+      "wert": "nord",
+      "de": "Norddeutschland",
+      "en": "Northern Germany",
+      "land": "deutschland",
+      "synonyme": [
+        "Norddeutschland",
+        "Norddeutschland"
+      ]
+    }
+  ]
+}

@@ -9,6 +9,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { CheckCircle, AlertCircle, ShieldCheck, Save, BellOff } from 'lucide-react';
+import { useT } from '../i18n';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.65rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', background: '#fff' };
@@ -24,7 +25,7 @@ async function hole(pfad, methode = 'GET', koerper = null) {
   if (koerper) cfg.body = JSON.stringify(koerper);
   const res = await fetch(`/api/stammdaten${pfad}`, cfg);
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.success === false) throw new Error(json.error || 'Es hat nicht funktioniert.');
+  if (!res.ok || json.success === false) throw new Error(json.error || t('st.fehler', 'Es hat nicht funktioniert.'));
   return json.data || {};
 }
 
@@ -63,6 +64,7 @@ function Hinweis({ art, text }) {
 }
 
 export default function Stammdaten() {
+  const t = useT();
   const { token } = useParams();
   const [daten, setDaten] = useState(null);
   const [form, setForm] = useState({});
@@ -100,7 +102,7 @@ export default function Stammdaten() {
         },
         kontakt: { responsibility: form.ansprechperson_rolle, email: form.ansprechperson_email },
       });
-      setErfolg('Vielen Dank, Ihre Angaben sind gespeichert. Sie können dieses Fenster schließen.');
+      setErfolg(t('st.danke', 'Vielen Dank, Ihre Angaben sind gespeichert. Sie können dieses Fenster schließen.'));
       setDaten((d) => ({ ...d, fertig: true }));
     } catch (e) { setFehler(e.message); }
     setBusy(false);
@@ -110,7 +112,7 @@ export default function Stammdaten() {
     setBusy(true); setFehler(''); setErfolg('');
     try {
       await hole(`/${token}/bestaetigen`, 'POST');
-      setErfolg('Danke für die Bestätigung. Ich melde mich in dieser Sache nicht wieder.');
+      setErfolg(t('st.danke_bestaetigt', 'Danke für die Bestätigung. Ich melde mich in dieser Sache nicht wieder.'));
       setDaten((d) => ({ ...d, fertig: true }));
     } catch (e) { setFehler(e.message); }
     setBusy(false);
@@ -125,7 +127,7 @@ export default function Stammdaten() {
     setBusy(false);
   };
 
-  if (laden) return <Rahmen><p style={{ color: C.muted, fontSize: '0.9rem', margin: 0 }}>Einen Moment bitte.</p></Rahmen>;
+  if (laden) return <Rahmen><p style={{ color: C.muted, fontSize: '0.9rem', margin: 0 }}>{t('st.moment', 'Einen Moment bitte.')}</p></Rahmen>;
 
   if (abgemeldet) {
     return (
@@ -143,7 +145,7 @@ export default function Stammdaten() {
   if (!daten) {
     return (
       <Rahmen>
-        <Hinweis art="fehler" text={fehler || 'Der Link ist nicht mehr gültig.'} />
+        <Hinweis art="fehler" text={fehler || t('st.link_alt', 'Der Link ist nicht mehr gültig.')} />
         <p style={{ fontSize: '0.85rem', color: C.muted, margin: 0, lineHeight: 1.65 }}>
           Falls Sie Ihre Angaben noch ändern möchten, schreiben Sie mir kurz. Ich schicke Ihnen einen neuen Link.
         </p>
@@ -170,8 +172,8 @@ export default function Stammdaten() {
       <h1 style={{ fontSize: '1.3rem', color: C.navy, margin: '0 0 0.4rem', letterSpacing: '-0.02em' }}>{daten.firma.name}</h1>
       <p style={{ fontSize: '0.88rem', color: C.muted, lineHeight: 1.65, marginTop: 0 }}>
         {fehlend.length
-          ? 'Bitte ergänzen Sie die folgenden Angaben. Danach sind Sie fertig, eine Anmeldung ist nicht nötig.'
-          : 'Bei Ihnen fehlt derzeit nichts. Ein Klick genügt, damit ich weiß, dass der Stand aktuell ist.'}
+          ? t('st.bitte_ergaenzen', 'Bitte ergänzen Sie die folgenden Angaben. Danach sind Sie fertig, eine Anmeldung ist nicht nötig.')
+          : t('st.nichts_fehlt', 'Bei Ihnen fehlt derzeit nichts. Ein Klick genügt, damit ich weiß, dass der Stand aktuell ist.')}
       </p>
 
       <Hinweis art="fehler" text={fehler} />
@@ -181,7 +183,7 @@ export default function Stammdaten() {
         <div style={{ marginBottom: '1rem' }}>
           <label style={LABEL}>{labels.sektor}</label>
           <select style={INPUT} value={form.sektor || ''} onChange={(e) => setzen('sektor', e.target.value)}>
-            <option value="">Bitte wählen</option>
+            <option value="">{t('nf.bitte_waehlen', 'Bitte wählen')}</option>
             {(vok.sektoren || []).map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
@@ -201,7 +203,7 @@ export default function Stammdaten() {
         <div style={{ marginBottom: '1rem' }}>
           <label style={LABEL}>{labels.region}</label>
           <select style={INPUT} value={form.region || ''} onChange={(e) => setzen('region', e.target.value)}>
-            <option value="">Bitte wählen</option>
+            <option value="">{t('nf.bitte_waehlen', 'Bitte wählen')}</option>
             {REGIONEN.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
@@ -211,7 +213,7 @@ export default function Stammdaten() {
         <div style={{ marginBottom: '1rem' }}>
           <label style={LABEL}>{labels.employees}</label>
           <input type="number" min="1" style={INPUT} value={form.employees || ''}
-            onChange={(e) => setzen('employees', e.target.value)} placeholder="zum Beispiel 45" />
+            onChange={(e) => setzen('employees', e.target.value)} placeholder={t('st.ph_zahl', 'zum Beispiel 45')} />
         </div>
       )}
 
@@ -241,7 +243,7 @@ export default function Stammdaten() {
             <div>
               <label style={LABEL}>{labels.country}</label>
               <select style={INPUT} value={form.country || ''} onChange={(e) => setzen('country', e.target.value)}>
-                <option value="">Bitte wählen</option>
+                <option value="">{t('nf.bitte_waehlen', 'Bitte wählen')}</option>
                 {(vok.laender || []).map((l) => <option key={l} value={l}>{l}</option>)}
               </select>
             </div>
@@ -251,15 +253,15 @@ export default function Stammdaten() {
 
       {zeigt('ansprechperson_rolle') && (
         <div style={{ marginBottom: '1rem' }}>
-          <label style={LABEL}>Ihre Rolle im Unternehmen</label>
+          <label style={LABEL}>{t('st.rolle', 'Ihre Rolle im Unternehmen')}</label>
           <input style={INPUT} value={form.ansprechperson_rolle || ''}
-            onChange={(e) => setzen('ansprechperson_rolle', e.target.value)} placeholder="zum Beispiel Geschäftsführung" />
+            onChange={(e) => setzen('ansprechperson_rolle', e.target.value)} placeholder={t('st.ph_rolle', 'zum Beispiel Geschäftsführung')} />
         </div>
       )}
 
       {zeigt('ansprechperson_email') && (
         <div style={{ marginBottom: '1rem' }}>
-          <label style={LABEL}>Ihre E-Mail-Adresse</label>
+          <label style={LABEL}>{t('bw.ph_mail_kurz', 'Ihre E-Mail-Adresse')}</label>
           <input type="email" style={INPUT} value={form.ansprechperson_email || ''}
             onChange={(e) => setzen('ansprechperson_email', e.target.value)} />
         </div>

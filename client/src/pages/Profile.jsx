@@ -3,12 +3,11 @@ import { api } from '../api/client';
 import TwoFactorCard from '../components/TwoFactorCard';
 import { useAuth } from '../context/AuthContext';
 import { Save, User, Download, AlertTriangle } from 'lucide-react';
-import { useT } from '../i18n';
+import { useT, useI18n } from '../i18n';
+import { BRANCHEN, REGIONEN, auswahl } from '../constants/taxonomie';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB' };
 
-const INDUSTRIES = ['Maschinenbau', 'Software & IT', 'Healthcare & Medizintechnik', 'Automotive & Zulieferer', 'Business Services', 'Lebensmittel & Getränke', 'Chemie & Pharma', 'Baugewerbe', 'Handel & E-Commerce', 'Energie & Umwelt'];
-const REGIONS = ['Bayern', 'Baden-Württemberg', 'NRW', 'Hessen', 'Norddeutschland', 'Berlin / Brandenburg', 'Sachsen / Thüringen', 'Süddeutschland', 'DACH', 'DACH+'];
 const DEAL_TYPES = ['Nachfolge', 'MBO', 'MBI', 'Wachstumskapital', 'Buy-and-Build', 'Strategische Partnerschaft'];
 
 const INPUT = { width: '100%', padding: '0.6rem 0.8rem', border: '1px solid #ddd', borderRadius: 6, fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box' };
@@ -17,15 +16,17 @@ const MultiSelect = ({ label, options, value = [], onChange }) => (
   <div style={{ marginBottom: '1.25rem' }}>
     <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.5rem' }}>{label}</label>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-      {options.map(opt => {
-        const selected = value.includes(opt);
+      {options.map(({ wert, label: beschriftung, bestand }) => {
+        const selected = value.includes(wert);
         return (
-          <button key={opt} type="button" onClick={() => onChange(selected ? value.filter(v => v !== opt) : [...value, opt])} style={{
+          <button key={wert} type="button" onClick={() => onChange(selected ? value.filter(v => v !== wert) : [...value, wert])} style={{
             padding: '0.3rem 0.75rem', borderRadius: 20, border: selected ? `1.5px solid ${C.navy}` : '1.5px solid #ddd',
             background: selected ? `${C.navy}12` : '#fff', color: selected ? C.navy : '#666',
             cursor: 'pointer', fontSize: '0.78rem', fontWeight: selected ? 600 : 400, transition: 'all 0.15s',
+            // Bestandswert ohne Code: bleibt wählbar, ist aber erkennbar.
+            fontStyle: bestand ? 'italic' : 'normal',
           }}>
-            {opt}
+            {beschriftung}
           </button>
         );
       })}
@@ -35,6 +36,7 @@ const MultiSelect = ({ label, options, value = [], onChange }) => (
 
 export default function Profile() {
   const t = useT();
+  const { lang } = useI18n();
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [industries, setIndustries] = useState([]);
@@ -212,8 +214,8 @@ export default function Profile() {
           <div style={card}>
             <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '1.5rem', fontSize: '1rem' }}>{t('prof.suchkriterien', 'Suchkriterien & Investment-Präferenzen')}</h2>
 
-            <MultiSelect label="Branchen" options={INDUSTRIES} value={industries} onChange={setIndustries} />
-            <MultiSelect label="Regionen" options={REGIONS} value={regions} onChange={setRegions} />
+            <MultiSelect label={t('prof.branchen', 'Branchen')} options={auswahl(BRANCHEN, industries, lang)} value={industries} onChange={setIndustries} />
+            <MultiSelect label={t('prof.regionen', 'Regionen')} options={auswahl(REGIONEN, regions, lang)} value={regions} onChange={setRegions} />
             <MultiSelect label="Deal-Typen" options={DEAL_TYPES} value={dealTypes} onChange={setDealTypes} />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
