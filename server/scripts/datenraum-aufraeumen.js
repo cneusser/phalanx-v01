@@ -105,11 +105,11 @@ async function main() {
       const pos = await db.get(
         'SELECT COALESCE(MAX(position), 0) + 1 AS p FROM safe_items WHERE project_id = ? AND parent_id IS NULL AND deleted_at IS NULL',
         [projekt.id]);
-      const neu = await db.get(
+      const neueId = await db.insert(
         `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, position)
-         VALUES (?, ?, NULL, ?, 1, ?) RETURNING id`,
+         VALUES (?, ?, NULL, ?, 1, ?)`,
         [projekt.tenant_id || 1, projekt.id, name, (pos && pos.p) || 1]);
-      nachId.set(name, neu.id);
+      nachId.set(name, neueId);
       console.log(`Ordner angelegt: ${name}`);
     }
     let n = 0;

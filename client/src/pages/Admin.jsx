@@ -102,6 +102,18 @@ const INPUT_STYLE = {
   background: '#fff',
 };
 
+// Für den Reiter „Berichte" (v0.418).
+const CARD = {
+  background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10,
+  padding: '1.25rem',
+};
+const BTN = {
+  background: C.navy, color: '#fff', border: 'none', borderRadius: 8,
+  padding: '0.55rem 1.1rem', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+};
+const TH = { padding: '0.4rem 0.5rem', fontWeight: 700 };
+const TD = { padding: '0.4rem 0.5rem', verticalAlign: 'top' };
+
 // ── Konten und Kontakte abgleichen (v0.403) ─────────────────────────────────
 // Findet Interessenten, die in einem Mandat stehen, aber kein verknüpftes
 // Plattform-Konto haben. Ohne diese Verknüpfung bleibt der Datenraum zu, auch
@@ -273,6 +285,12 @@ export default function Admin() {
   const [detOpen, setDetOpen] = useState(null);       // aufgeklappte Bewertung (Detail)
   const [detReview, setDetReview] = useState({});     // { comment, project_id }
   const [detMsg, setDetMsg] = useState('');
+  // Berichte (v0.418): früher nur als Kommandozeilenskript erreichbar.
+  const [suchbericht, setSuchbericht] = useState(null);
+  const [drMandat, setDrMandat] = useState('');
+  const [drPlan, setDrPlan] = useState(null);
+  const [berichtMsg, setBerichtMsg] = useState('');
+  const [berichtLaeuft, setBerichtLaeuft] = useState(false);
   // Drag & Drop der Pipeline-Karten
   const [dragDeal, setDragDeal] = useState(null);       // { id, deal_status }
   const [dragOverCol, setDragOverCol] = useState(null); // Ziel-Spalte (Hover)
@@ -573,6 +591,7 @@ export default function Admin() {
     if (activeTab === 'leads') loadValLeads();
     if (activeTab === 'multiples') loadValMultiples();
     if (activeTab === 'detvals') loadDetVals();
+    if (activeTab === 'berichte' && !suchbericht) ladeSuchbericht();
     if (activeTab === 'changelog') loadChangelog();
     if (activeTab === 'feedback') loadFeedback();
     if (activeTab === 'contacts') loadCrmContacts();
@@ -964,7 +983,7 @@ export default function Admin() {
     </div>
   );
 
-  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'succession', 'roles', 'contacts', 'phalanx', 'tasks', 'qa', 'templates', 'mails', 'leads', 'detvals', 'multiples', 'feedback', 'changelog', 'activity', 'audit'];
+  const tabs = ['overview', 'pipeline', 'projects', 'ndas', 'users', 'succession', 'roles', 'contacts', 'phalanx', 'tasks', 'qa', 'templates', 'mails', 'leads', 'detvals', 'multiples', 'feedback', 'berichte', 'changelog', 'activity', 'audit'];
   const tabLabels = {
     overview: 'Übersicht',
     pipeline: 'Pipeline (CRM)',
@@ -983,6 +1002,7 @@ export default function Admin() {
     detvals:  'Ausf. Bewertungen',
     multiples: 'Multiples',
     feedback: 'Feedback',
+    berichte: 'Berichte',
     changelog: 'Changelog',
     activity: 'Aktivitätslog',
     audit:    'Audit-Trail',
@@ -991,6 +1011,37 @@ export default function Admin() {
     activity: Activity,
     audit:    ClipboardList,
   };
+
+  async function ladeSuchbericht() {
+    setBerichtLaeuft(true); setBerichtMsg('');
+    try { setSuchbericht(await api.get('/admin/berichte/suchprofile')); }
+    catch (e) { setBerichtMsg('Bericht fehlgeschlagen: ' + e.message); }
+    finally { setBerichtLaeuft(false); }
+  }
+
+  async function ladeDatenraumPlan(id) {
+    if (!id) { setDrPlan(null); return; }
+    setBerichtLaeuft(true); setBerichtMsg('');
+    try { setDrPlan(await api.get(`/admin/berichte/datenraum/${id}`)); }
+    catch (e) { setBerichtMsg('Plan fehlgeschlagen: ' + e.message); setDrPlan(null); }
+    finally { setBerichtLaeuft(false); }
+  }
+
+  async function planAnwenden(was) {
+    // Zweimal nachfragen ist hier nicht zu viel: die Stufen entscheiden, wer
+    // welches Dokument sieht.
+    const frage = was === 'stufen'
+      ? `${drPlan.stufen.length} Vertraulichkeitsstufen setzen? Das entscheidet, wer welches Dokument sieht.`
+      : `${drPlan.verschieben.length} Dateien in die vorgeschlagenen Ordner verschieben?`;
+    if (!window.confirm(frage)) return;
+    setBerichtLaeuft(true); setBerichtMsg('');
+    try {
+      const r = await api.post(`/admin/berichte/datenraum/${drMandat}/anwenden`, { was });
+      setBerichtMsg(`${r.anzahl} Einträge geändert.`);
+      await ladeDatenraumPlan(drMandat);
+    } catch (e) { setBerichtMsg('Fehlgeschlagen: ' + e.message); }
+    finally { setBerichtLaeuft(false); }
+  }
 
   const projectFields = [
     ['Codename', 'codename', 'Projekt Saturn', true],
@@ -2392,6 +2443,151 @@ export default function Admin() {
       )}
 
       {/* Changelog-Tab */}
+      {activeTab === 'berichte' && (
+        <div style={{ display: 'grid', gap: '1.5rem' }}>
+          {berichtMsg && (
+            <div style={{ background: '#f4f6f7', borderLeft: '3px solid #c9a96e', padding: '0.7rem 1rem', fontSize: '0.85rem' }}>
+              {berichtMsg}
+            </div>
+          )}
+
+          {/* ── Suchprofile ─────────────────────────────────────────────── */}
+          <div style={CARD}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <div>
+                <div style={{ fontWeight: 700, color: C.navy }}>Nachfolge-Suchprofile</div>
+                <div style={{ fontSize: '0.8rem', color: C.muted }}>
+                  Wer bekam bisher keine Hinweise, obwohl passende Mandate da waren?
+                </div>
+              </div>
+              <button onClick={ladeSuchbericht} disabled={berichtLaeuft} style={BTN}>
+                {berichtLaeuft ? 'Wird gerechnet…' : 'Neu berechnen'}
+              </button>
+            </div>
+
+            {!suchbericht && <div style={{ fontSize: '0.85rem', color: C.muted }}>Noch nicht berechnet.</div>}
+            {suchbericht && (
+              <>
+                <div style={{ fontSize: '0.85rem', marginBottom: '0.9rem' }}>
+                  {suchbericht.profile} Profile, {suchbericht.nachfolge} Nachfolge-Mandate von {suchbericht.mandate} aktiven.
+                  {' '}<strong>{suchbericht.betroffen.length}</strong> Profile treffen jetzt anders,
+                  {' '}davon <strong>{suchbericht.stumm.length}</strong>, die vorher auf kein einziges Mandat trafen.
+                </div>
+                {suchbericht.betroffen.length > 0 && (
+                  <table className="cm-keep-table" style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', color: C.muted }}>
+                        <th style={TH}>Profil</th><th style={TH}>vorher</th><th style={TH}>jetzt</th>
+                        <th style={TH}>Branchen</th><th style={TH}>Regionen</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {suchbericht.betroffen.map(b => (
+                        <tr key={b.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                          <td style={TD}>{b.email || `#${b.id}`}</td>
+                          <td style={{ ...TD, color: b.alt === 0 ? '#b3261e' : C.text, fontWeight: b.alt === 0 ? 700 : 400 }}>{b.alt}</td>
+                          <td style={TD}>{b.neu}</td>
+                          <td style={TD}>{b.branchen}</td>
+                          <td style={TD}>{b.regionen}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {suchbericht.unbekannt.length > 0 && (
+                  <div style={{ marginTop: '0.9rem', fontSize: '0.8rem', color: C.muted }}>
+                    Werte ohne bekannten Code (werden nicht geraten, bleiben stehen):{' '}
+                    {suchbericht.unbekannt.map(u => `${u.wert} (${u.anzahl}x)`).join(', ')}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* ── Datenraum ──────────────────────────────────────────────── */}
+          <div style={CARD}>
+            <div style={{ fontWeight: 700, color: C.navy, marginBottom: '0.3rem' }}>Datenraum aufräumen</div>
+            <div style={{ fontSize: '0.8rem', color: C.muted, marginBottom: '0.9rem' }}>
+              Vorschlag für Ordner und Vertraulichkeit. Es wird nichts geändert, solange Sie nicht ausdrücklich anwenden.
+            </div>
+            <select
+              value={drMandat}
+              onChange={e => { setDrMandat(e.target.value); ladeDatenraumPlan(e.target.value); }}
+              style={{ ...INPUT_STYLE, width: 'auto', minWidth: 240, fontSize: '0.85rem' }}
+            >
+              <option value="">Mandat wählen …</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.codename}</option>)}
+            </select>
+
+            {drPlan && (
+              <div style={{ marginTop: '1rem', display: 'grid', gap: '1rem' }}>
+                <div style={{ fontSize: '0.85rem' }}>
+                  {drPlan.dateien} Dateien in {drPlan.ordner} Ordnern.
+                </div>
+
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.4rem' }}>
+                    Umsortieren: {drPlan.verschieben.length}
+                  </div>
+                  {drPlan.verschieben.map(v => (
+                    <div key={v.id} style={{ fontSize: '0.8rem', padding: '0.35rem 0', borderTop: `1px solid ${C.border}` }}>
+                      {v.name}<br />
+                      <span style={{ color: C.muted }}>{v.von} → {v.nach} · {v.grund}</span>
+                    </div>
+                  ))}
+                  {drPlan.verschieben.length > 0 && (
+                    <button onClick={() => planAnwenden('verschieben')} disabled={berichtLaeuft} style={{ ...BTN, marginTop: '0.6rem' }}>
+                      Umsortieren anwenden
+                    </button>
+                  )}
+                </div>
+
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.4rem' }}>
+                    Vertraulichkeit ändern: {drPlan.stufen.length}
+                  </div>
+                  {drPlan.stufen.map(st => (
+                    <div key={st.id} style={{ fontSize: '0.8rem', padding: '0.35rem 0', borderTop: `1px solid ${C.border}` }}>
+                      {st.nach === 'vertraulich' && <span style={{ color: '#b3261e', fontWeight: 700 }}>⚠ </span>}
+                      {st.name}<br />
+                      <span style={{ color: C.muted }}>{st.von} → {st.nach} · {st.grund}</span>
+                    </div>
+                  ))}
+                  {drPlan.stufen.length > 0 && (
+                    <button onClick={() => planAnwenden('stufen')} disabled={berichtLaeuft} style={{ ...BTN, marginTop: '0.6rem' }}>
+                      Vertraulichkeit anwenden
+                    </button>
+                  )}
+                  <div style={{ fontSize: '0.75rem', color: C.muted, marginTop: '0.5rem' }}>
+                    Die Stufe „offen" wird nie automatisch gesetzt. Ob etwas ohne Vereinbarung sichtbar ist,
+                    entscheidet die Freigabe im Datenraum.
+                  </div>
+                </div>
+
+                {drPlan.unklar.length > 0 && (
+                  <div style={{ fontSize: '0.8rem', color: C.muted }}>
+                    <strong>Unklar, bleibt liegen: {drPlan.unklar.length}</strong><br />
+                    {drPlan.unklar.map(u => u.name).join(', ')}
+                  </div>
+                )}
+
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.4rem' }}>
+                    Prüfliste: {drPlan.pruefliste.filter(e => e.vorhanden).length} von {drPlan.pruefliste.length}
+                  </div>
+                  {drPlan.pruefliste.filter(e => !e.vorhanden).map(e => (
+                    <div key={e.was} style={{ fontSize: '0.8rem', color: C.muted }}>· {e.was}</div>
+                  ))}
+                  <div style={{ fontSize: '0.75rem', color: C.muted, marginTop: '0.4rem' }}>
+                    Das ist eine Suche über Dateinamen. Was anders heißt, findet sie nicht.
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'changelog' && (
         <div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1.1rem 1.25rem', marginBottom: '1.25rem' }}>

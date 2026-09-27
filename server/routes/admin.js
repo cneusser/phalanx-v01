@@ -1511,6 +1511,129 @@ router.get('/billing/events', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // ── Sprint 6: Bewertungs-Leads + Multiples-Pflege ─────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Berichte (v0.418).
+//
+// Beide Auswertungen gab es zuerst nur als Kommandozeilenskript. Das setzt
+// voraus, dass man die Datenbank zur Hand hat, und die läuft bei Railway, nicht
+// auf dem eigenen Rechner. Deshalb hier dieselbe Rechnung als Route: ein Klick
+// im Verwaltungsbereich statt einer Werkzeugkette, die man sich erst einrichten
+// muss. Die Skripte bleiben, sie sind für den Notfall nützlich.
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.get('/berichte/suchprofile', ...isAdmin, wrap(async (req, res) => {
+  const { auswerten } = require('../scripts/suchprofil-bericht');
+  const { isSuccessionDeal } = require('../utils/successionMatch');
+
+  const mandate = await db.all(
+    `SELECT id, codename, industry, region, deal_type, revenue_band, revenue_class
+       FROM projects WHERE status = 'active' AND visibility = 'public'`).catch(() => []);
+  const nachfolge = mandate.filter((m) => isSuccessionDeal(m.deal_type));
+
+  const profile = await db.all(
+    `SELECT sp.id, sp.user_id, sp.branchenfokus, sp.ziel_regionen, sp.ziel_laender,
+            sp.umsatz_band, u.email
+       FROM succession_profiles sp
+       LEFT JOIN users u ON u.id = sp.user_id`).catch(() => []);
+
+  const { betroffen, unbekannt } = auswerten(profile, nachfolge);
+  res.json({
+    success: true,
+    data: {
+      mandate: mandate.length,
+      nachfolge: nachfolge.length,
+      profile: profile.length,
+      betroffen,
+      stumm: betroffen.filter((b) => b.alt === 0 && b.neu > 0),
+      unbekannt: [...unbekannt.entries()].map(([wert, anzahl]) => ({ wert, anzahl }))
+        .sort((a, b) => b.anzahl - a.anzahl),
+    },
+  });
+}));
+
+// Der Plan für einen Datenraum. Ändert nichts.
+router.get('/berichte/datenraum/:projectId', ...isAdmin, wrap(async (req, res) => {
+  const { planen } = require('../utils/datenraumPlan');
+  const pid = parseInt(req.params.projectId, 10);
+  const projekt = await db.get('SELECT id, codename FROM projects WHERE id = ?', [pid]);
+  if (!projekt) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden.' });
+
+  const alle = await db.all(
+    `SELECT i.id, i.name, i.is_folder, i.parent_id, i.confidential, e.name AS parent_name
+       FROM safe_items i
+       LEFT JOIN safe_items e ON e.id = i.parent_id
+      WHERE i.project_id = ? AND i.deleted_at IS NULL
+      ORDER BY i.is_folder DESC, i.name`, [pid]);
+  const dateien = alle.filter((i) => !Number(i.is_folder));
+  res.json({
+    success: true,
+    data: {
+      codename: projekt.codename,
+      dateien: dateien.length,
+      ordner: alle.length - dateien.length,
+      ...planen(dateien),
+    },
+  });
+}));
+
+/**
+ * Den Plan anwenden. Zwei getrennte Schritte, weil sie unterschiedlich heikel
+ * sind: Eine Datei im falschen Ordner ist Unordnung, eine Gehaltsliste auf der
+ * falschen Stufe ist ein Datenschutzvorfall. Die Stufe „offen" setzt die Route
+ * grundsätzlich nicht, darüber entscheidet die Freigabe im Datenraum.
+ */
+router.post('/berichte/datenraum/:projectId/anwenden', ...isAdmin, wrap(async (req, res) => {
+  const { planen, ORDNER } = require('../utils/datenraumPlan');
+  const pid = parseInt(req.params.projectId, 10);
+  const was = String((req.body || {}).was || '');
+  if (!['verschieben', 'stufen'].includes(was)) {
+    return res.status(400).json({ success: false, error: 'Bitte „verschieben" oder „stufen" angeben.' });
+  }
+  const projekt = await db.get('SELECT id, codename, tenant_id FROM projects WHERE id = ?', [pid]);
+  if (!projekt) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden.' });
+
+  const alle = await db.all(
+    `SELECT i.id, i.name, i.is_folder, i.parent_id, i.confidential, e.name AS parent_name
+       FROM safe_items i
+       LEFT JOIN safe_items e ON e.id = i.parent_id
+      WHERE i.project_id = ? AND i.deleted_at IS NULL`, [pid]);
+  const plan = planen(alle.filter((i) => !Number(i.is_folder)));
+
+  let anzahl = 0;
+  if (was === 'verschieben') {
+    const nachId = new Map(alle.filter((o) => Number(o.is_folder) && !o.parent_id).map((o) => [o.name, o.id]));
+    for (const name of ORDNER) {
+      if (nachId.has(name) || !plan.verschieben.some((v) => v.nach === name)) continue;
+      const pos = await db.get(
+        `SELECT COALESCE(MAX(position), 0) + 1 AS p FROM safe_items
+          WHERE project_id = ? AND parent_id IS NULL AND deleted_at IS NULL`, [pid]);
+      // db.insert hängt das RETURNING id selbst an, das ist hier der Hausbrauch.
+      const neueId = await db.insert(
+        `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, position)
+         VALUES (?, ?, NULL, ?, 1, ?)`,
+        [projekt.tenant_id || 1, pid, name, (pos && pos.p) || 1]);
+      nachId.set(name, neueId);
+    }
+    for (const v of plan.verschieben) {
+      const ziel = nachId.get(v.nach);
+      if (!ziel) continue;
+      await db.run('UPDATE safe_items SET parent_id = ? WHERE id = ?', [ziel, v.id]);
+      anzahl++;
+    }
+  } else {
+    for (const st of plan.stufen) {
+      if (st.nach === 'offen') continue;
+      await db.run('UPDATE safe_items SET confidential = ? WHERE id = ?',
+        [st.nach === 'vertraulich' ? 1 : 0, st.id]);
+      anzahl++;
+    }
+  }
+  db.auditLog(req.user.id, `datenraum.${was}`, 'project', pid,
+    `${anzahl} Einträge im Datenraum ${projekt.codename}`, req.ip);
+  res.json({ success: true, data: { anzahl } });
+}));
+
 router.get('/valuation-leads', ...isAdmin, wrap(async (req, res) => {
   const rows = await db.all(`
     SELECT id, lead_email, lead_name, nace_section, results_json, created_at
