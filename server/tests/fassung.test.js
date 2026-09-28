@@ -18,8 +18,15 @@ const lies = (...t) => fs.readFileSync(path.join(wurzel, ...t), 'utf8');
 // ── Eine Quelle für die Version ───────────────────────────────────────────
 const paket = JSON.parse(lies('package.json'));
 const clientPaket = JSON.parse(lies('client', 'package.json'));
+const serverPaket = JSON.parse(lies('server', 'package.json'));
 ok('package.json nennt eine Version', /^\d+\.\d+\.\d+$/.test(paket.version || ''));
-ok('Server und Oberfläche führen dieselbe Version', paket.version === clientPaket.version);
+// Alle drei, nicht nur zwei: Die Route liest server/package.json, weil nur
+// dieses Verzeichnis sicher im Container liegt. Lief server/package.json
+// auseinander, zeigte die Oberfläche eine andere Zahl als der Server meldet,
+// und der Hinweis „neue Fassung, neu laden" käme bei jedem Aufruf.
+ok('alle drei package.json führen dieselbe Version'
+  + `  (Wurzel ${paket.version}, Client ${clientPaket.version}, Server ${serverPaket.version})`,
+  paket.version === clientPaket.version && paket.version === serverPaket.version);
 
 // ── Sie passt zum jüngsten Changelog-Eintrag ──────────────────────────────
 const migrationen = fs.readdirSync(path.join(wurzel, 'server', 'db', 'migrations'))
@@ -57,6 +64,10 @@ ok('die Versions-Route ist eingebunden', /routes\/version/.test(index));
 // ── Die Route selbst ──────────────────────────────────────────────────────
 const route = lies('server', 'routes', 'version.js');
 ok('die Route liest die Version aus package.json', /package\.json/.test(route));
+// Nur server/ und shared/ liegen sicher im Container. Wer von dort aus zwei
+// Ebenen hochgeht, landet im Wurzelverzeichnis, und das ist im Image leer.
+ok('sie liest zuerst server/package.json, nicht nur die Wurzel',
+  /path\.join\(__dirname, '\.\.', 'package\.json'\)/.test(route));
 ok('sie nennt den Commit, wenn Railway ihn setzt', /RAILWAY_GIT_COMMIT_SHA/.test(route));
 ok('sie gibt kein Geheimnis preis',
   !/SECRET|PASSWORD|TOKEN|DATABASE_URL/i.test(route.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '')));

@@ -17,11 +17,29 @@ const fs = require('fs');
 
 const router = express.Router();
 
+/**
+ * Die Version lesen.
+ *
+ * Zuerst aus server/package.json, denn nur dieses Verzeichnis liegt sicher im
+ * Container. Der erste Anlauf las die Datei im Wurzelverzeichnis, und die
+ * kopiert das Dockerfile nicht hinein: Der Commit stand da, die Version nicht.
+ * Derselbe Fehler wie bei der gemeinsamen Branchenliste, eine Ebene tiefer.
+ *
+ * Das Wurzelverzeichnis bleibt als zweiter Anlauf, für den Betrieb ausserhalb
+ * eines Containers.
+ */
 function lies() {
-  try {
-    const p = path.join(__dirname, '..', '..', 'package.json');
-    return JSON.parse(fs.readFileSync(p, 'utf8')).version || null;
-  } catch { return null; }
+  const orte = [
+    path.join(__dirname, '..', 'package.json'),
+    path.join(__dirname, '..', '..', 'package.json'),
+  ];
+  for (const p of orte) {
+    try {
+      const v = JSON.parse(fs.readFileSync(p, 'utf8')).version;
+      if (v) return v;
+    } catch { /* naechster Ort */ }
+  }
+  return null;
 }
 
 // Einmal lesen genügt: Die Datei ändert sich nicht, während der Dienst läuft.

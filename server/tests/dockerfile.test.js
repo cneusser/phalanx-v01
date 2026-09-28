@@ -76,6 +76,27 @@ const serverNutztShared = fs.readFileSync(path.join(wurzel, 'server', 'utils', '
 ok('der Server liest die gemeinsame Datei', /shared\/taxonomie\.json/.test(serverNutztShared));
 ok('shared/ steht im Dockerfile', /^COPY\s+shared\//m.test(dockerfile));
 
+// ── Was liest der Server zur Laufzeit ausserhalb von server/? ────────────
+// Derselbe Fehler wie beim Client, eine Ebene tiefer: Die Versionsroute las
+// die package.json im Wurzelverzeichnis, und die kopiert das Dockerfile nicht
+// hinein. Der Commit stand da, die Version fehlte.
+const serverDateien = dateien(path.join(wurzel, 'server'))
+  .filter((d) => !d.includes(`${path.sep}tests${path.sep}`));   // Tests laufen nie im Container
+const kopiert = (verzeichnis) => new RegExp(`^COPY\\s+${verzeichnis}/`, 'm').test(dockerfile);
+const heikel = [];
+for (const datei of serverDateien) {
+  const inhalt = fs.readFileSync(datei, 'utf8');
+  // Zwei Ebenen hoch ab server/<irgendwas>/ ist das Wurzelverzeichnis.
+  for (const m of inhalt.matchAll(/__dirname,\s*'\.\.',\s*'\.\.',\s*'([^']+)'/g)) {
+    const oberstes = m[1].replace(/^\.\//, '').split('/')[0];
+    if (!oberstes.endsWith('.json') && !oberstes.endsWith('.js') && !kopiert(oberstes)) {
+      heikel.push(`${path.relative(wurzel, datei)} liest ${m[1]}`);
+    }
+  }
+}
+ok('kein Serverzugriff auf ein Verzeichnis, das nicht im Image liegt'
+  + (heikel.length ? `  (${heikel.join(', ')})` : ''), heikel.length === 0);
+
 // ── Keine doppelten Übersetzungsschlüssel ─────────────────────────────────
 const i18n = fs.readFileSync(path.join(clientWurzel, 'i18n', 'index.jsx'), 'utf8');
 const gesehen = new Map();
