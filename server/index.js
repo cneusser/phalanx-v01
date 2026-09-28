@@ -133,6 +133,12 @@ initialize().then(() => {
     console.log(`📡 Backend: http://localhost:${PORT}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📧 Download-Notifications → ${process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de'} ${process.env.SMTP_HOST ? '(SMTP aktiv)' : '(nur Logs – SMTP nicht konfiguriert)'}\n`);
+    // Zeigen die öffentlichen Adressen dorthin, wo der Kunde sie erwartet?
+    // Eine falsche FRONTEND_URL fällt sonst erst beim Login oder, schlimmer,
+    // in einer längst verschickten Mail auf.
+    try { require('./utils/adressenPruefen').pruefeUndMelde(); }
+    catch (e) { console.warn('Adressprüfung nicht möglich:', e.message); }
+
     // Sprint 10: Digest-Scheduler (daily/weekly Match-Benachrichtigungen)
     // Rollen-/Rechte-Matrix in den Cache laden (Fallback: Code-Matrix)
     try { require('./middleware/permissions').reloadRoles().then(m => m && console.log(`🔐 Rollen geladen: ${Object.keys(m).join(', ')}`)); }
