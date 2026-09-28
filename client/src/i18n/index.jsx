@@ -335,6 +335,13 @@ const EN = {
   'sb.geo_fokus': 'Geographic focus',
   'sb.sondersituationen': 'Experience in special situations',
   'sb.zielregionen': 'Target regions',
+  'msg.konversationen': 'CONVERSATIONS',
+  'msg.suche': 'Search name or company',
+  'msg.kein_treffer': 'No match for this search.',
+  'msg.ungelesen': 'UNREAD',
+  'msg.gelesen': 'READ',
+  'msg.weitere': 'Show more',
+  'msg.weniger': 'Show fewer',
   // Kontakt, ergänzt v0.414
   'contact.kicker': 'Get in touch',
   'contact.titel': 'A conversation costs you twenty minutes',

@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Send, UserPlus, Check, X, MessageSquare, ShieldCheck, ArrowUpRight, Pencil, Trash2, Clock } from 'lucide-react';
 import { useT } from '../i18n';
+import { ordnen, GRENZE } from '../utils/konversationen';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 
@@ -18,6 +19,10 @@ export default function Messages() {
   const [thread, setThread] = useState(null);
   const [body, setBody] = useState('');
   const [addEmail, setAddEmail] = useState('');
+  // Liste der Konversationen (v0.420): Suche und eine Grenze, ab der der
+  // gelesene Teil eingeklappt bleibt.
+  const [suche, setSuche] = useState('');
+  const [alleZeigen, setAlleZeigen] = useState(false);
   const [msg, setMsg] = useState('');
   // v0.399: Nachbessern im Zustellfenster
   const [bearbeitet, setBearbeitet] = useState(null);   // id der Nachricht in Bearbeitung
@@ -117,6 +122,32 @@ export default function Messages() {
   threads.forEach(t => { partners[t.partner_id] = { ...partners[t.partner_id], ...t }; });
   const list = Object.values(partners);
 
+  // Ungelesenes zuerst, darin das Neueste oben. Wer zwanzig Konversationen
+  // hat, sucht nicht die alphabetisch erste, sondern die, die auf Antwort
+  // wartet.
+  const { gefiltert, ungelesen, gelesen, gelesenSichtbar, versteckt } =
+    ordnen(list, { suche, alleZeigen });
+
+  // Eine Zeile der Liste. Die Schleifenvariable heißt bewusst nicht t:
+  // das ist in dieser Datei die Übersetzung.
+  const zeile = (k) => (
+    <div key={k.partner_id} onClick={() => openThread(k.partner_id)} style={{
+      padding: '0.7rem 1rem', borderTop: `1px solid ${C.border}`, cursor: 'pointer',
+      background: active === k.partner_id ? C.bg : '#fff',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{ fontWeight: k.unread > 0 ? 700 : 500, color: C.text, fontSize: '0.85rem' }}>{k.name}</span>
+        {k.unread > 0 && <span style={{ background: C.accent, color: '#fff', borderRadius: 20, fontSize: '0.66rem', fontWeight: 700, padding: '0.05rem 0.4rem', flexShrink: 0 }}>{k.unread}</span>}
+      </div>
+      <div style={{ fontSize: '0.75rem', color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.last || k.company || 'k. A.'}</div>
+    </div>
+  );
+  const ueberschrift = (text) => (
+    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: C.muted, letterSpacing: '0.06em', padding: '0.7rem 1rem 0.35rem', borderTop: `1px solid ${C.border}`, background: '#fafbfc' }}>
+      {text}
+    </div>
+  );
+
   return (
     <div style={{ background: C.bg, minHeight: '100vh' }}>
       <div style={{ background: C.navy, color: '#fff', padding: '1.5rem' }}>
@@ -154,17 +185,53 @@ export default function Messages() {
           )}
 
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: C.muted, padding: '0.8rem 1rem 0.4rem' }}>KONVERSATIONEN</div>
-            {list.length === 0 ? <div style={{ padding: '1.5rem', textAlign: 'center', color: C.muted, fontSize: '0.82rem' }}>{t('msg.keine_kontakte', 'Noch keine Kontakte. Fügen Sie oben jemanden per E-Mail hinzu.')}</div>
-              : list.map(t => (
-                <div key={t.partner_id} onClick={() => openThread(t.partner_id)} style={{ padding: '0.7rem 1rem', borderTop: `1px solid ${C.border}`, cursor: 'pointer', background: active === t.partner_id ? C.bg : '#fff' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, color: C.text, fontSize: '0.85rem' }}>{t.name}</span>
-                    {t.unread > 0 && <span style={{ background: C.accent, color: '#fff', borderRadius: 20, fontSize: '0.66rem', fontWeight: 700, padding: '0.05rem 0.4rem' }}>{t.unread}</span>}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.last || t.company || 'k. A.'}</div>
-                </div>
-              ))}
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: C.muted, padding: '0.8rem 1rem 0.4rem' }}>
+              {t('msg.konversationen', 'KONVERSATIONEN')}
+            </div>
+            {list.length > 5 && (
+              <div style={{ padding: '0 1rem 0.7rem' }}>
+                <input
+                  value={suche}
+                  onChange={(e) => { setSuche(e.target.value); setAlleZeigen(false); }}
+                  placeholder={t('msg.suche', 'Name oder Firma suchen')}
+                  style={{ width: '100%', padding: '0.45rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.8rem', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+            )}
+
+            {list.length === 0 && (
+              <div style={{ padding: '1.5rem', textAlign: 'center', color: C.muted, fontSize: '0.82rem' }}>
+                {t('msg.keine_kontakte', 'Noch keine Kontakte. Fügen Sie oben jemanden per E-Mail hinzu.')}
+              </div>
+            )}
+            {list.length > 0 && gefiltert.length === 0 && (
+              <div style={{ padding: '1.2rem', textAlign: 'center', color: C.muted, fontSize: '0.82rem' }}>
+                {t('msg.kein_treffer', 'Kein Treffer für diese Suche.')}
+              </div>
+            )}
+
+            {ungelesen.length > 0 && (
+              <>
+                {ueberschrift(`${t('msg.ungelesen', 'UNGELESEN')} (${ungelesen.length})`)}
+                {ungelesen.map(zeile)}
+              </>
+            )}
+            {gelesenSichtbar.length > 0 && (
+              <>
+                {ungelesen.length > 0 && ueberschrift(t('msg.gelesen', 'GELESEN'))}
+                {gelesenSichtbar.map(zeile)}
+              </>
+            )}
+            {versteckt > 0 && (
+              <button onClick={() => setAlleZeigen(true)} style={{ width: '100%', border: 'none', borderTop: `1px solid ${C.border}`, background: '#fafbfc', color: C.navy, padding: '0.6rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                {t('msg.weitere', 'Weitere anzeigen')} ({versteckt})
+              </button>
+            )}
+            {alleZeigen && gelesen.length > GRENZE && (
+              <button onClick={() => setAlleZeigen(false)} style={{ width: '100%', border: 'none', borderTop: `1px solid ${C.border}`, background: '#fafbfc', color: C.muted, padding: '0.6rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                {t('msg.weniger', 'Weniger anzeigen')}
+              </button>
+            )}
           </div>
         </div>
 
