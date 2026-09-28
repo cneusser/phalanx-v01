@@ -519,7 +519,6 @@ const EN = {
   // Allgemein
   'common.loading': 'Loading…',
   'common.save': 'Save',
-  'common.cancel': 'Cancel',
   'common.and': 'and the',
 
   // Cookie-Hinweis
@@ -568,7 +567,6 @@ const EN = {
   'auth.password': 'Password',
   'auth.forgot': 'Forgot password?',
   'auth.no_account': 'No account yet?',
-  'auth.register_now': 'Register',
   'auth.register_title': 'Register',
   'auth.have_account': 'Already registered?',
   'auth.login_now': 'Log in',

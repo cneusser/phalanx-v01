@@ -2,6 +2,13 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Gemeinsame Daten. Muss VOR dem Client-Build stehen: Die Oberfläche bindet
+# shared/taxonomie.json ein, und ohne diese Zeile bricht der Build im Container
+# ab, während er auf dem eigenen Rechner durchläuft, weil dort das ganze
+# Verzeichnis liegt. Wer hier eine weitere Datei außerhalb von client/ einbindet,
+# muss sie auch hier eintragen. dockerfile.test.js prüft das.
+COPY shared/ ./shared/
+
 # Client: Abhängigkeiten installieren & bauen
 COPY client/package*.json ./client/
 RUN cd client && npm ci --include=dev
