@@ -74,6 +74,7 @@ app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 app.use(require('./middleware/tenant').resolveTenant);
 
 // Routes
+app.use('/api', require('./routes/version'));
 app.use('/api/tenant', require('./routes/tenant'));
 app.use('/api/valuation', require('./routes/valuation'));
 app.use('/api/detailed-valuations', require('./routes/detailedValuation'));

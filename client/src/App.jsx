@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { I18nProvider, useT, useI18n } from './i18n';
 import NachOben from './components/NachOben';
+import Fassung from './components/Fassung';
+import Changelog from './pages/Changelog';
 import Navbar from './components/Navbar';
 import CapitalMatchLogo from './components/CapitalMatchLogo';
 import Landing from './pages/Landing';
@@ -80,7 +82,10 @@ function Footer() {
           <Link to="/cookies" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>{t('footer.cookies', 'Cookies')}</Link>
           <a href="mailto:neusser@phalanx.de" style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>{t('footer.contact', 'Kontakt')}</a>
         </div>
-        <div style={{ fontSize: '0.72rem' }}>© 2026 Phalanx GmbH</div>
+        <div style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+          <Fassung hell={true} />
+          <span>© 2026 Phalanx GmbH</span>
+        </div>
       </div>
     </footer>
   );
@@ -149,6 +154,7 @@ function AppRoutes() {
           <Route path="/funnel" element={<ProtectedRoute><Funnel /></ProtectedRoute>} />
           <Route path="/verkaeuferdashboard" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
           <Route path="/datenschutz" element={<Datenschutz />} />
+          <Route path="/changelog" element={<Changelog />} />
           <Route path="/impressum" element={<Impressum />} />
           <Route path="/cookies" element={<Cookies />} />
           <Route path="/agb" element={<AGB />} />
