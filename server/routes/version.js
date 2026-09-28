@@ -61,4 +61,52 @@ router.get('/version', (req, res) => {
   });
 });
 
+/**
+ * Einen Absturz der Oberfläche melden (v0.424).
+ *
+ * Bewusst ohne Anmeldung: Ein Fehler, der beim Laden auftritt, trifft auch
+ * jemanden, der noch nicht angemeldet ist, und gerade der wird sich nicht
+ * melden. Die Kennung des Nutzers kommt nur mit, wenn ein gültiges Token
+ * dabei ist.
+ *
+ * Gespeichert wird nur, was zur Eingrenzung nötig ist. Alles wird gekürzt,
+ * damit niemand die Tabelle als Ablage missbrauchen kann, und dieselbe Meldung
+ * auf derselben Seite zählt hoch, statt eine neue Zeile anzulegen.
+ */
+const kurz = (w, n) => (w == null ? null : String(w).slice(0, n));
+
+router.post('/fehler', async (req, res) => {
+  try {
+    const db = require('../db/database');
+    const b = req.body || {};
+    const meldung = kurz(b.meldung, 500);
+    if (!meldung || !meldung.trim()) return res.json({ success: true });
+
+    // Nur der Pfad, keine Parameter: in einer Adresse wie
+    // /stammdaten/<token> steckt ein Schlüssel, der hier nichts verloren hat.
+    let adresse = null;
+    try { adresse = new URL(String(b.adresse || ''), 'https://x').pathname; } catch { /* egal */ }
+    if (adresse && adresse.length > 120) adresse = adresse.slice(0, 120);
+
+    let userId = null;
+    try {
+      const auth = String(req.headers.authorization || '');
+      if (auth.startsWith('Bearer ')) {
+        const jwt = require('jsonwebtoken');
+        const { getJwtSecret } = require('../utils/jwtSecret');
+        userId = jwt.verify(auth.slice(7), getJwtSecret()).userId || null;
+      }
+    } catch { /* ohne gültiges Token bleibt die Kennung leer */ }
+
+    await db.run(
+      `INSERT INTO fehlermeldungen (tenant_id, user_id, meldung, komponenten, adresse, fassung, browser)
+       VALUES (1, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (tenant_id, md5(meldung), COALESCE(adresse,''), COALESCE(fassung,''))
+       DO UPDATE SET anzahl = fehlermeldungen.anzahl + 1, zuletzt_am = now(), erledigt_am = NULL`,
+      [userId, meldung, kurz(b.komponenten, 1500), adresse, kurz(b.fassung, 40),
+        kurz(req.headers['user-agent'], 200)]);
+  } catch { /* eine Fehlermeldung darf nie selbst einen Fehler auslösen */ }
+  res.json({ success: true });
+});
+
 module.exports = router;

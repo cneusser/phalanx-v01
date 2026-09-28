@@ -69,8 +69,16 @@ ok('die Route liest die Version aus package.json', /package\.json/.test(route));
 ok('sie liest zuerst server/package.json, nicht nur die Wurzel',
   /path\.join\(__dirname, '\.\.', 'package\.json'\)/.test(route));
 ok('sie nennt den Commit, wenn Railway ihn setzt', /RAILWAY_GIT_COMMIT_SHA/.test(route));
-ok('sie gibt kein Geheimnis preis',
-  !/SECRET|PASSWORD|TOKEN|DATABASE_URL/i.test(route.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '')));
+// Entscheidend ist nicht, ob das Wort „Secret" in der Datei steht, sondern ob
+// eines in der Antwort landet. Die Route prüft seit v0.424 ein Token, dafür
+// muss sie den Schlüssel lesen; herausgeben darf sie ihn nicht. Geprüft wird
+// deshalb die Antwort selbst.
+const antworten = [...route.matchAll(/res\.json\(([\s\S]*?)\n  \}\);/g)].map((m) => m[1])
+  .concat([...route.matchAll(/res\.json\(\{[^}]*\}\);/g)].map((m) => m[0]));
+ok('die Route antwortet überhaupt etwas', antworten.length > 0);
+const verraten = antworten.filter((a) => /SECRET|PASSWORD|DATABASE_URL|process\.env\.(?!RAILWAY|NODE_ENV)/i.test(a));
+ok('in keiner Antwort steht ein Geheimnis' + (verraten.length ? `  (${verraten[0].slice(0, 80)})` : ''),
+  verraten.length === 0);
 
 // ── Die Anzeige vergleicht Browser und Server ─────────────────────────────
 const fassung = lies('client', 'src', 'components', 'Fassung.jsx');

@@ -8,6 +8,39 @@ import React from 'react';
 
 const C = { navy: '#111820', accent: '#1D4E89', border: '#E2E8F0', muted: '#64748B' };
 
+const FASSUNG = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : null;
+
+/**
+ * Den Absturz melden (v0.424).
+ *
+ * Bis hierher landete er nur in der Browserkonsole, und dorthin sieht niemand.
+ * Ein Interessent im FARADAY-Datenraum hing vier Tage fest, und wir erfuhren
+ * davon durch eine E-Mail mit einem Bildschirmfoto.
+ *
+ * Absichtlich mit fetch statt über den API-Helfer: Der wirft bei einem Fehler
+ * selbst, und eine Fehlermeldung, die einen Fehler auslöst, verdeckt genau die
+ * Ursache, die wir suchen. Aus demselben Grund fängt der Aufruf alles ab.
+ */
+export function meldeFehler(fehler, komponenten) {
+  try {
+    const token = localStorage.getItem('phalanx_token');
+    fetch('/api/fehler', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        meldung: String((fehler && fehler.message) || fehler || 'Unbekannter Fehler'),
+        komponenten: String(komponenten || '').trim().split('\n').slice(0, 8).join('\n'),
+        adresse: window.location.pathname,
+        fassung: FASSUNG,
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch { /* melden ist Kür, nicht Pflicht */ }
+}
+
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -22,6 +55,8 @@ export default class ErrorBoundary extends React.Component {
     this.setState({ info });
     // In die Konsole: damit der Fehler im Browser-Log auffindbar bleibt
     console.error('Seitenfehler:', error, info?.componentStack);
+    // Und an den Server, sonst erfahren wir davon erst per E-Mail.
+    meldeFehler(error, info?.componentStack);
   }
 
   render() {
@@ -44,6 +79,13 @@ export default class ErrorBoundary extends React.Component {
             <pre style={{ margin: 0, fontSize: '0.72rem', color: '#7f1d1d', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{stack}</pre>
           )}
         </div>
+
+        {/* Die Fassung gehört in die Meldung: Ohne sie sagt ein Bildschirmfoto
+            nicht, welcher Stand abgestürzt ist, und man sucht im falschen. */}
+        <p style={{ color: C.muted, fontSize: '0.78rem', marginTop: '-0.6rem', marginBottom: '1.2rem' }}>
+          Fassung {FASSUNG ? 'v' + String(FASSUNG).replace(/\.0$/, '') : 'unbekannt'} · {new Date().toLocaleString('de-DE')}
+          {' · '}Diese Meldung wurde automatisch an uns übermittelt.
+        </p>
 
         <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
           <button onClick={() => window.location.reload()} style={{

@@ -291,6 +291,7 @@ export default function Admin() {
   const [drPlan, setDrPlan] = useState(null);
   const [berichtMsg, setBerichtMsg] = useState('');
   const [berichtLaeuft, setBerichtLaeuft] = useState(false);
+  const [fehlerliste, setFehlerliste] = useState(null);
   // Drag & Drop der Pipeline-Karten
   const [dragDeal, setDragDeal] = useState(null);       // { id, deal_status }
   const [dragOverCol, setDragOverCol] = useState(null); // Ziel-Spalte (Hover)
@@ -592,6 +593,7 @@ export default function Admin() {
     if (activeTab === 'multiples') loadValMultiples();
     if (activeTab === 'detvals') loadDetVals();
     if (activeTab === 'berichte' && !suchbericht) ladeSuchbericht();
+    if (activeTab === 'berichte' && !fehlerliste) ladeFehler();
     if (activeTab === 'changelog') loadChangelog();
     if (activeTab === 'feedback') loadFeedback();
     if (activeTab === 'contacts') loadCrmContacts();
@@ -1017,6 +1019,16 @@ export default function Admin() {
     try { setSuchbericht(await api.get('/admin/berichte/suchprofile')); }
     catch (e) { setBerichtMsg('Bericht fehlgeschlagen: ' + e.message); }
     finally { setBerichtLaeuft(false); }
+  }
+
+  async function ladeFehler() {
+    try { setFehlerliste(await api.get('/admin/berichte/fehler') || []); }
+    catch (e) { setBerichtMsg('Fehlerliste nicht ladbar: ' + e.message); }
+  }
+
+  async function fehlerErledigt(id) {
+    try { await api.post(`/admin/berichte/fehler/${id}/erledigt`, {}); await ladeFehler(); }
+    catch (e) { setBerichtMsg('Fehlgeschlagen: ' + e.message); }
   }
 
   async function ladeDatenraumPlan(id) {
@@ -2450,6 +2462,45 @@ export default function Admin() {
               {berichtMsg}
             </div>
           )}
+
+          {/* ── Abstürze der Oberfläche ─────────────────────────────────── */}
+          <div style={CARD}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <div>
+                <div style={{ fontWeight: 700, color: C.navy }}>Abstürze der Oberfläche</div>
+                <div style={{ fontSize: '0.8rem', color: C.muted }}>
+                  Was Nutzern als Fehlerseite begegnet ist. Gleiche Meldung auf gleicher Seite wird gezählt, nicht wiederholt.
+                </div>
+              </div>
+              <button onClick={ladeFehler} style={BTN}>Neu laden</button>
+            </div>
+            {!fehlerliste && <div style={{ fontSize: '0.85rem', color: C.muted }}>Wird geladen…</div>}
+            {fehlerliste && fehlerliste.length === 0 && (
+              <div style={{ fontSize: '0.85rem', color: '#166534' }}>Kein Absturz gemeldet.</div>
+            )}
+            {fehlerliste && fehlerliste.map(f => (
+              <div key={f.id} style={{
+                borderTop: `1px solid ${C.border}`, padding: '0.6rem 0',
+                opacity: f.erledigt_am ? 0.5 : 1,
+              }}>
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, color: '#991b1b', fontSize: '0.85rem' }}>{f.meldung}</span>
+                  {f.anzahl > 1 && <span style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 20, padding: '0 0.45rem', fontSize: '0.7rem', fontWeight: 700 }}>{f.anzahl}x</span>}
+                  <button onClick={() => fehlerErledigt(f.id)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: C.muted, fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}>
+                    {f.erledigt_am ? 'wieder öffnen' : 'erledigt'}
+                  </button>
+                </div>
+                <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: 2 }}>
+                  {f.adresse || 'unbekannte Seite'} · Fassung {f.fassung || 'unbekannt'}
+                  {f.email ? ` · ${f.first_name || ''} ${f.last_name || ''} (${f.email})` : ' · nicht angemeldet'}
+                  {' · '}{new Date(f.zuletzt_am).toLocaleString('de-DE')}
+                </div>
+                {f.komponenten && (
+                  <pre style={{ margin: '0.35rem 0 0', fontSize: '0.7rem', color: '#7f1d1d', whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{f.komponenten}</pre>
+                )}
+              </div>
+            ))}
+          </div>
 
           {/* ── Suchprofile ─────────────────────────────────────────────── */}
           <div style={CARD}>

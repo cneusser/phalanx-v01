@@ -1634,6 +1634,31 @@ router.post('/berichte/datenraum/:projectId/anwenden', ...isAdmin, wrap(async (r
   res.json({ success: true, data: { anzahl } });
 }));
 
+
+// Abstürze der Oberfläche (v0.424). Ohne diese Liste erfährt man von einem
+// Absturz erst, wenn sich jemand die Mühe macht, ihn zu melden.
+router.get('/berichte/fehler', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(
+    `SELECT f.id, f.meldung, f.komponenten, f.adresse, f.fassung, f.browser,
+            f.anzahl, f.zuerst_am, f.zuletzt_am, f.erledigt_am,
+            u.email, u.first_name, u.last_name
+       FROM fehlermeldungen f
+       LEFT JOIN users u ON u.id = f.user_id
+      ORDER BY f.erledigt_am NULLS FIRST, f.zuletzt_am DESC
+      LIMIT 200`).catch(() => []);
+  res.json({ success: true, data: rows });
+}));
+
+router.post('/berichte/fehler/:id/erledigt', ...isAdmin, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  // Umschalten statt nur setzen: Ein zu früh abgehakter Fehler lässt sich so
+  // wieder öffnen, ohne dass man in die Datenbank muss.
+  await db.run(
+    `UPDATE fehlermeldungen SET erledigt_am = CASE WHEN erledigt_am IS NULL THEN now() ELSE NULL END
+      WHERE id = ?`, [id]);
+  res.json({ success: true });
+}));
+
 router.get('/valuation-leads', ...isAdmin, wrap(async (req, res) => {
   const rows = await db.all(`
     SELECT id, lead_email, lead_name, nace_section, results_json, created_at
