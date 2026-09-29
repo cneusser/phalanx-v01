@@ -108,6 +108,61 @@ ok(`kein t() ausserhalb einer Funktion`
   + (amModulrand.length ? `  (${amModulrand.join(', ')})` : ''),
   amModulrand.length === 0);
 
+
+// ── Jede Komponente muss ihre Übersetzung selbst holen ────────────────────
+// Die härteste Lektion dieser Reihe. Bis v0.424 prüfte diese Datei nur, ob
+// eine DATEI die Übersetzung einbindet. Das genügt nicht: In Dashboard.jsx
+// stand `const t = useT()` in der Hauptkomponente, die Unterkomponente
+// DealCard daneben benutzte t() ohne eigenen Bezug. Eine Unterkomponente erbt
+// nichts vom Elternteil.
+//
+// Der Ausfall war nicht zufällig verteilt: Er traf jeden Nutzer, der einen
+// Deal hatte, und nur den. Wer keinen hatte, sah nie einen Fehler. Deshalb
+// fiel es intern niemandem auf, und ein Interessent im FARADAY-Datenraum hing
+// vier Tage auf einer Fehlerseite. Dasselbe in ProjectDetail: der Platzhalter
+// für gesperrte Bereiche stürzte ab, also genau die Ansicht, die einem
+// Interessenten OHNE Freigabe gezeigt wird.
+function bloeckeVon(quelle) {
+  const zeilen = quelle.split('\n');
+  const raus = [];
+  let tiefe = 0, start = null, name = null;
+  zeilen.forEach((z, i) => {
+    if (start === null) {
+      const m = z.match(/^(?:export default |export )?(?:async )?function (\w+)/)
+        || z.match(/^(?:export default |export )?const (\w+)\s*=\s*(?:\(|function|\w+\s*=>)/);
+      if (m) { start = i; name = m[1]; tiefe = 0; }
+    }
+    if (start !== null) {
+      tiefe += (z.match(/\{/g) || []).length - (z.match(/\}/g) || []).length;
+      if (tiefe <= 0 && i > start) { raus.push({ name, a: start, b: i, zeilen }); start = null; }
+    }
+  });
+  return raus;
+}
+
+const ohneBezug = [];
+for (const p of alle) {
+  if (p.includes(path.join('i18n', 'index.jsx'))) continue;
+  const quelle = fs.readFileSync(p, 'utf8');
+  for (const bl of bloeckeVon(quelle)) {
+    const koerper = bl.zeilen.slice(bl.a, bl.b + 1).join('\n');
+    if (!/(?<![\w.])t\('/.test(koerper)) continue;
+    // Gültig ist: eigener Hook, t aus useI18n destrukturiert, oder t als
+    // Parameter hereingereicht.
+    const hatBezug = /useT\(\)/.test(koerper)
+      || /=\s*useI18n\(\)/.test(koerper) && /\bt\b/.test(koerper.split('useI18n()')[0].split('\n').pop() || '')
+      || /\{[^}]*\bt\b[^}]*\}\s*=\s*useI18n\(\)/.test(koerper)
+      || new RegExp(`function ${bl.name}\\([^)]*\\bt\\b`).test(koerper)
+      || /\(\{[^}]*\bt\b[^}]*\}\)/.test(bl.zeilen[bl.a]);
+    if (!hatBezug) {
+      const versatz = koerper.split('\n').findIndex((x) => /(?<![\w.])t\('/.test(x));
+      ohneBezug.push(`${path.basename(p)}:${bl.a + 1 + versatz} (${bl.name})`);
+    }
+  }
+}
+ok('jede Komponente holt ihre Übersetzung selbst'
+  + (ohneBezug.length ? `  (${ohneBezug.join(', ')})` : ''), ohneBezug.length === 0);
+
 // ── Die Texte der Startseite liegen in beiden Sprachen vor ──────────────────
 const texte = fs.readFileSync(path.join(client, 'pages', 'landingTexte.js'), 'utf8');
 ok('die Startseite führt einen deutschen und einen englischen Zweig',

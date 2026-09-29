@@ -71,6 +71,9 @@ const ALL_TABS = [
 const PUBLIC_TABS = ['overview', 'contact'];
 
 function LockedTabPlaceholder({ onRequestNDA, onSign, user, ndaStatus, navigate }) {
+  // Siehe DealCard: eigene Übersetzung, sonst stürzt genau der Fall ab, der
+  // hier gezeigt werden soll, nämlich ein Interessent ohne Freigabe.
+  const t = useT();
   // Nach dem Anfordern muss der Käufer die NDA selbst digital zeichnen. Deshalb
   // hier NICHT nur „wird geprüft" zeigen, sondern aktiv zum Unterzeichnen führen.
   const needsSign = ndaStatus === 'requested' || ndaStatus === 'sent';

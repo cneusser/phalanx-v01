@@ -20,12 +20,14 @@ const REGIONEN = ['Baden-Württemberg', 'Bayern', 'Berlin und Brandenburg', 'Hes
   'Schleswig-Holstein und Hamburg', 'Mecklenburg-Vorpommern', 'Österreich', 'Schweiz'];
 
 // Die Seite ist öffentlich, also bewusst ohne den API-Client mit Bearer-Token.
-async function hole(pfad, methode = 'GET', koerper = null) {
+// Der Fehlertext kommt von aussen herein: Dies ist eine gewöhnliche Funktion,
+// keine Komponente, und darf deshalb keine Übersetzung anfordern.
+async function hole(pfad, methode = 'GET', koerper = null, fehlertext = 'Es hat nicht funktioniert.') {
   const cfg = { method: methode, headers: { 'Content-Type': 'application/json' } };
   if (koerper) cfg.body = JSON.stringify(koerper);
   const res = await fetch(`/api/stammdaten${pfad}`, cfg);
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.success === false) throw new Error(json.error || t('st.fehler', 'Es hat nicht funktioniert.'));
+  if (!res.ok || json.success === false) throw new Error(json.error || fehlertext);
   return json.data || {};
 }
 
@@ -76,7 +78,7 @@ export default function Stammdaten() {
 
   const oeffnen = useCallback(async () => {
     try {
-      const d = await hole(`/${token}`);
+      const d = await hole(`/${token}`, 'GET', null, t('st.fehler', 'Es hat nicht funktioniert.'));
       setDaten(d);
       setForm({ ...d.firma, ansprechperson_rolle: d.kontakt.responsibility || '', ansprechperson_email: d.kontakt.email || '' });
     } catch (e) { setFehler(e.message); }
@@ -101,7 +103,7 @@ export default function Stammdaten() {
           street: form.street, postal_code: form.postal_code, city: form.city, country: form.country,
         },
         kontakt: { responsibility: form.ansprechperson_rolle, email: form.ansprechperson_email },
-      });
+      }, t('st.fehler', 'Es hat nicht funktioniert.'));
       setErfolg(t('st.danke', 'Vielen Dank, Ihre Angaben sind gespeichert. Sie können dieses Fenster schließen.'));
       setDaten((d) => ({ ...d, fertig: true }));
     } catch (e) { setFehler(e.message); }
@@ -111,7 +113,7 @@ export default function Stammdaten() {
   const bestaetigen = async () => {
     setBusy(true); setFehler(''); setErfolg('');
     try {
-      await hole(`/${token}/bestaetigen`, 'POST');
+      await hole(`/${token}/bestaetigen`, 'POST', null, t('st.fehler', 'Es hat nicht funktioniert.'));
       setErfolg(t('st.danke_bestaetigt', 'Danke für die Bestätigung. Ich melde mich in dieser Sache nicht wieder.'));
       setDaten((d) => ({ ...d, fertig: true }));
     } catch (e) { setFehler(e.message); }
@@ -121,7 +123,7 @@ export default function Stammdaten() {
   const abmelden = async () => {
     setBusy(true); setFehler('');
     try {
-      await hole(`/${token}/abmelden`, 'POST');
+      await hole(`/${token}/abmelden`, 'POST', null, t('st.fehler', 'Es hat nicht funktioniert.'));
       setAbgemeldet(true);
     } catch (e) { setFehler(e.message); }
     setBusy(false);

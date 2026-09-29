@@ -24,6 +24,11 @@ function stepReached(stage) {
 
 // Eine Prozesskarte je Deal des Käufers
 function DealCard({ d }) {
+  // Eigene Übersetzung: Eine Unterkomponente erbt nichts vom Elternteil. Ohne
+  // diese Zeile stürzt jeder Nutzer ab, der überhaupt einen Deal hat, und nur
+  // der. Wer keinen hat, sieht nie einen Fehler, und deshalb fiel es hier
+  // niemandem auf.
+  const t = useT();
   const reached = stepReached(d.stage);
   const isFund = d.mandate_type === 'fundraising';
   const resources = [
