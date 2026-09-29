@@ -282,7 +282,10 @@ router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
       users: await g(`SELECT COUNT(*)::int c FROM users WHERE role NOT IN ('super_admin','advisor') AND ${since('created_at')}`),
       feedback: await g(`SELECT COUNT(*)::int c FROM feedback WHERE ${since('created_at')}`),
       detvals: await g(`SELECT COUNT(*)::int c FROM detailed_valuations WHERE status='submitted' AND ${since('created_at')}`),
-      leads: await g(`SELECT COUNT(*)::int c FROM valuation_leads WHERE ${since('created_at')}`),
+      // Die Tabelle heisst valuations. Bis v0.427 stand hier valuation_leads,
+      // was es nie gab: Die Kennzahl auf der Uebersicht war also immer leer,
+      // und niemandem fiel es auf, weil g() den Fehler abfaengt.
+      leads: await g(`SELECT COUNT(*)::int c FROM valuations WHERE ${since('created_at')}`),
       // Alle Ereignisse im Zeitraum: fachliche Vorgänge (audit_logs, wie in der
       // Aktivitätsliste) plus technische Zugriffe (activity_log).
       activity_today: await g(`SELECT (
@@ -1657,6 +1660,105 @@ router.post('/berichte/fehler/:id/erledigt', ...isAdmin, wrap(async (req, res) =
     `UPDATE fehlermeldungen SET erledigt_am = CASE WHEN erledigt_am IS NULL THEN now() ELSE NULL END
       WHERE id = ?`, [id]);
   res.json({ success: true });
+}));
+
+
+/**
+ * Klarnamen-Prüfung (v0.427).
+ *
+ * Sucht in allem, was ein Interessent zu sehen bekommt, nach Personennamen:
+ * Exposé, Mandatsangaben, Dateinamen im Datenraum, Q&A. Abgeglichen wird gegen
+ * die Namen, die das System zu diesem Mandat ohnehin kennt, dazu kommen Muster
+ * wie Anrede, Titel, E-Mail und Telefonnummer.
+ *
+ * Meldet nur. Was mit einem Fund geschieht, entscheidet ein Mensch: Manches ist
+ * gewollt, etwa der Name des Beraters, und automatisch zu schwärzen hiesse,
+ * Unterlagen zu verändern, ohne dass jemand hinsieht.
+ *
+ * Ohne :projectId werden alle Mandate geprüft.
+ */
+router.get('/berichte/klarnamen/:projectId?', ...isAdmin, wrap(async (req, res) => {
+  const { pruefeMandat } = require('../utils/klarnamen');
+  const nur = req.params.projectId ? parseInt(req.params.projectId, 10) : null;
+
+  // Kein stilles Verschlucken von Datenbankfehlern. Bei einer Prüfung auf
+  // Personendaten wäre ein leeres Ergebnis die gefährlichste Antwort: Es sieht
+  // aus wie „alles sauber". Was nicht gelesen werden konnte, wird gemeldet.
+  const probleme = [];
+  const lies = async (sql, params, was) => {
+    try { return await db.all(sql, params); }
+    catch (e) { probleme.push(`${was}: ${e.message}`); return null; }
+  };
+
+  const projekte = await lies(
+    `SELECT id, codename, short_description, highlights
+       FROM projects ${nur ? 'WHERE id = ?' : ''} ORDER BY codename`,
+    nur ? [nur] : [], 'Mandate') || [];
+
+  const raus = [];
+  for (const p of projekte) {
+    // Namen, die das System zu diesem Mandat ohnehin kennt.
+    const beteiligte = await lies(
+      `SELECT DISTINCT c.first_name, c.last_name
+         FROM crm_deal_parties dp
+         JOIN crm_contacts c ON c.id = dp.contact_id
+        WHERE dp.project_id = ? AND c.anonymized_at IS NULL`, [p.id], 'Beteiligte');
+    const mitglieder = await lies(
+      `SELECT DISTINCT u.first_name, u.last_name
+         FROM project_members m JOIN users u ON u.id = m.user_id
+        WHERE m.project_id = ?`, [p.id], 'Projektmitglieder');
+    const bekannt = [...(beteiligte || []), ...(mitglieder || [])]
+      .map((r) => `${r.first_name || ''} ${r.last_name || ''}`.trim())
+      .filter(Boolean);
+
+    const felder = [
+      { bereich: 'Mandat', feld: 'Kurzbeschreibung', text: p.short_description },
+      { bereich: 'Mandat', feld: 'Highlights', text: p.highlights },
+    ];
+
+    const d = await db.get('SELECT * FROM project_details WHERE project_id = ?', [p.id])
+      .catch((e) => { probleme.push(`Detailangaben: ${e.message}`); return null; });
+    for (const f of ['full_description', 'team_description', 'growth_strategy', 'key_risks',
+      'problem_solution', 'use_of_funds', 'milestones', 'traction_highlights']) {
+      if (d && d[f]) felder.push({ bereich: 'Detailangaben', feld: f, text: d[f] });
+    }
+
+    const ex = await db.get('SELECT keyfacts_json, sections_json FROM exposes WHERE project_id = ?', [p.id])
+      .catch((e) => { probleme.push(`Exposé: ${e.message}`); return null; });
+    if (ex) {
+      try {
+        for (const [schluessel, wert] of Object.entries(JSON.parse(ex.keyfacts_json || '{}'))) {
+          if (wert) felder.push({ bereich: 'Exposé', feld: `Eckdaten: ${schluessel}`, text: String(wert) });
+        }
+      } catch { probleme.push(`Exposé ${p.codename}: Eckdaten sind kein gültiges JSON`); }
+      try {
+        for (const sec of JSON.parse(ex.sections_json || '[]')) {
+          if (sec && sec.body) felder.push({ bereich: 'Exposé', feld: sec.title || sec.key, text: String(sec.body) });
+        }
+      } catch { probleme.push(`Exposé ${p.codename}: Abschnitte sind kein gültiges JSON`); }
+    }
+
+    // Dateinamen im Datenraum. „Arbeitsvertrag Bergmann.pdf" verrät einen
+    // Namen, bevor jemand die Datei überhaupt geöffnet hat.
+    for (const i of await lies(
+      'SELECT name FROM safe_items WHERE project_id = ? AND deleted_at IS NULL', [p.id], 'Datenraum') || []) {
+      felder.push({ bereich: 'Datenraum', feld: 'Dateiname', text: i.name });
+    }
+
+    for (const q of await lies(
+      'SELECT question, answer FROM qa_threads WHERE project_id = ?', [p.id], 'Q&A') || []) {
+      if (q.question) felder.push({ bereich: 'Q&A', feld: 'Frage', text: q.question });
+      if (q.answer) felder.push({ bereich: 'Q&A', feld: 'Antwort', text: q.answer });
+    }
+
+    raus.push({
+      project_id: p.id, codename: p.codename,
+      geprueft: felder.length, bekannte_namen: bekannt.length,
+      funde: pruefeMandat(felder, bekannt),
+    });
+  }
+
+  res.json({ success: true, data: { mandate: raus, probleme: [...new Set(probleme)] } });
 }));
 
 router.get('/valuation-leads', ...isAdmin, wrap(async (req, res) => {

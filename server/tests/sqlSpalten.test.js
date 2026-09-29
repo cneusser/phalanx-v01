@@ -11,6 +11,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 const fs = require('fs');
 const path = require('path');
+const migrationen = path.join(__dirname, '..', 'db', 'migrations');
+const routen = path.join(__dirname, '..', 'routes');
 
 let fail = 0;
 const ok = (n, c) => { console.log((c ? '✓' : '✗ FEHLER') + ' ' + n); if (!c) fail++; };
@@ -80,4 +82,37 @@ ok('die Uebersicht wertet beide Stellen der Rolle aus', /COALESCE\(cc\.position,
 ok('das Mailing wertet beide Stellen der Rolle aus', /COALESCE\(cc\.position, k\.responsibility\)/.test(mail));
 
 console.log(fail ? `\n${fail} Fehler` : '\nAlle Prüfungen bestanden');
+
+// ── Jede abgefragte Tabelle gibt es auch ──────────────────────────────────
+// Beim Bau der Klarnamen-Prüfung habe ich drei Namen erfunden: `questions`
+// statt `qa_threads`, dazu Spalten `projects.is_deleted` und
+// `projects.seller_user_id`, die es nicht gibt. Weil die Abfragen in einem
+// .catch hingen, kam ein leeres Ergebnis zurück, und leer sieht bei einer
+// Prüfung auf Personendaten aus wie „alles sauber". Das ist die gefährlichste
+// Art, falsch zu liegen.
+const tabellen = new Set();
+for (const datei of fs.readdirSync(migrationen)) {
+  const inhalt = fs.readFileSync(path.join(migrationen, datei), 'utf8');
+  for (const m of inhalt.matchAll(/createTable\('(\w+)'/g)) tabellen.add(m[1]);
+}
+ok(`${tabellen.size} Tabellen im Schema gefunden`, tabellen.size > 40);
+
+const erfunden = [];
+for (const datei of fs.readdirSync(routen).filter((f) => f.endsWith('.js'))) {
+  // Kommentare raus: dort steht deutscher Fliesstext, und „Update erhalten"
+  // ist kein SQL.
+  const inhalt = fs.readFileSync(path.join(routen, datei), 'utf8')
+    .replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const SCHLUESSELWORT = new Set(['select', 'values', 'set', 'where', 'on', 'as', 'lateral',
+    'now', 'unnest', 'generate_series', 'information_schema', 'pg_catalog', 'only']);
+  for (const m of inhalt.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE)\s+([a-z_]{3,})\b/g)) {
+    const t = m[1].toLowerCase();
+    if (SCHLUESSELWORT.has(t)) continue;
+    if (!tabellen.has(t)) erfunden.push(`${datei}: ${m[0].trim()}`);
+  }
+}
+ok('keine Abfrage auf eine Tabelle, die es nicht gibt'
+  + (erfunden.length ? `\n     ${[...new Set(erfunden)].slice(0, 8).join('\n     ')}` : ''),
+  erfunden.length === 0);
+
 process.exit(fail ? 1 : 0);

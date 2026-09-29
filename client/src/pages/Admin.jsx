@@ -292,6 +292,7 @@ export default function Admin() {
   const [berichtMsg, setBerichtMsg] = useState('');
   const [berichtLaeuft, setBerichtLaeuft] = useState(false);
   const [fehlerliste, setFehlerliste] = useState(null);
+  const [namen, setNamen] = useState(null);
   // Drag & Drop der Pipeline-Karten
   const [dragDeal, setDragDeal] = useState(null);       // { id, deal_status }
   const [dragOverCol, setDragOverCol] = useState(null); // Ziel-Spalte (Hover)
@@ -1018,6 +1019,13 @@ export default function Admin() {
     setBerichtLaeuft(true); setBerichtMsg('');
     try { setSuchbericht(await api.get('/admin/berichte/suchprofile')); }
     catch (e) { setBerichtMsg('Bericht fehlgeschlagen: ' + e.message); }
+    finally { setBerichtLaeuft(false); }
+  }
+
+  async function ladeNamen(mandatId) {
+    setBerichtLaeuft(true); setBerichtMsg('');
+    try { setNamen(await api.get(`/admin/berichte/klarnamen${mandatId ? '/' + mandatId : ''}`)); }
+    catch (e) { setBerichtMsg('Namensprüfung fehlgeschlagen: ' + e.message); }
     finally { setBerichtLaeuft(false); }
   }
 
@@ -2462,6 +2470,55 @@ export default function Admin() {
               {berichtMsg}
             </div>
           )}
+
+          {/* ── Klarnamen in Unterlagen ─────────────────────────────────── */}
+          <div style={CARD}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.5rem' }}>
+              <div>
+                <div style={{ fontWeight: 700, color: C.navy }}>Klarnamen in Unterlagen</div>
+                <div style={{ fontSize: '0.8rem', color: C.muted }}>
+                  Sucht Personennamen in allem, was ein Interessent sieht: Exposé, Mandatsangaben, Dateinamen im Datenraum, Q&amp;A.
+                </div>
+              </div>
+              <button onClick={() => ladeNamen(null)} disabled={berichtLaeuft} style={BTN}>
+                {berichtLaeuft ? 'Wird geprüft…' : 'Alle Mandate prüfen'}
+              </button>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: C.muted, marginBottom: '0.9rem' }}>
+              Es wird nur gemeldet, nie geändert. Manches ist gewollt, etwa der Name des Beraters.
+            </div>
+
+            {!namen && <div style={{ fontSize: '0.85rem', color: C.muted }}>Noch nicht geprüft.</div>}
+            {namen && (namen.probleme || []).length > 0 && (
+              <div style={{ background: '#fdecec', borderLeft: '3px solid #b3261e', padding: '0.7rem 0.9rem', fontSize: '0.82rem', marginBottom: '0.9rem' }}>
+                <strong>Teile konnten nicht gelesen werden, das Ergebnis ist unvollständig:</strong>
+                <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.1rem' }}>
+                  {namen.probleme.map((p, i) => <li key={i}>{p}</li>)}
+                </ul>
+              </div>
+            )}
+            {namen && (namen.mandate || []).map(m => (
+              <div key={m.project_id} style={{ borderTop: `1px solid ${C.border}`, padding: '0.7rem 0' }}>
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, color: C.navy }}>{m.codename}</span>
+                  <span style={{
+                    background: m.funde.length ? '#fee2e2' : '#dcfce7',
+                    color: m.funde.length ? '#991b1b' : '#166534',
+                    borderRadius: 20, padding: '0 0.5rem', fontSize: '0.72rem', fontWeight: 700,
+                  }}>{m.funde.length ? `${m.funde.length} Fundstellen` : 'unauffällig'}</span>
+                  <span style={{ fontSize: '0.74rem', color: C.muted }}>
+                    {m.geprueft} Felder geprüft, {m.bekannte_namen} bekannte Namen im Abgleich
+                  </span>
+                </div>
+                {m.funde.map((f, i) => (
+                  <div key={i} style={{ fontSize: '0.79rem', marginTop: '0.45rem', paddingLeft: '0.7rem', borderLeft: '2px solid #fca5a5' }}>
+                    <div><strong>{f.treffer}</strong> <span style={{ color: C.muted }}>· {f.bereich} / {f.feld} · {f.hinweis}</span></div>
+                    <div style={{ color: '#555', fontStyle: 'italic' }}>{f.umgebung}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
 
           {/* ── Abstürze der Oberfläche ─────────────────────────────────── */}
           <div style={CARD}>

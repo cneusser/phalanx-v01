@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Rufen Oberfläche und Server dieselben Adressen auf?
 //
-// Anlass: beim Einbauen der Berichte habe ich zweierlei falsch angeschlossen.
+// Anlass: Beim Einbauen der Berichte habe ich zweierlei falsch angeschlossen.
 // Der API-Client packt die Hülle { success, data } schon aus, ich habe trotzdem
 // noch einmal .data gelesen, und für ein INSERT mit neuer Kennung gibt es im
 // Haus db.insert statt db.get mit RETURNING. Beides fällt im Build nicht auf,
@@ -28,24 +28,35 @@ function serverRouten(quelle) {
   return raus;
 }
 
-// Eine Adresse vergleichbar machen: Platzhalter und eingesetzte Werte gleich.
+// Eine Adresse vergleichbar machen.
+//
+// Zwei Stolpersteine, beide beim Bauen gelernt: In einem Ausdruck wie
+// `${id ? '/' + id : ''}` stehen Anführungszeichen, an denen eine naive Suche
+// abbricht. Und ein Ausdruck, der einen Pfadteil weglassen KANN, entspricht
+// einem optionalen Parameter der Route. Beides wird zu einer Leerstelle, damit
+// /berichte/klarnamen${…} und /berichte/klarnamen/:projectId? zusammenpassen.
+const WEG = '\u0000';
+const optionaleTeile = (q) => q.replace(/\$\{[^{}]*\?[^{}]*\}/g, WEG);
+const eingesetzteWerte = (q) => q.replace(/\$\{[^{}]*\}/g, ':x');
+
 const muster = (pfad) => pfad
-  .replace(/\$\{[^}]*\}/g, ':x')
+  .replace(/:[A-Za-z_]+\?/g, WEG)
   .replace(/:[A-Za-z_]+/g, ':x')
-  .replace(/\?.*$/, '');
+  .replace(/\?.*$/, '')
+  .split(WEG).join('')
+  .replace(/\/$/, '');
 
 const admin = routenDatei('admin');
 const serverAdmin = new Set([...serverRouten(admin)].map((r) => {
   const [verb, pfad] = r.split(' ');
   return `${verb} ${muster(pfad)}`;
 }));
-
 ok(`der Server bietet ${serverAdmin.size} Adressen unter /admin an`, serverAdmin.size > 20);
 
-// Was die Verwaltungsoberfläche davon ruft.
 const seite = fs.readFileSync(path.join(wurzel, 'client', 'src', 'pages', 'Admin.jsx'), 'utf8');
+const bereinigt = eingesetzteWerte(optionaleTeile(seite));
 const gerufen = new Set();
-for (const m of seite.matchAll(/api\.(get|post|put|patch|delete)\(\s*[`']\/admin([^`']*)[`']/g)) {
+for (const m of bereinigt.matchAll(/api\.(get|post|put|patch|delete)\(\s*[`']\/admin([^`']*)[`']/g)) {
   gerufen.add(`${m[1].toUpperCase()} ${muster(m[2])}`);
 }
 ok(`die Oberfläche ruft ${gerufen.size} Adressen unter /admin`, gerufen.size > 5);
@@ -54,14 +65,20 @@ const fehlend = [...gerufen].filter((r) => !serverAdmin.has(r));
 ok('jede gerufene Adresse gibt es auch auf dem Server'
   + (fehlend.length ? `  (fehlt: ${fehlend.join(', ')})` : ''), fehlend.length === 0);
 
-// ── Die neuen Berichte im Einzelnen ───────────────────────────────────────
-for (const r of ['GET /berichte/suchprofile', 'GET /berichte/datenraum/:x', 'POST /berichte/datenraum/:x/anwenden']) {
+// ── Die Berichte im Einzelnen ─────────────────────────────────────────────
+for (const r of [
+  'GET /berichte/suchprofile',
+  'GET /berichte/datenraum/:x',
+  'POST /berichte/datenraum/:x/anwenden',
+  'GET /berichte/fehler',
+  'GET /berichte/klarnamen',
+]) {
   ok(`Route vorhanden: ${r}`, serverAdmin.has(r));
 }
 
-// Ein Bericht, der ohne Adminrecht erreichbar wäre, gäbe Profildaten und
-// Dokumentnamen preis.
-const berichtsBlock = admin.slice(admin.indexOf("router.get('/berichte/suchprofile'"),
+// Ein Bericht ohne Adminrecht gäbe Profildaten, Dokumentnamen und jetzt auch
+// gefundene Personennamen preis.
+const berichtsBlock = admin.slice(admin.indexOf("router.get('/berichte"),
   admin.indexOf("router.get('/valuation-leads'"));
 const ohneSchutz = [...berichtsBlock.matchAll(/router\.\w+\('(\/berichte[^']*)',\s*([^,]+),/g)]
   .filter((m) => !/isAdmin/.test(m[2])).map((m) => m[1]);
@@ -69,8 +86,6 @@ ok('alle Berichtsrouten verlangen Adminrecht'
   + (ohneSchutz.length ? `  (ungeschützt: ${ohneSchutz.join(', ')})` : ''), ohneSchutz.length === 0);
 
 // ── Die Hülle wird nur einmal ausgepackt ──────────────────────────────────
-// api.get liefert bereits das, was der Server unter data schickt. Ein
-// zusätzliches .data ergibt undefined und eine leere Seite ohne Fehlermeldung.
 const doppelt = [...seite.matchAll(/const\s+(\w+)\s*=\s*await api\.(get|post|put)\([^)]*\);[\s\S]{0,80}?\1\.data\b/g)]
   .map((m) => m[0].split('\n')[0].trim());
 ok('kein doppeltes Auspacken von .data' + (doppelt.length ? `  (${doppelt.join(' | ')})` : ''),

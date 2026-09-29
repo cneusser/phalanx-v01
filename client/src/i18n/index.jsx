@@ -354,6 +354,7 @@ const EN = {
   'cl.nur_angemeldet': 'The list of changes is visible to signed-in users.',
   'cl.laedt': 'Loading…',
   'cl.leer': 'No entries yet.',
+  'ex.zum_mandat': 'To the mandate',
   // Kontakt, ergänzt v0.414
   'contact.kicker': 'Get in touch',
   'contact.titel': 'A conversation costs you twenty minutes',

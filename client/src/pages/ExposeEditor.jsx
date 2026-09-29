@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
 import { ChevronLeft, Save, Eye, Download, Upload as UploadIcon, CheckCircle, Image as ImageIcon, Globe } from 'lucide-react';
+import { useT } from '../i18n';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.5rem 0.65rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' };
@@ -29,6 +30,7 @@ function SafeThumb({ pid, safeId, size = 64, selected }) {
 }
 
 export default function ExposeEditor() {
+  const t = useT();
   const { id: pid } = useParams();
   const [project, setProject] = useState(null);
   const [keyfacts, setKeyfacts] = useState({});
@@ -125,7 +127,12 @@ export default function ExposeEditor() {
     <div style={{ background: C.bg, minHeight: '100vh' }}>
       <div style={{ background: C.navy, color: '#fff', padding: '1.5rem' }}>
         <div style={{ maxWidth: 960, margin: '0 auto' }}>
-          <Link to="/admin" style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}><ChevronLeft size={14} /> Admin</Link>
+          {/* Zurück zum Mandat, nicht in die Verwaltung: Wer hier arbeitet, kam vom
+              Mandat und will dorthin zurück. Der Sprung in die Verwaltungsübersicht
+              war ein Ortswechsel mitten in der Arbeit. */}
+          <Link to={`/projekte/${pid}`} style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <ChevronLeft size={14} /> {t('ex.zum_mandat', 'Zum Mandat')}
+          </Link>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem', marginTop: '0.5rem' }}>
             <div>
               <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>Exposé-Editor</div>
