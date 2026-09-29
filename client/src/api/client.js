@@ -29,9 +29,23 @@ async function uploadFile(path, formData) {
   const headers = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
   // Note: do NOT set Content-Type – let the browser set it with the boundary
-  const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers, body: formData });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Upload fehlgeschlagen');
+  // „Load failed" (Safari) oder „Failed to fetch" (Chrome) heisst: Die
+  // Verbindung ist abgerissen, bevor eine Antwort kam. Das ist keine Meldung,
+  // mit der jemand etwas anfangen kann, deshalb wird sie hier übersetzt.
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers, body: formData });
+  } catch (e) {
+    throw new Error('Die Verbindung ist während des Uploads abgerissen. '
+      + 'Das passiert bei sehr großen Dateien oder einer unterbrochenen Leitung. '
+      + `Technisch: ${e.message}`);
+  }
+  // Antwortet der Server nicht mit JSON, etwa weil ein Zwischenserver
+  // dazwischenfunkt, wäre res.json() ein zweiter, irreführender Fehler.
+  let data = {};
+  try { data = await res.json(); }
+  catch { if (!res.ok) throw new Error(`Der Upload wurde abgewiesen (HTTP ${res.status}).`); }
+  if (!res.ok) throw new Error(data.error || `Upload fehlgeschlagen (HTTP ${res.status}).`);
   return data.data;
 }
 

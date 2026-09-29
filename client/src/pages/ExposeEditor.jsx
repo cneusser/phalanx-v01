@@ -101,8 +101,22 @@ export default function ExposeEditor() {
   }
 
   // Fertiges Exposé-PDF in den Safe hochladen: wird dann statt der Generierung ausgeliefert
+  // 50 MB, wie der Server. Wer eine zu große oder falsche Datei wählt, soll das
+  // sofort erfahren und nicht erst nach Minuten Wartezeit und einem Abbruch.
+  const PDF_GRENZE = 50 * 1024 * 1024;
+
   async function uploadExposePdf(file) {
     if (!file) return;
+    const istPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (!istPdf) {
+      setMsg(`„${file.name}" ist keine PDF-Datei. Bitte exportieren Sie das Exposé zuerst als PDF.`);
+      return;
+    }
+    if (file.size > PDF_GRENZE) {
+      setMsg(`„${file.name}" ist ${(file.size / 1024 / 1024).toFixed(1)} MB groß. `
+        + 'Erlaubt sind bis zu 50 MB. Bitte verkleinern Sie die Bilder im Dokument.');
+      return;
+    }
     setPdfBusy(true); setMsg('');
     try {
       const fd = new FormData();

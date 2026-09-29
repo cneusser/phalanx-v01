@@ -85,6 +85,7 @@ async function streamDocument(res, doc, user, projectId, via) {
   res.sendFile(path.resolve(doc.file_path));
 }
 
+const { mitFehlermeldung } = require('../utils/hochladen');
 const router = express.Router();
 const isAdmin = [authenticate, requireRole('super_admin', 'advisor')];
 
@@ -145,7 +146,7 @@ const upload = multer({
 });
 
 // ── POST /api/documents/:projectId  (Admin only) ───────────
-router.post('/:projectId', ...isAdmin, upload.single('file'), wrap(async (req, res) => {
+router.post('/:projectId', ...isAdmin, mitFehlermeldung(upload.single('file'), 52428800), wrap(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen' });
 
   const { projectId } = req.params;
@@ -602,7 +603,7 @@ router.delete('/:projectId/:docId/grants/:grantId', ...isAdmin, wrap(async (req,
 // Hängt eine echte Datei an eine BESTEHENDE Dokumentzeile (z. B. vorbereitete
 // Teaser-/IM-Einträge ohne Datei). Bezeichnung, Beschreibung und Zugangslevel
 // bleiben erhalten; Dateityp/-größe werden aktualisiert, alte Datei entfernt.
-router.post('/:projectId/:docId/file', ...isAdmin, upload.single('file'), wrap(async (req, res) => {
+router.post('/:projectId/:docId/file', ...isAdmin, mitFehlermeldung(upload.single('file'), 52428800), wrap(async (req, res) => {
   const { projectId, docId } = req.params;
   if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen' });
 

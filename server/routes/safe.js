@@ -13,6 +13,7 @@ const db = require('../db/database');
 const wrap = require('../utils/asyncHandler');
 const { authenticate } = require('../middleware/auth');
 const { getStorage } = require('../providers/storage');
+const { mitFehlermeldung } = require('../utils/hochladen');
 const router = express.Router();
 
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
@@ -249,7 +250,7 @@ router.post('/:projectId/folder', authenticate, wrap(async (req, res) => {
 }));
 
 // ── Upload (mehrere Dateien; optional Ordnerbaum via relative Pfade) ─────────
-router.post('/:projectId/upload', authenticate, upload.array('files', 500), wrap(async (req, res) => {
+router.post('/:projectId/upload', authenticate, mitFehlermeldung(upload.array('files', 500), 104857600), wrap(async (req, res) => {
   if (!(await guard(req, res))) return;
   const projectId = req.params.projectId;
   const baseParent = req.body.parent_id ? Number(req.body.parent_id) : null;

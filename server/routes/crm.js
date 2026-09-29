@@ -16,6 +16,7 @@ const wrap = require('../utils/asyncHandler');
 const { authenticate, requireRole } = require('../middleware/auth');
 const perms = require('../middleware/permissions');
 const { requirePermission, can, projectScope, seesAllProjects } = perms;
+const { mitFehlermeldung } = require('../utils/hochladen');
 const router = express.Router();
 
 const scoped = (req, fn) => (req.tenantId && req.tenantId !== 1) ? db.withTenant(req.tenantId, fn) : fn(db);
@@ -1283,7 +1284,7 @@ function parseSheet(file) {
   return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 }
 
-router.post('/import/analyze', ...isStaff, canWrite, importUpload.single('file'), wrap(async (req, res) => {
+router.post('/import/analyze', ...isStaff, canWrite, mitFehlermeldung(importUpload.single('file'), 6291456), wrap(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei empfangen.' });
   let rows;
   try { rows = parseSheet(req.file); } catch (e) { return res.status(400).json({ success: false, error: 'Datei nicht lesbar: ' + e.message }); }
@@ -1733,7 +1734,7 @@ router.post('/invite/emails', ...isStaff, canSend, wrap(async (req, res) => {
 }));
 
 // Excel/CSV hochladen: Spalten E-Mail, Vorname, Nachname (Header werden erkannt)
-router.post('/invite/import-file', ...isStaff, canSend, importUpload.single('file'), wrap(async (req, res) => {
+router.post('/invite/import-file', ...isStaff, canSend, mitFehlermeldung(importUpload.single('file'), 6291456), wrap(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen.' });
   const XLSX = require('xlsx');
   let rows;

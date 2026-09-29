@@ -20,6 +20,7 @@ const { getStage } = require('../middleware/gates');
 const { stageAllows } = require('../utils/dealStateMachine');
 const { getStorage } = require('../providers/storage');
 const { generateExposeReport } = require('../valuation/exposeReport');
+const { mitFehlermeldung } = require('../utils/hochladen');
 const router = express.Router();
 
 // Upload eines fertigen Exposé-PDFs (landet im Safe, wird von dort ausgeliefert)
@@ -225,7 +226,7 @@ router.get('/:projectId/image/:safeId', authenticate, wrap(async (req, res) => {
 // ── Fertiges Exposé-PDF hochladen (in den Safe) ─────────────────────────────
 // Legt die Datei über den StorageProvider im Safe ab, erzeugt ein safe_items-
 // Element und verknüpft es mit dem Exposé. Danach liefert /pdf diese Datei aus.
-router.post('/:projectId/pdf-upload', authenticate, pdfUpload.single('file'), wrap(async (req, res) => {
+router.post('/:projectId/pdf-upload', authenticate, mitFehlermeldung(pdfUpload.single('file'), 52428800), wrap(async (req, res) => {
   const projectId = req.params.projectId;
   if (!(await canManage(req, projectId))) return res.status(403).json({ success: false, error: 'Kein Zugriff' });
   if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen' });

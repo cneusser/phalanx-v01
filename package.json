@@ -1,6 +1,6 @@
 {
   "name": "phalanx-platform",
-  "version": "0.427.0",
+  "version": "0.428.0",
   "description": "Phalanx M&A Platform",
   "engines": {
     "node": ">=18.0.0"
