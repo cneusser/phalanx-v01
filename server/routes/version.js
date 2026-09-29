@@ -46,6 +46,12 @@ function lies() {
 const VERSION = lies();
 const GESTARTET = new Date().toISOString();
 
+function pruefungen() {
+  try {
+    return require('../utils/adressenPruefen').pruefe().map((f) => ({ schwere: f.schwere, text: f.text }));
+  } catch { return []; }
+}
+
 router.get('/version', (req, res) => {
   res.json({
     success: true,
@@ -57,6 +63,13 @@ router.get('/version', (req, res) => {
       deployed_am: process.env.RAILWAY_DEPLOYMENT_CREATED_AT || null,
       gestartet_am: GESTARTET,
       umgebung: process.env.NODE_ENV || 'development',
+      // Was an der Konfiguration nicht stimmt (v0.426).
+      //
+      // Die Startprüfung aus v0.419 schreibt ihre Beanstandungen ins Protokoll,
+      // und dorthin sieht man nur, wenn man schon weiss, dass etwas kaputt ist.
+      // Hier stehen sie so, dass man sie von aussen sieht, ohne sich anzumelden
+      // und ohne in den Logs zu suchen. Es sind Adressen, keine Geheimnisse.
+      hinweise: pruefungen(),
     },
   });
 });

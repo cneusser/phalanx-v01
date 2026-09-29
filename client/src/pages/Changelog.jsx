@@ -78,6 +78,19 @@ export default function Changelog() {
               {server && server.commit && <div style={{ color: C.muted, fontSize: '0.75rem' }}>Commit {server.commit}</div>}
             </div>
           </div>
+          {server && (server.hinweise || []).length > 0 && (
+            <div style={{ marginTop: '0.9rem' }}>
+              {server.hinweise.map((h, i) => (
+                <div key={i} style={{
+                  background: h.schwere === 'fehler' ? '#fdecec' : '#fdf6e8',
+                  borderLeft: `3px solid ${h.schwere === 'fehler' ? '#b3261e' : '#c9a96e'}`,
+                  padding: '0.7rem 0.9rem', fontSize: '0.84rem', marginBottom: '0.4rem', lineHeight: 1.55,
+                }}>
+                  <strong>{h.schwere === 'fehler' ? 'Konfiguration' : 'Hinweis'}: </strong>{h.text}
+                </div>
+              ))}
+            </div>
+          )}
           {veraltet && (
             <div style={{ marginTop: '0.9rem', background: '#fdf6e8', borderLeft: '3px solid #c9a96e', padding: '0.7rem 0.9rem', fontSize: '0.85rem' }}>
               {t('cl.veraltet', 'Ihr Browser zeigt eine ältere Fassung. Ein Neuladen holt die aktuelle.')}{' '}
