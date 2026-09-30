@@ -38,6 +38,14 @@ const Badge = ({ map, value }) => {
 
 export default function Crm() {
   const [tab, setTab] = useState('companies');
+  // Anschreiben einlesen (v0.439): zwei Schritte, lesen und uebernehmen. Der
+  // erste aendert nichts.
+  const [invOffen, setInvOffen] = useState(false);
+  const [invText, setInvText] = useState('');
+  const [invGelesen, setInvGelesen] = useState(null);
+  const [invMeldung, setInvMeldung] = useState('');
+  const [invVerteiler, setInvVerteiler] = useState(true);
+  const [invLaeuft, setInvLaeuft] = useState(false);
   const [stats, setStats] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [contacts, setContacts] = useState([]);
@@ -310,6 +318,29 @@ export default function Crm() {
       .catch(e => show('Fehler: ' + e.message));
   }
 
+  // ── Anschreiben einlesen ──────────────────────────────────────────────────
+  async function invLesen() {
+    setInvLaeuft(true); setInvMeldung('');
+    try { setInvGelesen(await api.post('/crm/investoren/lesen', { text: invText })); }
+    catch (e) { setInvMeldung('Fehler: ' + e.message); }
+    setInvLaeuft(false);
+  }
+  async function invUebernehmen() {
+    if (!invGelesen) return;
+    setInvLaeuft(true);
+    try {
+      const d = await api.post('/crm/investoren/uebernehmen', {
+        felder: invGelesen.felder,
+        verteiler_uebernehmen: invVerteiler && !!(invGelesen.felder.verteiler && invGelesen.felder.verteiler.adresse),
+      });
+      setInvMeldung(`Angelegt: Unternehmen #${d.company_id}, Kontakt #${d.contact_id}`
+        + (d.verteiler ? `, Verteiler-Einwilligung für ${d.verteiler.email} belegt.` : '.'));
+      setInvGelesen(null); setInvText('');
+      load();
+    } catch (e) { setInvMeldung('Fehler: ' + e.message); }
+    setInvLaeuft(false);
+  }
+
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2.5rem 1.5rem', background: C.bg, minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -338,6 +369,11 @@ export default function Crm() {
           </button>
           <button onClick={() => setImportOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
             <Upload size={14} /> Import (CSV)
+          </button>
+          <button onClick={() => { setInvOffen(true); setInvText(''); setInvGelesen(null); setInvMeldung(''); }}
+            title="Vorstellungsmail einer Beteiligungsgesellschaft einlesen"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
+            <Plus size={14} /> Anschreiben einlesen
           </button>
           <button onClick={() => exportCsv(tab === 'contacts' ? 'contacts' : 'companies')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card, color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.9rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
             <Download size={14} /> Export
@@ -578,6 +614,96 @@ export default function Crm() {
       {/* Sprint 20: Sell-Side-Funnel je Mandat (Longlist → Closing) */}
       {tab === 'funnel' && <DealFunnelBoard show={show} />}
       {tab === 'nachfolge' && <SuccessionFunnel />}
+      {invOffen && (
+        <div onClick={() => setInvOffen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 70, padding: '2rem 1rem', overflowY: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', width: 'min(820px, 100%)' }}>
+            <h3 style={{ margin: '0 0 0.3rem', color: C.navy }}>Anschreiben einlesen</h3>
+            <p style={{ margin: '0 0 1rem', fontSize: '0.84rem', color: C.muted, lineHeight: 1.55 }}>
+              Fügen Sie die Vorstellungsmail ein. Es wird zuerst nur gelesen und angezeigt, was erkannt wurde,
+              mit der Zeile, aus der es stammt. Übernommen wird nichts, bevor Sie es bestätigt haben.
+            </p>
+            <textarea value={invText} onChange={(e) => setInvText(e.target.value)} rows={10}
+              placeholder="Text der E-Mail einfügen"
+              style={{ width: '100%', padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.82rem', fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }} />
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.7rem' }}>
+              <button onClick={invLesen} disabled={invLaeuft || invText.trim().length < 40}
+                style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 1rem', fontSize: '0.83rem', fontWeight: 700, cursor: 'pointer' }}>
+                {invLaeuft ? 'Einen Moment…' : 'Lesen'}
+              </button>
+              <button onClick={() => setInvOffen(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '0.83rem' }}>Schließen</button>
+            </div>
+
+            {invMeldung && <div style={{ marginTop: '0.8rem', fontSize: '0.83rem', color: invMeldung.startsWith('Fehler') ? '#991b1b' : '#065f46' }}>{invMeldung}</div>}
+
+            {invGelesen && (
+              <div style={{ marginTop: '1.2rem', borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
+                {invGelesen.offen.length > 0 && (
+                  <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.6rem 0.8rem', fontSize: '0.8rem', color: '#78350f', marginBottom: '0.8rem' }}>
+                    <strong>Nicht erkannt, bitte selbst ergänzen:</strong>
+                    <ul style={{ margin: '0.3rem 0 0', paddingLeft: '1.1rem' }}>
+                      {invGelesen.offen.map((o, i) => <li key={i}>{o}</li>)}
+                    </ul>
+                  </div>
+                )}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <tbody>
+                    {[
+                      ['Firma', invGelesen.felder.firma],
+                      ['Person', invGelesen.felder.person],
+                      ['E-Mail', invGelesen.felder.email],
+                      ['Telefon', invGelesen.felder.telefon],
+                      ['Webseite', invGelesen.felder.website],
+                      ['Anschrift', invGelesen.felder.anschrift && { wert: `${invGelesen.felder.anschrift.strasse}, ${invGelesen.felder.anschrift.plz} ${invGelesen.felder.anschrift.ort}`, beleg: invGelesen.felder.anschrift.beleg }],
+                      ['Geschäftsführung', invGelesen.felder.geschaeftsfuehrer],
+                      ['Sektor', invGelesen.felder.sektor && { wert: invGelesen.felder.sektor.text + (invGelesen.felder.sektor.wert ? ` → ${invGelesen.felder.sektor.wert}` : ' (nicht im Vokabular)'), beleg: invGelesen.felder.sektor.beleg }],
+                      ['Region', invGelesen.felder.regionen && { wert: invGelesen.felder.regionen.text + (invGelesen.felder.regionen.werte.length ? ` → ${invGelesen.felder.regionen.werte.join(', ')}` : ' (nicht im Vokabular)'), beleg: invGelesen.felder.regionen.beleg }],
+                      ['Umsatz', invGelesen.felder.umsatz && { wert: `${invGelesen.felder.umsatz.von} bis ${invGelesen.felder.umsatz.bis ?? '?'} Mio. EUR`, beleg: invGelesen.felder.umsatz.beleg }],
+                      ['EBITDA', invGelesen.felder.ebitda && { wert: `${invGelesen.felder.ebitda.von} bis ${invGelesen.felder.ebitda.bis ?? '?'} Mio. EUR`, beleg: invGelesen.felder.ebitda.beleg }],
+                    ].filter(([, v]) => v).map(([k, v]) => (
+                      <tr key={k} style={{ borderBottom: `1px solid ${C.border}` }}>
+                        <td style={{ padding: '0.4rem 0.6rem 0.4rem 0', color: C.muted, whiteSpace: 'nowrap', verticalAlign: 'top', width: 140 }}>{k}</td>
+                        <td style={{ padding: '0.4rem 0' }}>
+                          <div style={{ fontWeight: 600, color: C.navy }}>{v.wert}</div>
+                          {v.beleg && <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 2 }}>aus: {v.beleg.slice(0, 160)}</div>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {invGelesen.felder.verteiler && invGelesen.felder.verteiler.adresse && (
+                  <div style={{ marginTop: '0.9rem', background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 8, padding: '0.7rem 0.85rem', fontSize: '0.82rem', color: '#065f46', lineHeight: 1.55 }}>
+                    <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={invVerteiler} onChange={(e) => setInvVerteiler(e.target.checked)} style={{ marginTop: 3 }} />
+                      <span>
+                        In den Verteiler aufnehmen: <strong>{invGelesen.felder.verteiler.adresse}</strong>.
+                        Der Wortlaut der Bitte wird als Beleg gespeichert. Nur die hier genannte Adresse wird
+                        aufgenommen, nicht die des Absenders.
+                        <span style={{ display: 'block', fontSize: '0.74rem', marginTop: 4, opacity: 0.85 }}>„{invGelesen.felder.verteiler.beleg}"</span>
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                {(invGelesen.dubletten.firmen.length > 0 || invGelesen.dubletten.kontakte.length > 0) && (
+                  <div style={{ marginTop: '0.9rem', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '0.7rem 0.85rem', fontSize: '0.82rem', color: '#991b1b', lineHeight: 1.55 }}>
+                    <strong>Mögliche Dubletten.</strong> Zusammengeführt wird nichts, das entscheiden Sie.
+                    <ul style={{ margin: '0.3rem 0 0', paddingLeft: '1.1rem' }}>
+                      {invGelesen.dubletten.firmen.map((d) => <li key={'f' + d.id}>Unternehmen #{d.id}: {d.name}{d.city ? `, ${d.city}` : ''}</li>)}
+                      {invGelesen.dubletten.kontakte.map((d) => <li key={'k' + d.id}>Kontakt #{d.id}: {d.first_name} {d.last_name} ({d.email})</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                <button onClick={invUebernehmen} disabled={invLaeuft}
+                  style={{ marginTop: '1rem', background: '#065f46', color: '#fff', border: 'none', borderRadius: 8, padding: '0.55rem 1.1rem', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>
+                  {invLaeuft ? 'Einen Moment…' : 'So übernehmen'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {detail && (
         <CompanyDetail

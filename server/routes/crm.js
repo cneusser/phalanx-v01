@@ -1229,6 +1229,198 @@ router.get('/leads/sources', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { sources, recent } });
 }));
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Investoren-Anschreiben einlesen (v0.439)
+//
+// Anlass: Vorstellungsmails von Beteiligungsgesellschaften kommen regelmäßig
+// herein und bringen ihr Akquisitionsprofil gleich mit. Bisher blieb das im
+// Postfach, und beim nächsten Mandat wusste niemand mehr, wer wonach sucht.
+//
+// Zwei Schritte, bewusst getrennt: lesen und übernehmen. Der erste ändert
+// nichts, er zeigt nur, was erkannt wurde, samt der Zeile, aus der es stammt,
+// und meldet mögliche Dubletten. Erst der zweite schreibt, und zwar genau die
+// Werte, die dann bestätigt wurden.
+// ─────────────────────────────────────────────────────────────────────────────
+const anschreiben = require('../utils/investorAnschreiben');
+
+router.post('/investoren/lesen', ...isStaff, wrap(async (req, res) => {
+  const text = String(req.body.text || '');
+  if (text.trim().length < 40) {
+    return res.status(400).json({ success: false, error: 'Bitte fügen Sie das vollständige Anschreiben ein.' });
+  }
+  const gelesen = anschreiben.lese(text);
+  const f = gelesen.felder;
+
+  // Dubletten melden, nicht zusammenführen. Ob zwei Einträge dieselbe
+  // Gesellschaft sind, entscheidet ein Mensch.
+  const dubletten = { firmen: [], kontakte: [] };
+  if (f.firma) {
+    dubletten.firmen = await scoped(req, (t) => t.all(
+      `SELECT id, name, city, website FROM crm_companies
+        WHERE name_normalized = ? OR lower(name) LIKE ? LIMIT 5`,
+      [normalizeName(f.firma.wert), `%${f.firma.wert.toLowerCase().slice(0, 18)}%`])).catch(() => []);
+  }
+  const mails = [f.email && f.email.wert, f.verteiler && f.verteiler.adresse].filter(Boolean);
+  if (mails.length) {
+    dubletten.kontakte = await scoped(req, (t) => t.all(
+      `SELECT id, first_name, last_name, email FROM crm_contacts WHERE lower(email) IN (${mails.map(() => '?').join(',')})`,
+      mails)).catch(() => []);
+  }
+  res.json({ success: true, data: { ...gelesen, dubletten } });
+}));
+
+router.post('/investoren/uebernehmen', ...isStaff, canWrite, wrap(async (req, res) => {
+  const f = req.body.felder;
+  if (!f || !f.firma || !f.firma.wert) {
+    return res.status(400).json({ success: false, error: 'Ohne Firmenname wird nichts angelegt.' });
+  }
+  const jetzt = new Date().toISOString();
+  const name = String(f.firma.wert).trim();
+
+  // Die Gesellschaft. Ist sie schon da, wird sie benutzt und nicht verdoppelt;
+  // bestehende Angaben bleiben, wie sie sind.
+  let firmaId = f.firma_id ? Number(f.firma_id) : null;
+  if (!firmaId) {
+    const vorhanden = await scoped(req, (t) => t.get(
+      'SELECT id FROM crm_companies WHERE name_normalized = ? LIMIT 1', [normalizeName(name)])).catch(() => null);
+    firmaId = vorhanden ? vorhanden.id : null;
+  }
+  const kriterien = [
+    f.sektor && f.sektor.text ? `Sektor: ${f.sektor.text}` : null,
+    f.regionen && f.regionen.text ? `Region: ${f.regionen.text}` : null,
+    f.umsatz ? `Umsatz ${f.umsatz.von}${f.umsatz.bis ? ' bis ' + f.umsatz.bis : '+'} Mio. EUR` : null,
+    f.ebitda ? `EBITDA ${f.ebitda.von}${f.ebitda.bis ? ' bis ' + f.ebitda.bis : '+'} Mio. EUR` : null,
+  ].filter(Boolean).join(' · ');
+
+  const notizen = [
+    f.geschaeftsfuehrer ? `Geschäftsführung: ${f.geschaeftsfuehrer.wert}` : null,
+    f.registereintrag ? f.registereintrag.wert : null,
+    f.terminlink ? `Terminbuchung: ${f.terminlink.wert}` : null,
+    `Aus einem Anschreiben übernommen am ${jetzt.slice(0, 10)}.`,
+  ].filter(Boolean).join('\n');
+
+  if (!firmaId) {
+    firmaId = await scoped(req, (t) => t.insert(
+      `INSERT INTO crm_companies (tenant_id, name, name_normalized, street, postal_code, city, country,
+         website, sektor, investment_criteria, notes, company_type, buyer_category, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'investor', 'finanzinvestor', ?)`,
+      [req.tenantId || 1, name, normalizeName(name),
+       (f.anschrift && f.anschrift.strasse) || null, (f.anschrift && f.anschrift.plz) || null,
+       (f.anschrift && f.anschrift.ort) || null, (f.anschrift && f.anschrift.land) || null,
+       (f.website && f.website.wert) || null, (f.sektor && f.sektor.wert) || null,
+       kriterien || null, notizen, req.user.id]));
+    db.auditLog(req.user.id, 'CRM_COMPANY_CREATED', 'crm_company', firmaId, `${name} (Anschreiben)`, req.ip);
+  }
+
+  // Die Person. Vorname und Nachname trennen wir am letzten Leerzeichen; mehr
+  // Zerlegung wäre Raten.
+  const ganz = String((f.person && f.person.wert) || '').trim();
+  const teile = ganz.split(/\s+/);
+  const nachname = teile.length > 1 ? teile.pop() : (teile[0] || name);
+  const vorname = teile.join(' ') || null;
+
+  const suchprofil = {
+    focus_industries: JSON.stringify(f.sektor && f.sektor.wert ? [f.sektor.wert] : []),
+    focus_regions: JSON.stringify((f.regionen && f.regionen.werte) || []),
+    ticket_min: f.ebitda && f.ebitda.von != null ? f.ebitda.von : null,
+    ticket_max: f.ebitda && f.ebitda.bis != null ? f.ebitda.bis : null,
+    investment_focus: kriterien || null,
+  };
+
+  const email = (f.email && f.email.wert) || null;
+  let kontaktId = null;
+  if (email) {
+    const da = await scoped(req, (t) => t.get('SELECT id FROM crm_contacts WHERE lower(email) = ? LIMIT 1', [email.toLowerCase()])).catch(() => null);
+    kontaktId = da ? da.id : null;
+  }
+  if (!kontaktId) {
+    kontaktId = await scoped(req, (t) => t.insert(
+      `INSERT INTO crm_contacts (tenant_id, first_name, last_name, email, phone, responsibility,
+         buyer_type, lead_source, notes, consent_status, contact_status, is_decision_maker,
+         focus_industries, focus_regions, ticket_min, ticket_max, investment_focus, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, 'finanzinvestor', 'Anschreiben', ?, 'unknown', 'active', 1, ?, ?, ?, ?, ?, ?)`,
+      [req.tenantId || 1, vorname, nachname, email, (f.telefon && f.telefon.wert) || null,
+       (f.person && f.person.rolle) || null, notizen,
+       suchprofil.focus_industries, suchprofil.focus_regions,
+       suchprofil.ticket_min, suchprofil.ticket_max, suchprofil.investment_focus, req.user.id]));
+    db.auditLog(req.user.id, 'CRM_CONTACT_CREATED', 'crm_contact', kontaktId, `${ganz || name} (Anschreiben)`, req.ip);
+  } else {
+    // Vorhandenen Kontakt nur um das Suchprofil ergänzen, nichts überschreiben,
+    // was jemand von Hand gepflegt hat.
+    await scoped(req, (t) => t.run(
+      `UPDATE crm_contacts SET
+         focus_industries = CASE WHEN COALESCE(focus_industries, '[]') IN ('', '[]') THEN ? ELSE focus_industries END,
+         focus_regions    = CASE WHEN COALESCE(focus_regions, '[]') IN ('', '[]') THEN ? ELSE focus_regions END,
+         ticket_min       = COALESCE(ticket_min, ?),
+         ticket_max       = COALESCE(ticket_max, ?),
+         investment_focus = COALESCE(investment_focus, ?)
+       WHERE id = ?`,
+      [suchprofil.focus_industries, suchprofil.focus_regions,
+       suchprofil.ticket_min, suchprofil.ticket_max, suchprofil.investment_focus, kontaktId]));
+    db.auditLog(req.user.id, 'CRM_CONTACT_UPDATED', 'crm_contact', kontaktId, 'Suchprofil aus Anschreiben ergänzt', req.ip);
+  }
+
+  // Firma und Person verbinden, wenn beides neu zusammenkommt.
+  await scoped(req, (t) => t.run(
+    `INSERT INTO crm_company_contacts (tenant_id, company_id, contact_id, is_primary)
+     SELECT ?, ?, ?, 1 WHERE NOT EXISTS (
+       SELECT 1 FROM crm_company_contacts WHERE company_id = ? AND contact_id = ?)`,
+    [req.tenantId || 1, firmaId, kontaktId, firmaId, kontaktId])).catch(() => {});
+
+  // Die Bitte um Aufnahme in den Verteiler: im Wortlaut festhalten, und nur die
+  // Adresse aufnehmen, die in dieser Bitte genannt ist. Wer um Aufnahme einer
+  // bestimmten Adresse bittet, hat nicht in jede eingewilligt.
+  let verteiler = null;
+  if (f.verteiler && f.verteiler.adresse && req.body.verteiler_uebernehmen) {
+    const adr = String(f.verteiler.adresse).toLowerCase();
+    const beleg = `Im Anschreiben vom ${jetzt.slice(0, 10)}: "${f.verteiler.beleg}"`;
+    let vId = await scoped(req, (t) => t.get('SELECT id FROM crm_contacts WHERE lower(email) = ? LIMIT 1', [adr])).catch(() => null);
+    if (!vId) {
+      const neu = await scoped(req, (t) => t.insert(
+        `INSERT INTO crm_contacts (tenant_id, first_name, last_name, email, buyer_type, lead_source, notes,
+           consent_status, consent_at, consent_text_version, contact_status, created_by)
+         VALUES (?, NULL, ?, ?, 'finanzinvestor', 'Anschreiben', ?, 'opt_in', now(), 'Anschreiben', 'active', ?)`,
+        [req.tenantId || 1, name, adr, beleg, req.user.id]));
+      vId = { id: neu };
+    } else {
+      await scoped(req, (t) => t.run(
+        `UPDATE crm_contacts SET consent_status = 'opt_in', consent_at = now(),
+           consent_text_version = 'Anschreiben', notes = COALESCE(notes, '') || ? WHERE id = ?`,
+        ['\n' + beleg, vId.id]));
+    }
+    verteiler = { contact_id: vId.id, email: adr };
+    db.auditLog(req.user.id, 'CRM_CONSENT_RECORDED', 'crm_contact', vId.id, beleg, req.ip);
+  }
+
+  res.status(201).json({ success: true, data: { company_id: firmaId, contact_id: kontaktId, verteiler } });
+}));
+
+// ── Passende Investoren zu einem Mandat ─────────────────────────────────────
+//
+// Kein automatischer Versand. Diese Route liefert einen Vorschlag mit
+// Begründung je Treffer; angeschrieben wird auf ausdrückliche Auslösung, wie
+// bei jeder Ration im Haus.
+router.get('/investoren/passend/:projectId', ...isStaff, wrap(async (req, res) => {
+  const p = await scoped(req, (t) => t.get(
+    'SELECT id, codename, industry, region, revenue_band, ebitda_band FROM projects WHERE id = ?',
+    [req.params.projectId]));
+  if (!p) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+
+  const kontakte = await scoped(req, (t) => t.all(
+    `SELECT id, first_name, last_name, email, focus_industries, focus_regions,
+            ticket_min, ticket_max, investment_focus, consent_status, contact_status
+       FROM crm_contacts
+      WHERE contact_status = 'active' AND anonymized_at IS NULL
+        AND (COALESCE(focus_industries, '[]') NOT IN ('', '[]')
+             OR COALESCE(focus_regions, '[]') NOT IN ('', '[]')
+             OR ticket_min IS NOT NULL OR ticket_max IS NOT NULL)
+      LIMIT 2000`)).catch(() => []);
+
+  const { vorschlagen } = require('../utils/investorMatch');
+  const treffer = vorschlagen(kontakte, p);
+  res.json({ success: true, data: { mandat: p, gepruefte: kontakte.length, treffer } });
+}));
+
 router.post('/leads/parse', ...isStaff, wrap(async (req, res) => {
   const text = String(req.body.text || '');
   if (text.trim().length < 20) return res.status(400).json({ success: false, error: 'Bitte fügen Sie die vollständige Anfrage-E-Mail ein.' });
