@@ -91,4 +91,27 @@ ok('kein rohes fetch mehr für den Upload',
     /e\.angekommen === 0/.test(seite) && /keine Datei abgelegt/.test(seite));
   ok('die Meldung nennt die angelegten Namen', /belegt\(e\.namen\)/.test(seite));
 }
+
+// ── Erst lesen, dann senden (v0.433) ─────────────────────────────────────────
+//
+// Gemessen im Serverprotokoll: „0 MB von 1 MB nach 0.6s, Körper vollständig:
+// nein, Antwort gesendet: nein". Die Anfrage kommt an, der Körper nicht, und
+// der Server hat nichts gesagt. Es bricht also die sendende Seite ab.
+//
+// Ein File aus einem Dateiauswahlfeld ist nur ein Verweis; gelesen wird erst
+// beim Senden. Liegt dort ein Platzhalter statt einer Datei, bricht der Browser
+// mittendrin ab. Also zuerst lesen, dann senden, und beim Scheitern den Namen
+// der Datei nennen statt eines Abrisses.
+{
+  const q = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'src', 'utils', 'hochladen.js'), 'utf8');
+  ok('die Datei wird vor dem Senden gelesen', /await file\.arrayBuffer\(\)/.test(q));
+  ok('die gelesene Länge wird geprüft', /byteLength !== file\.size/.test(q));
+  ok('die Meldung nennt den Dateinamen', /lässt sich auf diesem Rechner nicht lesen/.test(q));
+  ok('und erklärt den Cloud-Platzhalter', /nur in der Cloud/.test(q));
+
+  const srv = fs.readFileSync(path.join(__dirname, '..', 'utils', 'hochladen.js'), 'utf8');
+  ok('das Protokoll misst über den Socket, nicht über einen data-Horcher',
+    /socket\.bytesRead/.test(srv) && !/req\.on\('data'/.test(srv));
+}
+
 process.exit(fail ? 1 : 0);

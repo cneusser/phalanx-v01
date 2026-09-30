@@ -156,21 +156,26 @@ function spurLegen(req, res, next) {
 
   const start = Date.now();
   const angekuendigt = Number(req.headers['content-length'] || 0);
-  let empfangen = 0;
-  req.on('data', (d) => { empfangen += d.length; });
+
+  // Gezählt wird über den Zähler des Sockets, nicht über einen data-Horcher.
+  // Ein data-Horcher versetzt den Strom sofort in den fließenden Zustand, und
+  // dann liest multer einen Körper, dessen Anfang schon vorbeigelaufen ist. Ein
+  // Messgerät, das den Messwert verändert, ist keines.
+  const gelesen = () => (req.socket && req.socket.bytesRead) || 0;
 
   const dauer = () => ((Date.now() - start) / 1000).toFixed(1) + 's';
-  const menge = () => `${inMb(empfangen)} von ${inMb(angekuendigt)}`;
-  console.log(`⬆️  Upload beginnt: ${req.method} ${req.path}, angekündigt ${inMb(angekuendigt)}`);
+  const genau = (b) => (b >= 1024 * 1024 ? inMb(b) : `${Math.round(b / 1024)} KB`);
+  const menge = () => `${genau(gelesen())} von ${genau(angekuendigt)}`;
+  console.log(`⬆️  Upload beginnt: ${req.method} ${req.originalUrl}, angekündigt ${genau(angekuendigt)}`);
 
   let erledigt = false;
   res.on('finish', () => {
     erledigt = true;
-    console.log(`⬆️  Upload beendet: ${req.path} → HTTP ${res.statusCode}, ${menge()} in ${dauer()}`);
+    console.log(`⬆️  Upload beendet: ${req.originalUrl} → HTTP ${res.statusCode}, ${menge()} in ${dauer()}`);
   });
   res.on('close', () => {
     if (erledigt) return;
-    console.warn(`⚠️  Upload abgebrochen: ${req.path}, ${menge()} nach ${dauer()}, `
+    console.warn(`⚠️  Upload abgebrochen: ${req.originalUrl}, ${menge()} nach ${dauer()}, `
       + `Körper vollständig: ${req.complete ? 'ja' : 'nein'}, Antwort gesendet: ${res.headersSent ? 'ja' : 'nein'}`);
   });
   next();

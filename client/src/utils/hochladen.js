@@ -72,11 +72,54 @@ export function fehlertext(xhr, dauerMs) {
  * @param opts.dateien    [{ file, path }]
  * @param opts.aufFortschritt  (gesendet, gesamt) => void
  */
-export function sendePaket({ url, token, felder = {}, dateien = [], aufFortschritt, feldname = 'files' }) {
+/**
+ * Eine Datei vollständig in den Speicher holen, bevor sie gesendet wird.
+ *
+ * Anlass: Gemessen im Serverprotokoll, an zwei Uploads von je einem Megabyte:
+ *
+ *   Upload beginnt:    POST /api/exposes/7/pdf-upload, angekündigt 1 MB
+ *   Upload abgebrochen: 0 MB von 1 MB nach 0.6s,
+ *                       Körper vollständig: nein, Antwort gesendet: nein
+ *
+ * Die Anfrage erreicht den Server, der Körper kommt nicht an, und der Server
+ * hat nichts geantwortet. Es bricht also nicht der Server ab, sondern die
+ * Seite, die sendet.
+ *
+ * Ein File-Objekt aus einem Dateiauswahlfeld ist nur ein Verweis auf die Datei
+ * auf der Platte. Gelesen wird erst beim Senden. Liegt die Datei in einem
+ * Ordner, der mit der Cloud abgeglichen wird, kann an dieser Stelle nur ein
+ * Platzhalter liegen und keine Datei. Der Browser bricht dann mitten im Senden
+ * ab und nennt als Grund das, was er sieht: einen Abriss.
+ *
+ * Deshalb wird hier zuerst gelesen und dann gesendet. Scheitert das Lesen,
+ * steht das in der Meldung, mit dem Namen der Datei, statt eines Abrisses.
+ */
+async function alsBlob(file, name) {
+  try {
+    const puffer = await file.arrayBuffer();
+    if (!puffer || (file.size && puffer.byteLength !== file.size)) {
+      throw new Error(`gelesen ${puffer ? puffer.byteLength : 0} von ${file.size} Bytes`);
+    }
+    return new File([puffer], name, { type: file.type || 'application/octet-stream' });
+  } catch (e) {
+    throw new Error(
+      `„${name}" lässt sich auf diesem Rechner nicht lesen (${e.message}). `
+      + 'Das passiert bei Dateien, die nur in der Cloud liegen und lokal nur als Platzhalter. '
+      + 'Bitte laden Sie die Datei herunter, etwa über das Kontextmenü im Finder, und versuchen Sie es erneut.');
+  }
+}
+
+export async function sendePaket({ url, token, felder = {}, dateien = [], aufFortschritt, feldname = 'files' }) {
+  // Erst lesen, dann senden.
+  const bereit = [];
+  for (const { file, path } of dateien) {
+    bereit.push({ file: await alsBlob(file, (file && file.name) || 'datei'), path });
+  }
+
   return new Promise((erfuellen, ablehnen) => {
     const fd = new FormData();
     const pfade = [];
-    for (const { file, path } of dateien) { fd.append(feldname, file); pfade.push(path); }
+    for (const { file, path } of bereit) { fd.append(feldname, file); pfade.push(path); }
     fd.append('paths', JSON.stringify(pfade));
     for (const [k, v] of Object.entries(felder)) if (v != null) fd.append(k, v);
 
