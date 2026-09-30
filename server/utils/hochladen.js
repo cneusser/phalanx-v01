@@ -166,7 +166,11 @@ function spurLegen(req, res, next) {
   const dauer = () => ((Date.now() - start) / 1000).toFixed(1) + 's';
   const genau = (b) => (b >= 1024 * 1024 ? inMb(b) : `${Math.round(b / 1024)} KB`);
   const menge = () => `${genau(gelesen())} von ${genau(angekuendigt)}`;
-  console.log(`⬆️  Upload beginnt: ${req.method} ${req.originalUrl}, angekündigt ${genau(angekuendigt)}`);
+  const fassung = req.headers['x-app-fassung'] || 'ohne Angabe';
+  const gelesenClient = Number(req.headers['x-gelesen-bytes'] || 0);
+  console.log(`⬆️  Upload beginnt: ${req.method} ${req.originalUrl}, angekündigt ${genau(angekuendigt)}`
+    + `, Browser-Fassung ${fassung}`
+    + (gelesenClient ? `, im Browser gelesen ${genau(gelesenClient)}` : ''));
 
   let erledigt = false;
   res.on('finish', () => {
@@ -176,7 +180,8 @@ function spurLegen(req, res, next) {
   res.on('close', () => {
     if (erledigt) return;
     console.warn(`⚠️  Upload abgebrochen: ${req.originalUrl}, ${menge()} nach ${dauer()}, `
-      + `Körper vollständig: ${req.complete ? 'ja' : 'nein'}, Antwort gesendet: ${res.headersSent ? 'ja' : 'nein'}`);
+      + `Körper vollständig: ${req.complete ? 'ja' : 'nein'}, Antwort gesendet: ${res.headersSent ? 'ja' : 'nein'}, `
+      + `Browser-Fassung ${fassung}`);
   });
   next();
 }

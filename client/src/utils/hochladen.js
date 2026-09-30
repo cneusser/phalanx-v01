@@ -127,6 +127,17 @@ export async function sendePaket({ url, token, felder = {}, dateien = [], aufFor
     const start = Date.now();
     xhr.open('POST', url);
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    // Welche Fassung sendet, und wie viele Bytes hat sie wirklich gelesen?
+    //
+    // Anlass: Nach drei Korrekturen war im Serverprotokoll nicht zu erkennen,
+    // welcher Stand des Browsers den Upload geschickt hat. Damit ließ sich eine
+    // Messung nicht mehr der Fassung zuordnen, die sie erzeugt hat, und jede
+    // Rückmeldung blieb mehrdeutig.
+    try {
+      const f = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unbekannt';
+      xhr.setRequestHeader('X-App-Fassung', f);
+      xhr.setRequestHeader('X-Gelesen-Bytes', String(bereit.reduce((n, b) => n + ((b.file && b.file.size) || 0), 0)));
+    } catch { /* Kopfzeilen sind nur zur Diagnose, sie dürfen nichts verhindern */ }
     // Vierzehn Minuten: Railway trennt eine Anfrage nach fünfzehn. Lieber eine
     // eigene, verständliche Meldung als ein stummer Abbruch von aussen.
     xhr.timeout = 14 * 60 * 1000;
