@@ -241,10 +241,34 @@ router.post('/:projectId/pdf-upload', authenticate, mitFehlermeldung(pdfUpload.s
   await getStorage().put(key, req.file.buffer, 'application/pdf');
   const checksum = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
 
+  // Wo soll die Datei liegen?
+  //
+  // Bisher landete sie immer in der Wurzel des Datenraums, also neben den
+  // Ordnern statt in einem. Gemeint ist sie fast immer für den Ordner, in dem
+  // Teaser und Informationsmemorandum liegen. Der heißt aber nicht in jedem
+  // Mandat gleich, deshalb wird er gesucht und nicht geraten: ein Ordner, in
+  // dessen Namen „Teaser" vorkommt oder „Memorandum". Findet sich keiner,
+  // bleibt es bei der Wurzel. Eine ausdrückliche Angabe sticht beides.
+  const zielAngabe = req.body && req.body.parent_id;
+  let parentId = null;
+  if (zielAngabe) {
+    const ordner = await scoped(req, (t) => t.get(
+      'SELECT id FROM safe_items WHERE id = ? AND project_id = ? AND is_folder = 1 AND deleted_at IS NULL',
+      [Number(zielAngabe), projectId]));
+    if (ordner) parentId = ordner.id;
+  }
+  if (parentId == null) {
+    const treffer = await scoped(req, (t) => t.get(
+      `SELECT id FROM safe_items WHERE project_id = ? AND is_folder = 1 AND deleted_at IS NULL
+         AND (LOWER(name) LIKE '%teaser%' OR LOWER(name) LIKE '%memorandum%')
+       ORDER BY LENGTH(name) ASC LIMIT 1`, [projectId]));
+    if (treffer) parentId = treffer.id;
+  }
+
   const safeId = await scoped(req, (t) => t.insert(
     `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, storage_key, size, mime, checksum_sha256, version, uploaded_by)
-     VALUES (?, ?, NULL, ?, 0, ?, ?, 'application/pdf', ?, 1, ?)`,
-    [req.tenantId || 1, projectId, name, key, req.file.size, checksum, req.user.id]));
+     VALUES (?, ?, ?, ?, 0, ?, ?, 'application/pdf', ?, 1, ?)`,
+    [req.tenantId || 1, projectId, parentId, name, key, req.file.size, checksum, req.user.id]));
 
   // Exposé-Zeile sicherstellen und verknüpfen
   const existing = await loadExpose(req, projectId);
@@ -259,7 +283,7 @@ router.post('/:projectId/pdf-upload', authenticate, mitFehlermeldung(pdfUpload.s
   }
 
   db.auditLog(req.user.id, 'EXPOSE_PDF_UPLOAD', 'expose', Number(projectId), `${name} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`, req.ip);
-  res.status(201).json({ success: true, data: { pdf_item_id: safeId, name, size: req.file.size } });
+  res.status(201).json({ success: true, data: { pdf_item_id: safeId, name, size: req.file.size, parent_id: parentId } });
 }));
 
 // ── Hochgeladenes Exposé-PDF wieder entfernen (zurück zur Generierung) ──────

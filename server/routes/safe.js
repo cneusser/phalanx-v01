@@ -327,6 +327,62 @@ router.patch('/:projectId/item/:id', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { name: clean } });
 }));
 
+// ── In einen anderen Ordner verschieben ─────────────────────────────────────
+//
+// Bisher gab es nur „eine Position hoch" und „eine Position runter". Wer eine
+// Datei in einen anderen Ordner bringen wollte, musste sie erneut hochladen und
+// die alte löschen. Das ist keine Ablage, das ist Abschreiben.
+//
+// Zwei Dinge werden geprüft, bevor etwas geschoben wird: Das Ziel muss ein
+// Ordner desselben Mandats sein, und ein Ordner darf nicht in sich selbst
+// wandern. Ohne die zweite Prüfung entsteht ein Ast, der sich selbst enthält,
+// und der ist über den Baum nicht mehr erreichbar.
+router.post('/:projectId/item/:id/verschieben', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = req.params.projectId;
+  const item = await scoped(req, (t) => t.get(
+    'SELECT id, name, parent_id, is_folder FROM safe_items WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
+    [req.params.id, projectId]));
+  if (!item) return res.status(404).json({ success: false, error: 'Objekt nicht gefunden' });
+
+  const zielRoh = req.body.parent_id;
+  const ziel = (zielRoh === null || zielRoh === '' || zielRoh === undefined) ? null : Number(zielRoh);
+  if (ziel != null && !Number.isFinite(ziel)) {
+    return res.status(400).json({ success: false, error: 'Unbekannter Zielordner.' });
+  }
+
+  let zielName = 'Start';
+  if (ziel != null) {
+    const ordner = await scoped(req, (t) => t.get(
+      'SELECT id, name FROM safe_items WHERE id = ? AND project_id = ? AND is_folder = 1 AND deleted_at IS NULL',
+      [ziel, projectId]));
+    if (!ordner) return res.status(400).json({ success: false, error: 'Das Ziel ist kein Ordner dieses Mandats.' });
+    zielName = ordner.name;
+
+    if (Number(ziel) === Number(item.id)) {
+      return res.status(400).json({ success: false, error: 'Ein Ordner kann nicht in sich selbst verschoben werden.' });
+    }
+    // Kein Ordner in den eigenen Unterbaum: vom Ziel nach oben laufen.
+    if (item.is_folder) {
+      let lauf = ordner;
+      const gesehen = new Set();
+      while (lauf && lauf.parent_id != null && !gesehen.has(lauf.id)) {
+        gesehen.add(lauf.id);
+        if (Number(lauf.parent_id) === Number(item.id)) {
+          return res.status(400).json({ success: false, error: 'Ein Ordner kann nicht in einen seiner eigenen Unterordner verschoben werden.' });
+        }
+        lauf = await scoped(req, (t) => t.get(
+          'SELECT id, parent_id FROM safe_items WHERE id = ? AND project_id = ?', [lauf.parent_id, projectId]));
+      }
+    }
+  }
+
+  const pos = await nextPosition(req, projectId, ziel);
+  await scoped(req, (t) => t.run('UPDATE safe_items SET parent_id = ?, position = ? WHERE id = ?', [ziel, pos, item.id]));
+  db.auditLog(req.user.id, 'SAFE_MOVE', 'safe_item', item.id, `${item.name} → ${zielName}`, req.ip);
+  res.json({ success: true, data: { moved: true, parent_id: ziel, ziel: zielName } });
+}));
+
 // ── Als vertraulich kennzeichnen (Clean Team) ───────────────────────────────
 // Wirkt auf den ganzen Teilbaum: Was darunter liegt, ist ebenfalls vertraulich
 // und damit für Käufer nur nach ausdrücklicher Einzelfreigabe sichtbar.

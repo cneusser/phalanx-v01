@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
-import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell, Search, Eraser, Lock, Unlock, Package, KeyRound } from 'lucide-react';
+import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell, Search, Eraser, Lock, Unlock, Package, KeyRound, FolderInput } from 'lucide-react';
 import GrantsDialog from '../components/GrantsDialog';
 import { ladeAlles } from '../utils/hochladen';
 
@@ -148,6 +148,8 @@ export default function ProjectSafe() {
     catch (e) { setMsg('Fehler: ' + e.message); }
   }
   const [renameId, setRenameId] = useState(null);
+  const [zielDialog, setZielDialog] = useState(null);
+  const [baum, setBaum] = useState([]);
   const [renameVal, setRenameVal] = useState('');
   async function saveRename(item) {
     const name = renameVal.trim();
@@ -386,6 +388,35 @@ export default function ProjectSafe() {
     if (!window.confirm(`„${item.name}" in den Papierkorb verschieben?`)) return;
     try { await api.delete(`/safe/${pid}/item/${item.id}`); load(parent); } catch (e) { setMsg('Fehler: ' + e.message); }
   }
+  // ── In einen anderen Ordner verschieben ───────────────────────────────────
+  // Der Ordnerbaum wird erst geholt, wenn er gebraucht wird. Ihn bei jedem
+  // Seitenaufruf mitzuladen, kostet bei 44 Ordnern mehr, als er nützt.
+  async function oeffneVerschieben(item) {
+    setZielDialog(item);
+    try { setBaum(await api.get(`/safe/${pid}/tree`) || []); }
+    catch (e) { setMsg('Der Ordnerbaum konnte nicht geladen werden: ' + e.message); }
+  }
+  async function verschiebe(zielId) {
+    const item = zielDialog;
+    if (!item) return;
+    try {
+      const d = await api.post(`/safe/${pid}/item/${item.id}/verschieben`, { parent_id: zielId });
+      setZielDialog(null);
+      setMsg(`„${displayName(item.name)}" liegt jetzt in „${(d && d.ziel) || 'Start'}".`);
+      load(parent);
+    } catch (e) { setMsg('Verschieben nicht möglich: ' + e.message); }
+  }
+  /** Ordner mit vollem Pfad, damit gleichnamige Ordner unterscheidbar sind. */
+  function baumPfade(ordner) {
+    const nach = new Map(ordner.map((o) => [Number(o.id), o]));
+    const pfad = (o, tiefe = 0) => {
+      const eltern = o.parent_id == null ? null : nach.get(Number(o.parent_id));
+      if (!eltern || tiefe > 20) return o.name;
+      return pfad(eltern, tiefe + 1) + ' / ' + o.name;
+    };
+    return ordner.map((o) => ({ id: Number(o.id), pfad: pfad(o) })).sort((a, b) => a.pfad.localeCompare(b.pfad, 'de'));
+  }
+
   async function loadTrash() { try { setTrash(await api.get(`/safe/${pid}/trash`)); setShowTrash(true); } catch (e) { setMsg('Fehler: ' + e.message); } }
   async function restore(item) { try { await api.post(`/safe/${pid}/item/${item.id}/restore`); loadTrash(); load(parent); } catch (e) { setMsg('Fehler: ' + e.message); } }
   async function purge(item) { if (!window.confirm(`„${item.name}" endgültig löschen?`)) return; try { await api.delete(`/safe/${pid}/item/${item.id}/purge`); loadTrash(); } catch (e) { setMsg('Fehler: ' + e.message); } }
@@ -660,6 +691,7 @@ export default function ProjectSafe() {
                           <KeyRound size={15} />
                         </button>
                         <button title="Umbenennen" onClick={() => { setRenameId(it.id); setRenameVal(displayName(it.name)); }} style={iconBtn}><Edit2 size={15} /></button>
+                        <button title="In einen anderen Ordner verschieben" onClick={() => oeffneVerschieben(it)} style={iconBtn}><FolderInput size={15} /></button>
                         {it.is_folder && <button title="Ganzen Ordner in Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button>}
                         {!it.is_folder && <><button title="Vorschau (mit Wasserzeichen)" onClick={() => preview(it)} style={iconBtn}><Eye size={15} /></button><button title="Herunterladen" onClick={() => download(it)} style={iconBtn}><Download size={15} /></button>
                           {(String(it.mime || '').includes('pdf') || /\.pdf$/i.test(it.name || '')) && <button title="Schwärzen (Begriffe unkenntlich machen)" onClick={() => openRedact(it)} style={iconBtn}><Eraser size={15} /></button>}
@@ -668,7 +700,31 @@ export default function ProjectSafe() {
                       </span>
                     </div>
                   ))}
-                  {/* Bildergalerie */}
+                  {zielDialog && (
+        <div onClick={() => setZielDialog(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: '1rem' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: '1.4rem 1.5rem', width: 'min(560px, 100%)', maxHeight: '80vh', overflow: 'auto' }}>
+            <h3 style={{ margin: '0 0 0.3rem', fontSize: '1.05rem', color: C.navy }}>Verschieben</h3>
+            <p style={{ margin: '0 0 1rem', fontSize: '0.85rem', color: C.muted }}>
+              „{displayName(zielDialog.name)}" in welchen Ordner?
+            </p>
+            <div style={{ display: 'grid', gap: 4 }}>
+              <button onClick={() => verschiebe(null)} style={{ textAlign: 'left', padding: '0.5rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: '0.85rem' }}>
+                Start (oberste Ebene)
+              </button>
+              {baumPfade(baum).filter((o) => o.id !== Number(zielDialog.id)).map((o) => (
+                <button key={o.id} onClick={() => verschiebe(o.id)} style={{ textAlign: 'left', padding: '0.5rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  {o.pfad}
+                </button>
+              ))}
+              {baum.length === 0 && <div style={{ fontSize: '0.85rem', color: C.muted }}>Keine Ordner vorhanden.</div>}
+            </div>
+            <div style={{ marginTop: '1rem', textAlign: 'right' }}>
+              <button onClick={() => setZielDialog(null)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '0.85rem' }}>Abbrechen</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Bildergalerie */}
                   {images.length > 0 && (
                     <div style={{ marginTop: '1rem' }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: C.navy, margin: '0.5rem 0.75rem' }}>BILDER</div>
