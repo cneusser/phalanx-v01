@@ -94,26 +94,38 @@ export function fehlertext(xhr, dauerMs) {
  * Deshalb wird hier zuerst gelesen und dann gesendet. Scheitert das Lesen,
  * steht das in der Meldung, mit dem Namen der Datei, statt eines Abrisses.
  */
-async function alsBlob(file, name) {
-  try {
-    const puffer = await file.arrayBuffer();
-    if (!puffer || (file.size && puffer.byteLength !== file.size)) {
-      throw new Error(`gelesen ${puffer ? puffer.byteLength : 0} von ${file.size} Bytes`);
+async function alsBlob(file, name, aufHinweis) {
+  // Ein erster Lesezugriff auf einen Platzhalter schlägt fehl, stösst aber im
+  // Betriebssystem den Download an. Deshalb wird es noch zweimal versucht: Ist
+  // die Datei klein und die Leitung gut, ist sie beim zweiten Anlauf da.
+  // Das ist ein Versuch, kein Versprechen, und die Meldung sagt das auch.
+  let letzter = null;
+  for (let anlauf = 1; anlauf <= 3; anlauf++) {
+    try {
+      const puffer = await file.arrayBuffer();
+      if (!puffer || (file.size && puffer.byteLength !== file.size)) {
+        throw new Error(`gelesen ${puffer ? puffer.byteLength : 0} von ${file.size} Bytes`);
+      }
+      return new File([puffer], name, { type: file.type || 'application/octet-stream' });
+    } catch (e) {
+      letzter = e;
+      if (anlauf === 3) break;
+      if (aufHinweis) aufHinweis(`„${name}" liegt nur in der Cloud. Die Datei wird geholt, Versuch ${anlauf + 1} von 3…`);
+      await new Promise((r) => setTimeout(r, 3000));
     }
-    return new File([puffer], name, { type: file.type || 'application/octet-stream' });
-  } catch (e) {
-    throw new Error(
-      `„${name}" lässt sich auf diesem Rechner nicht lesen (${e.message}). `
-      + 'Das passiert bei Dateien, die nur in der Cloud liegen und lokal nur als Platzhalter. '
-      + 'Bitte laden Sie die Datei herunter, etwa über das Kontextmenü im Finder, und versuchen Sie es erneut.');
   }
+  throw new Error(
+    `„${name}" lässt sich auf diesem Rechner nicht lesen (${letzter && letzter.message}). `
+    + 'Das passiert bei Dateien, die nur in der Cloud liegen und lokal nur als Platzhalter. '
+    + 'Bitte laden Sie die Datei herunter, im Finder über das Kontextmenü mit "Jetzt laden" '
+    + 'oder "Immer auf diesem Gerät behalten", und versuchen Sie es erneut.');
 }
 
-export async function sendePaket({ url, token, felder = {}, dateien = [], aufFortschritt, feldname = 'files' }) {
+export async function sendePaket({ url, token, felder = {}, dateien = [], aufFortschritt, feldname = 'files', aufHinweis }) {
   // Erst lesen, dann senden.
   const bereit = [];
   for (const { file, path } of dateien) {
-    bereit.push({ file: await alsBlob(file, (file && file.name) || 'datei'), path });
+    bereit.push({ file: await alsBlob(file, (file && file.name) || 'datei', aufHinweis), path });
   }
 
   return new Promise((erfuellen, ablehnen) => {
@@ -166,7 +178,7 @@ export async function sendePaket({ url, token, felder = {}, dateien = [], aufFor
  * Wichtig: Was durch ist, bleibt oben. Ein Abbruch im letzten Paket macht die
  * ersten nicht zunichte.
  */
-export async function ladeAlles({ url, token, felder = {}, dateien = [], aufStand }) {
+export async function ladeAlles({ url, token, felder = {}, dateien = [], aufStand, aufHinweis }) {
   const gruppen = pakete(dateien);
   const gesamt = dateien.reduce((s, e) => s + ((e.file && e.file.size) || 0), 0);
   let fertigeBytes = 0;
@@ -183,7 +195,7 @@ export async function ladeAlles({ url, token, felder = {}, dateien = [], aufStan
     const gruppenBytes = gruppe.reduce((s, e) => s + ((e.file && e.file.size) || 0), 0);
     try {
       const d = await sendePaket({
-        url, token, dateien: gruppe,
+        url, token, dateien: gruppe, aufHinweis,
         // Ordner nur einmal anlegen, sonst legt jedes Paket sie erneut an.
         felder: i === 0 ? felder : { ...felder, folder_paths: undefined },
         aufFortschritt: (gesendet) => aufStand && aufStand({

@@ -294,7 +294,7 @@ export default function ProjectSafe() {
     const e = await ladeAlles({
       url: `/api/safe/${pid}/upload`, token: getToken(),
       felder: { parent_id: parent || undefined },
-      dateien: eintraege, aufStand: setStand,
+      dateien: eintraege, aufStand: setStand, aufHinweis: setMsg,
     });
     setStand(null); setUploading(false);
     if (e.abgebrochen) {
@@ -339,7 +339,7 @@ export default function ProjectSafe() {
     const e = await ladeAlles({
       url: `/api/safe/${pid}/upload`, token: getToken(),
       felder: { parent_id: parent || undefined, folder_paths: JSON.stringify(folderPaths) },
-      dateien: fileEntries, aufStand: setStand,
+      dateien: fileEntries, aufStand: setStand, aufHinweis: setMsg,
     });
     setStand(null); setUploading(false);
     if (e.abgebrochen) {

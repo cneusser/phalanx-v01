@@ -126,7 +126,7 @@ export default function ExposeEditor() {
       // Ursachensuche, und der Fortschritt zeigt, ob überhaupt etwas fließt.
       const a = await sendePaket({
         url: `/api/exposes/${pid}/pdf-upload`, token: getToken(), feldname: 'file',
-        dateien: [{ file, path: file.name }],
+        dateien: [{ file, path: file.name }], aufHinweis: setMsg,
         aufFortschritt: (gesendet, gesamt) => setPdfStand(gesamt ? Math.round((gesendet / gesamt) * 100) : 0),
       });
       const d = (a && a.data) || {};
