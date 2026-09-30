@@ -72,11 +72,11 @@ export function fehlertext(xhr, dauerMs) {
  * @param opts.dateien    [{ file, path }]
  * @param opts.aufFortschritt  (gesendet, gesamt) => void
  */
-export function sendePaket({ url, token, felder = {}, dateien = [], aufFortschritt }) {
+export function sendePaket({ url, token, felder = {}, dateien = [], aufFortschritt, feldname = 'files' }) {
   return new Promise((erfuellen, ablehnen) => {
     const fd = new FormData();
     const pfade = [];
-    for (const { file, path } of dateien) { fd.append('files', file); pfade.push(path); }
+    for (const { file, path } of dateien) { fd.append(feldname, file); pfade.push(path); }
     fd.append('paths', JSON.stringify(pfade));
     for (const [k, v] of Object.entries(felder)) if (v != null) fd.append(k, v);
 

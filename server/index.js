@@ -67,6 +67,9 @@ app.use('/api/auth/', authLimiter);
 
 // Limit erhöht: weitergeleitete Mails (Brevo Inbound) und Kampagnen-HTML können
 // größer als die Express-Standardgrenze von 100 kB sein.
+// Antworten auf noch laufende Datei-Uploads zurückhalten, sonst geht die
+// Fehlermeldung im Verbindungsabriss unter (siehe utils/hochladen.js).
+app.use(require('./utils/hochladen').mitAbfluss);
 app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 

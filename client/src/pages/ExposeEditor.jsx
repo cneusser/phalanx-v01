@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
 import { ChevronLeft, Save, Eye, Download, Upload as UploadIcon, CheckCircle, Image as ImageIcon, Globe } from 'lucide-react';
 import { useT } from '../i18n';
+import { sendePaket } from '../utils/hochladen';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const INPUT = { width: '100%', padding: '0.5rem 0.65rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' };
@@ -47,6 +48,7 @@ export default function ExposeEditor() {
   const [loading, setLoading] = useState(true);
   const [pdfItemId, setPdfItemId] = useState(null);   // hochgeladenes Exposé-PDF (im Safe)
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfStand, setPdfStand] = useState(null);
   const dirty = useRef(false); const timer = useRef();
 
   const load = useCallback(async () => {
@@ -117,15 +119,26 @@ export default function ExposeEditor() {
         + 'Erlaubt sind bis zu 50 MB. Bitte verkleinern Sie die Bilder im Dokument.');
       return;
     }
-    setPdfBusy(true); setMsg('');
+    setPdfBusy(true); setMsg(''); setPdfStand(0);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const d = await api.upload(`/exposes/${pid}/pdf-upload`, fd);
-      setPdfItemId(d.pdf_item_id);
-      setMsg(`Exposé-PDF „${d.name}" hochgeladen: es liegt im Safe und wird ab sofort als Exposé-PDF ausgeliefert.`);
+      // Bewusst XMLHttpRequest statt fetch: fetch meldet einen Abriss nur als
+      // „Load failed" und verschweigt den Status. Genau der fehlt hier zur
+      // Ursachensuche, und der Fortschritt zeigt, ob überhaupt etwas fließt.
+      const a = await sendePaket({
+        url: `/api/exposes/${pid}/pdf-upload`, token: getToken(), feldname: 'file',
+        dateien: [{ file, path: file.name }],
+        aufFortschritt: (gesendet, gesamt) => setPdfStand(gesamt ? Math.round((gesendet / gesamt) * 100) : 0),
+      });
+      const d = (a && a.data) || {};
+      if (!d.pdf_item_id) {
+        setMsg('Der Server hat die Anfrage angenommen, aber kein PDF abgelegt. '
+          + `Antwort: HTTP ${a && a.status}, ${(a && a.roh) || 'leer'}. Bitte schicken Sie diese Meldung weiter.`);
+      } else {
+        setPdfItemId(d.pdf_item_id);
+        setMsg(`Exposé-PDF „${d.name}" hochgeladen: es liegt im Safe und wird ab sofort als Exposé-PDF ausgeliefert.`);
+      }
     } catch (e) { setMsg('Upload-Fehler: ' + e.message); }
-    finally { setPdfBusy(false); }
+    finally { setPdfBusy(false); setPdfStand(null); }
   }
   async function removeExposePdf() {
     if (!window.confirm('Hochgeladenes Exposé-PDF entfernen? Das PDF wird danach wieder automatisch aus Eckdaten und Sektionen generiert. Die Datei bleibt im Safe erhalten.')) return;
@@ -165,7 +178,7 @@ export default function ExposeEditor() {
                 </span>
               ) : (
                 <label title="Fertiges Exposé als PDF hochladen (wird im Safe abgelegt)" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 7, padding: '0.4rem 0.8rem', fontSize: '0.78rem', fontWeight: 600, cursor: pdfBusy ? 'default' : 'pointer', color: '#fff' }}>
-                  <UploadIcon size={14} /> {pdfBusy ? 'Wird hochgeladen…' : 'Exposé-PDF hochladen'}
+                  <UploadIcon size={14} /> {pdfBusy ? `Wird hochgeladen… ${pdfStand == null ? '' : pdfStand + ' %'}` : 'Exposé-PDF hochladen'}
                   <input type="file" accept="application/pdf,.pdf" disabled={pdfBusy} style={{ display: 'none' }}
                     onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; uploadExposePdf(f); }} />
                 </label>

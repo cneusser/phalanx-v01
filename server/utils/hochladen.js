@@ -76,4 +76,53 @@ function mitFehlermeldung(mw, grenzeBytes) {
   };
 }
 
-module.exports = { mitFehlermeldung, meldung, inMb };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Eine Antwort erst senden, wenn der Browser zu Ende gesendet hat (v0.431).
+//
+// Anlass: „Load failed" beim Hochladen, im Datenraum wie im Exposé-Editor. Zwei
+// verschiedene Routen, dasselbe Bild. Was sie teilen, ist die Reihenfolge der
+// Middleware:
+//
+//   authenticate  →  multer  →  Handler
+//
+// authenticate prüft nur den Kopf der Anfrage und antwortet sofort, wenn das
+// Token abgelaufen oder ungültig ist. Zu diesem Zeitpunkt sendet der Browser
+// aber noch den Dateikörper. Wer auf eine Anfrage antwortet, die noch läuft,
+// bringt Node dazu, die Verbindung zurückzusetzen: Die Antwort wird nie
+// zugestellt, und der Browser meldet, was er sieht, nämlich einen Abriss.
+//
+// Der Nutzer liest also „Load failed", während der Server in Wahrheit „Sitzung
+// abgelaufen, bitte erneut anmelden" gesagt hat. Das ist die schlechteste Art
+// von Fehler: Die richtige Auskunft war da und ist unterwegs verlorengegangen.
+//
+// Diese Middleware hält jede Antwort zurück, bis der Körper durchgelaufen ist.
+// Sie greift nur bei Anfragen mit Dateianhang und nur, solange der Körper noch
+// läuft. Im Normalfall hat multer ihn längst gelesen, dann ändert sie nichts.
+// ─────────────────────────────────────────────────────────────────────────────
+function mitAbfluss(req, res, next) {
+  const art = String(req.headers['content-type'] || '');
+  if (!art.startsWith('multipart/form-data')) return next();
+
+  const durch = () => req.complete || req.readableEnded;
+  for (const name of ['json', 'send']) {
+    const echt = res[name].bind(res);
+    res[name] = (...args) => {
+      if (durch()) return echt(...args);
+      let getan = false;
+      const jetzt = () => { if (getan) return; getan = true; echt(...args); };
+      req.on('end', jetzt);
+      req.on('error', jetzt);
+      req.on('aborted', jetzt);
+      req.resume();                       // den Rest wegräumen, sonst endet nichts
+      // Notbremse: Sendet der Browser nicht zu Ende, antworten wir trotzdem,
+      // statt die Verbindung offen zu lassen.
+      const uhr = setTimeout(jetzt, 15000);
+      if (uhr.unref) uhr.unref();
+      return res;
+    };
+  }
+  next();
+}
+
+module.exports = { mitFehlermeldung, meldung, inMb, mitAbfluss };
