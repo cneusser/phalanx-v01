@@ -66,4 +66,29 @@ ok('und sagt bei Abbruch, was schon oben ist', /bleiben es/.test(seite));
 ok('kein rohes fetch mehr für den Upload',
   !/fetch\(`\/api\/safe\/\$\{pid\}\/upload`/.test(seite));
 
+
+
+// ── Eine leere Liste ist kein Erfolg (v0.430) ────────────────────────────────
+//
+// Anlass: Der Datenraum meldete „20 Datei(en) hochgeladen", und es lag keine
+// einzige da. Die Ursache war eine Zeile in meinem eigenen Code:
+//   angekommen += (d && d.created && d.created.length) || gruppe.length;
+// Bei einer leeren Liste ist created.length gleich 0, also falsch, also griff
+// der Ersatzwert: die Paketgröße. Damit sah ein vollständiger Ausfall aus wie
+// ein vollständiger Erfolg. Das ist schlimmer als ein Fehler, denn es nimmt
+// dem Nutzer den Anlass, nachzusehen.
+{
+  const quelle = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'src', 'utils', 'hochladen.js'), 'utf8');
+  // Kommentarzeilen ausnehmen: der Fehler wird dort erklärt, nicht begangen.
+  const code = quelle.split('\n').filter((z) => !/^\s*(\/\/|\*|\/\*)/.test(z)).join('\n');
+  ok('kein Ersatzwert gruppe.length beim Zählen', !/\|\|\s*gruppe\.length/.test(code));
+  ok('gezählt wird die bestätigte Liste', /created\.length\s*:\s*null/.test(quelle));
+  ok('unklare Antworten werden gesammelt', /unklar\.push/.test(quelle));
+  ok('bestätigte Namen werden gesammelt', /namen\.push/.test(quelle));
+
+  const seite = fs.readFileSync(path.join(__dirname, '..', '..', 'client', 'src', 'pages', 'ProjectSafe.jsx'), 'utf8');
+  ok('null angelegte Dateien werden als solche gemeldet',
+    /e\.angekommen === 0/.test(seite) && /keine Datei abgelegt/.test(seite));
+  ok('die Meldung nennt die angelegten Namen', /belegt\(e\.namen\)/.test(seite));
+}
 process.exit(fail ? 1 : 0);

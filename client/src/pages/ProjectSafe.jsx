@@ -22,6 +22,13 @@ function Thumb({ pid, item }) {
     : <div style={{ width: '100%', height: 90, background: C.bg, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={20} color={C.muted} /></div>;
 }
 
+/** Die ersten bestätigten Namen nennen. Ein Beleg schlägt eine Zahl. */
+function belegt(namen) {
+  if (!namen || !namen.length) return '';
+  const drei = namen.slice(0, 3).join(', ');
+  return ` Angelegt: ${drei}${namen.length > 3 ? ` und ${namen.length - 3} weitere` : ''}.`;
+}
+
 export default function ProjectSafe() {
   const { id: pid } = useParams();
   const [items, setItems] = useState([]);
@@ -293,8 +300,15 @@ export default function ProjectSafe() {
     if (e.abgebrochen) {
       setMsg(`Abgebrochen bei Paket ${e.paket} von ${e.pakete}. `
         + `${e.angekommen} von ${e.gesamt} Datei(en) sind oben und bleiben es. ${e.grund}`);
+    } else if (e.angekommen === 0) {
+      // Der Server hat angenommen, aber nichts angelegt. Das darf nicht wie ein
+      // Erfolg aussehen, sonst sucht man den Fehler an der falschen Stelle.
+      setMsg('Der Server hat die Anfrage angenommen, aber keine Datei abgelegt. '
+        + (e.unklar && e.unklar.length ? `Antwort: ${e.unklar.join(' · ')}` : 'Er meldet null angelegte Dateien.')
+        + ' Bitte schicken Sie diese Meldung weiter.');
     } else {
-      setMsg(`${e.angekommen} Datei(en) hochgeladen → ${project ? project.codename : 'Mandat #' + pid}.`);
+      setMsg(`${e.angekommen} von ${e.gesamt} Datei(en) hochgeladen → ${project ? project.codename : 'Mandat #' + pid}.`
+        + belegt(e.namen) + (e.unklar && e.unklar.length ? ` Unklar: ${e.unklar.join(' · ')}` : ''));
     }
     load(parent);
   }
@@ -331,8 +345,13 @@ export default function ProjectSafe() {
     if (e.abgebrochen) {
       setMsg(`Abgebrochen bei Paket ${e.paket} von ${e.pakete}. `
         + `${e.angekommen} von ${e.gesamt} Datei(en) sind oben und bleiben es. ${e.grund}`);
+    } else if (e.angekommen === 0 && fileEntries.length) {
+      setMsg('Der Server hat die Anfrage angenommen, aber keine Datei abgelegt. '
+        + (e.unklar && e.unklar.length ? `Antwort: ${e.unklar.join(' · ')}` : 'Er meldet null angelegte Dateien.')
+        + ' Bitte schicken Sie diese Meldung weiter.');
     } else {
-      setMsg(`${e.angekommen} Datei(en) und ${folderPaths.length} Ordner hochgeladen.`);
+      setMsg(`${e.angekommen} von ${fileEntries.length} Datei(en) und ${folderPaths.length} Ordner hochgeladen.`
+        + belegt(e.namen) + (e.unklar && e.unklar.length ? ` Unklar: ${e.unklar.join(' · ')}` : ''));
     }
     load(parent);
   }

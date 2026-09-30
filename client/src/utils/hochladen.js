@@ -92,8 +92,9 @@ export function sendePaket({ url, token, felder = {}, dateien = [], aufFortschri
     }
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        try { erfuellen(JSON.parse(xhr.responseText).data || {}); }
-        catch { erfuellen({}); }
+        let data = null;
+        try { data = JSON.parse(xhr.responseText).data; } catch { /* keine JSON-Antwort */ }
+        erfuellen({ data, status: xhr.status, roh: xhr.responseText.slice(0, 300) });
       } else ablehnen(new Error(fehlertext(xhr, Date.now() - start)));
     };
     xhr.onerror = () => ablehnen(new Error(fehlertext(xhr, Date.now() - start)));
@@ -116,6 +117,12 @@ export async function ladeAlles({ url, token, felder = {}, dateien = [], aufStan
   const gesamt = dateien.reduce((s, e) => s + ((e.file && e.file.size) || 0), 0);
   let fertigeBytes = 0;
   let angekommen = 0;
+  // Pakete, deren Antwort wir nicht deuten konnten. Die gehören in die
+  // Meldung, sonst sieht ein halber Erfolg aus wie ein ganzer.
+  const unklar = [];
+  // Die Namen, die der Server bestätigt hat. Sie sind der einzige Beleg, dass
+  // etwas angelegt wurde: eine Zahl kann man sich ausrechnen, einen Namen nicht.
+  const namen = [];
 
   for (let i = 0; i < gruppen.length; i++) {
     const gruppe = gruppen[i];
@@ -130,11 +137,22 @@ export async function ladeAlles({ url, token, felder = {}, dateien = [], aufStan
           prozent: gesamt ? Math.round(((fertigeBytes + gesendet) / gesamt) * 100) : 0,
         }),
       });
-      angekommen += (d && d.created && d.created.length) || gruppe.length;
+      // Genau zählen, was der Server gemeldet hat. Die erste Fassung nahm bei
+      // einer leeren Liste die Paketgröße an ("|| gruppe.length"). Dann meldet
+      // die Oberfläche einen Erfolg, obwohl nichts abgelegt wurde: der
+      // schlimmste Fall, weil man dem Ergebnis nicht mehr ansieht, dass etwas
+      // fehlt.
+      const erstellt = (d && d.data && Array.isArray(d.data.created)) ? d.data.created.length : null;
+      if (erstellt === null) unklar.push(`Paket ${i + 1}: HTTP ${d && d.status}, Antwort: ${(d && d.roh) || 'leer'}`);
+      else {
+        angekommen += erstellt;
+        for (const c of d.data.created) if (c && c.name) namen.push(c.name);
+      }
       fertigeBytes += gruppenBytes;
     } catch (e) {
-      return { angekommen, gesamt: dateien.length, abgebrochen: true, grund: e.message, paket: i + 1, pakete: gruppen.length };
+      return { angekommen, gesamt: dateien.length, abgebrochen: true, grund: e.message,
+        paket: i + 1, pakete: gruppen.length, unklar, namen };
     }
   }
-  return { angekommen, gesamt: dateien.length, abgebrochen: false };
+  return { angekommen, gesamt: dateien.length, abgebrochen: false, unklar, namen };
 }
