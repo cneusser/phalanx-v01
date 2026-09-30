@@ -12,6 +12,8 @@
 //   · der Terminkalender der Person landete als Webseite der Gesellschaft
 //   · ein Satzpunkt hing an der Adresse
 // ─────────────────────────────────────────────────────────────────────────────
+const fs = require('fs');
+const path = require('path');
 const { lese } = require('../utils/investorAnschreiben');
 const { bewerte, vorschlagen, mio } = require('../utils/investorMatch');
 
@@ -121,6 +123,44 @@ for (const [name, v] of [['Firma', f.firma], ['Sektor', f.sektor], ['Region', f.
     bewerte({ focus_industries: '[]', focus_regions: '["dach"]' }, treffend).treffer === true);
   ok('Millionen werden aus dem Freitext gelesen', mio('EBITDA 1,5 bis 2 Mio. EUR') === 2);
   ok('ohne Einheit keine Zahl', mio('2 bis 15') === null);
+}
+
+// ── Das richtige Feld mit dem richtigen Vokabular (v0.441) ──────────────────
+//
+// Anlass: "Fehler: Interner Serverfehler" beim Uebernehmen. Zwei Werte in der
+// ersten Fassung gehoerten nicht in die Felder, in die ich sie geschrieben
+// habe:
+//
+//   · crm_companies.sektor ist das, was die Firma SELBST ist, und kommt aus
+//     einer festen Liste. Dort stand der GESUCHTE Sektor als Taxonomie-Code
+//     ("dienstleistung"). Damit stuenden alle Investoren als Dienstleister im
+//     Bestand, und jede Auswertung waere wertlos.
+//   · buyer_type kennt "financial", nicht "finanzinvestor". Ein erfundener
+//     Wert faellt beim Schreiben auf oder, schlimmer, erst beim Filtern.
+{
+  const { firmenart } = require('../utils/investorAnschreiben');
+  const vokabular = require('../utils/vokabular');
+
+  const a = firmenart('NextGen Equity Partners ist eine neu formierte Beteiligungsgesellschaft');
+  ok('eine Beteiligungsgesellschaft ist Finanzwirtschaft', a.sektor === 'Finanz- und Beteiligungswirtschaft');
+  ok('mit Schwerpunkt Private Equity', a.schwerpunkt === 'Private Equity');
+  ok('der Sektor steht im Vokabular des Hauses', vokabular.istSektor(a.sektor));
+  ok('und der Schwerpunkt passt zum Sektor', vokabular.schwerpunktPasst(a.sektor, a.schwerpunkt));
+
+  ok('Venture Capital wird unterschieden', firmenart('wir sind ein Venture-Capital-Fonds').schwerpunkt === 'Venture Capital');
+  ok('Family Office ebenso', firmenart('Als Family Office investieren wir').schwerpunkt === 'Family Office');
+  const unklar = firmenart('Guten Tag, wir melden uns.');
+  ok('ohne Hinweis wird nichts geraten', unklar.schwerpunkt === null && unklar.sektor === 'Sonstige');
+  ok('und "Sonstige" ist ein gueltiger Wert', vokabular.istSektor(unklar.sektor));
+
+  const crm = fs.readFileSync(path.join(__dirname, '..', 'routes', 'crm.js'), 'utf8');
+  const block = crm.slice(crm.indexOf("/investoren/uebernehmen"), crm.indexOf("passende-mandate"));
+  ok('der gesuchte Sektor steht nicht mehr im Firmen-Sektor', !/sektor, investment_criteria, notes, company_type/.test(block));
+  ok('der Sektor wird gegen das Vokabular geprueft', /vokabular\.istSektor\(art\.sektor\)/.test(block));
+  ok('der Schwerpunkt muss zum Sektor passen', /schwerpunktPasst\(sektorWert, art\.schwerpunkt\)/.test(block));
+  ok('der Kaeufertyp kommt aus dem Vokabular', /istKaeufertyp\(kaeuferTypRoh\)/.test(block));
+  ok('kein erfundener Wert finanzinvestor mehr', !/'finanzinvestor'/.test(block));
+  ok('ein Fehlschlag nennt den Grund statt "Interner Serverfehler"', /Das Übernehmen ist gescheitert/.test(crm));
 }
 
 process.exit(fail ? 1 : 0);

@@ -177,6 +177,39 @@ function verteilerbitte(text) {
 }
 
 
+// ── Was für ein Haus schreibt da? ───────────────────────────────────────────
+//
+// Wichtig: Der Sektor einer Firma im CRM ist das, was sie SELBST ist, nicht
+// das, worin sie investiert. Eine Beteiligungsgesellschaft gehört in die
+// Finanz- und Beteiligungswirtschaft, auch wenn sie Business Services sucht.
+// Beides zu verwechseln, macht jede spätere Auswertung wertlos, weil die
+// Investoren dann als Dienstleister im Bestand stehen.
+//
+// Die Zeichenketten sind wortgleich zum Vokabular des Hauses und dürfen nicht
+// umformuliert werden, auch nicht in der Schreibweise.
+const ARTEN = [
+  { muster: /venture[\s-]*capital|\bVC[- ]Fonds|Wagniskapital/i, schwerpunkt: 'Venture Capital' },
+  { muster: /family[\s-]*office/i, schwerpunkt: 'Family Office' },
+  { muster: /business[\s-]*angel/i, schwerpunkt: 'Business Angel' },
+  { muster: /private[\s-]*equity|Beteiligungsgesellschaft|Beteiligungsunternehmen|Buy[- ]?out/i, schwerpunkt: 'Private Equity' },
+  { muster: /\bBank\b|Finanzierer|Fremdkapital|Debt[\s-]*Fund/i, schwerpunkt: 'Bank und Finanzierung' },
+  { muster: /Verm(ö|oe)gensverwaltung|Asset[\s-]*Manage/i, schwerpunkt: 'Vermögensverwaltung' },
+];
+
+/**
+ * Sektor und Schwerpunkt der schreibenden Gesellschaft.
+ *
+ * Findet sich kein Hinweis, bleibt es bei „Sonstige". Das ist ein gültiger Wert
+ * und keine Behauptung, im Gegensatz zu einem geratenen Schwerpunkt.
+ */
+function firmenart(text) {
+  for (const a of ARTEN) {
+    const m = String(text || '').match(a.muster);
+    if (m) return { sektor: 'Finanz- und Beteiligungswirtschaft', schwerpunkt: a.schwerpunkt, beleg: sauber(m[0]) };
+  }
+  return { sektor: 'Sonstige', schwerpunkt: null, beleg: null };
+}
+
 /**
  * Ein Anschreiben zerlegen.
  *
@@ -259,6 +292,7 @@ function lese(text) {
       geschaeftsfuehrer: gf ? wert(gf.treffer[1], gf.beleg) : null,
       registereintrag: hrb ? wert(hrb.treffer[1], hrb.beleg) : null,
       terminlink: termin ? wert(String(termin.treffer[1]).replace(/[.,;:)]+$/, ''), termin.beleg) : null,
+      firmenart: firmenart(roh),
       sektor: s,
       regionen: r,
       umsatz,
@@ -269,4 +303,4 @@ function lese(text) {
   };
 }
 
-module.exports = { lese, bereich, anschrift, sektor, regionen, verteilerbitte, adressen };
+module.exports = { lese, bereich, anschrift, sektor, regionen, verteilerbitte, adressen, firmenart };

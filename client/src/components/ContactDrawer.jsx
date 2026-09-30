@@ -73,6 +73,10 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
   const [shareLinks, setShareLinks] = useState([]);
   const [shareBusy, setShareBusy] = useState(false);
   // Freie Nachricht
+  // ── Passende Mandate zu diesem Interessenten (v0.441) ─────────────────────
+  const [passend, setPassend] = useState(null);       // { treffer, gepruefte, hinweis }
+  const [passendLaeuft, setPassendLaeuft] = useState(false);
+  const [gewaehlt, setGewaehlt] = useState([]);        // ids der angehakten Mandate
   const [msgOpen, setMsgOpen] = useState(false);
   const [msgSubject, setMsgSubject] = useState('');
   const [msgBody, setMsgBody] = useState('');
@@ -328,6 +332,40 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
       setCoPick(''); setCoNew(''); setCoPos('');
       await load(); onChanged && onChanged();
     } catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  // ── Passende Mandate suchen und in eine Nachricht übernehmen ─────────────
+  //
+  // Vorgeschlagen wird, versendet wird nicht. Der Text landet im Entwurf, und
+  // was davon hinausgeht, entscheidet ein Mensch. Verwendet werden ausserdem
+  // nur die öffentlichen Kurzangaben: Ein Vorschlag ist keine Freigabe, und vor
+  // dem NDA hat niemand mehr als den Teaser zu sehen.
+  async function suchePassende() {
+    setPassendLaeuft(true); setPassend(null); setGewaehlt([]);
+    try {
+      const d = await api.get(`/crm/contacts/${contactId}/passende-mandate`);
+      setPassend(d);
+      setGewaehlt((d.treffer || []).map((m) => m.id));
+    } catch (e) { show('Fehler: ' + e.message); }
+    setPassendLaeuft(false);
+  }
+  function inNachricht() {
+    const liste = (passend?.treffer || []).filter((m) => gewaehlt.includes(m.id));
+    if (!liste.length) { show('Bitte wählen Sie mindestens ein Mandat.'); return; }
+    const anrede = k?.last_name ? `Sehr geehrter ${k.salutation === 'Frau' ? 'Frau' : 'Herr'} ${k.last_name},` : 'Guten Tag,';
+    const zeilen = liste.map((m) => {
+      const eck = [m.industry, m.region, m.revenue_band].filter(Boolean).join(', ');
+      return `${m.codename}${eck ? ` (${eck})` : ''}\n${window.location.origin}/projekte/${m.id}`;
+    });
+    setMsgSubject(liste.length === 1 ? `Mandat ${liste[0].codename}` : `${liste.length} Mandate aus unserem aktuellen Bestand`);
+    setMsgBody(`${anrede}\n\nauf Ihr Suchprofil passen derzeit folgende Mandate:\n\n`
+      + zeilen.join('\n\n')
+      + `\n\nDie Kurzprofile sind ohne Vertraulichkeitsvereinbarung einsehbar. Für die ausführlichen Unterlagen `
+      + `senden wir Ihnen gern eine Vertraulichkeitsvereinbarung zu.\n\nMit freundlichen Grüßen`);
+    setMsgProject(liste.length === 1 ? String(liste[0].id) : '');
+    setMsgOpen(true);
+    setTab('stamm');
+    show('Entwurf vorbereitet. Bitte prüfen und dann senden.');
   }
 
   // ── Mandat zuordnen (Rolle + Startstufe) ─────────────────────────────────
@@ -796,6 +834,51 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
 
               {tab === 'mandate' && (
                 <>
+                  {/* Passende Mandate zum Suchprofil dieses Kontakts */}
+                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.8rem', marginBottom: '0.8rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <div style={{ ...LBL, margin: 0 }}>Passende Mandate</div>
+                      <button onClick={suchePassende} disabled={passendLaeuft}
+                        style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 7, padding: '0.35rem 0.8rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
+                        {passendLaeuft ? 'Wird geprüft…' : 'Suchprofil abgleichen'}
+                      </button>
+                    </div>
+                    {passend && passend.hinweis && (
+                      <div style={{ marginTop: '0.6rem', fontSize: '0.78rem', color: '#92400e', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.55rem 0.7rem', lineHeight: 1.5 }}>
+                        {passend.hinweis}
+                      </div>
+                    )}
+                    {passend && !passend.hinweis && (
+                      <div style={{ marginTop: '0.6rem' }}>
+                        <div style={{ fontSize: '0.74rem', color: C.muted, marginBottom: '0.4rem' }}>
+                          {passend.treffer.length} von {passend.gepruefte} laufenden Mandaten passen.
+                        </div>
+                        {passend.treffer.map((m) => (
+                          <label key={m.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '0.4rem 0', borderTop: `1px solid ${C.border}`, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={gewaehlt.includes(m.id)} style={{ marginTop: 3 }}
+                              onChange={(e) => setGewaehlt((g) => (e.target.checked ? [...g, m.id] : g.filter((x) => x !== m.id)))} />
+                            <span style={{ fontSize: '0.8rem' }}>
+                              <strong style={{ color: C.navy }}>{m.codename}</strong>
+                              <span style={{ display: 'block', fontSize: '0.72rem', color: C.muted, marginTop: 2 }}>
+                                {m.gruende.join(' · ')}
+                              </span>
+                            </span>
+                          </label>
+                        ))}
+                        {passend.treffer.length > 0 && (
+                          <button onClick={inNachricht}
+                            style={{ marginTop: '0.6rem', background: '#065f46', color: '#fff', border: 'none', borderRadius: 7, padding: '0.4rem 0.9rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                            Entwurf mit diesen Mandaten vorbereiten
+                          </button>
+                        )}
+                        <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: '0.5rem', lineHeight: 1.5 }}>
+                          Der Entwurf enthält nur die öffentlichen Kurzprofile. Versendet wird nichts, bevor Sie es
+                          gelesen und abgeschickt haben.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Neues Mandat zuordnen (Rolle und Startstufe wählbar) */}
                   <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.8rem', marginBottom: '0.8rem', background: C.bg }}>
                     <div style={{ ...LBL, marginBottom: 5 }}>Mandat zuordnen</div>

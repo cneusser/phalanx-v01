@@ -1269,13 +1269,46 @@ router.post('/investoren/lesen', ...isStaff, wrap(async (req, res) => {
   res.json({ success: true, data: { ...gelesen, dubletten } });
 }));
 
-router.post('/investoren/uebernehmen', ...isStaff, canWrite, wrap(async (req, res) => {
+// Diese Route schreibt in mehrere Tabellen mit gepflegtem Vokabular. Geht dabei
+// etwas schief, half die allgemeine Antwort „Interner Serverfehler" niemandem
+// weiter: Sie sagt nicht, welches Feld der Datenbank nicht gefallen hat, und
+// ohne diese Auskunft beginnt das Raten. Die Route ist ohnehin nur für
+// Verwaltende erreichbar, deshalb nennt sie den Grund im Klartext und schreibt
+// ihn zusätzlich ins Laufzeitprotokoll.
+function mitGrund(handler) {
+  return async (req, res, next) => {
+    try { await handler(req, res, next); } catch (e) {
+      console.error('[investoren/uebernehmen]', e && e.message, e && e.detail ? `· ${e.detail}` : '', e && e.stack ? `\n${e.stack}` : '');
+      if (res.headersSent) return;
+      res.status(500).json({ success: false,
+        error: `Das Übernehmen ist gescheitert: ${(e && (e.detail || e.message)) || 'unbekannter Fehler'}` });
+    }
+  };
+}
+
+router.post('/investoren/uebernehmen', ...isStaff, canWrite, mitGrund(async (req, res) => {
   const f = req.body.felder;
   if (!f || !f.firma || !f.firma.wert) {
     return res.status(400).json({ success: false, error: 'Ohne Firmenname wird nichts angelegt.' });
   }
   const jetzt = new Date().toISOString();
   const name = String(f.firma.wert).trim();
+
+  // Der Käufertyp ist ein Wert aus dem Vokabular des Hauses, keine freie
+  // Angabe. In der ersten Fassung stand hier "finanzinvestor", ein Wort, das es
+  // nirgends gibt: die Liste kennt "financial". Ein erfundener Wert fällt beim
+  // Schreiben auf oder, schlimmer, erst beim Filtern.
+  const SCHWERPUNKT_ZU_TYP = {
+    'Venture Capital': 'venture_capital',
+    'Family Office': 'family_office',
+    'Business Angel': 'business_angel',
+    'Private Equity': 'financial',
+    'Bank und Finanzierung': 'financial',
+    'Vermögensverwaltung': 'financial',
+  };
+  const artVor = f.firmenart || {};
+  const kaeuferTypRoh = SCHWERPUNKT_ZU_TYP[artVor.schwerpunkt] || null;
+  const kaeuferTyp = vokabular.istKaeufertyp(kaeuferTypRoh) ? kaeuferTypRoh : null;
 
   // Die Gesellschaft. Ist sie schon da, wird sie benutzt und nicht verdoppelt;
   // bestehende Angaben bleiben, wie sie sind.
@@ -1300,14 +1333,24 @@ router.post('/investoren/uebernehmen', ...isStaff, canWrite, wrap(async (req, re
   ].filter(Boolean).join('\n');
 
   if (!firmaId) {
+    // Der Sektor einer Firma ist das, was sie selbst ist, nicht das, worin sie
+    // investiert. In der ersten Fassung stand hier der gesuchte Sektor aus dem
+    // Anschreiben ("dienstleistung"), also ein Wert aus der Branchen-Taxonomie
+    // in einem Feld mit ganz anderem Vokabular. Damit stuenden alle Investoren
+    // als Dienstleister im Bestand, und jede Auswertung waere wertlos.
+    const art = f.firmenart || { sektor: 'Sonstige', schwerpunkt: null };
+    const sektorWert = vokabular.istSektor(art.sektor) ? art.sektor : 'Sonstige';
+    const schwerpunktWert = (art.schwerpunkt && vokabular.schwerpunktPasst(sektorWert, art.schwerpunkt))
+      ? art.schwerpunkt : null;
+
     firmaId = await scoped(req, (t) => t.insert(
       `INSERT INTO crm_companies (tenant_id, name, name_normalized, street, postal_code, city, country,
-         website, sektor, investment_criteria, notes, company_type, buyer_category, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'investor', 'finanzinvestor', ?)`,
+         website, sektor, schwerpunkt, investment_criteria, notes, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [req.tenantId || 1, name, normalizeName(name),
        (f.anschrift && f.anschrift.strasse) || null, (f.anschrift && f.anschrift.plz) || null,
        (f.anschrift && f.anschrift.ort) || null, (f.anschrift && f.anschrift.land) || null,
-       (f.website && f.website.wert) || null, (f.sektor && f.sektor.wert) || null,
+       (f.website && f.website.wert) || null, sektorWert, schwerpunktWert,
        kriterien || null, notizen, req.user.id]));
     db.auditLog(req.user.id, 'CRM_COMPANY_CREATED', 'crm_company', firmaId, `${name} (Anschreiben)`, req.ip);
   }
@@ -1338,9 +1381,9 @@ router.post('/investoren/uebernehmen', ...isStaff, canWrite, wrap(async (req, re
       `INSERT INTO crm_contacts (tenant_id, first_name, last_name, email, phone, responsibility,
          buyer_type, lead_source, notes, consent_status, contact_status, is_decision_maker,
          focus_industries, focus_regions, ticket_min, ticket_max, investment_focus, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, 'finanzinvestor', 'Anschreiben', ?, 'unknown', 'active', 1, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'Anschreiben', ?, 'unknown', 'active', 1, ?, ?, ?, ?, ?, ?)`,
       [req.tenantId || 1, vorname, nachname, email, (f.telefon && f.telefon.wert) || null,
-       (f.person && f.person.rolle) || null, notizen,
+       (f.person && f.person.rolle) || null, kaeuferTyp, notizen,
        suchprofil.focus_industries, suchprofil.focus_regions,
        suchprofil.ticket_min, suchprofil.ticket_max, suchprofil.investment_focus, req.user.id]));
     db.auditLog(req.user.id, 'CRM_CONTACT_CREATED', 'crm_contact', kontaktId, `${ganz || name} (Anschreiben)`, req.ip);
@@ -1379,8 +1422,8 @@ router.post('/investoren/uebernehmen', ...isStaff, canWrite, wrap(async (req, re
       const neu = await scoped(req, (t) => t.insert(
         `INSERT INTO crm_contacts (tenant_id, first_name, last_name, email, buyer_type, lead_source, notes,
            consent_status, consent_at, consent_text_version, contact_status, created_by)
-         VALUES (?, NULL, ?, ?, 'finanzinvestor', 'Anschreiben', ?, 'opt_in', now(), 'Anschreiben', 'active', ?)`,
-        [req.tenantId || 1, name, adr, beleg, req.user.id]));
+         VALUES (?, NULL, ?, ?, ?, 'Anschreiben', ?, 'opt_in', now(), 'Anschreiben', 'active', ?)`,
+        [req.tenantId || 1, name, adr, kaeuferTyp, beleg, req.user.id]));
       vId = { id: neu };
     } else {
       await scoped(req, (t) => t.run(
@@ -1393,6 +1436,46 @@ router.post('/investoren/uebernehmen', ...isStaff, canWrite, wrap(async (req, re
   }
 
   res.status(201).json({ success: true, data: { company_id: firmaId, contact_id: kontaktId, verteiler } });
+}));
+
+// ── Welche Mandate passen zu diesem Interessenten? ──────────────────────────
+//
+// Die Gegenrichtung zum Vorschlag je Mandat. Anlass: Ein Investor stellt sich
+// mit seinem Suchprofil vor, und die naheliegende nächste Handlung ist, ihm
+// alles zu zeigen, was gerade passt. Von Hand hiesse das, jedes laufende Mandat
+// gegen sein Profil zu halten.
+//
+// Geliefert wird ein Vorschlag mit Begründung, nicht mehr. Geschrieben wird
+// nichts, versendet wird nichts.
+router.get('/contacts/:id/passende-mandate', ...isStaff, wrap(async (req, res) => {
+  const k = await scoped(req, (t) => t.get(
+    `SELECT id, first_name, last_name, email, focus_industries, focus_regions,
+            ticket_min, ticket_max, investment_focus
+       FROM crm_contacts WHERE id = ?`, [req.params.id]));
+  if (!k) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+
+  const hatKriterien = (String(k.focus_industries || '[]') !== '[]' && k.focus_industries)
+    || (String(k.focus_regions || '[]') !== '[]' && k.focus_regions)
+    || k.ticket_min != null || k.ticket_max != null;
+  if (!hatKriterien) {
+    return res.json({ success: true, data: { treffer: [], gepruefte: 0,
+      hinweis: 'An diesem Kontakt ist kein Suchprofil hinterlegt. Ohne Sektor, Region oder Größenband lässt sich nicht sagen, was passt.' } });
+  }
+
+  // Nur veröffentlichte Mandate. Was nicht am Markt ist, wird auch niemandem
+  // vorgeschlagen.
+  const mandate = await scoped(req, (t) => t.all(
+    `SELECT id, codename, industry, region, revenue_band, ebitda_band, deal_type, mandate_type
+       FROM projects WHERE status = 'active' ORDER BY id DESC LIMIT 300`)).catch(() => []);
+
+  const { bewerte } = require('../utils/investorMatch');
+  const treffer = [];
+  for (const m of mandate) {
+    const b = bewerte(k, m);
+    if (b.treffer && b.gruende.length) treffer.push({ ...m, gruende: b.gruende });
+  }
+  treffer.sort((a, b) => b.gruende.length - a.gruende.length);
+  res.json({ success: true, data: { treffer, gepruefte: mandate.length, hinweis: null } });
 }));
 
 // ── Passende Investoren zu einem Mandat ─────────────────────────────────────
