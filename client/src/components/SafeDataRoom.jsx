@@ -54,7 +54,7 @@ async function hole(pfad, dateiname, setFehler, body = null, fehlertext = 'Downl
   } catch (e) { setFehler('Download fehlgeschlagen: ' + e.message); return false; }
 }
 
-export default function SafeDataRoom({ projectId, C }) {
+export default function SafeDataRoom({ projectId, C, dokId }) {
   const uebersetze = useT();
   const fehlertext = uebersetze('dr.download_fehler', 'Download nicht möglich.');
   const [daten, setDaten] = useState({ items: [], breadcrumb: [] });
@@ -78,7 +78,42 @@ export default function SafeDataRoom({ projectId, C }) {
     setLaden(false);
   }, [projectId]);
 
-  useEffect(() => { lade(null); }, [lade]);
+  // ── Verweis auf ein einzelnes Dokument (v0.437) ───────────────────────────
+  //
+  // Anlass: Auf eine Q&A-Frage lautete die Antwort „steht im Informationsmemo-
+  // randum". Richtig, und trotzdem unbrauchbar, wenn danach 44 Ordner zu
+  // durchsuchen sind. Ein Verweis soll zum Dokument führen.
+  //
+  // Der Server nennt den Weg dorthin, aber nur, wenn das Dokument für diesen
+  // Nutzer freigegeben ist. Ist es das nicht, steht hier der Grund, nicht eine
+  // leere Liste: Wer einen Verweis bekommt und nichts sieht, hält es für einen
+  // Fehler der Anwendung und fragt nicht nach.
+  const [hervor, setHervor] = useState(null);     // Id des verwiesenen Dokuments
+  const [verweisFehler, setVerweisFehler] = useState(null);
+
+  useEffect(() => {
+    if (!dokId) { lade(null); return; }
+    let abgebrochen = false;
+    (async () => {
+      try {
+        const d = await api.get(`/safe/${projectId}/item/${dokId}/pfad`);
+        if (abgebrochen) return;
+        setVerweisFehler(null);
+        setHervor(Number(d.id));
+        await lade(d.parent_id || null);
+        // Nach dem Zeichnen zur Zeile rollen.
+        setTimeout(() => {
+          const el = document.getElementById(`safe-zeile-${d.id}`);
+          if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 200);
+      } catch (e) {
+        if (abgebrochen) return;
+        setVerweisFehler(e.message || 'Das verwiesene Dokument ist nicht abrufbar.');
+        lade(null);
+      }
+    })();
+    return () => { abgebrochen = true; };
+  }, [dokId, projectId, lade]);
 
   async function suchen(e) {
     e.preventDefault();
@@ -223,6 +258,16 @@ export default function SafeDataRoom({ projectId, C }) {
       </form>
 
       {fehler && <p style={{ background: '#fef2f2', color: '#991b1b', borderRadius: 8, padding: '0.5rem 0.8rem', fontSize: '0.8rem' }}>{fehler}</p>}
+      {verweisFehler && (
+        <p style={{ background: '#fffbeb', color: '#78350f', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.6rem 0.85rem', fontSize: '0.82rem', lineHeight: 1.55 }}>
+          {verweisFehler}
+        </p>
+      )}
+      {hervor && !verweisFehler && (
+        <p style={{ background: '#fffbeb', color: '#78350f', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.6rem 0.85rem', fontSize: '0.82rem' }}>
+          Das verwiesene Dokument ist unten hervorgehoben.
+        </p>
+      )}
 
       {treffer ? (
         <div>
@@ -318,9 +363,12 @@ export default function SafeDataRoom({ projectId, C }) {
                       const ordner = Number(f.is_folder) === 1;
                       const markiert = auswahl.includes(f.id);
                       return (
-                        <tr key={f.id}
+                        <tr key={f.id} id={`safe-zeile-${f.id}`}
                           onDoubleClick={() => ordner && !f.gesperrt && lade(f.id)}
-                          style={{ borderBottom: `1px solid ${C.border}`, background: markiert ? '#EFF6FF' : (f.gesperrt ? '#FAFAFA' : '#fff'), cursor: ordner && !f.gesperrt ? 'pointer' : 'default' }}>
+                          style={{ borderBottom: `1px solid ${C.border}`,
+                            background: Number(hervor) === Number(f.id) ? '#FEF3C7' : (markiert ? '#EFF6FF' : (f.gesperrt ? '#FAFAFA' : '#fff')),
+                            boxShadow: Number(hervor) === Number(f.id) ? 'inset 3px 0 0 #c9a96e' : 'none',
+                            cursor: ordner && !f.gesperrt ? 'pointer' : 'default' }}>
                           <td style={{ padding: '0.5rem 0 0.5rem 0.7rem' }}>
                             {!f.gesperrt && (ordner || f.darf_download) && (
                               <input type="checkbox" checked={markiert} onChange={() => {}} onClick={(e) => { e.stopPropagation(); markiere(f, e); }} />

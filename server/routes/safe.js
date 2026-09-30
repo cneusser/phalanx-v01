@@ -327,6 +327,57 @@ router.patch('/:projectId/item/:id', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { name: clean } });
 }));
 
+// ── Wo liegt dieses Dokument? ───────────────────────────────────────────────
+//
+// Anlass: Eine Q&A-Frage lautete sinngemäß „wo finde ich die Zahlen bis 2023".
+// Die Antwort „im Informationsmemorandum" ist richtig und trotzdem unbrauchbar,
+// wenn der Interessent danach durch 44 Ordner sucht. Ein Verweis soll zum
+// Dokument führen, nicht zu seinem Namen.
+//
+// Diese Route liefert den Weg dorthin: die Kette der Ordner von oben bis zum
+// Dokument. Sie unterliegt denselben Grenzen wie der Datenraum selbst. Wer das
+// Dokument nicht sehen darf, bekommt es hier auch nicht genannt, denn schon der
+// Name einer Datei kann eine Auskunft sein.
+//
+// Der Aufruf wird protokolliert wie eine Ansicht im Datenraum. Im
+// Verkaufsprozess ist das die Grundlage dafür, sagen zu können, wer was wann
+// gesehen hat.
+router.get('/:projectId/item/:id/pfad', authenticate, wrap(async (req, res) => {
+  if (!(await guardRead(req, res))) return;
+  const projectId = req.params.projectId;
+  const item = await scoped(req, (t) => t.get(
+    'SELECT id, name, parent_id, is_folder FROM safe_items WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
+    [req.params.id, projectId]));
+  if (!item) return res.status(404).json({ success: false, error: 'Das Dokument gibt es in diesem Mandat nicht mehr.' });
+  if (!darfObjekt(req, item.id, 'view')) {
+    return res.status(403).json({ success: false,
+      error: 'Dieses Dokument ist für Sie derzeit nicht freigegeben. Bitte wenden Sie sich an Ihren Ansprechpartner.' });
+  }
+
+  // Von unten nach oben laufen und am Ende umdrehen. Die Zählung schützt vor
+  // einer Kette, die sich im Kreis dreht.
+  const kette = [];
+  let lauf = item;
+  const gesehen = new Set();
+  while (lauf && lauf.parent_id != null && !gesehen.has(Number(lauf.id))) {
+    gesehen.add(Number(lauf.id));
+    const oben = await scoped(req, (t) => t.get(
+      'SELECT id, name, parent_id FROM safe_items WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
+      [lauf.parent_id, projectId]));
+    if (!oben) break;
+    if (!darfObjekt(req, oben.id, 'view')) break;
+    kette.unshift({ id: oben.id, name: oben.name });
+    lauf = oben;
+  }
+
+  await logSafeAccess(req, projectId, item.id, 'view');
+  res.json({ success: true, data: {
+    id: item.id, name: item.name, is_folder: !!item.is_folder,
+    parent_id: item.parent_id == null ? null : Number(item.parent_id),
+    pfad: kette,
+  } });
+}));
+
 // ── In einen anderen Ordner verschieben ─────────────────────────────────────
 //
 // Bisher gab es nur „eine Position hoch" und „eine Position runter". Wer eine

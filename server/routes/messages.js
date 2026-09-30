@@ -197,6 +197,110 @@ router.delete('/:id', authenticate, wrap(async (req, res) => {
   res.json({ success: true });
 }));
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Q&A im Nachrichtenfenster (v0.437)
+//
+// Anlass: Eine Q&A-Frage zu FARADAY kam an. Beantwortet wurde bisher im Mandat
+// unter Q&A, geschrieben wird aber hier. Zwei Orte für dasselbe Gespräch heißen,
+// dass an einem von beiden etwas fehlt, und beim Käufer kommt an, was zuletzt
+// irgendwo eingetragen wurde.
+//
+// Deshalb: Offene Fragen erscheinen im Gespräch mit dem Fragesteller, die
+// Antwort geht als Nachricht hinaus UND wird als Antwort im Q&A gespeichert.
+// Eine Handlung, zwei Orte, kein Abschreiben.
+// ─────────────────────────────────────────────────────────────────────────────
+const zugang = require('../utils/projectAccess');
+const zugangFn = (req) => ((req.tenantId && req.tenantId !== 1)
+  ? (fn) => db.withTenant(req.tenantId, fn) : (fn) => fn(db));
+
+/** Darf ich dieses Mandat pflegen? Nur dann darf ich Fragen dazu beantworten. */
+async function darfMandat(req, projectId) {
+  try { return await zugang.canManage(zugangFn(req), req.user, projectId); }
+  catch { return false; }
+}
+
+// ── Offene Fragen dieses Gesprächspartners ──────────────────────────────────
+router.get('/qa/offen/:userId', authenticate, wrap(async (req, res) => {
+  const other = Number(req.params.userId);
+  if (!Number.isFinite(other)) return res.status(400).json({ success: false, error: 'Unbekannter Gesprächspartner.' });
+  const rows = await scoped(req, (t) => t.all(
+    `SELECT q.id, q.project_id, q.question, q.asked_at, q.status, p.codename
+       FROM qa_threads q JOIN projects p ON p.id = q.project_id
+      WHERE q.buyer_id = ? AND q.status = 'open'
+      ORDER BY q.asked_at ASC`, [other])).catch(() => []);
+  // Nur Fragen zu Mandaten, die ich pflege. Sonst sähe ein Berater die Fragen
+  // an einen anderen.
+  const meine = [];
+  const geprueft = new Map();
+  for (const r of rows) {
+    if (!geprueft.has(r.project_id)) geprueft.set(r.project_id, await darfMandat(req, r.project_id));
+    if (geprueft.get(r.project_id)) meine.push(r);
+  }
+  res.json({ success: true, data: meine });
+}));
+
+// ── Eine Frage beantworten: als Nachricht und im Q&A ────────────────────────
+router.post('/qa/:id/antwort', authenticate, msgLimiter, wrap(async (req, res) => {
+  const text = String(req.body.body || '').trim();
+  if (!text) return res.status(400).json({ success: false, error: 'Bitte schreiben Sie eine Antwort.' });
+
+  const frage = await scoped(req, (t) => t.get(
+    'SELECT id, project_id, buyer_id, status FROM qa_threads WHERE id = ?', [Number(req.params.id)]));
+  if (!frage) return res.status(404).json({ success: false, error: 'Diese Frage gibt es nicht mehr.' });
+  if (!(await darfMandat(req, frage.project_id))) {
+    return res.status(403).json({ success: false, error: 'Sie pflegen dieses Mandat nicht.' });
+  }
+
+  const empfaenger = await scoped(req, (t) => t.get(
+    'SELECT id, first_name, last_name, email, role FROM users WHERE id = ? AND is_active = 1', [frage.buyer_id]));
+  if (!empfaenger) return res.status(404).json({ success: false, error: 'Der Fragesteller ist nicht mehr aktiv.' });
+
+  // Zuerst die Nachricht, denn sie ist das, was der Käufer sieht. Erst wenn sie
+  // steht, wird die Frage als beantwortet geführt. Andersherum stünde im Q&A
+  // eine Antwort, die nie jemand bekommen hat.
+  const versand = require('../utils/nachrichtVersand');
+  const abZeit = versand.fensterMinuten() > 0 ? versand.zustellungAb() : null;
+  const id = await scoped(req, (t) => t.insert(
+    `INSERT INTO messages (tenant_id, sender_id, recipient_id, body, project_id, zustellung_ab)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [req.tenantId || 1, req.user.id, empfaenger.id, text, frage.project_id, abZeit]));
+
+  await scoped(req, (t) => t.run(
+    `UPDATE qa_threads SET answer = ?, status = 'answered', answered_at = now(), answered_by = ? WHERE id = ?`,
+    [text, req.user.id, frage.id]));
+
+  db.activityLog(req.user.id, 'QA_ANSWERED', 'qa', frage.id, req.ip);
+  db.activityLog(req.user.id, 'MESSAGE_SENT', 'message', id, req.ip);
+
+  if (!abZeit) {
+    versand.zustellen({
+      id, body: text,
+      empfaenger_email: empfaenger.email, empfaenger_vorname: empfaenger.first_name, empfaenger_nachname: empfaenger.last_name,
+      absender_vorname: req.user.first_name, absender_nachname: req.user.last_name,
+    }).then(() => db.run('UPDATE messages SET benachrichtigt_am = now() WHERE id = ?', [id])).catch(() => {});
+  }
+  res.status(201).json({ success: true, data: { message_id: id, qa_id: frage.id, rest_sekunden: abZeit ? versand.fensterMinuten() * 60 : 0 } });
+}));
+
+// ── Dokumente eines Mandats, zum Verweisen ──────────────────────────────────
+// Nur Dateien, keine Ordner, und nur für Pflegende. Der Verweis prüft beim
+// Aufruf erneut, ob der Empfänger das Dokument sehen darf: Was hier ausgewählt
+// wird, ist ein Hinweis, keine Freigabe.
+router.get('/qa/dokumente/:projectId', authenticate, wrap(async (req, res) => {
+  const projectId = Number(req.params.projectId);
+  if (!(await darfMandat(req, projectId))) {
+    return res.status(403).json({ success: false, error: 'Sie pflegen dieses Mandat nicht.' });
+  }
+  const dateien = await scoped(req, (t) => t.all(
+    `SELECT id, name, parent_id FROM safe_items
+      WHERE project_id = ? AND is_folder = 0 AND deleted_at IS NULL
+      ORDER BY name LIMIT 500`, [projectId]));
+  const ordner = await scoped(req, (t) => t.all(
+    `SELECT id, name, parent_id FROM safe_items
+      WHERE project_id = ? AND is_folder = 1 AND deleted_at IS NULL`, [projectId]));
+  res.json({ success: true, data: { dateien, ordner } });
+}));
+
 // ── Sprint 15: „Interesse → Chat": Berater zum Mandat kontaktieren ─────────
 // Verbindet den Käufer mit dem Mandatsberater und öffnet den Chat-Thread
 // (auch ohne NDA). Gibt die Partner-Id (Berater) zurück, damit der Client den

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Send, UserPlus, Check, X, MessageSquare, ShieldCheck, ArrowUpRight, Pencil, Trash2, Clock } from 'lucide-react';
+import { Send, UserPlus, Check, X, MessageSquare, ShieldCheck, ArrowUpRight, Pencil, Trash2, Clock, FileText } from 'lucide-react';
 import { useT } from '../i18n';
 import { ordnen, GRENZE } from '../utils/konversationen';
 
@@ -28,6 +28,12 @@ export default function Messages() {
   const [bearbeitet, setBearbeitet] = useState(null);   // id der Nachricht in Bearbeitung
   const [entwurf, setEntwurf] = useState('');
   const [jetzt, setJetzt] = useState(Date.now());       // laesst die Restzeit herunterzaehlen
+  // Q&A im Gespraech (v0.437)
+  const [fragen, setFragen] = useState([]);          // offene Q&A-Fragen dieses Partners
+  const [antwortAuf, setAntwortAuf] = useState(null); // Frage, die gerade beantwortet wird
+  const [dokWahl, setDokWahl] = useState(null);       // { projectId } waehrend der Dokumentauswahl
+  const [dokListe, setDokListe] = useState(null);     // { dateien, ordner }
+  const [dokSuche, setDokSuche] = useState('');
   const endRef = useRef();
   const feldRef = useRef();
 
@@ -53,8 +59,49 @@ export default function Messages() {
 
   const openThread = useCallback((pid) => {
     setActive(pid);
+    setAntwortAuf(null); setDokWahl(null);
     api.get(`/messages/thread/${pid}`).then(d => { setThread(d); setTimeout(() => endRef.current?.scrollIntoView(), 50); loadThreads(); }).catch(e => setMsg('Fehler: ' + e.message));
+    // Offene Q&A-Fragen dieses Gespraechspartners. Scheitert das, bleibt es bei
+    // einer leeren Liste: eine nicht geladene Q&A darf das Gespraech nicht
+    // blockieren.
+    api.get(`/messages/qa/offen/${pid}`).then((d) => setFragen(d || [])).catch(() => setFragen([]));
   }, [loadThreads]);
+
+  // ── Eine Q&A-Frage beantworten ────────────────────────────────────────────
+  // Der Text geht als Nachricht hinaus und wird zugleich im Q&A des Mandats
+  // als Antwort gefuehrt.
+  async function beantworte() {
+    if (!antwortAuf || !body.trim()) return;
+    try {
+      await api.post(`/messages/qa/${antwortAuf.id}/antwort`, { body });
+      setBody(''); setAntwortAuf(null);
+      setMsg('Antwort gesendet und im Q&A des Mandats hinterlegt.');
+      openThread(active);
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+
+  // ── Auf ein Dokument verweisen ────────────────────────────────────────────
+  async function oeffneDokumente(projectId) {
+    setDokWahl({ projectId }); setDokListe(null); setDokSuche('');
+    try { setDokListe(await api.get(`/messages/qa/dokumente/${projectId}`)); }
+    catch (e) { setMsg('Fehler: ' + e.message); setDokWahl(null); }
+  }
+  /** Den Verweis an den Text anhaengen. Der Empfaenger landet damit genau dort. */
+  function fuegeVerweisEin(datei) {
+    const url = `${window.location.origin}/projekte/${dokWahl.projectId}?dok=${datei.id}`;
+    setBody((b) => (b ? b.replace(/\s*$/, '') + '\n\n' : '') + `${datei.name}: ${url}`);
+    setDokWahl(null);
+  }
+  /** Ordnerpfad einer Datei, damit gleichnamige Dateien unterscheidbar sind. */
+  function dokPfad(datei) {
+    if (!dokListe) return '';
+    const nach = new Map((dokListe.ordner || []).map((o) => [Number(o.id), o]));
+    const teile = [];
+    let p = datei.parent_id == null ? null : nach.get(Number(datei.parent_id));
+    let tiefe = 0;
+    while (p && tiefe < 20) { teile.unshift(p.name); p = p.parent_id == null ? null : nach.get(Number(p.parent_id)); tiefe++; }
+    return teile.join(' / ');
+  }
 
   async function send() {
     if (!body.trim() || !active) return;
@@ -67,7 +114,7 @@ export default function Messages() {
   // Enter macht eine neue Zeile. Gesendet wird über den Knopf oder mit
   // Befehlstaste beziehungsweise Strg zusammen mit Enter.
   function tastendruck(e) {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (antwortAuf) beantworte(); else send(); }
   }
 
   // Restzeit einer eigenen, noch nicht zugestellten Nachricht in Sekunden.
@@ -256,6 +303,25 @@ export default function Messages() {
                   </button>
                 </div>
               )}
+              {isAdmin && fragen.length > 0 && (
+                <div style={{ padding: '0.7rem 1.1rem', borderBottom: `1px solid ${C.border}`, background: '#fffbeb' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.45rem' }}>
+                    {fragen.length === 1 ? 'Eine offene Frage aus dem Q&A' : `${fragen.length} offene Fragen aus dem Q&A`}
+                  </div>
+                  {fragen.map((f) => (
+                    <div key={f.id} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', padding: '0.4rem 0', borderTop: antwortAuf && antwortAuf.id === f.id ? 'none' : `1px solid rgba(146,64,14,0.15)` }}>
+                      <div style={{ flex: 1, fontSize: '0.82rem', color: '#1f2937', lineHeight: 1.5 }}>
+                        <span style={{ fontWeight: 700, color: '#92400e' }}>{f.codename || `Mandat #${f.project_id}`}: </span>
+                        {f.question}
+                      </div>
+                      <button onClick={() => { setAntwortAuf(antwortAuf && antwortAuf.id === f.id ? null : f); }}
+                        style={{ flexShrink: 0, background: antwortAuf && antwortAuf.id === f.id ? '#92400e' : '#fff', color: antwortAuf && antwortAuf.id === f.id ? '#fff' : '#92400e', border: '1px solid #92400e', borderRadius: 7, padding: '0.3rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                        {antwortAuf && antwortAuf.id === f.id ? 'Antwort abbrechen' : 'Hier beantworten'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               {isAdmin && msg && <div style={{ padding: '0.4rem 1.1rem', fontSize: '0.78rem', color: msg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{msg}</div>}
               <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', maxHeight: 440 }}>
                 {thread.messages.length === 0 ? <div style={{ color: C.muted, fontSize: '0.83rem', textAlign: 'center', marginTop: '2rem' }}>{t('msg.keine_nachrichten', 'Noch keine Nachrichten. Schreiben Sie die erste.')}</div>
@@ -309,12 +375,50 @@ export default function Messages() {
               </div>
               {thread.allowed ? (
                 <div style={{ padding: '0.75rem', borderTop: `1px solid ${C.border}` }}>
+                  {antwortAuf && (
+                    <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.5rem 0.7rem', marginBottom: '0.5rem', fontSize: '0.78rem', color: '#78350f' }}>
+                      Antwort auf die Q&A-Frage zu <strong>{antwortAuf.codename || `Mandat #${antwortAuf.project_id}`}</strong>.
+                      Sie geht als Nachricht hinaus und wird zugleich im Q&A des Mandats hinterlegt.
+                    </div>
+                  )}
+                  {isAdmin && (mandateCtx || antwortAuf) && (
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      <button onClick={() => oeffneDokumente((antwortAuf && antwortAuf.project_id) || mandateCtx.project_id)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.32rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                        <FileText size={13} /> Auf ein Dokument verweisen
+                      </button>
+                    </div>
+                  )}
+                  {dokWahl && (
+                    <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem 0.7rem', marginBottom: '0.5rem', maxHeight: 260, overflowY: 'auto' }}>
+                      <input value={dokSuche} onChange={(e) => setDokSuche(e.target.value)} placeholder="Dokument suchen"
+                        style={{ width: '100%', padding: '0.4rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.8rem', outline: 'none', marginBottom: '0.45rem', boxSizing: 'border-box' }} />
+                      {!dokListe && <div style={{ fontSize: '0.8rem', color: C.muted }}>Wird geladen…</div>}
+                      {dokListe && (dokListe.dateien || [])
+                        .filter((d) => !dokSuche || String(d.name).toLowerCase().includes(dokSuche.toLowerCase()))
+                        .slice(0, 60)
+                        .map((d) => (
+                          <button key={d.id} onClick={() => fuegeVerweisEin(d)}
+                            style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: `1px solid ${C.border}`, padding: '0.4rem 0.2rem', cursor: 'pointer', fontSize: '0.8rem', color: C.navy }}>
+                            {d.name}
+                            <span style={{ display: 'block', fontSize: '0.7rem', color: C.muted }}>{dokPfad(d) || 'Start'}</span>
+                          </button>
+                        ))}
+                      <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: '0.5rem', lineHeight: 1.5 }}>
+                        Der Verweis führt in den Datenraum an die Stelle des Dokuments. Sehen darf es nur, wer dafür freigegeben ist.
+                        Ein Verweis ist keine Freigabe.
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <button onClick={() => setDokWahl(null)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '0.78rem' }}>Schließen</button>
+                      </div>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
                     <textarea ref={feldRef} value={body} onChange={e => setBody(e.target.value)} onKeyDown={tastendruck} rows={1}
                       placeholder={t('msg.platzhalter', 'Nachricht…  Enter macht eine neue Zeile.')}
                       style={{ flex: 1, padding: '0.6rem 0.8rem', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.85rem', lineHeight: 1.45, outline: 'none', resize: 'none', overflowY: 'auto', maxHeight: 200, fontFamily: 'inherit' }} />
-                    <button onClick={send} disabled={!body.trim()} title={t('msg.senden_tastatur', 'Senden (Cmd oder Strg + Enter)')}
-                      style={{ background: body.trim() ? C.navy : '#94a3b8', color: '#fff', border: 'none', borderRadius: 8, padding: '0.62rem 1rem', cursor: body.trim() ? 'pointer' : 'default' }}><Send size={16} /></button>
+                    <button onClick={antwortAuf ? beantworte : send} disabled={!body.trim()} title={antwortAuf ? 'Antworten und im Q&A hinterlegen' : t('msg.senden_tastatur', 'Senden (Cmd oder Strg + Enter)')}
+                      style={{ background: body.trim() ? (antwortAuf ? '#92400e' : C.navy) : '#94a3b8', color: '#fff', border: 'none', borderRadius: 8, padding: '0.62rem 1rem', cursor: body.trim() ? 'pointer' : 'default' }}><Send size={16} /></button>
                   </div>
                   <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 5 }}>
                     Enter macht eine neue Zeile. Senden mit dem Knopf oder Cmd beziehungsweise Strg und Enter. Nach dem Senden bleiben einige Minuten, um den Text noch zu ändern.

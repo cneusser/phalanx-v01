@@ -147,8 +147,18 @@ export default function ProjectDetail() {
   const [showTeam, setShowTeam] = useState(false);
   const [showNDAModal, setShowNDAModal] = useState(false);
   const [error, setError] = useState('');
+  // Ein Verweis aus einer Nachricht sieht so aus: /projekte/7?dok=123. Er soll
+  // unmittelbar bei den Dokumenten landen, nicht im Ueberblick, sonst sucht der
+  // Empfaenger wieder selbst.
+  const dokVerweis = (() => {
+    try { const v = new URLSearchParams(window.location.search).get('dok'); return v ? Number(v) : null; }
+    catch { return null; }
+  })();
   const [activeTab, setActiveTab] = useState(() => {
-    try { return new URLSearchParams(window.location.search).get('tab') || 'overview'; } catch { return 'overview'; }
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('tab') || (p.get('dok') ? 'documents' : 'overview');
+    } catch { return 'overview'; }
   });
   const [publicDocs, setPublicDocs] = useState([]);
   const [gatedDocs, setGatedDocs] = useState([]); // IM/Datenraum-Dokumente (serverseitig gate-gefiltert)
@@ -709,7 +719,7 @@ export default function ProjectDetail() {
             ) : approved ? (
               /* Nach persönlicher Freigabe: der echte Datenraum (Safe) mit Ordnerbaum,
                  Suche, Archiv-Download und gesperrten Clean-Team-Bereichen. */
-              <SafeDataRoom projectId={id} C={C} />
+              <SafeDataRoom projectId={id} C={C} dokId={dokVerweis} />
             ) : ndaDocs.length === 0 ? (
               <p style={{ color: C.muted, fontSize: '0.83rem' }}>{t('pd.keine_vertraulichen', 'Noch keine vertraulichen Dokumente hochgeladen.')}</p>
             ) : (
