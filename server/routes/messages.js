@@ -219,6 +219,27 @@ async function darfMandat(req, projectId) {
   catch { return false; }
 }
 
+// ── Wer hat ueberhaupt eine offene Frage? ───────────────────────────────────
+//
+// Anlass: Die offenen Fragen erschienen nur in dem Gespraech, das gerade offen
+// war. Wer nicht weiss, wer gefragt hat, findet sie also nicht. Hier steht, in
+// welchen Gespraechen etwas wartet, damit die Liste links es anzeigen kann.
+router.get('/qa/offen', authenticate, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(
+    `SELECT q.buyer_id, q.project_id, COUNT(*) AS anzahl
+       FROM qa_threads q
+      WHERE q.status = 'open'
+      GROUP BY q.buyer_id, q.project_id`)).catch(() => []);
+  const zaehler = {};
+  const geprueft = new Map();
+  for (const r of rows) {
+    if (!geprueft.has(r.project_id)) geprueft.set(r.project_id, await darfMandat(req, r.project_id));
+    if (!geprueft.get(r.project_id)) continue;
+    zaehler[r.buyer_id] = (zaehler[r.buyer_id] || 0) + Number(r.anzahl || 0);
+  }
+  res.json({ success: true, data: zaehler });
+}));
+
 // ── Offene Fragen dieses Gesprächspartners ──────────────────────────────────
 router.get('/qa/offen/:userId', authenticate, wrap(async (req, res) => {
   const other = Number(req.params.userId);
@@ -280,6 +301,20 @@ router.post('/qa/:id/antwort', authenticate, msgLimiter, wrap(async (req, res) =
     }).then(() => db.run('UPDATE messages SET benachrichtigt_am = now() WHERE id = ?', [id])).catch(() => {});
   }
   res.status(201).json({ success: true, data: { message_id: id, qa_id: frage.id, rest_sekunden: abZeit ? versand.fensterMinuten() * 60 : 0 } });
+}));
+
+// ── Mandate, die ich pflege ─────────────────────────────────────────────────
+//
+// Anlass: Der Knopf zum Verweisen erschien nur, wenn im Gespraech schon einmal
+// eine Nachricht zu einem Mandat gelaufen war. In den meisten Gespraechen gibt
+// es die nicht, und dann fehlte der Knopf ganz. Ein Werkzeug, das nur manchmal
+// da ist, gilt als kaputt.
+router.get('/qa/mandate', authenticate, wrap(async (req, res) => {
+  const alle = await scoped(req, (t) => t.all(
+    `SELECT id, codename FROM projects WHERE status = 'active' ORDER BY codename LIMIT 200`)).catch(() => []);
+  const meine = [];
+  for (const p of alle) if (await darfMandat(req, p.id)) meine.push(p);
+  res.json({ success: true, data: meine });
 }));
 
 // ── Dokumente eines Mandats, zum Verweisen ──────────────────────────────────

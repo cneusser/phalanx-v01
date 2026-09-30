@@ -61,4 +61,23 @@ ok('der Datenraum hebt das verwiesene Dokument hervor', /safe-zeile-/.test(raum)
 ok('ohne Freigabe steht dort der Grund', /verweisFehler/.test(raum));
 ok('der Verweis öffnet den Dokumente-Tab', /p\.get\('dok'\) \? 'documents'/.test(detail));
 
+// ── Auffindbarkeit (v0.438) ─────────────────────────────────────────────────
+//
+// Anlass: „Ich sehe das nicht." Die offenen Fragen erschienen nur in dem
+// Gespraech, das gerade offen war, und der Knopf zum Verweisen nur dann, wenn
+// in diesem Gespraech schon einmal eine Nachricht zu einem Mandat gelaufen war.
+// Eine Funktion, die man nur findet, wenn man schon weiss wo, ist keine.
+{
+  const uebersicht = nachrichten.slice(nachrichten.indexOf("'/qa/offen'"), nachrichten.indexOf("'/qa/offen/:userId'"));
+  ok('es gibt eine Uebersicht ueber alle offenen Fragen', uebersicht.length > 100);
+  ok('auch sie prueft die Pflegerechte je Mandat', /darfMandat\(req, r\.project_id\)/.test(uebersicht));
+
+  const mandate = nachrichten.slice(nachrichten.indexOf("'/qa/mandate'"), nachrichten.indexOf("'/qa/dokumente/:projectId'"));
+  ok('die Mandatsliste nennt nur eigene Mandate', /darfMandat\(req, p\.id\)/.test(mandate));
+
+  ok('die Konversationsliste zeigt, wo eine Frage wartet', /offenJeKontakt\[k\.partner_id\] > 0/.test(seite));
+  ok('der Verweis-Knopf steht immer bereit', /<button onClick=\{starteVerweis\}/.test(seite));
+  ok('ohne Mandat im Gespraech wird zuerst eines gewaehlt', /Zu welchem Mandat\?/.test(seite));
+}
+
 process.exit(fail ? 1 : 0);

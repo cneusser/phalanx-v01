@@ -34,6 +34,8 @@ export default function Messages() {
   const [dokWahl, setDokWahl] = useState(null);       // { projectId } waehrend der Dokumentauswahl
   const [dokListe, setDokListe] = useState(null);     // { dateien, ordner }
   const [dokSuche, setDokSuche] = useState('');
+  const [offenJeKontakt, setOffenJeKontakt] = useState({});  // wie viele Fragen warten je Gespraech
+  const [mandate, setMandate] = useState(null);      // Mandate zur Auswahl, wenn das Gespraech keines nennt
   const endRef = useRef();
   const feldRef = useRef();
 
@@ -47,7 +49,12 @@ export default function Messages() {
     el.style.height = Math.min(el.scrollHeight, 200) + 'px';
   }, [body]);
 
-  const loadThreads = useCallback(() => { api.get('/messages/threads').then(setThreads).catch(() => {}); }, []);
+  const loadThreads = useCallback(() => {
+    api.get('/messages/threads').then(setThreads).catch(() => {});
+    // Wo wartet eine Q&A-Frage? Scheitert das, bleibt die Liste ohne
+    // Kennzeichen: eine nicht geladene Q&A darf die Nachrichten nicht stoeren.
+    api.get('/messages/qa/offen').then((d) => setOffenJeKontakt(d || {})).catch(() => setOffenJeKontakt({}));
+  }, []);
   const loadConnections = useCallback(() => { api.get('/messages/connections').then(setConnections).catch(() => {}); }, []);
   useEffect(() => { loadThreads(); loadConnections(); }, [loadThreads, loadConnections]);
   // Sprint 15: Thread automatisch öffnen, wenn aus einem Mandat heraus verlinkt
@@ -81,6 +88,16 @@ export default function Messages() {
   }
 
   // ── Auf ein Dokument verweisen ────────────────────────────────────────────
+  // Nennt das Gespraech noch kein Mandat, wird zuerst eines gewaehlt. Vorher
+  // erschien der Knopf in solchen Gespraechen gar nicht, und ein Werkzeug, das
+  // nur manchmal da ist, gilt als kaputt.
+  async function starteVerweis() {
+    const vorgabe = (antwortAuf && antwortAuf.project_id) || (mandateCtx && mandateCtx.project_id);
+    if (vorgabe) return oeffneDokumente(vorgabe);
+    setDokWahl({ projectId: null }); setDokListe(null); setDokSuche('');
+    try { setMandate(await api.get('/messages/qa/mandate') || []); }
+    catch (e) { setMsg('Fehler: ' + e.message); setDokWahl(null); }
+  }
   async function oeffneDokumente(projectId) {
     setDokWahl({ projectId }); setDokListe(null); setDokSuche('');
     try { setDokListe(await api.get(`/messages/qa/dokumente/${projectId}`)); }
@@ -184,7 +201,14 @@ export default function Messages() {
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{ fontWeight: k.unread > 0 ? 700 : 500, color: C.text, fontSize: '0.85rem' }}>{k.name}</span>
-        {k.unread > 0 && <span style={{ background: C.accent, color: '#fff', borderRadius: 20, fontSize: '0.66rem', fontWeight: 700, padding: '0.05rem 0.4rem', flexShrink: 0 }}>{k.unread}</span>}
+        <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+          {offenJeKontakt[k.partner_id] > 0 && (
+            <span title="Offene Frage aus dem Q&A" style={{ background: '#92400e', color: '#fff', borderRadius: 20, fontSize: '0.66rem', fontWeight: 700, padding: '0.05rem 0.4rem' }}>
+              Q&A {offenJeKontakt[k.partner_id]}
+            </span>
+          )}
+          {k.unread > 0 && <span style={{ background: C.accent, color: '#fff', borderRadius: 20, fontSize: '0.66rem', fontWeight: 700, padding: '0.05rem 0.4rem' }}>{k.unread}</span>}
+        </span>
       </div>
       <div style={{ fontSize: '0.75rem', color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.last || k.company || 'k. A.'}</div>
     </div>
@@ -381,9 +405,9 @@ export default function Messages() {
                       Sie geht als Nachricht hinaus und wird zugleich im Q&A des Mandats hinterlegt.
                     </div>
                   )}
-                  {isAdmin && (mandateCtx || antwortAuf) && (
+                  {isAdmin && (
                     <div style={{ marginBottom: '0.5rem' }}>
-                      <button onClick={() => oeffneDokumente((antwortAuf && antwortAuf.project_id) || mandateCtx.project_id)}
+                      <button onClick={starteVerweis}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.32rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
                         <FileText size={13} /> Auf ein Dokument verweisen
                       </button>
@@ -391,9 +415,22 @@ export default function Messages() {
                   )}
                   {dokWahl && (
                     <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.6rem 0.7rem', marginBottom: '0.5rem', maxHeight: 260, overflowY: 'auto' }}>
-                      <input value={dokSuche} onChange={(e) => setDokSuche(e.target.value)} placeholder="Dokument suchen"
-                        style={{ width: '100%', padding: '0.4rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.8rem', outline: 'none', marginBottom: '0.45rem', boxSizing: 'border-box' }} />
-                      {!dokListe && <div style={{ fontSize: '0.8rem', color: C.muted }}>Wird geladen…</div>}
+                      {dokWahl.projectId && <input value={dokSuche} onChange={(e) => setDokSuche(e.target.value)} placeholder="Dokument suchen"
+                        style={{ width: '100%', padding: '0.4rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.8rem', outline: 'none', marginBottom: '0.45rem', boxSizing: 'border-box' }} />}
+                      {!dokWahl.projectId && (
+                        <div>
+                          <div style={{ fontSize: '0.76rem', color: C.muted, marginBottom: '0.4rem' }}>Zu welchem Mandat?</div>
+                          {!mandate && <div style={{ fontSize: '0.8rem', color: C.muted }}>Wird geladen…</div>}
+                          {mandate && mandate.length === 0 && <div style={{ fontSize: '0.8rem', color: C.muted }}>Sie pflegen derzeit kein Mandat.</div>}
+                          {(mandate || []).map((m) => (
+                            <button key={m.id} onClick={() => oeffneDokumente(m.id)}
+                              style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: `1px solid ${C.border}`, padding: '0.4rem 0.2rem', cursor: 'pointer', fontSize: '0.82rem', color: C.navy, fontWeight: 600 }}>
+                              {m.codename || `Mandat #${m.id}`}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {dokWahl.projectId && !dokListe && <div style={{ fontSize: '0.8rem', color: C.muted }}>Wird geladen…</div>}
                       {dokListe && (dokListe.dateien || [])
                         .filter((d) => !dokSuche || String(d.name).toLowerCase().includes(dokSuche.toLowerCase()))
                         .slice(0, 60)
