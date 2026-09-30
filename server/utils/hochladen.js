@@ -125,4 +125,55 @@ function mitAbfluss(req, res, next) {
   next();
 }
 
-module.exports = { mitFehlermeldung, meldung, inMb, mitAbfluss };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Uploads protokollieren (v0.432).
+//
+// Anlass: Nach dem dritten erfolglosen Anlauf habe ich die Laufzeitprotokolle
+// des Servers gelesen und darin nichts über den fehlgeschlagenen Upload
+// gefunden. Nicht, weil nichts passiert wäre, sondern weil dieser Server
+// Anfragen überhaupt nicht protokolliert. Ich habe also dreimal geraten, wo ich
+// hätte nachsehen können.
+//
+// Ab hier hinterlässt jeder Upload eine Spur: wann er ankam, wie groß er war,
+// wie er endete und wie lange er gedauert hat. Bricht die Verbindung ab, steht
+// auch das da, mit der Zahl der Bytes, die bis dahin angekommen waren. Damit
+// lässt sich unterscheiden, was bisher nicht zu unterscheiden war:
+//
+//   • „abgebrochen nach 0.3s, 40 KB von 12 MB"  → die Anfrage stirbt früh,
+//     also antwortet etwas davor, etwa die Anmeldung
+//   • „abgebrochen nach 300s, 12 MB von 12 MB"  → der Körper war da, der
+//     Server oder der Proxy hat danach zugemacht
+//   • gar kein Eintrag                          → die Anfrage erreicht die
+//     Anwendung nie, es liegt also davor
+//
+// Dateinamen werden bewusst nicht protokolliert. In einem anonymen
+// Verkaufsprozess ist ein Dateiname schon eine Auskunft.
+// ─────────────────────────────────────────────────────────────────────────────
+function spurLegen(req, res, next) {
+  const art = String(req.headers['content-type'] || '');
+  if (!art.startsWith('multipart/form-data')) return next();
+
+  const start = Date.now();
+  const angekuendigt = Number(req.headers['content-length'] || 0);
+  let empfangen = 0;
+  req.on('data', (d) => { empfangen += d.length; });
+
+  const dauer = () => ((Date.now() - start) / 1000).toFixed(1) + 's';
+  const menge = () => `${inMb(empfangen)} von ${inMb(angekuendigt)}`;
+  console.log(`⬆️  Upload beginnt: ${req.method} ${req.path}, angekündigt ${inMb(angekuendigt)}`);
+
+  let erledigt = false;
+  res.on('finish', () => {
+    erledigt = true;
+    console.log(`⬆️  Upload beendet: ${req.path} → HTTP ${res.statusCode}, ${menge()} in ${dauer()}`);
+  });
+  res.on('close', () => {
+    if (erledigt) return;
+    console.warn(`⚠️  Upload abgebrochen: ${req.path}, ${menge()} nach ${dauer()}, `
+      + `Körper vollständig: ${req.complete ? 'ja' : 'nein'}, Antwort gesendet: ${res.headersSent ? 'ja' : 'nein'}`);
+  });
+  next();
+}
+
+module.exports = { mitFehlermeldung, meldung, inMb, mitAbfluss, spurLegen };

@@ -69,6 +69,7 @@ app.use('/api/auth/', authLimiter);
 // größer als die Express-Standardgrenze von 100 kB sein.
 // Antworten auf noch laufende Datei-Uploads zurückhalten, sonst geht die
 // Fehlermeldung im Verbindungsabriss unter (siehe utils/hochladen.js).
+app.use(require('./utils/hochladen').spurLegen);
 app.use(require('./utils/hochladen').mitAbfluss);
 app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
@@ -115,9 +116,25 @@ app.get('/api/health', (req, res) => {
 const clientDist = path.join(__dirname, '../client/dist');
 const fs = require('fs');
 if (fs.existsSync(path.join(clientDist, 'index.html'))) {
-  app.use(express.static(clientDist));
+  // index.html darf nie aus dem Zwischenspeicher kommen, die Dateien darunter
+  // dürfen es immer.
+  //
+  // Anlass: Nach einem Deploy war nicht mehr zu unterscheiden, ob eine Änderung
+  // nicht wirkt oder ob der Browser noch den alten Stand zeigt. Ich habe
+  // deshalb dreimal eine Korrektur geprüft, die der Browser vielleicht gar
+  // nicht geladen hatte.
+  //
+  // Die Dateien unter /assets tragen einen Namen mit Prüfsumme: ändert sich der
+  // Inhalt, ändert sich der Name. Sie dürfen also für immer liegenbleiben.
+  // index.html nennt diese Namen und ist damit die einzige Datei, die bei jedem
+  // Aufruf frisch kommen muss.
+  app.use('/assets', express.static(path.join(clientDist, 'assets'), {
+    immutable: true, maxAge: '1y',
+  }));
+  app.use(express.static(clientDist, { index: false, etag: true, maxAge: 0 }));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api/')) return next();
+    res.set('Cache-Control', 'no-store, must-revalidate');
     res.sendFile(path.join(clientDist, 'index.html'));
   });
   console.log('🖥️  Client-Build wird ausgeliefert:', clientDist);
@@ -133,7 +150,8 @@ app.use((err, req, res, next) => {
 // Initialize DB then start server
 initialize().then(() => {
   app.listen(PORT, () => {
-    console.log(`\n💼  CapitalMatch Platform v0.2.0 (eine Marke der Phalanx GmbH)`);
+    const fassung = (() => { try { return require('./package.json').version; } catch { return '?'; } })();
+    console.log(`\n💼  CapitalMatch Platform v${fassung} (eine Marke der Phalanx GmbH)`);
     console.log(`📡 Backend: http://localhost:${PORT}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📧 Download-Notifications → ${process.env.NOTIFICATION_EMAIL || 'neusser@phalanx.de'} ${process.env.SMTP_HOST ? '(SMTP aktiv)' : '(nur Logs – SMTP nicht konfiguriert)'}\n`);
