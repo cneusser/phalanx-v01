@@ -965,12 +965,27 @@ router.post('/projects/:projectId/interests/:userId/approve-nda', ...isAdmin, wr
 // Datenraum-Zugang wieder entziehen (Rechte löschen, Stage zurücksetzen)
 router.post('/projects/:projectId/interests/:userId/revoke-dataroom', ...isAdmin, wrap(async (req, res) => {
   const pid = req.params.projectId; const uid = req.params.userId;
+
+  // Zuerst feststellen, ob es überhaupt etwas zu entziehen gibt. Ohne diese
+  // Frage meldet die Route auch dann Erfolg, wenn sie nichts getan hat, und
+  // der Nutzer sieht eine Bestätigung, die nichts bestätigt (v0.440).
+  const rechte = await db.all(
+    `SELECT resource FROM permissions WHERE project_id = ? AND user_id = ? AND resource IN ('dataroom','qa')`,
+    [pid, uid]).catch(() => []);
+  const akte = await db.get('SELECT stage FROM interests WHERE project_id = ? AND buyer_id = ? LIMIT 1', [pid, uid]).catch(() => null);
+  const warOffen = rechte.length > 0 || (akte && ['dataroom_granted', 'loi'].includes(akte.stage));
+
   await db.run(`DELETE FROM permissions WHERE project_id = ? AND user_id = ? AND resource IN ('dataroom','qa')`, [pid, uid]);
   // Zurück auf NDA-unterschrieben, wenn eine NDA vorliegt, sonst auf angefragt.
   const nda = await db.get(`SELECT id FROM nda_requests WHERE project_id = ? AND user_id = ? AND (signed_at IS NOT NULL OR status IN ('signed','approved')) LIMIT 1`, [pid, uid]).catch(() => null);
   await db.run(`UPDATE interests SET stage = ?, updated_at = now() WHERE project_id = ? AND buyer_id = ?`, [nda ? 'nda_signed' : 'requested', pid, uid]);
-  db.auditLog(req.user.id, 'DATAROOM_REVOKED_DIRECT', 'project', pid, `Datenraum-Zugang entzogen (Nutzer ${uid})`, req.ip);
-  res.json({ success: true, data: { stage: nda ? 'nda_signed' : 'requested' } });
+  db.auditLog(req.user.id, 'DATAROOM_REVOKED_DIRECT', 'project', pid,
+    warOffen ? `Datenraum-Zugang entzogen (Nutzer ${uid})` : `Entzug ohne Wirkung, es bestand kein Zugang (Nutzer ${uid})`, req.ip);
+  res.json({ success: true, data: {
+    stage: nda ? 'nda_signed' : 'requested',
+    entzogen: warOffen,
+    hinweis: warOffen ? null : 'Für diesen Nutzer bestand kein Datenraum-Zugang. Es wurde nichts verändert.',
+  } });
 }));
 
 router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {

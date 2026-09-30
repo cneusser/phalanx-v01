@@ -36,11 +36,31 @@ const FIELDS = [
 
 const fmt = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'k. A.';
 
-export default function ContactDrawer({ contactId, onClose, onChanged, show, initialTab }) {
+export default function ContactDrawer({ contactId, onClose, onChanged, show: showAussen, initialTab }) {
   const [vok, setVok] = useState({ kaeufertypen: KAEUFERTYPEN_FALLBACK, laender: LAENDER_FALLBACK });
   useEffect(() => { ladeVokabular().then(setVok).catch(() => {}); }, []);
   const { startBirdview } = useAuth();
   const [data, setData] = useState(null);
+  const k = data?.contact;
+
+  // ── Eigene Meldungszeile (v0.440) ──────────────────────────────────────────
+  //
+  // Anlass: „Wenn ich darauf klicke passiert nichts." Es passierte etwas, nur
+  // sah es niemand. Die Meldungen dieser Schublade wurden an die Seite darunter
+  // gereicht und dort als Zeile im Inhalt gezeichnet. Die Schublade liegt aber
+  // mit zIndex 1100 darüber und deckt die ganze Fläche ab. Jede Rückmeldung von
+  // hier, auch jede Fehlermeldung, war damit unsichtbar.
+  //
+  // Deshalb eine eigene Zeile, die über der Schublade liegt. Die Seite darunter
+  // bekommt die Meldung weiterhin, denn sie bleibt stehen, wenn die Schublade
+  // zugeht.
+  const [eigeneMeldung, setEigeneMeldung] = useState('');
+  const show = useCallback((m) => {
+    setEigeneMeldung(String(m || ''));
+    if (typeof showAussen === 'function') showAussen(m);
+    window.clearTimeout(show._uhr);
+    show._uhr = window.setTimeout(() => setEigeneMeldung(''), 6000);
+  }, [showAussen]);
   // Unterlagen-Link
   const [shareOpen, setShareOpen] = useState(false);
   const [shareProject, setShareProject] = useState('');
@@ -146,14 +166,34 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show, ini
     } catch (e) { show('Fehler: ' + e.message); }
   }
   // Datenraum echt freigeben bzw. entziehen (setzt die serverseitige Stage + Rechte).
+  //
+  // Zwei Dinge waren hier falsch (v0.440):
+  //
+  // 1. Die Prüfung auf ein Nutzerkonto galt für beide Richtungen. Freigeben
+  //    ohne Konto geht nicht, das stimmt. Entziehen aber sehr wohl, und es ist
+  //    die Richtung, die im Zweifel sofort funktionieren muss. Wer einen Zugang
+  //    beenden will, darf nicht daran scheitern, dass das Konto inzwischen
+  //    gelöscht oder die Adresse geändert wurde.
+  // 2. Gesucht wurde nur data.account, also das über die E-Mail gefundene
+  //    Konto. Die Freigabe selbst hängt an crm_contacts.user_id. Weicht die
+  //    Adresse ab, ist der Zugang da, das Konto aber scheinbar nicht.
+  //
+  // Deshalb: für das Entziehen zählt jede bekannte Nutzerkennung.
   async function grantDataroom(projectId, on) {
-    const uid = data.account?.id;
-    if (!uid) { show('Dieser Kontakt hat kein Nutzerkonto. Datenraum-Zugang ist nur für registrierte Nutzer möglich, bitte zuerst zur Plattform einladen.'); return; }
+    const uid = data.account?.id || k?.user_id || null;
+    if (!uid) {
+      show(on
+        ? 'Dieser Kontakt hat kein Nutzerkonto. Datenraum-Zugang ist nur für registrierte Nutzer möglich, bitte zuerst zur Plattform einladen.'
+        : 'Zu diesem Kontakt ist keine Nutzerkennung hinterlegt, es gibt also keinen Zugang, der entzogen werden könnte.');
+      return;
+    }
+    const wer = [k?.first_name, k?.last_name].filter(Boolean).join(' ') || 'diesem Kontakt';
     if (on && !window.confirm('Datenraum für diesen Kontakt freigeben?\n\nEr erhält echten Zugriff auf den Datenraum mit allen freigegebenen Unterlagen und wird per E-Mail informiert.')) return;
-    if (!on && !window.confirm('Datenraum-Zugang wieder entziehen?')) return;
+    if (!on && !window.confirm(`Datenraum-Zugang für ${wer} entziehen?\n\nDer Zugriff auf den Datenraum und das Q&A endet sofort. Bereits heruntergeladene Unterlagen bleiben davon unberührt.`)) return;
     try {
-      await api.post(`/admin/projects/${projectId}/interests/${uid}/${on ? 'grant-dataroom' : 'revoke-dataroom'}`, {});
-      show(on ? 'Datenraum freigegeben ✓' : 'Datenraum-Zugang entzogen');
+      const d = await api.post(`/admin/projects/${projectId}/interests/${uid}/${on ? 'grant-dataroom' : 'revoke-dataroom'}`, {});
+      if (on) show('Datenraum freigegeben ✓');
+      else show(d && d.hinweis ? d.hinweis : 'Datenraum-Zugang entzogen ✓');
       await load(); onChanged && onChanged();
     } catch (e) { show('Fehler: ' + e.message); }
   }
@@ -347,11 +387,20 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show, ini
     catch (e) { show('Fehler: ' + e.message); }
   }
 
-  const k = data?.contact;
   const blocked = k && (k.consent_status === 'opt_out' || k.contact_status === 'do_not_contact');
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(13,27,54,0.5)', zIndex: 1100, display: 'flex', justifyContent: 'flex-end' }}>
+      {eigeneMeldung && (
+        <div onClick={(e) => e.stopPropagation()} style={{
+          position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1200,
+          background: eigeneMeldung.startsWith('Fehler') ? '#fee2e2' : '#d1fae5',
+          color: eigeneMeldung.startsWith('Fehler') ? '#991b1b' : '#065f46',
+          border: `1px solid ${eigeneMeldung.startsWith('Fehler') ? '#fca5a5' : '#6ee7b7'}`,
+          borderRadius: 10, padding: '0.7rem 1.1rem', fontSize: '0.85rem', fontWeight: 600,
+          maxWidth: 'min(680px, 92vw)', boxShadow: '0 6px 24px rgba(15,23,42,0.18)',
+        }}>{eigeneMeldung}</div>
+      )}
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', width: 'min(560px, 100%)', height: '100%', overflowY: 'auto', boxShadow: '-8px 0 30px rgba(0,0,0,0.15)' }}>
         {!data ? (
           <div style={{ padding: '2rem', color: C.muted }}>Laden…</div>
