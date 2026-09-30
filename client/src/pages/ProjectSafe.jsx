@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api, getToken } from '../api/client';
 import { Folder, File, Image as ImageIcon, Upload, FolderPlus, Trash2, Download, Share2, ChevronLeft, RotateCcw, HardDrive, X, Eye, BarChart3, Edit2, ChevronUp, ChevronDown, Bell, Search, Eraser, Lock, Unlock, Package, KeyRound } from 'lucide-react';
 import GrantsDialog from '../components/GrantsDialog';
+import { ladeAlles } from '../utils/hochladen';
 
 const C = { navy: '#111820', accent: '#1D4E89', steel: '#174a6a', bg: '#f4f6f7', card: '#FFFFFF', border: '#d8dde1', text: '#0F172A', muted: '#64748B' };
 const fmtBytes = (b) => { b = Number(b) || 0; if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB'; return (b / 1073741824).toFixed(2) + ' GB'; };
@@ -41,6 +42,7 @@ export default function ProjectSafe() {
   const [publishItem, setPublishItem] = useState(null);
   const [grantItem, setGrantItem] = useState(null);   // Objekt, dessen Freigaben bearbeitet werden
   const [uploading, setUploading] = useState(false);
+  const [stand, setStand] = useState(null);   // { paket, pakete, prozent }
   const [drag, setDrag] = useState(false);
   const [denied, setDenied] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -278,19 +280,23 @@ export default function ProjectSafe() {
 
   async function doUpload(files, withPaths) {
     if (!files || !files.length) return;
-    setUploading(true); setMsg('');
-    const fd = new FormData();
-    const paths = [];
-    for (const f of files) { fd.append('files', f); paths.push(withPaths ? (f.webkitRelativePath || f.name) : f.name); }
-    if (parent) fd.append('parent_id', parent);
-    fd.append('paths', JSON.stringify(paths));
-    try {
-      const res = await fetch(`/api/safe/${pid}/upload`, { method: 'POST', headers: authHeaders(), body: fd });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error || 'Upload fehlgeschlagen');
-      setMsg(`${j.data.created.length} Datei(en) hochgeladen → ${project ? project.codename : 'Mandat #' + pid}.`); load(parent);
-    } catch (e) { setMsg('Fehler: ' + e.message); }
-    finally { setUploading(false); }
+    setUploading(true); setMsg(''); setStand(null);
+    const eintraege = Array.from(files).map(f => ({
+      file: f, path: withPaths ? (f.webkitRelativePath || f.name) : f.name,
+    }));
+    const e = await ladeAlles({
+      url: `/api/safe/${pid}/upload`, token: getToken(),
+      felder: { parent_id: parent || undefined },
+      dateien: eintraege, aufStand: setStand,
+    });
+    setStand(null); setUploading(false);
+    if (e.abgebrochen) {
+      setMsg(`Abgebrochen bei Paket ${e.paket} von ${e.pakete}. `
+        + `${e.angekommen} von ${e.gesamt} Datei(en) sind oben und bleiben es. ${e.grund}`);
+    } else {
+      setMsg(`${e.angekommen} Datei(en) hochgeladen → ${project ? project.codename : 'Mandat #' + pid}.`);
+    }
+    load(parent);
   }
 
   // Drag-and-drop: Verzeichnisse rekursiv durchlaufen (Dateien + auch leere Ordner).
@@ -315,20 +321,20 @@ export default function ProjectSafe() {
   }
   async function uploadCollected(fileEntries, folderPaths) {
     if (!fileEntries.length && !folderPaths.length) return;
-    setUploading(true); setMsg('');
-    const fd = new FormData();
-    const paths = [];
-    for (const { file, path } of fileEntries) { fd.append('files', file); paths.push(path); }
-    if (parent) fd.append('parent_id', parent);
-    fd.append('paths', JSON.stringify(paths));
-    fd.append('folder_paths', JSON.stringify(folderPaths));
-    try {
-      const res = await fetch(`/api/safe/${pid}/upload`, { method: 'POST', headers: authHeaders(), body: fd });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error || 'Upload fehlgeschlagen');
-      setMsg(`${fileEntries.length} Datei(en) und ${folderPaths.length} Ordner hochgeladen.`); load(parent);
-    } catch (e) { setMsg('Fehler: ' + e.message); }
-    finally { setUploading(false); }
+    setUploading(true); setMsg(''); setStand(null);
+    const e = await ladeAlles({
+      url: `/api/safe/${pid}/upload`, token: getToken(),
+      felder: { parent_id: parent || undefined, folder_paths: JSON.stringify(folderPaths) },
+      dateien: fileEntries, aufStand: setStand,
+    });
+    setStand(null); setUploading(false);
+    if (e.abgebrochen) {
+      setMsg(`Abgebrochen bei Paket ${e.paket} von ${e.pakete}. `
+        + `${e.angekommen} von ${e.gesamt} Datei(en) sind oben und bleiben es. ${e.grund}`);
+    } else {
+      setMsg(`${e.angekommen} Datei(en) und ${folderPaths.length} Ordner hochgeladen.`);
+    }
+    load(parent);
   }
 
   async function download(item) {
@@ -494,7 +500,16 @@ export default function ProjectSafe() {
         </div>
 
         {msg &&<div style={{ background: msg.includes('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: msg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{msg}</div>}
-        {uploading && <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: C.accent }}>Wird hochgeladen…</div>}
+        {uploading && (
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: C.accent }}>
+            {stand
+              ? `Wird hochgeladen… ${stand.prozent} Prozent, Paket ${stand.paket} von ${stand.pakete}`
+              : 'Wird hochgeladen…'}
+            <div style={{ height: 4, background: '#dbeafe', borderRadius: 2, marginTop: 6, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${stand ? stand.prozent : 0}%`, background: C.accent, transition: 'width 0.2s' }} />
+            </div>
+          </div>
+        )}
 
         {safeHits !== null ? (
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '1rem' }}>
