@@ -46,7 +46,12 @@ const RESOURCE_GATES = {
   im:       'nda_signed',        // IM/Exposé erst nach unterschriebenem NDA
   details:  'dataroom_granted',  // Projekt-Detaildaten (Finanzen, Team)
   dataroom: 'dataroom_granted',  // Datenraum-Dokumente
-  qa:       'dataroom_granted',  // Q&A-Modul (Sprint 4)
+  // Q&A ab unterschriebenem NDA (v0.442). Vorher stand hier dataroom_granted,
+  // also dieselbe Hürde wie für den Datenraum. Das passte nicht zum Zweck: Die
+  // Fragen, die ein Interessent nach dem NDA zum Exposé hat, sind genau die,
+  // die über eine Datenraum-Freigabe entscheiden. Wer erst nach der Freigabe
+  // fragen darf, fragt zu spät.
+  qa:       'nda_signed',
 };
 
 function stageRank(stage) {

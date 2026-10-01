@@ -735,6 +735,18 @@ router.post('/:id/questions', authenticate, wrap(async (req, res) => {
 
 router.get('/:id/questions', authenticate, wrap(async (req, res) => {
   const isAdmin = ['super_admin', 'advisor'].includes(req.user.role);
+  // Lesen unterliegt demselben Gate wie Fragen (v0.442). Bisher hatte die
+  // Leseroute gar keines: Wer die Adresse kannte, sah die für alle
+  // freigegebenen Antworten auch ohne NDA. In einem anonymen Verkaufsprozess
+  // ist eine Antwort oft aussagekräftiger als der Teaser.
+  const darfPflegen = isAdmin || await canManageProject(req.user, req.params.id);
+  if (!darfPflegen) {
+    const stage = await getStage(req.user.id, req.params.id);
+    if (!stageAllows(stage, 'qa')) {
+      return res.status(403).json({ success: false,
+        error: 'Das Q&A steht Ihnen zur Verfügung, sobald die Vertraulichkeitsvereinbarung unterschrieben ist.' });
+    }
+  }
   // Käufer sehen ihre eigenen Fragen: plus die, die wir für alle Interessenten
   // freigegeben haben (FAQ). Der Fragesteller bleibt dort anonym.
   const rows = isAdmin

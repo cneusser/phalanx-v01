@@ -193,13 +193,22 @@ export default function ProjectDetail() {
             const full = await api.get(`/projects/${id}`);
             setFullData(full); setNdaStatus('admin');
           } catch { /* ignore */ }
+          // Die Fragen fehlten hier (v0.442). Geladen wurden sie nur im Zweig
+          // für Interessenten, und zwar erst ab freigegebenem Datenraum. Als
+          // Verwaltender stand deshalb „Noch keine Fragen gestellt", während im
+          // Verwaltungsbereich dieselben Fragen zu sehen waren.
+          try { setQuestions(await api.get(`/projects/${id}/questions`)); } catch { /* ignore */ }
         } else {
           const ndaData = await api.get(`/ndas/${id}/status`);
           setNdaStatus(ndaData.status);
           if (ndaData.id) setNdaId(ndaData.id);
           if (ndaData.status === 'approved') {
             try { const full = await api.get(`/projects/${id}`); setFullData(full); } catch { /* ignore */ }
-            // Sprint 4: eigene Q&A-Threads laden
+          }
+          // Q&A ab unterschriebenem NDA, nicht erst ab Datenraum-Freigabe. Der
+          // Server entscheidet, hier wird nur gefragt; scheitert es, bleibt die
+          // Liste leer und der Hinweis im Reiter erklärt den Grund.
+          if (['signed', 'approved'].includes(ndaData.status)) {
             try { setQuestions(await api.get(`/projects/${id}/questions`)); } catch { /* ignore */ }
           }
         }
@@ -757,6 +766,19 @@ export default function ProjectDetail() {
           setQaMsg(t('pd.antwort_gespeichert', 'Antwort gespeichert und dem Fragenden per E-Mail zugestellt.'));
         } catch (e) { setQaMsg('Fehler: ' + e.message); }
       };
+
+      // Das Q&A steht ab unterschriebenem NDA offen. Ein Eingabefeld zu zeigen,
+      // das jede Eingabe abweist, ist schlechter als keines: Der Nutzer hält
+      // die Absage für einen Fehler und nicht für eine Regel (v0.442).
+      const darfFragen = isAdmin || ['signed', 'approved'].includes(ndaStatus);
+      if (!darfFragen) {
+        return (
+          <div style={{ color: '#555', fontSize: '0.875rem', lineHeight: 1.7 }}>
+            Das Q&A steht Ihnen zur Verfügung, sobald die Vertraulichkeitsvereinbarung unterschrieben ist.
+            Danach beantwortet der Transaktionsberater Ihre Fragen hier direkt.
+          </div>
+        );
+      }
 
       return (
         <div>
