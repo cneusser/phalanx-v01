@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import { useT, useI18n } from '../i18n';
 import { useAuth } from '../context/AuthContext';
+import AnsichtPruefen from '../components/AnsichtPruefen';
 import useIsMobile from '../hooks/useIsMobile';
 import { kpiWert } from '../utils/kpi';
 import {
@@ -405,6 +406,7 @@ export default function Projects() {
 
       {/* Main layout */}
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2rem 1.5rem' }}>
+        <AnsichtPruefen C={C} />
         <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: '2rem', alignItems: 'start' }}>
 
           {/* Sidebar */}

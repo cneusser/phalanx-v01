@@ -308,6 +308,32 @@ router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { range: rangeKey, funnel, timeseries, mandates, recent, badges, conversions: conv } });
 }));
 
+// ── Birdview: wen kann ich ansehen? ────────────────────────────────────────
+//
+// Anlass: „Ich möchte sehen, was die wirklich sehen." Dafür gibt es die
+// Birdview schon, sie brauchte nur eine Auswahl. Bewusst echte Personen statt
+// einer gespielten Rolle: Was ein Käufer sieht, hängt nicht an seiner Rolle,
+// sondern daran, ob er unterschrieben hat und freigegeben ist. Eine Ansicht
+// „als Käufer" wäre deshalb erfunden und würde das Gegenteil dessen leisten,
+// wozu sie da ist.
+router.get('/birdview/nutzer', ...isAdmin, wrap(async (req, res) => {
+  const rolle = String(req.query.rolle || '').trim();
+  const erlaubt = ['buyer', 'seller', 'advisor', 'assistant', 'analyst', 'tenant_owner'];
+  const wo = erlaubt.includes(rolle) ? 'AND u.role = ?' : '';
+  const werte = erlaubt.includes(rolle) ? [rolle] : [];
+
+  const rows = await db.all(
+    `SELECT u.id, u.first_name, u.last_name, u.email, u.role, u.company, u.last_login,
+            (SELECT COUNT(*)::int FROM interests i WHERE i.buyer_id = u.id) AS mandate,
+            (SELECT COUNT(*)::int FROM interests i
+              WHERE i.buyer_id = u.id AND i.stage IN ('dataroom_granted','loi')) AS datenraeume
+       FROM users u
+      WHERE u.is_active = 1 AND u.id <> ? ${wo}
+      ORDER BY u.last_login DESC NULLS LAST, u.id DESC
+      LIMIT 60`, [req.user.id, ...werte]).catch(() => []);
+  res.json({ success: true, data: rows });
+}));
+
 // ── Birdview: Ansicht als anderer Nutzer öffnen ────────────────────────────
 // Nur Super-Admin. Das ausgestellte Token trägt den Claim `imp` (eigene Id), 
 // damit ist der Zugriff serverseitig schreibgeschützt (siehe middleware/auth.js).

@@ -1,6 +1,28 @@
 const BASE_URL = '/api';
 
+// ── Gastansicht (v0.444) ────────────────────────────────────────────────────
+//
+// Zum Prüfen, was ein nicht angemeldeter Besucher sieht. Das Token bleibt im
+// Speicher liegen, wird aber nicht mitgeschickt. Damit entscheidet der Server
+// genau wie bei einem fremden Besucher, und niemand muss sich darauf verlassen,
+// dass die Oberfläche richtig ausblendet.
+//
+// Bewusst sessionStorage: Die Ansicht endet mit dem Schliessen des Fensters.
+// Ein vergessener Gastmodus, der Tage überdauert, sähe aus wie ein Fehler der
+// Anmeldung.
+export const GAST_SCHLUESSEL = 'phalanx_gastansicht';
+export function istGastansicht() {
+  try { return sessionStorage.getItem(GAST_SCHLUESSEL) === '1'; } catch { return false; }
+}
+export function setzeGastansicht(an) {
+  try {
+    if (an) sessionStorage.setItem(GAST_SCHLUESSEL, '1');
+    else sessionStorage.removeItem(GAST_SCHLUESSEL);
+  } catch { /* ohne sessionStorage keine Gastansicht */ }
+}
+
 function getToken() {
+  if (istGastansicht()) return null;
   return localStorage.getItem('phalanx_token');
 }
 

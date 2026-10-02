@@ -1,3 +1,4 @@
+import { GastBalken } from './components/AnsichtPruefen';
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -115,6 +116,7 @@ function AppRoutes() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <SpracheAusProfil />
       <BirdviewBanner />
+      <GastBalken />
       <NavbarWennNoetig />
       <NachOben />
       <main style={{ flex: 1 }}>

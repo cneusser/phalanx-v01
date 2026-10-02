@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../api/client';
+import { api, istGastansicht, setzeGastansicht } from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -7,7 +7,10 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // In der Gastansicht wird bewusst nichts geladen: Wer prüfen will, was ein
+  // Besucher sieht, darf nicht nebenher als angemeldet gelten.
   useEffect(() => {
+    if (istGastansicht()) { setLoading(false); return; }
     const token = localStorage.getItem('phalanx_token');
     if (token) {
       api.get('/auth/me')
@@ -91,6 +94,9 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, loading, login, loginTwoFactor, register, logout, isAdmin, isSeller, isSuccessor,
       isImpersonating, startBirdview, endBirdview,
+      gastansicht: istGastansicht(),
+      starteGastansicht: () => { setzeGastansicht(true); window.location.href = '/projekte'; },
+      beendeGastansicht: () => { setzeGastansicht(false); window.location.href = '/projekte'; },
     }}>
       {children}
     </AuthContext.Provider>
