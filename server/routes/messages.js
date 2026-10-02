@@ -336,6 +336,107 @@ router.get('/qa/dokumente/:projectId', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { dateien, ordner } });
 }));
 
+// ── Eine Nachricht für das Q&A vormerken und veröffentlichen (v0.443) ───────
+//
+// Die besten Fragen entstehen im Gespräch. Wer sie dort sieht, will sie
+// festhalten, bevor sie im Verlauf nach oben wandern.
+//
+// Bewusst zwei Schritte: Vormerken ist eine Notiz, Veröffentlichen eine
+// Entscheidung. Dazwischen liegt die Arbeit, die niemand automatisieren sollte,
+// nämlich das Anonymisieren. Eine Frage im Wortlaut eines Interessenten kann
+// Namen, Zahlen und Rückschlüsse enthalten, und veröffentlicht sieht sie jeder
+// freigegebene Interessent.
+router.post('/:id/qa-vormerken', authenticate, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  const an = req.body.an !== false;
+  const m = await scoped(req, (t) => t.get('SELECT id, sender_id, recipient_id, project_id FROM messages WHERE id = ?', [id]));
+  if (!m) return res.status(404).json({ success: false, error: 'Nachricht nicht gefunden' });
+  // Nur wer am Gespräch beteiligt ist, darf daraus etwas vormerken.
+  if (![m.sender_id, m.recipient_id].map(Number).includes(Number(req.user.id)) && !isAdmin(req.user)) {
+    return res.status(403).json({ success: false, error: 'Diese Nachricht gehört nicht zu Ihren Gesprächen.' });
+  }
+  await scoped(req, (t) => t.run(
+    an ? 'UPDATE messages SET qa_markiert_am = now(), qa_markiert_von = ? WHERE id = ?'
+       : 'UPDATE messages SET qa_markiert_am = NULL, qa_markiert_von = NULL WHERE id = ?',
+    an ? [req.user.id, id] : [id]));
+  db.activityLog(req.user.id, an ? 'QA_VORGEMERKT' : 'QA_VORMERKUNG_ENTFERNT', 'message', id, req.ip);
+  res.json({ success: true, data: { id, vorgemerkt: an } });
+}));
+
+// ── Was ist vorgemerkt? ────────────────────────────────────────────────────
+router.get('/qa/vorgemerkt', authenticate, wrap(async (req, res) => {
+  const rows = await scoped(req, (t) => t.all(
+    `SELECT m.id, m.body, m.created_at, m.project_id, m.qa_thread_id,
+            m.sender_id, u.first_name, u.last_name, u.company,
+            p.codename
+       FROM messages m
+       JOIN users u ON u.id = m.sender_id
+       LEFT JOIN projects p ON p.id = m.project_id
+      WHERE m.qa_markiert_am IS NOT NULL
+        AND (m.sender_id = ? OR m.recipient_id = ?)
+      ORDER BY m.qa_markiert_am DESC LIMIT 100`, [req.user.id, req.user.id])).catch(() => []);
+  res.json({ success: true, data: rows });
+}));
+
+// ── Vormerkung prüfen: stecken Namen im Text? ──────────────────────────────
+//
+// Geprüft wird vor dem Veröffentlichen, nicht danach. Ein Name, der den
+// Datenraum verlässt, lässt sich nicht zurückholen.
+router.post('/qa/pruefen', authenticate, wrap(async (req, res) => {
+  const { pruefeText } = require('../utils/klarnamen');
+  const texte = [
+    { feld: 'Frage', text: String(req.body.frage || '') },
+    { feld: 'Antwort', text: String(req.body.antwort || '') },
+  ];
+  // Bekannte Namen zum Mandat: der Abgleich ist kein Raten, sondern ein
+  // Vergleich mit dem, was das System ohnehin weiss.
+  let bekannt = [];
+  if (req.body.project_id) {
+    const leute = await scoped(req, (t) => t.all(
+      `SELECT DISTINCT k.first_name, k.last_name FROM crm_deal_parties dp
+         JOIN crm_contacts k ON k.id = dp.contact_id
+        WHERE dp.project_id = ? LIMIT 300`, [Number(req.body.project_id)])).catch(() => []);
+    bekannt = leute.map((l) => [l.first_name, l.last_name].filter(Boolean).join(' ')).filter(Boolean);
+  }
+  const funde = [];
+  for (const t of texte) for (const f of pruefeText(t.text, bekannt)) funde.push({ ...f, feld: t.feld });
+  res.json({ success: true, data: { funde } });
+}));
+
+// ── Veröffentlichen: aus der Vormerkung wird ein Q&A-Eintrag ───────────────
+router.post('/:id/qa-veroeffentlichen', authenticate, wrap(async (req, res) => {
+  const id = Number(req.params.id);
+  const frage = String(req.body.frage || '').trim();
+  const antwort = String(req.body.antwort || '').trim();
+  const projectId = Number(req.body.project_id || 0);
+  const fuerAlle = req.body.fuer_alle !== false;
+
+  if (frage.length < 5) return res.status(400).json({ success: false, error: 'Bitte formulieren Sie die Frage.' });
+  if (!projectId) return res.status(400).json({ success: false, error: 'Bitte wählen Sie das Mandat.' });
+  if (!(await darfMandat(req, projectId))) {
+    return res.status(403).json({ success: false, error: 'Sie pflegen dieses Mandat nicht.' });
+  }
+
+  const m = await scoped(req, (t) => t.get('SELECT id, sender_id, qa_thread_id FROM messages WHERE id = ?', [id]));
+  if (!m) return res.status(404).json({ success: false, error: 'Nachricht nicht gefunden' });
+  if (m.qa_thread_id) {
+    return res.status(409).json({ success: false, error: 'Aus dieser Nachricht wurde bereits ein Q&A-Eintrag erstellt.' });
+  }
+
+  // Der Fragesteller bleibt der Absender der Nachricht. Im Q&A wird er
+  // ohnehin nicht genannt, aber die Zuordnung bleibt nachvollziehbar.
+  const qaId = await scoped(req, (t) => t.insert(
+    `INSERT INTO qa_threads (tenant_id, project_id, buyer_id, question, answer, status, answered_at, answered_by, is_public, published_at)
+     VALUES (?, ?, ?, ?, ?, ?, ${antwort ? 'now()' : 'NULL'}, ?, ?, ${fuerAlle ? 'now()' : 'NULL'})`,
+    [req.tenantId || 1, projectId, m.sender_id, frage, antwort || null,
+     antwort ? 'answered' : 'open', antwort ? req.user.id : null, fuerAlle ? 1 : 0]));
+
+  await scoped(req, (t) => t.run('UPDATE messages SET qa_thread_id = ?, qa_markiert_am = NULL WHERE id = ?', [qaId, id]));
+  db.auditLog(req.user.id, 'QA_AUS_NACHRICHT', 'qa', qaId,
+    `${fuerAlle ? 'für alle Interessenten sichtbar' : 'nur intern'} · aus Nachricht ${id}`, req.ip);
+  res.status(201).json({ success: true, data: { qa_id: qaId, fuer_alle: fuerAlle } });
+}));
+
 // ── Sprint 15: „Interesse → Chat": Berater zum Mandat kontaktieren ─────────
 // Verbindet den Käufer mit dem Mandatsberater und öffnet den Chat-Thread
 // (auch ohne NDA). Gibt die Partner-Id (Berater) zurück, damit der Client den

@@ -34,6 +34,10 @@ export default function Messages() {
   const [dokWahl, setDokWahl] = useState(null);       // { projectId } waehrend der Dokumentauswahl
   const [dokListe, setDokListe] = useState(null);     // { dateien, ordner }
   const [dokSuche, setDokSuche] = useState('');
+  const [zitat, setZitat] = useState(null);          // Nachricht, auf die geantwortet wird
+  const [vorgemerkt, setVorgemerkt] = useState([]);   // Nachrichten, die ins Q&A sollen
+  const [qaEntwurf, setQaEntwurf] = useState(null);   // { id, frage, antwort, project_id, fuer_alle }
+  const [qaFunde, setQaFunde] = useState(null);       // gefundene Namen vor dem Veroeffentlichen
   const [offenJeKontakt, setOffenJeKontakt] = useState({});  // wie viele Fragen warten je Gespraech
   const [mandate, setMandate] = useState(null);      // Mandate zur Auswahl, wenn das Gespraech keines nennt
   const endRef = useRef();
@@ -54,6 +58,7 @@ export default function Messages() {
     // Wo wartet eine Q&A-Frage? Scheitert das, bleibt die Liste ohne
     // Kennzeichen: eine nicht geladene Q&A darf die Nachrichten nicht stoeren.
     api.get('/messages/qa/offen').then((d) => setOffenJeKontakt(d || {})).catch(() => setOffenJeKontakt({}));
+    api.get('/messages/qa/vorgemerkt').then((d) => setVorgemerkt(d || [])).catch(() => setVorgemerkt([]));
   }, []);
   const loadConnections = useCallback(() => { api.get('/messages/connections').then(setConnections).catch(() => {}); }, []);
   useEffect(() => { loadThreads(); loadConnections(); }, [loadThreads, loadConnections]);
@@ -73,6 +78,58 @@ export default function Messages() {
     // blockieren.
     api.get(`/messages/qa/offen/${pid}`).then((d) => setFragen(d || [])).catch(() => setFragen([]));
   }, [loadThreads]);
+
+  // ── Eine einzelne Blase zitieren, kopieren, vormerken ─────────────────────
+  //
+  // Zitieren setzt die Nachricht über das Eingabefeld statt den Text hinein zu
+  // kopieren. Der Unterschied ist wichtig: Ein eingefügter Zitatblock wandert
+  // beim Tippen mit und lässt sich versehentlich zerschneiden; ein Verweis
+  // darüber bleibt, was er ist, und der Empfänger sieht, worauf sich die
+  // Antwort bezieht.
+  function kopiere(text) {
+    try {
+      navigator.clipboard.writeText(String(text || ''));
+      setMsg('In die Zwischenablage kopiert.');
+    } catch { setMsg('Fehler: Die Zwischenablage ist in diesem Browser nicht verfügbar.'); }
+  }
+  async function vormerken(m, an) {
+    try {
+      await api.post(`/messages/${m.id}/qa-vormerken`, { an });
+      setMsg(an ? 'Für das Q&A vorgemerkt.' : 'Vormerkung entfernt.');
+      ladeVorgemerkt();
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+  const ladeVorgemerkt = useCallback(() => {
+    api.get('/messages/qa/vorgemerkt').then((d) => setVorgemerkt(d || [])).catch(() => setVorgemerkt([]));
+  }, []);
+
+  // ── Aus einer Vormerkung einen Q&A-Eintrag machen ─────────────────────────
+  function beginneQa(v) {
+    setQaFunde(null);
+    if (!mandate) api.get('/messages/qa/mandate').then((d) => setMandate(d || [])).catch(() => setMandate([]));
+    setQaEntwurf({ id: v.id, frage: v.body, antwort: '', project_id: v.project_id || '', fuer_alle: true });
+  }
+  async function pruefeNamen() {
+    if (!qaEntwurf) return;
+    try {
+      const d = await api.post('/messages/qa/pruefen', {
+        frage: qaEntwurf.frage, antwort: qaEntwurf.antwort, project_id: qaEntwurf.project_id || null,
+      });
+      setQaFunde(d.funde || []);
+      setMsg((d.funde || []).length ? 'Bitte sehen Sie sich die gefundenen Stellen an.' : 'Keine Namen gefunden.');
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
+  async function veroeffentliche() {
+    if (!qaEntwurf) return;
+    try {
+      await api.post(`/messages/${qaEntwurf.id}/qa-veroeffentlichen`, {
+        frage: qaEntwurf.frage, antwort: qaEntwurf.antwort,
+        project_id: qaEntwurf.project_id, fuer_alle: qaEntwurf.fuer_alle,
+      });
+      setMsg(qaEntwurf.fuer_alle ? 'Im Q&A des Mandats veröffentlicht, sichtbar für freigegebene Interessenten.' : 'Im Q&A hinterlegt, nicht veröffentlicht.');
+      setQaEntwurf(null); setQaFunde(null); ladeVorgemerkt();
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
 
   // ── Eine Q&A-Frage beantworten ────────────────────────────────────────────
   // Der Text geht als Nachricht hinaus und wird zugleich im Q&A des Mandats
@@ -122,9 +179,15 @@ export default function Messages() {
 
   async function send() {
     if (!body.trim() || !active) return;
+    // Das Zitat geht als eingerückter Block voran, damit der Empfänger sieht,
+    // worauf sich die Antwort bezieht. Lange Zitate werden gekürzt: ein ganzer
+    // Absatz vor jeder Antwort macht den Verlauf unlesbar.
+    const text = zitat
+      ? `> ${String(zitat.body || '').replace(/\s+/g, ' ').slice(0, 220)}${String(zitat.body || '').length > 220 ? '…' : ''}\n\n${body}`
+      : body;
     try {
-      await api.post('/messages/send', { recipient_id: active, body });
-      setBody(''); openThread(active);
+      await api.post('/messages/send', { recipient_id: active, body: text });
+      setBody(''); setZitat(null); openThread(active);
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }
 
@@ -306,6 +369,83 @@ export default function Messages() {
           </div>
         </div>
 
+        {/* Vorgemerkt für das Q&A: zweiter Schritt, bewusst getrennt vom Vormerken */}
+        {isAdmin && vorgemerkt.length > 0 && (
+          <div style={{ gridColumn: '1 / -1', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '0.9rem 1.1rem', marginBottom: '1rem' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+              {vorgemerkt.length === 1 ? 'Eine Nachricht für das Q&A vorgemerkt' : `${vorgemerkt.length} Nachrichten für das Q&A vorgemerkt`}
+            </div>
+            {vorgemerkt.map((v) => (
+              <div key={v.id} style={{ borderTop: '1px solid rgba(146,64,14,0.15)', padding: '0.5rem 0' }}>
+                <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, fontSize: '0.82rem', color: '#1f2937', lineHeight: 1.5 }}>
+                    <span style={{ fontWeight: 700, color: '#92400e' }}>{v.codename || (v.project_id ? `Mandat #${v.project_id}` : 'ohne Mandat')}: </span>
+                    {String(v.body || '').slice(0, 220)}{String(v.body || '').length > 220 ? '…' : ''}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => beginneQa(v)} style={{ background: '#92400e', color: '#fff', border: 'none', borderRadius: 7, padding: '0.3rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                      Aufbereiten
+                    </button>
+                    <button onClick={() => vormerken(v, false)} style={{ background: 'none', border: '1px solid #92400e', color: '#92400e', borderRadius: 7, padding: '0.3rem 0.7rem', fontSize: '0.74rem', cursor: 'pointer' }}>
+                      Verwerfen
+                    </button>
+                  </div>
+                </div>
+
+                {qaEntwurf && qaEntwurf.id === v.id && (
+                  <div style={{ marginTop: '0.7rem', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.8rem' }}>
+                    <div style={{ fontSize: '0.74rem', color: C.muted, marginBottom: '0.5rem', lineHeight: 1.55 }}>
+                      Schreiben Sie die Frage so um, dass niemand den Fragesteller erkennt, und entfernen Sie Namen,
+                      Orte und Zahlen, die auf eine Person oder ein Unternehmen zeigen. Veröffentlicht sieht das jeder
+                      freigegebene Interessent.
+                    </div>
+                    <textarea value={qaEntwurf.frage} onChange={(e) => setQaEntwurf({ ...qaEntwurf, frage: e.target.value })} rows={3}
+                      placeholder="Frage, anonymisiert"
+                      style={{ width: '100%', padding: '0.5rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.83rem', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: '0.5rem', resize: 'vertical' }} />
+                    <textarea value={qaEntwurf.antwort} onChange={(e) => setQaEntwurf({ ...qaEntwurf, antwort: e.target.value })} rows={4}
+                      placeholder="Antwort (leer lassen, wenn die Frage zunächst nur erfasst werden soll)"
+                      style={{ width: '100%', padding: '0.5rem 0.7rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.83rem', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: '0.5rem', resize: 'vertical' }} />
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                      <select value={qaEntwurf.project_id || ''} onChange={(e) => setQaEntwurf({ ...qaEntwurf, project_id: e.target.value })}
+                        style={{ padding: '0.4rem 0.6rem', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: '0.8rem' }}>
+                        <option value="">Mandat wählen…</option>
+                        {(mandate || []).map((m) => <option key={m.id} value={m.id}>{m.codename || `Mandat #${m.id}`}</option>)}
+                      </select>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.8rem', color: C.text, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={qaEntwurf.fuer_alle} onChange={(e) => setQaEntwurf({ ...qaEntwurf, fuer_alle: e.target.checked })} />
+                        Für alle freigegebenen Interessenten sichtbar
+                      </label>
+                    </div>
+                    {qaFunde && qaFunde.length > 0 && (
+                      <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 7, padding: '0.6rem 0.8rem', fontSize: '0.79rem', color: '#991b1b', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+                        <strong>Mögliche Namen im Text.</strong> Geändert wird nichts automatisch.
+                        <ul style={{ margin: '0.3rem 0 0', paddingLeft: '1.1rem' }}>
+                          {qaFunde.slice(0, 8).map((f, i) => <li key={i}>{f.feld}: „{f.treffer}" ({f.hinweis})</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {qaFunde && qaFunde.length === 0 && (
+                      <div style={{ fontSize: '0.78rem', color: '#065f46', marginBottom: '0.5rem' }}>
+                        Keine Namen gefunden. Das ist ein Hinweis, keine Gewähr: Umschreibungen erkennt die Prüfung nicht.
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button onClick={pruefeNamen} style={{ background: '#fff', border: `1px solid ${C.border}`, color: C.navy, borderRadius: 7, padding: '0.4rem 0.9rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
+                        Auf Namen prüfen
+                      </button>
+                      <button onClick={veroeffentliche} disabled={!qaEntwurf.project_id || qaEntwurf.frage.trim().length < 5}
+                        style={{ background: '#065f46', color: '#fff', border: 'none', borderRadius: 7, padding: '0.4rem 1rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', opacity: (!qaEntwurf.project_id || qaEntwurf.frage.trim().length < 5) ? 0.5 : 1 }}>
+                        {qaEntwurf.fuer_alle ? 'Veröffentlichen' : 'Im Q&A hinterlegen'}
+                      </button>
+                      <button onClick={() => { setQaEntwurf(null); setQaFunde(null); }} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '0.8rem' }}>Abbrechen</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Rechte Spalte: Thread */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, minHeight: 420, display: 'flex', flexDirection: 'column' }}>
           {!thread ? (
@@ -385,6 +525,25 @@ export default function Messages() {
                             {new Date(m.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
+                        {!inArbeit && (
+                          <div style={{ display: 'flex', gap: 10, marginTop: 3, fontSize: '0.66rem', color: C.muted }}>
+                            <button onClick={() => { setZitat(m); feldRef.current?.focus(); }} title="Auf diese Nachricht antworten"
+                              style={{ background: 'none', border: 'none', color: C.muted, fontSize: '0.66rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                              Zitieren
+                            </button>
+                            <button onClick={() => kopiere(m.body)} title="Text in die Zwischenablage"
+                              style={{ background: 'none', border: 'none', color: C.muted, fontSize: '0.66rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                              Kopieren
+                            </button>
+                            {isAdmin && !m.qa_thread_id && (
+                              <button onClick={() => vormerken(m, !vorgemerkt.some((v) => v.id === m.id))}
+                                title="Diese Frage für das Q&A vormerken. Veröffentlicht wird erst im zweiten Schritt."
+                                style={{ background: 'none', border: 'none', color: vorgemerkt.some((v) => v.id === m.id) ? '#92400e' : C.muted, fontSize: '0.66rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+                                {vorgemerkt.some((v) => v.id === m.id) ? 'Vorgemerkt' : 'Für Q&A vormerken'}
+                              </button>
+                            )}
+                          </div>
+                        )}
                         {offen > 0 && !inArbeit && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, fontSize: '0.68rem', color: C.muted }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Clock size={11} /> wird in {mmss(offen)} zugestellt</span>
@@ -399,6 +558,17 @@ export default function Messages() {
               </div>
               {thread.allowed ? (
                 <div style={{ padding: '0.75rem', borderTop: `1px solid ${C.border}` }}>
+                  {zitat && (
+                    <div style={{ background: C.bg, borderLeft: `3px solid ${C.accent}`, borderRadius: 6, padding: '0.45rem 0.7rem', marginBottom: '0.5rem', fontSize: '0.78rem', color: C.text, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <span style={{ flex: 1, opacity: 0.85 }}>
+                        <span style={{ display: 'block', fontSize: '0.66rem', fontWeight: 700, color: C.muted, marginBottom: 2 }}>
+                          Antwort auf {zitat.sender_id === user.id ? 'Ihre Nachricht' : thread.partner.name}
+                        </span>
+                        {String(zitat.body || '').replace(/\s+/g, ' ').slice(0, 160)}{String(zitat.body || '').length > 160 ? '…' : ''}
+                      </span>
+                      <button onClick={() => setZitat(null)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '0.9rem', lineHeight: 1 }}>×</button>
+                    </div>
+                  )}
                   {antwortAuf && (
                     <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.5rem 0.7rem', marginBottom: '0.5rem', fontSize: '0.78rem', color: '#78350f' }}>
                       Antwort auf die Q&A-Frage zu <strong>{antwortAuf.codename || `Mandat #${antwortAuf.project_id}`}</strong>.
