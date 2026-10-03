@@ -1118,6 +1118,19 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
   }, [contactsAll, addQ]);
   const [merging, setMerging] = useState(false);
 
+  // ── Gemeinsamer Verlauf aller Ansprechpartner (v0.445) ───────────────────
+  // Wird erst auf Anforderung geholt: Bei einer Firma mit zehn Kontakten sind
+  // das zehn Abfragen, und beim blossen Oeffnen der Firma braucht sie niemand.
+  const [verlauf, setVerlauf] = useState(null);
+  const [verlaufLaeuft, setVerlaufLaeuft] = useState(false);
+  const [nurKontakt, setNurKontakt] = useState('');
+  async function ladeVerlauf() {
+    setVerlaufLaeuft(true);
+    try { setVerlauf(await api.get(`/crm/companies/${company.id}/verlauf`)); }
+    catch (e) { show && show('Fehler: ' + e.message); }
+    setVerlaufLaeuft(false);
+  }
+
   async function link() {
     if (!addId) return;
     try {
@@ -1292,6 +1305,50 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
               {merging ? 'Führe zusammen…' : 'Zusammenführen'}
             </button>
           </div>
+        </div>
+
+        {/* Gemeinsamer Verlauf über alle Ansprechpartner */}
+        <div style={{ marginTop: '1.25rem', border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.85rem 1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.muted, letterSpacing: '0.06em' }}>VERLAUF ÜBER ALLE ANSPRECHPARTNER</div>
+            <button onClick={ladeVerlauf} disabled={verlaufLaeuft}
+              style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 7, padding: '0.3rem 0.8rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+              {verlaufLaeuft ? 'Wird geladen…' : (verlauf ? 'Neu laden' : 'Verlauf anzeigen')}
+            </button>
+          </div>
+          {verlauf && (
+            <div style={{ marginTop: '0.7rem' }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+                <button onClick={() => setNurKontakt('')}
+                  style={{ background: nurKontakt === '' ? C.navy : '#fff', color: nurKontakt === '' ? '#fff' : C.navy, border: `1px solid ${C.border}`, borderRadius: 20, padding: '0.2rem 0.7rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>
+                  Alle ({verlauf.verlauf.length})
+                </button>
+                {verlauf.kontakte.map((k) => (
+                  <button key={k.id} onClick={() => setNurKontakt(String(k.id))}
+                    style={{ background: nurKontakt === String(k.id) ? C.navy : '#fff', color: nurKontakt === String(k.id) ? '#fff' : C.navy, border: `1px solid ${C.border}`, borderRadius: 20, padding: '0.2rem 0.7rem', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>
+                    {k.name}{k.ehemalig ? ' (ehemalig)' : ''}
+                  </button>
+                ))}
+              </div>
+              {verlauf.verlauf.length === 0 && <div style={{ fontSize: '0.8rem', color: C.muted }}>Noch kein Verlauf.</div>}
+              <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+                {verlauf.verlauf
+                  .filter((e) => !nurKontakt || String(e.kontakt_id) === nurKontakt)
+                  .map((e, i) => (
+                    <div key={i} style={{ borderTop: `1px solid ${C.border}`, padding: '0.45rem 0', fontSize: '0.8rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'baseline' }}>
+                        <span style={{ color: C.muted, fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
+                          {new Date(e.ts).toLocaleDateString('de-DE')}
+                        </span>
+                        <span style={{ fontWeight: 700, color: C.navy }}>{e.label}</span>
+                        <span style={{ fontSize: '0.72rem', color: C.accent, fontWeight: 600 }}>{e.kontakt}</span>
+                      </div>
+                      {e.detail && <div style={{ color: C.muted, marginTop: 2, lineHeight: 1.5 }}>{e.detail}</div>}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Historie */}

@@ -13,6 +13,7 @@
 const express = require('express');
 const db = require('../db/database');
 const wrap = require('../utils/asyncHandler');
+const { suchBedingung } = require('../utils/freitextSuche');
 const { authenticate, requireRole } = require('../middleware/auth');
 const perms = require('../middleware/permissions');
 const { requirePermission, can, projectScope, seesAllProjects } = perms;
@@ -56,7 +57,12 @@ function normalizeName(name) {
 router.get('/companies', ...isStaff, wrap(async (req, res) => {
   const { q, industry, region, company_type, tag, sektor, rolle } = req.query;
   const where = ['1=1']; const params = [];
-  if (q) { where.push('(c.name ILIKE ? OR c.city ILIKE ? OR c.website ILIKE ?)'); const s = `%${q}%`; params.push(s, s, s); }
+  // Wortweise suchen: „Muster GmbH Berlin" soll treffen, auch wenn Name und
+  // Ort in verschiedenen Spalten stehen (v0.445).
+  if (q) {
+    const b = suchBedingung(q, ['c.name', 'c.city', 'c.website', 'c.street', 'c.sektor', 'c.schwerpunkt']);
+    if (b) { where.push(`(${b.bedingung})`); params.push(...b.werte); }
+  }
   if (industry) { where.push('c.industry = ?'); params.push(industry); }
   if (region) { where.push('c.region = ?'); params.push(region); }
   if (company_type) { where.push('c.company_type = ?'); params.push(company_type); }
@@ -163,6 +169,45 @@ router.post('/companies', ...isStaff, canWrite, wrap(async (req, res) => {
 
   db.auditLog(req.user.id, 'CRM_COMPANY_CREATED', 'crm_company', id, name, req.ip);
   res.status(201).json({ success: true, data: { id } });
+}));
+
+// ── Verlauf einer Firma: alles, was mit ihren Menschen passiert ist ────────
+//
+// Anlass: Eine Firma hat mehrere Ansprechpartner, und wer mit ihr verhandelt,
+// will nicht drei Kontakte nacheinander öffnen, um den Stand zu kennen. Eine
+// Mail an den Geschäftsführer und eine Nachricht an die Assistenz gehören in
+// dieselbe Akte.
+//
+// Zusammengeführt wird nur zum Lesen. Die Ereignisse bleiben an ihren
+// Kontakten, und zu jedem Eintrag steht, von wem er stammt. Ohne diese Angabe
+// entstünde der Eindruck, die Firma selbst habe geschrieben, und bei einer
+// Rückfrage wüsste niemand mehr, wen er ansprechen muss.
+router.get('/companies/:id/verlauf', ...isStaff, wrap(async (req, res) => {
+  const firma = await scoped(req, (t) => t.get('SELECT id, name FROM crm_companies WHERE id = ?', [req.params.id]));
+  if (!firma) return res.status(404).json({ success: false, error: 'Unternehmen nicht gefunden' });
+
+  const kontakte = await scoped(req, (t) => t.all(
+    `SELECT k.id, k.first_name, k.last_name, k.email, k.user_id, cc.ended_on
+       FROM crm_company_contacts cc JOIN crm_contacts k ON k.id = cc.contact_id
+      WHERE cc.company_id = ? AND k.anonymized_at IS NULL
+      ORDER BY cc.is_primary DESC, k.last_name LIMIT 25`, [req.params.id])).catch(() => []);
+
+  const alles = [];
+  for (const k of kontakte) {
+    const name = [k.first_name, k.last_name].filter(Boolean).join(' ') || k.email || `Kontakt #${k.id}`;
+    const ev = await contactActivity(req, k.id, k).catch(() => []);
+    for (const e of ev) {
+      alles.push({ ...e, kontakt_id: k.id, kontakt: name, ehemalig: !!k.ended_on });
+    }
+  }
+  alles.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  res.json({ success: true, data: {
+    firma: firma.name,
+    kontakte: kontakte.map((k) => ({
+      id: k.id, name: [k.first_name, k.last_name].filter(Boolean).join(' ') || k.email, ehemalig: !!k.ended_on,
+    })),
+    verlauf: alles.slice(0, 200),
+  } });
 }));
 
 // ── Unternehmen: Detail (Kontakte, Konzern, Historie) ───────────────────────
@@ -323,7 +368,12 @@ router.get('/vokabular', ...isStaff, (req, res) => {
 router.get('/contacts', ...isStaff, wrap(async (req, res) => {
   const { q, decision_makers, company_id, buyer_type } = req.query;
   const where = ['1=1']; const params = [];
-  if (q) { where.push('(k.last_name ILIKE ? OR k.first_name ILIKE ? OR k.email ILIKE ?)'); const s = `%${q}%`; params.push(s, s, s); }
+  // „Bauer Daniel" muss dasselbe finden wie „Daniel Bauer" (v0.445). Dafür
+  // wird die Eingabe in Wörter zerlegt, jedes Wort muss irgendwo vorkommen.
+  if (q) {
+    const b = suchBedingung(q, ['k.last_name', 'k.first_name', 'k.email', 'k.phone', 'k.mobile', 'k.location', 'k.responsibility']);
+    if (b) { where.push(`(${b.bedingung})`); params.push(...b.werte); }
+  }
   if (decision_makers === '1') where.push('k.is_decision_maker = 1');
   if (BUYER_TYPES.includes(buyer_type)) { where.push('k.buyer_type = ?'); params.push(buyer_type); }
   if (company_id) { where.push('EXISTS (SELECT 1 FROM crm_company_contacts cc WHERE cc.contact_id = k.id AND cc.company_id = ? AND cc.ended_on IS NULL)'); params.push(company_id); }
@@ -485,14 +535,18 @@ router.get('/deals/:projectId/documents', ...isStaff, wrap(async (req, res) => {
 // Nötig, wenn der Kontakt im CRM eine andere E-Mail hat als sein Konto.
 router.get('/account-candidates', ...isStaff, wrap(async (req, res) => {
   const q = String(req.query.q || '').trim();
-  const like = `%${q}%`;
+  // Auch hier wortweise: Wer den Kontakt im CRM „Bauer, Daniel" nennt, soll
+  // das Konto nicht deshalb nicht finden (v0.445).
+  const b = suchBedingung(q, ['u.first_name', 'u.last_name', 'u.email', 'u.company']);
+  const suchWo = b ? `(${b.bedingung})` : '1 = 1';
+  const suchWerte = b ? b.werte : [];
   const rows = await db.all(
     `SELECT u.id, u.email, u.role, u.first_name, u.last_name, u.company,
             (SELECT k.id FROM crm_contacts k WHERE k.user_id = u.id LIMIT 1) AS linked_contact_id
        FROM users u
-      WHERE (? = '' OR u.first_name ILIKE ? OR u.last_name ILIKE ? OR u.email ILIKE ? OR u.company ILIKE ?)
+      WHERE ${suchWo}
       ORDER BY u.last_name, u.first_name LIMIT 25`,
-    [q, like, like, like, like]).catch(() => []);
+    suchWerte).catch(() => []);
   res.json({ success: true, data: rows.map(r => ({ ...r, name: [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || r.email })) });
 }));
 
@@ -695,7 +749,16 @@ async function contactActivity(req, contactId, contact = null) {
   const push = (ts, type, label, detail) => { if (ts) ev.push({ ts, type, label, detail: detail || null }); };
 
   const email = contact && contact.email ? String(contact.email) : null;
-  const userId = contact && contact.user_id ? contact.user_id : null;
+  // Die Plattform-Nachrichten haengen am Konto, nicht am CRM-Kontakt. Fehlt die
+  // Verknuepfung, wird sie ueber die Adresse hergestellt (v0.445). Ohne das
+  // blieb der Verlauf leer, obwohl im Nachrichtenfenster ein ganzes Gespraech
+  // stand, und es sah aus, als sei nie etwas geschrieben worden.
+  let userId = contact && contact.user_id ? contact.user_id : null;
+  if (!userId && email) {
+    const konto = await scoped(req, (t) => t.get(
+      'SELECT id FROM users WHERE lower(email) = lower(?) LIMIT 1', [email])).catch(() => null);
+    if (konto) userId = konto.id;
+  }
 
   // Vollständiges Mail-Ausgangsbuch für diesen Kontakt: JEDE Mail, die an ihn ging
   // (Ansprache, Prozess, Einladung, NDA, System). Ein Klick zeigt später das Original.
@@ -747,8 +810,8 @@ async function contactActivity(req, contactId, contact = null) {
     for (const c of chat) {
       const fromContact = c.sender_id === userId;
       push(c.created_at, fromContact ? 'chat_in' : 'chat_out',
-        fromContact ? 'Chat-Nachricht vom Kontakt' : 'Chat-Nachricht an den Kontakt',
-        [c.codename ? `Mandat ${c.codename}` : null, String(c.body || '').replace(/<[^>]+>/g, '').slice(0, 120)].filter(Boolean).join(' · ') || null);
+        fromContact ? 'Nachricht vom Kontakt' : 'Nachricht an den Kontakt',
+        [c.codename ? `Mandat ${c.codename}` : null, String(c.body || '').replace(/<[^>]+>/g, '').slice(0, 400)].filter(Boolean).join(' · ') || null);
     }
   }
 
