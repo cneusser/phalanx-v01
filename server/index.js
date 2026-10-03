@@ -79,6 +79,8 @@ app.use(require('./middleware/tenant').resolveTenant);
 
 // Routes
 app.use('/api', require('./routes/version'));
+// Schnittstelle fuer Phalanx OS: nur mit Schluessel, ohne Schluessel abgeschaltet.
+app.use('/api/extern', require('./routes/extern'));
 app.use('/api/tenant', require('./routes/tenant'));
 app.use('/api/valuation', require('./routes/valuation'));
 app.use('/api/detailed-valuations', require('./routes/detailedValuation'));

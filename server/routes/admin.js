@@ -457,6 +457,51 @@ router.post('/projects', ...isAdmin, wrap(async (req, res) => {
   res.status(201).json({ success: true, data: { id: projectId } });
 }));
 
+// ── Projektnummer aus Phalanx OS setzen (v0.446) ───────────────────────────
+//
+// Eigene Route statt eines weiteren Feldes im Mandatsformular, weil hier etwas
+// anderes passiert: Die Nummer wird nicht gepflegt, sie wird uebernommen. Sie
+// stammt aus Phalanx OS, und CapitalMatch vergibt keine. Zwei Systeme, die
+// beide vergeben, vergeben irgendwann dieselbe.
+router.put('/projects/:id/phalanx-nummer', ...isAdmin, wrap(async (req, res) => {
+  const pp = require('../utils/phalanxProjekt');
+  const gelesen = pp.nummerLesen(req.body.nummer);
+  if (gelesen.fehler) return res.status(400).json({ success: false, error: gelesen.fehler });
+
+  const mandat = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.id]);
+  if (!mandat) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+
+  // Dieselbe Nummer darf nicht an zwei Mandaten haengen. Der Index in der
+  // Datenbank verhindert es ohnehin; hier steht nur der verstaendliche Satz
+  // davor, damit niemand eine Datenbankmeldung lesen muss.
+  if (gelesen.nummer) {
+    const belegt = await db.get(
+      'SELECT id, codename FROM projects WHERE phalanx_projekt_nummer = ? AND id <> ? LIMIT 1',
+      [gelesen.nummer, req.params.id]);
+    if (belegt) {
+      return res.status(409).json({ success: false,
+        error: `Die Nummer ${gelesen.nummer} haengt bereits am Mandat "${belegt.codename}".` });
+    }
+  }
+
+  await db.run(
+    `UPDATE projects SET phalanx_projekt_nummer = ?, phalanx_projekt_name = NULL,
+       phalanx_sync_am = NULL, phalanx_sync_fehler = NULL, updated_at = now() WHERE id = ?`,
+    [gelesen.nummer, req.params.id]);
+  db.auditLog(req.user.id, 'PHALANX_NUMMER_GESETZT', 'project', req.params.id,
+    gelesen.nummer ? `${gelesen.nummer} (${gelesen.kategorie})` : 'entfernt', req.ip);
+
+  res.json({ success: true, data: {
+    nummer: gelesen.nummer,
+    kategorie: gelesen.kategorie || null,
+    // Schritt 1 des Auftrags: noch kein Abgleich. Der Hinweis sagt das, statt
+    // eine Pruefung vorzutaeuschen, die es noch nicht gibt.
+    hinweis: gelesen.nummer
+      ? 'Gespeichert. Ob es dieses Projekt in Phalanx OS gibt, wird geprüft, sobald der Abgleich steht.'
+      : 'Die Zuordnung wurde entfernt.',
+  } });
+}));
+
 router.put('/projects/:id', ...isAdmin, wrap(async (req, res) => {
   const { codename, industry, region, revenue_band, revenue_class, ebitda_band, deal_type, short_description, highlights, status,
           mandate_type, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city } = req.body;
