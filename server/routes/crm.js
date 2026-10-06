@@ -40,18 +40,8 @@ const safeJson = (s, d) => { try { return JSON.parse(s || ''); } catch { return 
 // Reihenfolge ist wichtig: Umlaute falten (Müller = Mueller) → & = und →
 // Punkte entfernen (G.m.b.H. = GmbH) → Sonderzeichen weg → ERST DANN die
 // Rechtsform strippen (sonst matcht „gmbh" in „g.m.b.h." nicht).
-const LEGAL_FORMS = /\b(gmbh|ag|kg|ohg|gbr|ug|se|mbh|co|kgaa|ek|ltd|inc|llc|bv|nv|sa|sarl|spa|srl|plc|holding)\b/g;
-function normalizeName(name) {
-  return String(name || '')
-    .toLowerCase()
-    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-    .replace(/[&+]/g, ' und ')
-    .replace(/\./g, '')
-    .replace(/[^a-z0-9 ]/g, ' ')
-    .replace(LEGAL_FORMS, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+const { normalizeName, LEGAL_FORMS } = require('../utils/firmenname');
+
 
 // ── Unternehmen: Liste (Suche + Filter) ─────────────────────────────────────
 router.get('/companies', ...isStaff, wrap(async (req, res) => {

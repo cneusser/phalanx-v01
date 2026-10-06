@@ -1609,6 +1609,93 @@ router.get('/billing/events', ...isAdmin, wrap(async (req, res) => {
 // auf dem eigenen Rechner. Deshalb hier dieselbe Rechnung als Route: ein Klick
 // im Verwaltungsbereich statt einer Werkzeugkette, die man sich erst einrichten
 // muss. Die Skripte bleiben, sie sind für den Notfall nützlich.
+// ── Adressen: Trockenlauf, Übernahme, Rückmeldungen (v0.447) ───────────────
+//
+// Bewusst im Verwaltungsbereich und nicht als Skript. Ein Bericht, den nur
+// jemand mit einer Konsole aufrufen kann, wird nie aufgerufen; das hatten wir
+// beim Suchprofil-Bericht schon einmal.
+//
+// Der Trockenlauf ändert nichts. Er sagt, was aus jeder Adresse würde, und
+// trennt zwei Mengen: die sicheren und die, bei denen Zerlegen Raten wäre.
+router.get('/berichte/adressen', ...isAdmin, wrap(async (req, res) => {
+  const adr = require('../utils/adressfelder');
+  const firmen = await db.all(
+    `SELECT id, name, street, postal_code, city, country,
+            strasse, hausnummer, plz, ort, land, adresse_quelle, adresse_am
+       FROM crm_companies
+      ORDER BY name LIMIT 5000`).catch(() => []);
+
+  const sicher = [];
+  const melden = [];
+  const fertig = [];
+  for (const f of firmen) {
+    // Schon zerlegt und bestätigt: nicht noch einmal anfassen.
+    if (f.strasse && f.adresse_quelle) { fertig.push({ id: f.id, name: f.name, quelle: f.adresse_quelle }); continue; }
+    if (!f.street && !f.postal_code && !f.city) continue;   // gar keine Anschrift
+    const v = adr.vorschlagFuer(f);
+    (v.sicher ? sicher : melden).push(v);
+  }
+
+  res.json({ success: true, data: {
+    gesamt: firmen.length,
+    bereits_zerlegt: fertig.length,
+    sicher: sicher.length,
+    zu_pruefen: melden.length,
+    vorschlaege: sicher.slice(0, 500),
+    faelle: melden.slice(0, 500),
+  } });
+}));
+
+// Übernahme, ausschließlich der sicheren Fälle und nur auf ausdrückliche
+// Anforderung. Die einzeilige Adresse bleibt stehen: Sie ist der Rückweg,
+// falls eine Zerlegung doch danebenging.
+router.post('/berichte/adressen/anwenden', ...isAdmin, wrap(async (req, res) => {
+  const adr = require('../utils/adressfelder');
+  const nurIds = Array.isArray(req.body.ids) && req.body.ids.length
+    ? req.body.ids.map(Number).filter(Number.isFinite) : null;
+
+  const firmen = await db.all(
+    `SELECT id, name, street, postal_code, city, country, strasse, adresse_quelle
+       FROM crm_companies ${nurIds ? `WHERE id IN (${nurIds.map(() => '?').join(',')})` : ''}`,
+    nurIds || []).catch(() => []);
+
+  let uebernommen = 0;
+  const uebersprungen = [];
+  for (const f of firmen) {
+    if (f.strasse && f.adresse_quelle) { uebersprungen.push({ id: f.id, grund: 'bereits zerlegt' }); continue; }
+    const v = adr.vorschlagFuer(f);
+    if (!v.sicher) { uebersprungen.push({ id: f.id, grund: v.hinweise.join('; ') || 'nicht sicher' }); continue; }
+    await db.run(
+      `UPDATE crm_companies SET strasse = ?, hausnummer = ?, plz = ?, ort = ?, land = ?,
+         adresse_quelle = 'zerlegt', adresse_am = now(), updated_at = now() WHERE id = ?`,
+      [v.vorschlag.strasse, v.vorschlag.hausnummer, v.vorschlag.plz, v.vorschlag.ort, v.vorschlag.land, f.id]);
+    uebernommen++;
+  }
+  db.auditLog(req.user.id, 'ADRESSEN_ZERLEGT', 'crm_company', null,
+    `${uebernommen} übernommen, ${uebersprungen.length} übersprungen`, req.ip);
+  res.json({ success: true, data: { uebernommen, uebersprungen: uebersprungen.slice(0, 200) } });
+}));
+
+// Hier geänderte Adressen: gemeldet, nicht zurückgeschrieben.
+//
+// Phalanx OS führt den Bestand. Wer hier etwas korrigiert, korrigiert eine
+// Kopie. Diese Liste ist der Weg zurück ins führende System, und zwar über
+// einen Menschen: Ein automatischer Rückschreiber würde aus einer Kopie
+// unbemerkt die Quelle machen.
+router.get('/berichte/adressen/rueckmeldungen', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(
+    `SELECT id, name, strasse, hausnummer, adresszusatz, plz, ort, land, adresse_am
+       FROM crm_companies
+      WHERE adresse_quelle = 'lokal'
+      ORDER BY adresse_am DESC NULLS LAST LIMIT 500`).catch(() => []);
+  res.json({ success: true, data: {
+    anzahl: rows.length,
+    hinweis: 'Diese Adressen wurden hier geändert. Phalanx OS führt den Bestand; '
+      + 'bitte dort nachtragen. Zurückgeschrieben wird nichts.',
+    firmen: rows,
+  } });
+}));
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get('/berichte/suchprofile', ...isAdmin, wrap(async (req, res) => {
