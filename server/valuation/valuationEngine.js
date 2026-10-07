@@ -94,9 +94,15 @@ function evaluate(input, multiple) {
   const emAvg = Math.round(((emMin + emMax) / 2) * 100) / 100;
   const chosenMultiple = emMin + (emMax - emMin) * pos;
 
-  const ebitValueLow = adjustedEbit * emMin;
-  const ebitValueMid = adjustedEbit * chosenMultiple;
-  const ebitValueHigh = adjustedEbit * emMax;
+  // Multipliziert wird der EBITDA, nicht der EBIT (v0.448). Die DUB-Multiples
+  // sind EBITDA-Multiples; bis hierher wurde der EBIT genommen, und das ergab
+  // systematisch zu niedrige Werte. Siehe valuation/multipleBasis.js.
+  const { basisFuerMultiple } = require('./multipleBasis');
+  const basis = basisFuerMultiple(input, adjustedEbit);
+
+  const ebitValueLow = basis.basis * emMin;
+  const ebitValueMid = basis.basis * chosenMultiple;
+  const ebitValueHigh = basis.basis * emMax;
 
   // Umsatz-Multiple (Plausibilitätsband)
   const revValueLow = avgRevenue * clampNum(multiple.revenue_multiple_min);
@@ -107,7 +113,7 @@ function evaluate(input, multiple) {
 
   // Korridor: konservativ / Basis / optimistisch (auf EBIT-Verfahren zentriert,
   // Umsatzband als Leitplanke). Nur sinnvoll bei positivem bereinigtem EBIT.
-  const positive = adjustedEbit > 0;
+  const positive = basis.basis > 0;
   const corridor = {
     conservative: round(positive ? Math.min(ebitValueLow, ebitValueMid) : 0),
     base: round(positive ? ebitValueMid : 0),
@@ -140,6 +146,11 @@ function evaluate(input, multiple) {
         valueLow: round(ebitValueLow),
         valueMid: round(ebitValueMid),
         valueHigh: round(ebitValueHigh),
+        basis: round(basis.basis),
+        basisKennzahl: basis.kennzahl,
+        basisHerkunft: basis.herkunft,
+        basisAfa: basis.afa,
+        basisHinweis: basis.hinweis,
       },
       revenueMultiple: {
         band: { min: clampNum(multiple.revenue_multiple_min), max: clampNum(multiple.revenue_multiple_max) },

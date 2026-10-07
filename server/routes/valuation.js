@@ -28,8 +28,10 @@ function industryKey(industry) {
 }
 
 async function loadMultiple(key) {
-  return (await db.get(`SELECT * FROM valuation_multiples WHERE industry_key = ?`, [key]))
-      || (await db.get(`SELECT * FROM valuation_multiples WHERE industry_key = 'sonstige'`));
+  // Seit v0.448 gibt es mehrere Staende. Gerechnet wird mit dem aktiven; ohne
+  // diese Bedingung entschiede die Datenbank, welcher Stand gilt.
+  return (await db.get(`SELECT * FROM valuation_multiples WHERE industry_key = ? AND aktiv = true`, [key]))
+      || (await db.get(`SELECT * FROM valuation_multiples WHERE industry_key = 'sonstige' AND aktiv = true`));
 }
 
 // Eingaben aus dem Request normalisieren
@@ -40,6 +42,10 @@ function parseInput(body) {
     foundingYear: body.foundingYear || null,
     revenues: Array.isArray(body.revenues) ? body.revenues : [],
     ebits: Array.isArray(body.ebits) ? body.ebits : [],
+    // Seit v0.448 wird der EBITDA multipliziert. Beides wird angenommen: die
+    // fertige Kennzahl oder der EBIT samt Abschreibungen.
+    ebitdas: Array.isArray(body.ebitdas) ? body.ebitdas : [],
+    depreciation: body.depreciation,
     ownerSalaryAdjustment: body.ownerSalaryAdjustment || 0,
     oneOffs: body.oneOffs || 0,
     netDebt: body.netDebt || 0,

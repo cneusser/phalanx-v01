@@ -1696,6 +1696,84 @@ router.get('/berichte/adressen/rueckmeldungen', ...isAdmin, wrap(async (req, res
   } });
 }));
 
+// ── Multiples im Zeitverlauf (v0.448) ──────────────────────────────────────
+//
+// Anlass: Die neuen Werte sollen rechnen, die alten sollen lesbar bleiben.
+// Beides zugleich geht nur, wenn ein Stand nicht mehr den Bestand bedeutet.
+//
+// Dieser Bericht ist die Lesestelle: alle Stände nebeneinander, je Branche und
+// Größenklasse, mit der Veränderung zum vorigen Stand. Gerechnet wird nach wie
+// vor ausschließlich mit dem aktiven Stand.
+router.get('/berichte/multiples', ...isAdmin, wrap(async (req, res) => {
+  const rows = await db.all(
+    `SELECT industry_key, label, stand, kennzahl, aktiv, source, sort_order,
+            micro_ebit_min, micro_ebit_max, small_ebit_min, small_ebit_max,
+            mid_ebit_min, mid_ebit_max, revenue_multiple_min, revenue_multiple_max,
+            valid_from
+       FROM valuation_multiples
+      ORDER BY sort_order, label, stand`).catch(() => []);
+
+  const staende = [...new Set(rows.map((r) => r.stand).filter(Boolean))].sort();
+  const aktiv = rows.find((r) => r.aktiv);
+
+  // Je Branche die Stände nebeneinander, dazu die Veränderung in der Mitte der
+  // Spanne. Ein Mittelwert ist für sich genommen nichts wert, als Vergleich
+  // zweier Stände aber die einzige Zahl, die man im Kopf behalten kann.
+  const mitte = (a, b) => (Number(a) + Number(b)) / 2;
+  const branchen = {};
+  for (const r of rows) {
+    const b = branchen[r.industry_key] || (branchen[r.industry_key] = { key: r.industry_key, label: r.label, staende: {} });
+    b.staende[r.stand || 'ohne Angabe'] = {
+      micro: [r.micro_ebit_min, r.micro_ebit_max],
+      small: [r.small_ebit_min, r.small_ebit_max],
+      mid: [r.mid_ebit_min, r.mid_ebit_max],
+      umsatz: [r.revenue_multiple_min, r.revenue_multiple_max],
+      kennzahl: r.kennzahl, aktiv: !!r.aktiv, quelle: r.source,
+    };
+  }
+  const liste = Object.values(branchen).map((b) => {
+    const sortiert = staende.filter((s) => b.staende[s]);
+    const neu = sortiert[sortiert.length - 1];
+    const vor = sortiert[sortiert.length - 2];
+    const veraenderung = {};
+    if (neu && vor) {
+      for (const klasse of ['micro', 'small', 'mid']) {
+        const n = mitte(...b.staende[neu][klasse]);
+        const v = mitte(...b.staende[vor][klasse]);
+        veraenderung[klasse] = v ? Math.round(((n - v) / v) * 1000) / 10 : null;
+      }
+    }
+    return { ...b, veraenderung, vergleich: vor && neu ? `${vor} → ${neu}` : null };
+  });
+
+  res.json({ success: true, data: {
+    staende,
+    aktiver_stand: aktiv ? aktiv.stand : null,
+    kennzahl_aktiv: aktiv ? aktiv.kennzahl : null,
+    hinweis: aktiv && aktiv.kennzahl === 'ebitda'
+      ? 'Der aktive Stand führt EBITDA-Multiples. Die Bewertung multipliziert den EBIT. '
+        + 'Beides zusammen ergibt einen zu niedrigen Wert, umso deutlicher, je anlagenintensiver '
+        + 'das Unternehmen ist. Bitte entscheiden, welche Kennzahl gelten soll.'
+      : null,
+    branchen: liste,
+  } });
+}));
+
+// Einen Stand aktiv schalten. Bewusst eine eigene Handlung: Welche Multiples
+// gelten, ist eine fachliche Entscheidung und kein Nebeneffekt einer Pflege.
+router.post('/berichte/multiples/aktivieren', ...isAdmin, wrap(async (req, res) => {
+  const stand = String(req.body.stand || '').trim();
+  if (!stand) return res.status(400).json({ success: false, error: 'Bitte den Stand angeben.' });
+  const da = await db.get('SELECT COUNT(*)::int AS n FROM valuation_multiples WHERE stand = ?', [stand]);
+  if (!da || !da.n) return res.status(404).json({ success: false, error: `Den Stand "${stand}" gibt es nicht.` });
+
+  await db.run('UPDATE valuation_multiples SET aktiv = false WHERE aktiv = true');
+  await db.run('UPDATE valuation_multiples SET aktiv = true WHERE stand = ?', [stand]);
+  db.auditLog(req.user.id, 'MULTIPLES_STAND_AKTIV', 'valuation_multiples', null, stand, req.ip);
+  res.json({ success: true, data: { stand, branchen: da.n,
+    hinweis: 'Bestehende Bewertungen bleiben, wie sie sind. Der neue Stand gilt ab der nächsten Berechnung.' } });
+}));
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get('/berichte/suchprofile', ...isAdmin, wrap(async (req, res) => {
@@ -1948,7 +2026,9 @@ router.get('/valuation-leads', ...isAdmin, wrap(async (req, res) => {
 }));
 
 router.get('/valuation-multiples', ...isAdmin, wrap(async (req, res) => {
-  const rows = await db.all(`SELECT * FROM valuation_multiples ORDER BY sort_order, label`);
+  // Die Pflegemaske zeigt den aktiven Stand. Die alten Staende stehen im
+  // Bericht, siehe /berichte/multiples.
+  const rows = await db.all(`SELECT * FROM valuation_multiples WHERE aktiv = true ORDER BY sort_order, label`);
   res.json({ success: true, data: rows });
 }));
 

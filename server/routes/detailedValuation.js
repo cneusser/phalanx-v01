@@ -51,9 +51,10 @@ function industryKey(inputs) {
   return k || 'sonstige';
 }
 async function loadMultiple(req, key) {
-  const hit = await scoped(req, (t) => t.get(`SELECT * FROM valuation_multiples WHERE industry_key = ?`, [key]));
+  // Nur der aktive Stand, siehe routes/valuation.js.
+  const hit = await scoped(req, (t) => t.get(`SELECT * FROM valuation_multiples WHERE industry_key = ? AND aktiv = true`, [key]));
   if (hit) return hit;
-  return scoped(req, (t) => t.get(`SELECT * FROM valuation_multiples WHERE industry_key = 'sonstige'`));
+  return scoped(req, (t) => t.get(`SELECT * FROM valuation_multiples WHERE industry_key = 'sonstige' AND aktiv = true`));
 }
 
 async function getOwned(req, id) {

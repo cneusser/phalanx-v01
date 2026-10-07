@@ -38,6 +38,9 @@ export default function ValuationCalculator() {
   const [foundingYear, setFoundingYear] = useState('');
   const [rev, setRev] = useState(['', '', '']);
   const [ebit, setEbit] = useState(['', '', '']);
+  // Abschreibungen (v0.448). Die Multiples sind EBITDA-Multiples; ohne diese
+  // Angabe faellt der Wert zu niedrig aus, und das steht dann auch im Ergebnis.
+  const [afa, setAfa] = useState('');
   const [ownerSalary, setOwnerSalary] = useState('');
   const [oneOffs, setOneOffs] = useState('');
   const [netDebt, setNetDebt] = useState('');
@@ -53,7 +56,7 @@ export default function ValuationCalculator() {
 
   const payload = () => ({
     industry, legalForm, foundingYear,
-    revenues: rev.map(num), ebits: ebit.map(num),
+    revenues: rev.map(num), ebits: ebit.map(num), depreciation: num(afa),
     ownerSalaryAdjustment: num(ownerSalary), oneOffs: num(oneOffs), netDebt: num(netDebt),
     quality,
   });
@@ -135,7 +138,8 @@ export default function ValuationCalculator() {
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+            <div><label style={LABEL}>Abschreibungen p. a. (€)</label><input value={afa} onChange={e => setAfa(e.target.value)} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{t('bw.afa_hinweis', 'für den EBITDA, auf den sich die Multiples beziehen')}</div></div>
             <div><label style={LABEL}>Kalk. GF-Gehalt p. a. (€)</label><input value={ownerSalary} onChange={e => setOwnerSalary(e.target.value)} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{t('bw.falls_nicht_ebit', 'falls noch nicht im EBIT enthalten')}</div></div>
             <div><label style={LABEL}>Einmaleffekte (€)</label><input value={oneOffs} onChange={e => setOneOffs(e.target.value)} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{t('bw.sondertraege', 'Sondererträge, werden bereinigt')}</div></div>
             <div><label style={LABEL}>Netto-Finanzschulden (€)</label><input value={netDebt} onChange={e => setNetDebt(e.target.value)} placeholder="0" style={INPUT} inputMode="numeric" /><div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{t('bw.fuer_equity', 'für Equity-Value-Hinweis')}</div></div>
@@ -192,6 +196,17 @@ export default function ValuationCalculator() {
             )}
 
             <div style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.6, borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
+              {result.methods?.multiple?.basisHinweis && (
+                <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.6rem 0.85rem', marginBottom: '0.7rem', color: '#78350f', lineHeight: 1.55 }}>
+                  {result.methods.multiple.basisHinweis}
+                </div>
+              )}
+              {result.methods?.multiple?.basisKennzahl === 'ebitda' && (
+                <div style={{ marginBottom: '0.4rem' }}>
+                  <strong>Bereinigter EBITDA:</strong> {eur(result.methods.multiple.basis)}
+                  <span style={{ color: C.muted }}> ({result.methods.multiple.basisHerkunft})</span>
+                </div>
+              )}
               <strong>Bereinigtes EBIT:</strong> {eur(result.inputsSummary.adjustedEbit)} ·
               <strong> Multiple:</strong> {result.methods.multiple.chosenMultiple}× (Band {result.methods.multiple.band.min}–{result.methods.multiple.band.max}×) ·
               <strong> §199 BewG:</strong> {eur(result.methods.simplifiedIncome.value)}

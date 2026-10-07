@@ -126,10 +126,16 @@ function evaluateDetailed(input, multiple, bench = null) {
   chosen = Math.max(sizeBand.min * 0.8, Math.min(sizeBand.max * 1.2, chosen));
   const positive = adjustedEbit > 0;
 
-  const evMultiple = positive ? adjustedEbit * chosen : 0;
+  // Multipliziert wird der EBITDA (v0.448), siehe valuation/multipleBasis.js.
+  const { basisFuerMultiple } = require('./multipleBasis');
+  const basis = basisFuerMultiple(input, adjustedEbit);
+  const evMultiple = basis.basis > 0 ? basis.basis * chosen : 0;
   // Sensitivität ±1 Multiple-Punkt
-  const evMultipleLow = positive ? adjustedEbit * Math.max(0, chosen - 1) : 0;
-  const evMultipleHigh = positive ? adjustedEbit * (chosen + 1) : 0;
+  // Dieselbe Basis wie oben. Das Ertragswert- und das DCF-Verfahren weiter
+  // unten rechnen bewusst weiter mit dem EBIT: Sie bilden den Ertrag NACH
+  // Abschreibungen ab, und dort waere ein EBITDA falsch.
+  const evMultipleLow = basis.basis > 0 ? basis.basis * Math.max(0, chosen - 1) : 0;
+  const evMultipleHigh = basis.basis > 0 ? basis.basis * (chosen + 1) : 0;
 
   // 3) Vereinfachtes Ertragswertverfahren (§199 BewG)
   const bewgValue = positive ? adjustedEbit * KAP_FAKTOR_BEWG : 0;
@@ -253,6 +259,15 @@ function evaluateDetailed(input, multiple, bench = null) {
       oneOffs: round(oneOffs),
       shareholderRentAddback: round(rentAdd),
       adjustedEbit: round(adjustedEbit),
+      // Womit das Multiplikatorverfahren gerechnet hat. Ohne diese Angabe
+      // laesst sich ein Ergebnis spaeter nicht nachvollziehen, und genau das
+      // war die Ursache des Fehlers: Niemand sah, dass ein EBITDA-Multiple
+      // auf einen EBIT traf.
+      multipleBasis: round(basis.basis),
+      multipleKennzahl: basis.kennzahl,
+      multipleHerkunft: basis.herkunft,
+      multipleAfa: basis.afa,
+      multipleHinweis: basis.hinweis,
       scorecardSum: scSum,
     },
     sizeBand: { key: sizeBand.key, label: sizeBand.label },
