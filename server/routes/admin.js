@@ -1774,6 +1774,73 @@ router.post('/berichte/multiples/aktivieren', ...isAdmin, wrap(async (req, res) 
     hinweis: 'Bestehende Bewertungen bleiben, wie sie sind. Der neue Stand gilt ab der nächsten Berechnung.' } });
 }));
 
+// ── Kontakte ohne Konto, obwohl sie in Mandaten mitarbeiten (v0.449) ───────
+//
+// Anlass: „Warum hat Herr Eder kein Nutzerkonto? Ich habe mit ihm in drei
+// Projekten Kontakt." Beides stimmte. Der Kontakt hängt über
+// crm_deal_parties an den Mandaten, und dafür braucht es keine E-Mail. Das
+// Konto wird aber über die E-Mail gesucht. Fehlt sie, findet die Suche nichts,
+// und die Oberfläche sagt wahrheitsgemäß „kein Konto", was wie ein Befund
+// klingt und in Wahrheit eine Lücke in den Stammdaten ist.
+//
+// Dieser Bericht zeigt alle solchen Fälle auf einmal, statt sie einzeln beim
+// Öffnen eines Kontakts zu entdecken. Für jeden wird gesagt, woran es liegt,
+// und wo ein Konto unter demselben Namen existiert, steht es als Vorschlag
+// daneben. Verknüpft wird nichts automatisch: Zwei Menschen können denselben
+// Namen tragen, und eine falsche Verknüpfung gibt jemandem fremde Unterlagen.
+router.get('/berichte/konten-luecken', ...isAdmin, wrap(async (req, res) => {
+  const kontakte = await db.all(`
+    SELECT k.id, k.first_name, k.last_name, k.email, k.user_id, k.contact_status,
+           (SELECT COUNT(*)::int FROM crm_deal_parties dp WHERE dp.contact_id = k.id) AS mandate,
+           (SELECT COUNT(*)::int FROM crm_deal_parties dp
+             WHERE dp.contact_id = k.id AND dp.funnel_stage >= 4) AS mit_datenraum
+      FROM crm_contacts k
+     WHERE k.anonymized_at IS NULL
+       AND k.user_id IS NULL
+       AND (SELECT COUNT(*) FROM crm_deal_parties dp WHERE dp.contact_id = k.id) > 0
+     ORDER BY mandate DESC, k.last_name LIMIT 500`).catch(() => []);
+
+  const faelle = [];
+  for (const k of kontakte) {
+    const name = [k.first_name, k.last_name].filter(Boolean).join(' ').trim();
+    const grund = !k.email
+      ? 'Keine E-Mail am Kontakt, deshalb findet die Suche kein Konto.'
+      : 'E-Mail vorhanden, aber kein Konto darunter. Entweder noch nicht eingeladen, '
+        + 'oder das Konto nutzt eine andere Adresse.';
+
+    // Vorschlag: ein Konto mit demselben Nachnamen. Bewusst nur als Vorschlag.
+    const kandidaten = k.last_name
+      ? await db.all(
+        `SELECT id, email, first_name, last_name, company, last_login
+           FROM users WHERE is_active = 1 AND lower(last_name) = lower(?) LIMIT 5`,
+        [k.last_name]).catch(() => [])
+      : [];
+
+    faelle.push({
+      contact_id: k.id, name: name || `Kontakt #${k.id}`, email: k.email || null,
+      mandate: k.mandate, mit_datenraum: k.mit_datenraum, grund,
+      kandidaten: kandidaten.map((u) => ({
+        user_id: u.id, email: u.email,
+        name: [u.first_name, u.last_name].filter(Boolean).join(' '),
+        firma: u.company || null, zuletzt: u.last_login,
+        // Ein Treffer über den Nachnamen allein ist schwach. Stimmt auch der
+        // Vorname, ist er deutlich belastbarer, und das soll man sehen.
+        vorname_passt: !!(u.first_name && k.first_name
+          && u.first_name.toLowerCase() === k.first_name.toLowerCase()),
+      })),
+    });
+  }
+
+  res.json({ success: true, data: {
+    anzahl: faelle.length,
+    ohne_email: faelle.filter((f) => !f.email).length,
+    mit_vorschlag: faelle.filter((f) => f.kandidaten.length).length,
+    hinweis: 'Verknüpft wird nichts automatisch. Zwei Menschen können denselben Namen tragen, '
+      + 'und eine falsche Verknüpfung gibt jemandem fremde Unterlagen.',
+    faelle,
+  } });
+}));
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get('/berichte/suchprofile', ...isAdmin, wrap(async (req, res) => {

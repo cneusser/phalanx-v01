@@ -965,9 +965,16 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
                             { name: 'NDA unterschrieben', erfuellt: d.nda_online === 'signed' || d.nda_status === 'signed',
                               fehlt: 'Der NDA liegt noch nicht unterschrieben vor.' },
                             { name: 'Nutzerkonto vorhanden', erfuellt: !!(data.account && data.account.id),
-                              fehlt: data.email
-                                ? `Unter ${data.email} gibt es kein Konto. Bitte zur Plattform einladen.`
-                                : 'Am Kontakt ist keine E-Mail hinterlegt, deshalb lässt sich kein Konto finden.' },
+                              // Der Hinweis muss den Ausweg nennen (v0.449). Vorher stand hier
+                              // nur, was fehlt, und die Loesung lag unerwaehnt einen Reiter
+                              // weiter. Ein Hinweis ohne Ausweg ist eine Sackgasse.
+                              fehlt: k?.email
+                                ? `Unter ${k.email} gibt es kein Konto. Entweder zur Plattform einladen, `
+                                  + 'oder das Konto nutzt eine andere Adresse und muss unter Stammdaten verknüpft werden.'
+                                : 'Am Kontakt ist keine E-Mail hinterlegt. Das Konto wird über die Adresse gesucht, '
+                                  + 'deshalb findet sich keines. Entweder die Adresse nachtragen oder das Konto '
+                                  + 'unter Stammdaten von Hand verknüpfen.',
+                              weg: 'stamm' },
                             { name: 'Datenraum freigegeben', erfuellt: d.interest_stage === 'dataroom_granted' || d.interest_stage === 'loi',
                               fehlt: 'Die Freigabe fehlt noch. Knopf unten.' },
                           ];
@@ -984,8 +991,14 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
                                   </span>
                                 ))}
                               </div>
-                              <div style={{ fontSize: '0.7rem', color: offen ? '#92400e' : '#065f46', marginTop: 5 }}>
+                              <div style={{ fontSize: '0.7rem', color: offen ? '#92400e' : '#065f46', marginTop: 5, lineHeight: 1.55 }}>
                                 {offen ? offen.fehlt : 'Alles erfüllt: Diese Person kommt in den Datenraum.'}
+                                {offen && offen.weg === 'stamm' && (
+                                  <button onClick={() => { setTab('stamm'); setAccOpen(true); searchAccounts(k?.last_name || ''); setAccQ(k?.last_name || ''); }}
+                                    style={{ marginLeft: 6, background: 'none', border: 'none', color: '#92400e', fontWeight: 700, fontSize: '0.7rem', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+                                    Konto jetzt suchen und verknüpfen
+                                  </button>
+                                )}
                               </div>
                             </div>
                           );
