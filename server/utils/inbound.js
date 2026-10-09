@@ -51,12 +51,57 @@ async function matchContact(email) {
   return db.get('SELECT * FROM crm_contacts WHERE lower(email) = ?', [email]).catch(() => null);
 }
 
+// ── Weitergeleitete Mails (v0.451) ──────────────────────────────────────────
+//
+// Anlass: Eine Kundenmail geht an info@phalanx.de und wird von dort an die
+// Plattform weitergeleitet. Dann ist der Absender die eigene Adresse, und die
+// Zuordnung über den Absender findet den Kunden nicht. Die Mail landet als
+// „unbekannter Absender" im Protokoll und beim Kontakt gar nicht.
+//
+// Deshalb wird im Text nach dem Kopf der weitergeleiteten Nachricht gesucht.
+// Outlook, Apple Mail, Gmail und Thunderbird schreiben ihn in bekannten
+// Formen, deutsch wie englisch.
+//
+// Wichtig ist die Reihenfolge in ingestReply: Der echte Absender hat immer
+// Vorrang. Erst wenn zu ihm kein Kontakt existiert, wird im Text gesucht. So
+// kann eine zitierte Mail im Text niemals eine direkte Antwort überschreiben,
+// und das ist die Zuordnung, die falsch zu machen am teuersten wäre.
+const WEITERLEITUNG = [
+  /^\s*(?:>\s*)?(?:Von|From)\s*:\s*(.+)$/im,
+  /^\s*(?:>\s*)?(?:Gesendet von|Urspr(?:ü|ue)ngliche Nachricht)[\s\S]{0,200}?(?:Von|From)\s*:\s*(.+)$/im,
+];
+
+/** Die Adresse des ursprünglichen Absenders aus einer Weiterleitung. */
+function urspruenglicherAbsender(text) {
+  const inhalt = String(text || '');
+  // Nur suchen, wenn der Text überhaupt nach einer Weiterleitung aussieht.
+  if (!/(weitergeleitete?\s+nachricht|forwarded message|---+\s*(original|urspr))/i.test(inhalt)
+      && !/^\s*(?:>\s*)?(?:Von|From)\s*:/im.test(inhalt)) return null;
+  for (const muster of WEITERLEITUNG) {
+    const m = inhalt.match(muster);
+    const adr = m && parseAddress(m[1]);
+    if (adr) return adr;
+  }
+  return null;
+}
+
 // Kernlogik: von Webhook UND manueller Erfassung genutzt
 async function ingestReply({ from, to, subject, body, messageId, sentAt, source = 'webhook', contactId = null, projectId = null, actorId = null }) {
   const fromAddr = parseAddress(from);
-  const contact = contactId
+  let contact = contactId
     ? await db.get('SELECT * FROM crm_contacts WHERE id = ?', [contactId]).catch(() => null)
     : await matchContact(fromAddr);
+
+  // Zweiter Versuch über den ursprünglichen Absender einer Weiterleitung.
+  // Bewusst erst hier: Ein direkter Treffer gewinnt immer.
+  let weitergeleitetVon = null;
+  if (!contact && !contactId) {
+    const original = urspruenglicherAbsender(body);
+    if (original && original !== fromAddr) {
+      contact = await matchContact(original);
+      if (contact) weitergeleitetVon = fromAddr || String(from || '').slice(0, 200);
+    }
+  }
 
   if (!contact) {
     // Unbekannter Absender: nicht raten, nicht anlegen, nur protokollieren.
@@ -71,8 +116,12 @@ async function ingestReply({ from, to, subject, body, messageId, sentAt, source 
   const msgId = await db.insert(`
     INSERT INTO crm_messages (tenant_id, contact_id, project_id, direction, from_email, to_email, subject, body, message_id, source, created_by, sent_at)
     VALUES (?, ?, ?, 'in', ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [contact.tenant_id || 1, contact.id, project?.id || null, fromAddr || String(from || '').slice(0, 200),
-     parseAddress(to) || null, String(subject || '').slice(0, 300), cleanBody(body),
+    [contact.tenant_id || 1, contact.id, project?.id || null,
+     // Als Absender steht der Kunde, nicht der Weiterleitende. Sonst sähe die
+     // Historie aus, als hätte das eigene Haus geschrieben.
+     weitergeleitetVon ? (contact.email || fromAddr) : (fromAddr || String(from || '').slice(0, 200)),
+     parseAddress(to) || null, String(subject || '').slice(0, 300),
+     (weitergeleitetVon ? `[weitergeleitet über ${weitergeleitetVon}]\n` : '') + cleanBody(body),
      messageId || null, source, actorId, sentAt ? new Date(sentAt) : new Date()]);
 
   // Der Kontakt hat geantwortet → Funnel und Reminder nachziehen
@@ -116,4 +165,4 @@ async function ingestReply({ from, to, subject, body, messageId, sentAt, source 
   };
 }
 
-module.exports = { parseAddress, cleanBody, matchProject, matchContact, ingestReply, REPLY_DUE_DAYS };
+module.exports = { parseAddress, cleanBody, matchProject, matchContact, ingestReply, urspruenglicherAbsender, REPLY_DUE_DAYS };

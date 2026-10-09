@@ -131,7 +131,7 @@ export default function ProjectDetail() {
   const t = useT();
   const { lang } = useI18n();
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, loading: authLaeuft } = useAuth();
   const navigate = useNavigate();
   const [teaser, setTeaser] = useState(null);
   const [fullData, setFullData] = useState(null);
@@ -150,6 +150,20 @@ export default function ProjectDetail() {
   // Ein Verweis aus einer Nachricht sieht so aus: /projekte/7?dok=123. Er soll
   // unmittelbar bei den Dokumenten landen, nicht im Ueberblick, sonst sucht der
   // Empfaenger wieder selbst.
+  // Ein Verweis aus einer E-Mail trifft oft jemanden, der nicht angemeldet
+  // ist. Ohne diesen Umweg landet er auf der Mandatsseite, sieht den Teaser,
+  // findet das Dokument nicht und haelt den Link fuer kaputt. Mit ?redirect
+  // kommt er nach der Anmeldung genau dort an, wo der Link hinzeigt (v0.451).
+  useEffect(() => {
+    if (user || authLaeuft) return;
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if (!p.get('dok')) return;
+      const ziel = window.location.pathname + window.location.search;
+      window.location.replace(`/login?redirect=${encodeURIComponent(ziel)}`);
+    } catch { /* ohne URL-Parser kein Umweg */ }
+  }, [user, authLaeuft]);
+
   const dokVerweis = (() => {
     try { const v = new URLSearchParams(window.location.search).get('dok'); return v ? Number(v) : null; }
     catch { return null; }
