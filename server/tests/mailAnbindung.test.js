@@ -90,5 +90,37 @@ ok('leer ergibt nichts', urspruenglicherAbsender('') === null && urspruenglicher
   ok('und der Aufruf steht im Zugriffsprotokoll', /logSafeAccess/.test(pfad));
 }
 
+// ── Der Kasten steht da, wo man ihn sucht (v0.452) ─────────────────────────
+//
+// Anlass: „Wie markiere ich das? Irgendwie finde ich keinen Knopf." Es gab
+// ihn, nur unter „Wiedervorlagen". Wer eine eingegangene Antwort festhalten
+// will, geht in die Konversation. Eine Funktion am falschen Ort gilt als nicht
+// vorhanden, und das zu Recht: Niemand durchsucht Reiter nach Funktionen, die
+// er dort nicht erwartet.
+{
+  const drawer = fs.readFileSync(path.join(wurzel, '..', 'client', 'src', 'components', 'ContactDrawer.jsx'), 'utf8');
+  const konv = drawer.indexOf("{tab === 'konversation'");
+  const aufg = drawer.indexOf("{tab === 'aufgaben'");
+  ok('beide Reiter gibt es', konv > 0 && aufg > konv);
+  const inKonversation = drawer.slice(konv, aufg).includes('Antwort des Kontakts erfassen');
+  const inWiedervorlagen = drawer.slice(aufg).includes('Antwort des Kontakts erfassen');
+  ok('der Kasten steht in der Konversation', inKonversation);
+  ok('und nicht mehr unter Wiedervorlagen', !inWiedervorlagen);
+  ok('es gibt ihn genau einmal', (drawer.match(/Antwort des Kontakts erfassen/g) || []).length === 1);
+  ok('der Betreff erklaert die Mandatserkennung', /Codenamen[\s\S]{0,40}automatisch erkannt/.test(drawer));
+  ok('und es steht dabei, was das Erfassen ausloest', /Stoppt laufende Erinnerungen/.test(drawer));
+}
+
+// ── Die Anleitung ──────────────────────────────────────────────────────────
+{
+  const doku = fs.readFileSync(path.join(wurzel, '..', 'docs', 'Posteingang_einrichten.md'), 'utf8');
+  ok('es gibt eine Anleitung', doku.length > 1000);
+  ok('sie nennt den Weg ohne Einrichtung zuerst', doku.indexOf('von Hand') < doku.indexOf('Brevo'));
+  ok('sie nennt die Variable', /INBOUND_SECRET/.test(doku));
+  ok('und die Adresse der Schnittstelle', /api\/inbound\/email\?secret=/.test(doku));
+  ok('sie warnt vor dem Kuerzen beim Weiterleiten', /ohne den Text zu kuerzen|ohne den Text zu kürzen/.test(doku));
+  ok('sie sagt, was bewusst nicht passiert', /Kein Anlegen/.test(doku) && /Keine Einwilligung/.test(doku));
+}
+
 try { fs.unlinkSync(tmp); } catch { /* egal */ }
 process.exit(fail ? 1 : 0);

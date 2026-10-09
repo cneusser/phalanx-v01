@@ -1045,6 +1045,29 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
 
               {tab === 'konversation' && (
                 <div>
+                  {/* Hierher verschoben (v0.452). Der Kasten stand unter
+                      „Wiedervorlagen", und dort sucht ihn niemand: Wer eine
+                      eingegangene Antwort festhalten will, geht in die
+                      Konversation. Eine Funktion am falschen Ort gilt als
+                      nicht vorhanden. */}
+                  {/* Eingegangene Antwort erfassen (funktioniert auch ohne BCC-Ingest) */}
+                  <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.8rem', marginBottom: '1rem' }}>
+                    <div style={{ ...LBL, display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                      <Inbox size={12} /> Antwort des Kontakts erfassen
+                    </div>
+                    <input value={replySubject} onChange={e => setReplySubject(e.target.value)}
+                      placeholder="Betreff (enthält der Betreff den Mandats-Codenamen, wird das Mandat automatisch erkannt)"
+                      style={{ ...IN, marginBottom: 5 }} />
+                    <textarea value={reply} onChange={e => setReply(e.target.value)} rows={4}
+                      placeholder="Text der Antwort einfügen…"
+                      style={{ ...IN, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} />
+                    <button onClick={logReply} disabled={reply.trim().length < 3} style={{ ...btn(reply.trim().length < 3), marginTop: 6 }}>
+                      <Check size={13} /> Antwort erfassen
+                    </button>
+                    <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+                      Stoppt laufende Erinnerungen, zieht den Funnel auf „Rückmeldung" und legt eine Wiedervorlage in zwei Tagen an.
+                    </div>
+                  </div>
                   {messages.length === 0 ? (
                     <div style={{ color: C.muted, fontSize: '0.85rem', padding: '0.5rem 0' }}>
                       Noch keine E-Mail-Konversation. Ausgehende Nachrichten und eingegangene Antworten erscheinen hier als Verlauf.
@@ -1093,24 +1116,6 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
 
               {tab === 'aufgaben' && (
                 <>
-                  {/* Eingegangene Antwort erfassen (funktioniert auch ohne BCC-Ingest) */}
-                  <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.8rem', marginBottom: '1rem' }}>
-                    <div style={{ ...LBL, display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                      <Inbox size={12} /> Antwort des Kontakts erfassen
-                    </div>
-                    <input value={replySubject} onChange={e => setReplySubject(e.target.value)}
-                      placeholder="Betreff (enthält der Betreff den Mandats-Codenamen, wird das Mandat automatisch erkannt)"
-                      style={{ ...IN, marginBottom: 5 }} />
-                    <textarea value={reply} onChange={e => setReply(e.target.value)} rows={4}
-                      placeholder="Text der Antwort einfügen…"
-                      style={{ ...IN, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} />
-                    <button onClick={logReply} disabled={reply.trim().length < 3} style={{ ...btn(reply.trim().length < 3), marginTop: 6 }}>
-                      <Check size={13} /> Antwort erfassen
-                    </button>
-                    <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
-                      Stoppt laufende Erinnerungen, zieht den Funnel auf „Rückmeldung" und legt eine Wiedervorlage in zwei Tagen an.
-                    </div>
-                  </div>
 
                   {/* Wiedervorlagen */}
                   <div style={{ display: 'flex', gap: 5, marginBottom: '0.8rem' }}>

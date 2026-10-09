@@ -1,6 +1,6 @@
 {
   "name": "capitalMatch-server",
-  "version": "0.451.0",
+  "version": "0.452.0",
   "description": "CapitalMatch: M&A & Fundraising Platform, Backend (eine Marke der Phalanx GmbH)",
   "type": "commonjs",
   "main": "index.js",
