@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { setzeGastansicht } from '../api/client';
 
 // Landeseite nach dem SSO-Login: Phalanx OS leitet auf /sso#token=... zurück.
 // Wir lesen das Token aus dem Hash (nicht aus der Query, damit es nicht in
@@ -9,6 +10,13 @@ export default function SsoCallback() {
 
   useEffect(() => {
     try {
+      // Eine laufende Gastansicht endet hier (v0.450). Sonst liegt das Token
+      // im Speicher und wird trotzdem nicht mitgeschickt: Die Anwendung haelt
+      // den Angemeldeten fuer einen Besucher, schickt ihn auf die
+      // Anmeldeseite, von dort geht er wieder ueber Phalanx OS, und das ist
+      // die Endlosschleife. Wer sich anmeldet, will keine Vorschau mehr.
+      setzeGastansicht(false);
+
       const hash = window.location.hash || '';
       const m = hash.match(/token=([^&]+)/);
       if (m && m[1]) {

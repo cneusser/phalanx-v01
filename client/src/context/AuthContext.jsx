@@ -9,6 +9,16 @@ export function AuthProvider({ children }) {
 
   // In der Gastansicht wird bewusst nichts geladen: Wer prüfen will, was ein
   // Besucher sieht, darf nicht nebenher als angemeldet gelten.
+  // Die Gastansicht ist eine Vorschau, kein Zustand, in dem man sich anmeldet.
+  // Auf der Anmeldeseite und auf der SSO-Landeseite wird sie deshalb beendet,
+  // bevor irgendetwas anderes passiert. Ohne das entstand eine
+  // Endlosschleife: Token im Speicher, aber nicht mitgeschickt, also nicht
+  // angemeldet, also zurueck zur Anmeldung (v0.450).
+  useEffect(() => {
+    const pfad = typeof window !== 'undefined' ? window.location.pathname : '';
+    if (istGastansicht() && ['/login', '/sso'].includes(pfad)) setzeGastansicht(false);
+  }, []);
+
   useEffect(() => {
     if (istGastansicht()) { setLoading(false); return; }
     const token = localStorage.getItem('phalanx_token');
@@ -23,6 +33,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password, turnstile_token) => {
+    setzeGastansicht(false);
     const data = await api.post('/auth/login', { email, password, turnstile_token });
     // Sprint 13: Ist 2FA aktiv, kommt hier noch kein Token, sondern eine Challenge.
     if (data.twofa_required) return { twofa_required: true, challenge: data.challenge };
@@ -33,6 +44,7 @@ export function AuthProvider({ children }) {
 
   // Zweiter Faktor: TOTP-Code oder Backup-Code
   const loginTwoFactor = async (challenge, code) => {
+    setzeGastansicht(false);
     const data = await api.post('/auth/login/2fa', { challenge, code });
     localStorage.setItem('phalanx_token', data.token);
     setUser(data.user);
@@ -43,6 +55,7 @@ export function AuthProvider({ children }) {
   // If data.pending === true, there is no token and the user is NOT logged in.
   // Register.jsx detects this and shows a "pending approval" message.
   const register = async (formData) => {
+    setzeGastansicht(false);
     const data = await api.post('/auth/register', formData);
     if (data.token) {
       localStorage.setItem('phalanx_token', data.token);
