@@ -192,6 +192,10 @@ router.post('/login', wrap(async (req, res) => {
   }
 
   db.auditLog(user.id, 'LOGIN', 'user', user.id, null, req.ip);
+  // v0.458: Die Spalte wurde an vier Stellen gelesen und nirgends geschrieben,
+  // weil es sie gar nicht gab. Jetzt gibt es sie, also muss sie auch gefüllt
+  // werden. Bewusst ohne await: Eine Anmeldung darf nicht daran scheitern.
+  db.run('UPDATE users SET last_login = now() WHERE id = ?', [user.id]).catch(() => {});
   const token = jwt.sign({ userId: user.id, tv: user.token_version || 0 }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
   const { password_hash, reset_token, reset_token_expires, totp_secret, backup_codes_json, ...safeUser } = user;
   res.json({ success: true, data: { token, user: safeUser } });
@@ -235,6 +239,7 @@ router.post('/login/2fa', wrap(async (req, res) => {
   }
 
   db.auditLog(user.id, 'LOGIN', 'user', user.id, usedBackup ? 'mit Backup-Code' : 'mit 2FA', req.ip);
+  db.run('UPDATE users SET last_login = now() WHERE id = ?', [user.id]).catch(() => {});
   const token = jwt.sign({ userId: user.id, tv: user.token_version || 0 }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
   const { password_hash, reset_token, reset_token_expires, totp_secret, backup_codes_json, ...safeUser } = user;
   res.json({ success: true, data: { token, user: safeUser, used_backup_code: usedBackup } });

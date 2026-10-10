@@ -161,6 +161,7 @@ async function callback(req, res) {
     // App-Token ausstellen (wie regulärer Login) und an die SPA übergeben (Hash, nicht Query)
     const appToken = jwt.sign({ userId: user.id, tv: user.token_version || 0 }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
     db.auditLog(user.id, 'SSO_LOGIN', 'user', user.id, 'Login über Phalanx OS', req.ip);
+    db.run('UPDATE users SET last_login = now() WHERE id = ?', [user.id]).catch(() => {});
     clearStateCookie(res);
     return res.redirect(`${frontendUrl()}/sso#token=${encodeURIComponent(appToken)}`);
   } catch (e) {

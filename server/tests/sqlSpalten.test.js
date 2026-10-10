@@ -42,6 +42,12 @@ function spaltenVon(tabelle) {
     }
     for (const m of inhalt.matchAll(
       new RegExp(`hasColumn\\(\\s*'${tabelle}',\\s*'([a-z0-9_]+)'`, 'g'))) namen.add(m[1]);
+    // Hilfsfunktionen wie addCol('users', 'x', …) und Schleifen über mehrere
+    // Tabellen mit hasColumn(table, 'x'). Beides kommt vor, und ohne das
+    // fehlten Spalten, die es sehr wohl gibt.
+    for (const m of inhalt.matchAll(
+      new RegExp(`\\w+\\(\\s*'${tabelle}',\\s*'([a-z0-9_]+)'`, 'g'))) namen.add(m[1]);
+    for (const m of inhalt.matchAll(/hasColumn\(\s*[a-z]\w*,\s*'([a-z0-9_]+)'/g)) namen.add(m[1]);
     for (const m of inhalt.matchAll(
       new RegExp(`ALTER TABLE ${tabelle} ADD COLUMN(?: IF NOT EXISTS)? ([a-z0-9_]+)`, 'gi'))) namen.add(m[1]);
   }
@@ -114,5 +120,65 @@ for (const datei of fs.readdirSync(routen).filter((f) => f.endsWith('.js'))) {
 ok('keine Abfrage auf eine Tabelle, die es nicht gibt'
   + (erfunden.length ? `\n     ${[...new Set(erfunden)].slice(0, 8).join('\n     ')}` : ''),
   erfunden.length === 0);
+
+// ── Und jede abgefragte Spalte von users auch (v0.458) ───────────────────
+//
+// Anlass: `users.last_login` wurde an vier Stellen gelesen und war nie
+// angelegt worden. Postgres antwortete mit „column last_login does not
+// exist", und weil überall ein catch stand, wurde daraus dreierlei: „kein
+// Plattform-Konto" in der Kontaktakte, eine leere Personenliste in „Ansicht
+// prüfen" und eine leere Spalte im Konten-Bericht. Drei Symptome, eine
+// Ursache, und keines davon sah nach einem Fehler aus.
+//
+// Geprüft wird die Tabelle users, weil an ihr fast jede Ansicht hängt.
+{
+  const userSpalten = spaltenVon('users');
+  ok('users wurde im Schema gefunden', userSpalten.size > 15);
+  ok('users kennt last_login (Migration v0.458)', userSpalten.has('last_login'));
+
+  const quellen = [];
+  for (const ordner of ['routes', 'utils', 'sync']) {
+    const p = path.join(wurzel, ordner);
+    if (!fs.existsSync(p)) continue;
+    for (const f of fs.readdirSync(p).filter((x) => x.endsWith('.js'))) quellen.push(path.join(p, f));
+  }
+
+  const unbekannt = [];
+  for (const datei of quellen) {
+    const inhalt = fs.readFileSync(datei, 'utf8')
+      .replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+    // a) SELECT <liste> FROM users. Die Liste wird vom FROM aus rückwärts bis
+    // zum nächsten SELECT gelesen. Vorwärts gesucht erwischte man die Liste
+    // einer äusseren Abfrage und hielt deren Spalten für Spalten von users.
+    for (const m of inhalt.matchAll(/\bFROM\s+users\b/gi)) {
+      const davor = inhalt.slice(0, m.index);
+      // Nicht über toUpperCase suchen: Ein „ß" wird dabei zu „SS", und alle
+      // Stellen danach verschieben sich um ein Zeichen. Das ergab Spalten wie
+      // „ole" statt „role", also erfundene Fehler, und ein Test, der sich
+      // selbst widerlegt, ist schlimmer als keiner.
+      let start = -1;
+      for (const s of davor.matchAll(/\bSELECT\b/gi)) start = s.index + s[0].length;
+      if (start < 0) continue;
+      const liste = davor.slice(start);
+      // Liegt dazwischen noch ein FROM, gehört die Liste nicht zu users.
+      if (/\bFROM\b/i.test(liste)) continue;
+      for (const roh of liste.split(',')) {
+        const teil = roh.trim();
+        // Funktionen, Sternchen, Unterabfragen und Aliase überspringen: Hier
+        // geht es um die einfachen Fälle, und die sind es, die durchrutschen.
+        if (!/^[a-z_][a-z0-9_]*$/i.test(teil)) continue;
+        if (!userSpalten.has(teil.toLowerCase())) unbekannt.push(`${path.basename(datei)}: users.${teil}`);
+      }
+    }
+    // b) UPDATE users SET <spalte> =
+    for (const m of inhalt.matchAll(/UPDATE\s+users\s+(?:\w+\s+)?SET\s+([a-z_][a-z0-9_]*)\s*=/gi)) {
+      if (!userSpalten.has(m[1].toLowerCase())) unbekannt.push(`${path.basename(datei)}: UPDATE users.${m[1]}`);
+    }
+  }
+  ok('keine Abfrage auf eine Spalte von users, die es nicht gibt'
+    + (unbekannt.length ? `\n     ${[...new Set(unbekannt)].slice(0, 10).join('\n     ')}` : ''),
+    unbekannt.length === 0);
+}
 
 process.exit(fail ? 1 : 0);
