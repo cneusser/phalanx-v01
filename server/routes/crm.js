@@ -675,13 +675,24 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
   // Plattform-Konto (falls der Kontakt registriert ist). Fehlt die Verknüpfung,
   // suchen wir über die E-Mail und heilen die Brücke gleich mit: so taucht das
   // Konto (und damit Birdview) auch bei älteren Kontakten auf.
+  //
+  // v0.457: Die Fehler dieser beiden Abfragen wurden verschluckt. Aus „die
+  // Abfrage ist gescheitert" wurde damit die Anzeige „kein Plattform-Konto",
+  // und das ist keine kleinere Ungenauigkeit, sondern eine falsche Auskunft
+  // über eine Person. Jetzt wird der Fehler mitgegeben und angezeigt.
   const ACCOUNT_FIELDS = 'id, email, role, is_approved, is_active, email_verified, created_at, last_login';
-  let account = contact.user_id
-    ? await db.get(`SELECT ${ACCOUNT_FIELDS} FROM users WHERE id = ?`, [contact.user_id]).catch(() => null)
-    : null;
-  if (!account && contact.email) {
-    account = await db.get(`SELECT ${ACCOUNT_FIELDS} FROM users WHERE lower(email) = lower(?) LIMIT 1`,
-      [contact.email]).catch(() => null);
+  let account = null; let accountFehler = null;
+  try {
+    if (contact.user_id) account = await db.get(`SELECT ${ACCOUNT_FIELDS} FROM users WHERE id = ?`, [contact.user_id]);
+  } catch (e) { accountFehler = e.message; }
+  if (!account && contact.email && !accountFehler) {
+    try {
+      // btrim: Ein Leerzeichen am Ende der Adresse im CRM hat sonst zur Folge,
+      // dass hier kein Konto gefunden wird und an anderer Stelle schon.
+      account = await db.get(
+        `SELECT ${ACCOUNT_FIELDS} FROM users WHERE lower(btrim(email)) = lower(btrim(?)) ORDER BY id LIMIT 1`,
+        [contact.email]);
+    } catch (e) { accountFehler = e.message; }
     if (account) {
       await scoped(req, (t) => t.run(
         'UPDATE crm_contacts SET user_id = ? WHERE id = ? AND user_id IS NULL',
@@ -721,6 +732,7 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
       deals,
       activity,
       account,
+      account_fehler: accountFehler,
       tasks: await scoped(req, (t) => t.all(
         `SELECT * FROM crm_tasks WHERE contact_id = ? AND status = 'open' ORDER BY due_on NULLS LAST`,
         [req.params.id])).catch(() => []),
@@ -1968,8 +1980,18 @@ router.post('/contacts/:id/invite/erinnern', ...isStaff, canSend, wrap(async (re
   if (contact.contact_status === 'do_not_contact' || contact.consent_status === 'opt_out') {
     return res.status(403).json({ success: false, error: 'Dieser Kontakt hat der Kontaktaufnahme widersprochen.' });
   }
-  const konto = await db.get('SELECT id FROM users WHERE lower(email) = lower(?) LIMIT 1', [contact.email]).catch(() => null);
-  if (konto) return res.status(409).json({ success: false, error: 'Für diese Adresse besteht bereits ein Konto. Eine Erinnerung wäre gegenstandslos.' });
+  // Die Meldung nennt die Kontonummer. Sagt eine andere Stelle „kein Konto"
+  // und diese „es gibt eines", muss sich der Widerspruch auflösen lassen,
+  // ohne in der Datenbank nachzusehen.
+  const konto = await db.get(
+    'SELECT id, email FROM users WHERE lower(btrim(email)) = lower(btrim(?)) ORDER BY id LIMIT 1',
+    [contact.email]).catch(() => null);
+  if (konto) {
+    return res.status(409).json({ success: false,
+      error: `Für ${konto.email} besteht bereits ein Konto (Nummer ${konto.id}). Eine Erinnerung `
+        + 'wäre gegenstandslos. Steht an anderer Stelle „kein Nutzerkonto", ist das Konto am '
+        + 'Kontakt nicht verknüpft; das lässt sich unter Stammdaten nachholen.' });
+  }
 
   const inv = await scoped(req, (t) => t.get(
     `SELECT * FROM crm_invitations WHERE contact_id = ? AND status IN ('invited','opened','consented')

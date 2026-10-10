@@ -106,7 +106,7 @@ ok('Ohne Konto wird geantwortet statt geschwiegen', /kein Nutzerkonto/.test(absc
 ok('Der Hinweis nennt den Ausweg (Einladung oder Verknüpfung)', /Einladung/.test(abschnitt) && /verknüpf/i.test(abschnitt));
 ok('Der Fall ohne E-Mail wird eigens behandelt', /keine E-Mail hinterlegt/.test(abschnitt));
 ok('Das Konto wird wie in der Kontaktakte gesucht: Verknüpfung, dann Adresse',
-  /WHERE id = \?/.test(abschnitt) && /lower\(email\) = lower\(\?\)/.test(abschnitt));
+  /WHERE id = \?/.test(abschnitt) && /lower\(btrim\(email\)\) = lower\(btrim\(\?\)\)/.test(abschnitt));
 
 // ── 4. Nur lesen, und protokolliert ────────────────────────────────────────
 console.log('\n── Nur lesen ──');
@@ -175,6 +175,28 @@ ok('Gesperrt wird weiterhin bei Widerspruch und fehlender Adresse',
   /onClick=\{invite\} disabled=\{blocked \|\| !k\.email\}/.test(drawer));
 ok('Der Hinweistext erklärt, dass ein Konto erst durch die Anmeldung entsteht',
   /erst, wenn er sich selbst anmeldet/.test(drawer));
+
+// ── 9. Eine gescheiterte Suche ist kein Befund (v0.457) ──────────────────
+//
+// Die Erinnerung meldete „es besteht bereits ein Konto", während die Prüfung
+// daneben „kein Nutzerkonto" sagte. Beide können nicht recht haben, und der
+// Grund war ein verschlucktes .catch: Aus einer gescheiterten Abfrage wurde
+// eine Aussage über die Person.
+console.log('\n── Gescheiterte Suche ──');
+const zugriffTeil = admin.split("router.get('/contacts/:id/zugriff'")[1].split("router.get('/projects'")[0];
+ok('Die Kontosuche verschluckt keine Fehler mehr',
+  !/FROM users WHERE id = \?`, \[k\.user_id\]\)\.catch/.test(zugriffTeil));
+ok('Der Fehler der Datenbank wird mitgegeben', /suchfehler/.test(zugriffTeil));
+ok('Eine Gegenprobe zählt die Konten mit dieser Adresse', /konten_mit_dieser_adresse/.test(zugriffTeil));
+ok('Ein Widerspruch wird als unser Fehler benannt', /Fehler in der Plattform, nicht beim Kontakt/.test(zugriffTeil));
+ok('Leerzeichen in der Adresse werden abgeschnitten', /lower\(btrim\(email\)\) = lower\(btrim\(\?\)\)/.test(zugriffTeil));
+ok('Die Kontaktakte gibt den Fehler ebenfalls heraus', /account_fehler: accountFehler/.test(crm));
+ok('Die Kontaktakte verschluckt ihn nicht mehr', /catch \(e\) \{ accountFehler = e\.message; \}/.test(crm));
+ok('Die Erinnerung nennt die Kontonummer im Konflikt', /bereits ein Konto \(Nummer \$\{konto\.id\}\)/.test(crm));
+ok('Die Oberfläche unterscheidet "kein Konto" von "nicht feststellbar"',
+  /Konto nicht feststellbar/.test(komp) && /Widerspruch\./.test(komp));
+ok('Die Kontaktakte zeigt den Fehler statt eines leeren Feldes',
+  /Konto nicht feststellbar/.test(drawer));
 
 console.log(fail ? `\n${fail} Fehler` : '\nAlles grün');
 process.exit(fail ? 1 : 0);

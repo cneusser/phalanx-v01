@@ -443,16 +443,46 @@ router.get('/contacts/:id/zugriff', ...isAdmin, wrap(async (req, res) => {
   // Das Konto wird genauso gesucht wie in der Kontaktakte: erst die
   // Verknüpfung, dann die Adresse. Eine abweichende Suche hier hiesse, dass
   // die Prüfung ein anderes Konto meint als die Freigabe.
+  //
+  // Die Fehler werden hier NICHT verschluckt (v0.457). Vorher stand an beiden
+  // Abfragen ein .catch(() => null), und damit wurde aus „die Abfrage ist
+  // gescheitert" die Aussage „diese Person hat kein Konto". Das ist der
+  // schlimmste Fehler, den diese Stelle machen kann: Sie behauptet etwas über
+  // die Wirklichkeit, obwohl sie nur ihre eigene Panne gesehen hat. Genau das
+  // ist passiert, als die Erinnerung meldete, es gebe sehr wohl ein Konto.
   const FELDER = 'id, email, role, is_active, is_approved, email_verified, last_login, buyer_type';
-  let konto = k.user_id
-    ? await db.get(`SELECT ${FELDER} FROM users WHERE id = ?`, [k.user_id]).catch(() => null)
-    : null;
-  let kontoUeber = konto ? 'Verknüpfung am Kontakt' : null;
-  if (!konto && k.email) {
-    konto = await db.get(`SELECT ${FELDER} FROM users WHERE lower(email) = lower(?) LIMIT 1`,
-      [k.email]).catch(() => null);
-    if (konto) kontoUeber = 'über die E-Mail gefunden, am Kontakt noch nicht verknüpft';
+  let konto = null; let kontoUeber = null; let suchfehler = null;
+  try {
+    if (k.user_id) {
+      konto = await db.get(`SELECT ${FELDER} FROM users WHERE id = ?`, [k.user_id]);
+      if (konto) kontoUeber = 'Verknüpfung am Kontakt';
+    }
+    if (!konto && k.email) {
+      // trim, weil ein Leerzeichen am Ende der Adresse im CRM sonst dazu
+      // führt, dass hier nichts gefunden wird und an anderer Stelle doch.
+      konto = await db.get(
+        `SELECT ${FELDER} FROM users WHERE lower(btrim(email)) = lower(btrim(?)) ORDER BY id LIMIT 1`,
+        [k.email]);
+      if (konto) kontoUeber = 'über die E-Mail gefunden, am Kontakt noch nicht verknüpft';
+    }
+  } catch (e) {
+    suchfehler = e.message;
   }
+
+  // Zweite Meinung: Wie viele Konten tragen diese Adresse überhaupt? Weicht
+  // diese Zahl vom Befund oben ab, liegt der Fehler bei uns und nicht beim
+  // Kontakt, und das gehört auf den Schirm und nicht ins Protokoll.
+  let treffer = null;
+  if (k.email) {
+    treffer = await db.all(
+      `SELECT id, email, is_active FROM users WHERE lower(btrim(email)) = lower(btrim(?)) ORDER BY id LIMIT 5`,
+      [k.email]).catch(() => null);
+  }
+  const widerspruch = (!konto && Array.isArray(treffer) && treffer.length > 0)
+    ? `Achtung: Unter dieser Adresse gibt es ${treffer.length} Konto/Konten (Nummer `
+      + `${treffer.map((t) => t.id).join(', ')}), die Suche oben hat aber keines gefunden. `
+      + 'Das ist ein Fehler in der Plattform, nicht beim Kontakt.'
+    : null;
 
   const mandate = await db.all(
     `SELECT dp.project_id, p.codename, dp.party_role
@@ -475,7 +505,12 @@ router.get('/contacts/:id/zugriff', ...isAdmin, wrap(async (req, res) => {
     const letzte = einladungen[0] || null;
 
     let warum;
-    if (!k.email) {
+    if (suchfehler) {
+      warum = 'Die Suche nach dem Nutzerkonto ist gescheitert, es ist deshalb unklar, ob eines '
+        + `besteht. Meldung der Datenbank: ${suchfehler}`;
+    } else if (widerspruch) {
+      warum = widerspruch;
+    } else if (!k.email) {
       warum = 'Am Kontakt ist keine E-Mail hinterlegt. Das Konto wird über die Adresse gesucht, '
         + 'deshalb findet sich keines. Adresse nachtragen oder das Konto von Hand verknüpfen.';
     } else if (!letzte) {
@@ -499,6 +534,8 @@ router.get('/contacts/:id/zugriff', ...isAdmin, wrap(async (req, res) => {
       kontakt: { id: k.id, name, email: k.email || null },
       konto: null,
       einladungen,
+      suchfehler,
+      konten_mit_dieser_adresse: Array.isArray(treffer) ? treffer.length : null,
       befund: warum,
       // Die Kette wird auch ohne Konto gefüllt, und zwar mit dem Punkt, an dem
       // es scheitert. Ohne sie stünde bei jedem Mandat kein offener Punkt, und

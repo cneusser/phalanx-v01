@@ -461,7 +461,18 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
                     {blocked && <Badge bg="#991b1b" icon={<ShieldOff size={10} />}>Widerspruch</Badge>}
                     {!blocked && k.consent_status !== 'opt_in' && <Badge bg="#92400e">Einwilligung offen</Badge>}
                     {data.account && <Badge bg="#1D4E89">Plattform-Konto</Badge>}
+                    {/* Eine gescheiterte Suche darf nicht als „kein Konto"
+                        durchgehen. Sie sagt nichts über die Person, nur über
+                        uns, und das gehört sichtbar gemacht. */}
+                    {!data.account && data.account_fehler && (
+                      <Badge bg="#92400e" icon={<ShieldOff size={10} />}>Konto nicht feststellbar</Badge>
+                    )}
                   </div>
+                  {!data.account && data.account_fehler && (
+                    <div style={{ marginTop: 6, fontSize: '0.7rem', color: '#fcd34d', lineHeight: 1.5 }}>
+                      Die Suche nach dem Nutzerkonto ist gescheitert: {data.account_fehler}
+                    </div>
+                  )}
                 </div>
                 <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 0 }}><X size={20} /></button>
               </div>

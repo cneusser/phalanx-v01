@@ -85,7 +85,13 @@ export default function ZugriffPruefen({ C, contactId, onBirdview }) {
           {/* Das Konto. Ohne Konto endet die Prüfung hier, und das ist die Antwort. */}
           {!daten.konto ? (
             <div style={{ fontSize: '0.78rem', color: '#92400e', background: '#FFFBEB', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.6rem 0.75rem', lineHeight: 1.6 }}>
-              <strong>Kein Nutzerkonto.</strong> {daten.befund}
+              {/* Eine gescheiterte Suche ist kein Befund über die Person. Sie
+                  darf deshalb auch nicht so überschrieben werden. */}
+              <strong>
+                {daten.suchfehler ? 'Konto nicht feststellbar.'
+                  : daten.konten_mit_dieser_adresse ? 'Widerspruch.'
+                    : 'Kein Nutzerkonto.'}
+              </strong> {daten.befund}
               {(daten.einladungen || []).length > 0 && (
                 <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #fcd34d', fontSize: '0.74rem' }}>
                   <div style={{ fontWeight: 700, marginBottom: 2 }}>Einladungen</div>

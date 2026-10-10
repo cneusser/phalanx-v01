@@ -28,8 +28,13 @@ const drawer = fs.readFileSync(path.join(wurzel, 'client', 'src', 'components', 
 // ── Die Suche nach dem Konto ───────────────────────────────────────────────
 {
   const block = crm.slice(crm.indexOf('Plattform-Konto (falls der Kontakt registriert'), crm.indexOf('Die zweite Hälfte der Wahrheit'));
-  ok('zuerst die hinterlegte Verknüpfung', /contact\.user_id\s*\n?\s*\?/.test(block));
-  ok('dann die E-Mail', /lower\(email\) = lower\(\?\)/.test(block));
+  ok('zuerst die hinterlegte Verknüpfung', /if \(contact\.user_id\)/.test(block));
+  // btrim seit v0.457: Ein Leerzeichen am Ende der CRM-Adresse hatte zur
+  // Folge, dass eine Stelle ein Konto fand und die andere nicht.
+  ok('dann die E-Mail, ohne führende und folgende Leerzeichen',
+    /lower\(btrim\(email\)\) = lower\(btrim\(\?\)\)/.test(block));
+  ok('und ein Fehler der Abfrage wird nicht als "kein Konto" ausgegeben',
+    /accountFehler = e\.message/.test(block));
   ok('und eine gefundene Verknüpfung wird festgeschrieben', /UPDATE crm_contacts SET user_id/.test(block));
   ok('ohne E-Mail gibt es keinen dritten Weg, und das ist der Grund',
     !/last_name/.test(block));
