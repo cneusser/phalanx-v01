@@ -409,6 +409,168 @@ router.get('/impersonations', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: rows });
 }));
 
+// ── Zugriff eines Kontakts prüfen (Birdview im CRM, v0.455) ───────────────
+//
+// Anlass: „Ich bekomme bei Herrn Eder den Hinweis, dass er die Dokumente nicht
+// anklicken kann. Ich würde das gerne in seinem Blick nachvollziehen."
+//
+// Die vorhandene Birdview setzt ein Nutzerkonto voraus, denn sie meldet sich
+// als diese Person an. Genau daran scheitert der Fall: Wer kein Konto hat,
+// lässt sich auch nicht ansehen, und die Birdview schweigt statt zu antworten.
+// Das ist die unbrauchbarste Form von richtig.
+//
+// Diese Route beantwortet deshalb die Frage dahinter: Was sieht diese Person,
+// und wenn nichts, woran liegt es. Sie meldet sich nicht an, sie fragt die
+// Anlage. Für jede Datei steht hier das Urteil, das auch ein Klick bekäme,
+// gefällt von denselben Funktionen: datenraumSicht für den Baum,
+// checkDownloadAccess für die klassischen Unterlagen.
+//
+// Nichts wird verändert. Die Prüfung ist ein Blick, kein Eingriff.
+router.get('/contacts/:id/zugriff', ...isAdmin, wrap(async (req, res) => {
+  const sicht = require('../utils/datenraumSicht');
+  const { checkDownloadAccess, docCategory } = require('./documents');
+  const { getStage, hasPermission } = require('../middleware/gates');
+  const { stageAllows } = require('../utils/dealStateMachine');
+  const alle = (sql, p) => db.all(sql, p);
+
+  const k = await db.get(
+    'SELECT id, first_name, last_name, email, user_id FROM crm_contacts WHERE id = ?',
+    [req.params.id]);
+  if (!k) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+
+  const name = [k.first_name, k.last_name].filter(Boolean).join(' ') || k.email || `Kontakt ${k.id}`;
+
+  // Das Konto wird genauso gesucht wie in der Kontaktakte: erst die
+  // Verknüpfung, dann die Adresse. Eine abweichende Suche hier hiesse, dass
+  // die Prüfung ein anderes Konto meint als die Freigabe.
+  const FELDER = 'id, email, role, is_active, is_approved, email_verified, last_login, buyer_type';
+  let konto = k.user_id
+    ? await db.get(`SELECT ${FELDER} FROM users WHERE id = ?`, [k.user_id]).catch(() => null)
+    : null;
+  let kontoUeber = konto ? 'Verknüpfung am Kontakt' : null;
+  if (!konto && k.email) {
+    konto = await db.get(`SELECT ${FELDER} FROM users WHERE lower(email) = lower(?) LIMIT 1`,
+      [k.email]).catch(() => null);
+    if (konto) kontoUeber = 'über die E-Mail gefunden, am Kontakt noch nicht verknüpft';
+  }
+
+  const mandate = await db.all(
+    `SELECT dp.project_id, p.codename, dp.party_role
+       FROM crm_deal_parties dp JOIN projects p ON p.id = dp.project_id
+      WHERE dp.contact_id = ? ORDER BY p.codename`, [req.params.id]).catch(() => []);
+
+  // Ohne Konto ist die Antwort schon hier vollständig, und sie ist kurz.
+  if (!konto) {
+    db.auditLog(req.user.id, 'ZUGRIFF_GEPRUEFT', 'crm_contact', k.id, `${name}, kein Konto`, req.ip);
+    return res.json({ success: true, data: {
+      kontakt: { id: k.id, name, email: k.email || null },
+      konto: null,
+      befund: k.email
+        ? `Unter ${k.email} gibt es kein Nutzerkonto. Ohne Konto gibt es keinen Zugang, den man `
+          + 'prüfen könnte: Die Person kann sich nicht anmelden und sieht daher auch keine Unterlagen. '
+          + 'Entweder zur Plattform einladen, oder das Konto läuft auf eine andere Adresse und muss '
+          + 'am Kontakt verknüpft werden.'
+        : 'Am Kontakt ist keine E-Mail hinterlegt. Das Konto wird über die Adresse gesucht, deshalb '
+          + 'findet sich keines. Adresse nachtragen oder das Konto von Hand verknüpfen.',
+      mandate: mandate.map((m) => ({ project_id: m.project_id, codename: m.codename, party_role: m.party_role, kette: [], datenraum: null, dateien: [], unterlagen: [] })),
+    } });
+  }
+
+  const nutzer = { id: konto.id, role: konto.role, buyer_type: konto.buyer_type, email: konto.email };
+  const ergebnis = [];
+
+  for (const m of mandate) {
+    const pid = m.project_id;
+    const stage = await getStage(konto.id, pid);
+    const nda = await db.get(
+      'SELECT status FROM nda_requests WHERE project_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1',
+      [pid, konto.id]).catch(() => null);
+    const darfLesen = await hasPermission(nutzer, pid, 'read').catch(() => false);
+    const darfLaden = await hasPermission(nutzer, pid, 'download').catch(() => false);
+    const darfQa = await hasPermission(nutzer, pid, 'qa').catch(() => false);
+
+    const kette = [
+      { name: 'Konto aktiv', erfuellt: Number(konto.is_active) === 1,
+        hinweis: 'Das Konto ist deaktiviert. Eine Anmeldung ist nicht möglich.' },
+      { name: 'Konto freigeschaltet', erfuellt: Number(konto.is_approved) === 1,
+        hinweis: 'Das Konto wartet noch auf Freischaltung.' },
+      { name: 'E-Mail bestätigt', erfuellt: Number(konto.email_verified) === 1,
+        hinweis: 'Die E-Mail-Adresse ist noch nicht bestätigt.' },
+      { name: 'Interesse am Mandat', erfuellt: !!stage,
+        hinweis: 'Zu diesem Mandat gibt es keine Interessenten-Akte. Die Zuordnung im CRM allein '
+          + 'öffnet nichts: Sie ist eine Notiz, der Zugang hängt an der Akte.' },
+      { name: 'NDA unterschrieben', erfuellt: stageAllows(stage, 'im'),
+        hinweis: nda ? `Der NDA steht auf „${nda.status}". Solange er nicht unterschrieben ist, bleibt das IM zu.`
+          : 'Es liegt kein NDA vor. Ohne ihn bleibt alles ausser dem Teaser zu.' },
+      { name: 'Datenraum freigegeben', erfuellt: stageAllows(stage, 'dataroom'),
+        hinweis: 'Die Datenraum-Freigabe fehlt. Sie wird im Reiter Mandate gesetzt.' },
+      { name: 'Leserecht Datenraum', erfuellt: darfLesen,
+        hinweis: 'Die Freigabe steht, das Leserecht fehlt. Das passiert, wenn der Zugang entzogen wurde.' },
+      { name: 'Download erlaubt', erfuellt: darfLaden,
+        hinweis: 'Ansehen ja, Herunterladen nein. Das ist eine bewusste Einschränkung.' },
+      { name: 'Q&A erlaubt', erfuellt: darfQa,
+        hinweis: 'Diese Person kann keine Fragen stellen.' },
+    ];
+
+    // Der Baum, mit genau den Funktionen, die auch der Datenraum benutzt.
+    const ktx = await sicht.kaeuferKontext(nutzer, pid, alle);
+    const bew = await sicht.bewerteFuer(ktx, pid, alle).catch(() => null);
+    let datenraum = null; const dateien = [];
+    if (bew) {
+      datenraum = { offen: true, stage, ...sicht.zusammenfassen(bew.items, bew.bewertung) };
+      for (const i of bew.items) {
+        if (Number(i.is_folder) === 1) continue;
+        const b = bew.bewertung.get(Number(i.id));
+        const urteil = !b ? 'unsichtbar' : b.gesperrt ? 'gesperrt' : b.download ? 'laden' : 'nur_ansicht';
+        dateien.push({
+          id: i.id, name: i.name, urteil, vertraulich: !b ? true : !!b.vertraulich,
+          grund: {
+            unsichtbar: 'Erscheint nicht in der Liste: liegt in einem vertraulichen Zweig ohne Freigabe.',
+            gesperrt: 'Erscheint als gesperrter Eintrag, der Inhalt bleibt zu: vertraulich, keine Einzelfreigabe.',
+            nur_ansicht: 'Ansehen ja, Herunterladen nein: vertraulich mit Lesefreigabe.',
+            laden: 'Ansehen und Herunterladen.',
+          }[urteil],
+        });
+      }
+      dateien.sort((a, b2) => (a.urteil === b2.urteil ? String(a.name).localeCompare(String(b2.name), 'de') : a.urteil.localeCompare(b2.urteil)));
+    } else {
+      datenraum = { offen: false, stage,
+        grund: stage ? 'Das Stage-Gate ist zu: Der Datenraum ist für diese Person nicht freigegeben.'
+          : 'Keine Interessenten-Akte zu diesem Mandat, also auch kein Datenraum.' };
+    }
+
+    // Die klassischen Unterlagen (Teaser, IM, Datenraum-Dokumente). Urteil von
+    // checkDownloadAccess, also derselben Funktion, die den Download zulässt.
+    const docs = await db.all(
+      'SELECT id, filename, description, category, access_level, restricted, file_type FROM documents WHERE project_id = ? ORDER BY id',
+      [pid]).catch(() => []);
+    const unterlagen = [];
+    for (const d of docs.slice(0, 300)) {
+      const u = await checkDownloadAccess(nutzer, d, pid).catch((e) => ({ ok: false, error: `Prüfung fehlgeschlagen: ${e.message}` }));
+      unterlagen.push({
+        id: d.id, name: d.description || d.filename, kategorie: docCategory(d),
+        beschraenkt: Number(d.restricted || 0) === 1,
+        erlaubt: !!u.ok, grund: u.ok ? 'Download erlaubt.' : u.error,
+      });
+    }
+
+    ergebnis.push({ project_id: pid, codename: m.codename, party_role: m.party_role, stage, kette, datenraum, dateien, unterlagen });
+  }
+
+  db.auditLog(req.user.id, 'ZUGRIFF_GEPRUEFT', 'crm_contact', k.id,
+    `${name} (Konto ${konto.id}), ${ergebnis.length} Mandat(e)`, req.ip);
+
+  res.json({ success: true, data: {
+    kontakt: { id: k.id, name, email: k.email || null },
+    konto: { id: konto.id, email: konto.email, role: konto.role, is_active: konto.is_active,
+      is_approved: konto.is_approved, email_verified: konto.email_verified,
+      last_login: konto.last_login, gefunden_ueber: kontoUeber },
+    befund: mandate.length ? null : 'Dieser Kontakt ist keinem Mandat zugeordnet. Es gibt also nichts, '
+      + 'wozu er Zugang haben könnte.',
+    mandate: ergebnis,
+  } });
+}));
+
 // ── Projects ──────────────────────────────────────────────────────────────
 router.get('/projects', ...isAdmin, wrap(async (req, res) => {
   const projects = (await db.all(`

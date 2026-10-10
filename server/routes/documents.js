@@ -632,3 +632,8 @@ router.post('/:projectId/:docId/file', ...isAdmin, mitFehlermeldung(upload.singl
 }));
 
 module.exports = router;
+// v0.455: Die Zugriffsprüfung im CRM soll dieselbe Entscheidung sehen, die ein
+// Download träfe. Deshalb wird die Prüfung hier mit herausgegeben, statt sie
+// dort ein zweites Mal zu schreiben.
+module.exports.checkDownloadAccess = checkDownloadAccess;
+module.exports.docCategory = docCategory;

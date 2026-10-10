@@ -39,34 +39,25 @@ async function guard(req, res) {
 // Käufer, sobald ihr Zugang persönlich freigegeben wurde (Stufe dataroom).
 // Für Käufer entscheidet zusätzlich die Sichtbarkeitslogik, was sie sehen.
 const sichtbarkeit = require('../utils/safeVisibility');
+// v0.455: Der Käufer-Zweig liegt jetzt in utils/datenraumSicht.js, damit die
+// Zugriffsprüfung im CRM dieselbe Logik aufruft statt sie nachzubauen. Eine
+// Nachbildung würde prüfen, was sie selbst annimmt, und nicht, was die Anlage
+// tut.
+const sicht = require('../utils/datenraumSicht');
+const alleFn = (req) => (sql, p) => scoped(req, (t) => t.all(sql, p));
 
 async function leseKontext(req, projectId) {
   if (await access.canView(getFn(req), req.user, projectId)) return { pfleger: true };
-  const { getStage } = require('../middleware/gates');
-  const { stageAllows } = require('../utils/dealStateMachine');
-  const stage = await getStage(req.user.id, projectId);
-  if (!stageAllows(stage, 'dataroom')) return null;
-  const u = await db.get('SELECT buyer_type FROM users WHERE id = ?', [req.user.id]).catch(() => null);
-  const gruppen = await scoped(req, (t) => t.all(
-    'SELECT group_id FROM safe_group_members WHERE user_id = ?', [req.user.id])).catch(() => []);
-  return {
-    pfleger: false,
-    userId: req.user.id,
-    buyerType: (u && u.buyer_type) || null,
-    groupIds: gruppen.map((g) => g.group_id),
-  };
+  const k = await sicht.kaeuferKontext(req.user, projectId, alleFn(req));
+  if (!k.offen) return null;
+  return { pfleger: false, userId: k.userId, buyerType: k.buyerType, groupIds: k.groupIds, offen: true };
 }
 
 // Bewertung des gesamten Baums für einen Käufer. Für Pflegende: null (keine Grenzen).
 async function bewertungFuer(req, projectId, ktx) {
   if (!ktx || ktx.pfleger) return null;
-  const items = await scoped(req, (t) => t.all(
-    'SELECT id, parent_id, is_folder, confidential FROM safe_items WHERE project_id = ? AND deleted_at IS NULL', [projectId]));
-  const grants = await scoped(req, (t) => t.all(
-    'SELECT item_id, subject_type, subject_ref, level FROM safe_grants WHERE project_id = ?', [projectId])).catch(() => []);
-  return sichtbarkeit.bewerteBaum({
-    items, grants, userId: ktx.userId, buyerType: ktx.buyerType, groupIds: ktx.groupIds,
-  });
+  const b = await sicht.bewerteFuer(ktx, projectId, alleFn(req));
+  return b ? b.bewertung : null;
 }
 
 // Lesezugriff (Liste, Baum, Download, Speicherverbrauch): Team, Betrachter und

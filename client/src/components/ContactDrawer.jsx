@@ -10,6 +10,7 @@ import { ladeVokabular, KAEUFERTYPEN_FALLBACK, LAENDER_FALLBACK } from '../const
 import { api, getToken } from '../api/client';
 import { X, Mail, Send, ShieldCheck, ShieldOff, Star, Save, ExternalLink, FileText, Inbox, Check, Plus, Eye } from 'lucide-react';
 import TemplateSendModal from './TemplateSendModal';
+import ZugriffPruefen from './ZugriffPruefen';
 import { useAuth } from '../context/AuthContext';
 
 const C = { navy: '#111820', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
@@ -515,6 +516,16 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
                   <ShieldOff size={13} /> Nicht kontaktieren
                 </button>
               )}
+              {/* Ohne Konto gibt es keine Birdview, aber sehr wohl eine
+                  Antwort auf die Frage, warum die Person nichts sieht. Der
+                  Weg dorthin gehört hierher, neben den Knopf, der fehlt. */}
+              {!data.account?.id && (
+                <button onClick={() => setTab('mandate')}
+                  title="Prüfen, was dieser Kontakt sehen kann und woran es hakt"
+                  style={{ ...btn(false), color: '#b45309', borderColor: '#fcd34d' }}>
+                  <Eye size={13} /> Zugriff prüfen
+                </button>
+              )}
               {data.account?.id && (
                 <button
                   onClick={async () => {
@@ -834,6 +845,16 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
 
               {tab === 'mandate' && (
                 <>
+                  {/* Was sieht diese Person wirklich? (v0.455) Die Birdview
+                      setzt ein Konto voraus und schweigt, wenn keines da ist.
+                      Diese Prüfung antwortet auch dann, und sie antwortet mit
+                      dem Urteil des Servers, nicht mit einer Vermutung. */}
+                  <ZugriffPruefen C={C} contactId={contactId}
+                    onBirdview={async (uid) => {
+                      if (!window.confirm(`Plattform als ${[k.first_name, k.last_name].filter(Boolean).join(' ')} ansehen (Birdview, schreibgeschützt)?`)) return;
+                      try { await startBirdview(uid); } catch (e) { show('Birdview nicht möglich: ' + e.message); }
+                    }} />
+
                   {/* Passende Mandate zum Suchprofil dieses Kontakts */}
                   <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.8rem', marginBottom: '0.8rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
