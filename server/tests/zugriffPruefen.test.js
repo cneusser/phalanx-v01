@@ -144,7 +144,26 @@ ok('Die Oberfläche zeigt den Verlauf', /einladungen/.test(komp));
 
 // Ohne Konto darf bei keinem Mandat „kommt vollständig hinein" stehen.
 console.log('\n── Keine falsche Entwarnung ──');
-ok('Die Kette wird auch ohne Konto gefüllt', /kette: \[\{ name: 'Nutzerkonto vorhanden', erfuellt: false/.test(abschnitt));
+ok('Die Kette wird auch ohne Konto gefüllt', /kette: \[\{ name: 'Nutzerkonto', erfuellt: false/.test(abschnitt));
+ok('Der Befund steht einmal oben, nicht je Mandat', /siehe oben/.test(abschnitt));
+ok('Eine offene Pille sagt "nein" statt "vorhanden"', /\$\{text\}: nein/.test(komp));
+
+// ── 8. Erinnerung an eine offene Einladung (v0.456) ───────────────────────
+console.log('\n── Erinnerung ──');
+const crm = lies('server', 'routes', 'crm.js');
+const erinnern = crm.split("router.post('/contacts/:id/invite/erinnern'")[1] || '';
+ok('Die Route existiert', erinnern.length > 0);
+ok('Sie nimmt den vorhandenen Token und erzeugt keinen zweiten',
+  /SET expires_at = \? WHERE id = \?/.test(erinnern) && !/INSERT INTO crm_invitations/.test(erinnern.split('res.json')[0]));
+ok('Sie holt keine neue Einwilligung ein', !/consent_at = now\(\)/.test(erinnern.split('res.json')[0]));
+ok('Widerspruch wird abgelehnt', /do_not_contact/.test(erinnern));
+ok('Bei bestehendem Konto ist sie gegenstandslos', /bereits ein Konto/.test(erinnern));
+ok('Ohne offene Einladung verweist sie auf die reguläre Einladung', /regulär einladen/.test(erinnern));
+ok('Der Link kommt auch zurück, wenn der Versand klemmt', /versendet = false/.test(erinnern));
+ok('Der Vorgang wird protokolliert', /CRM_INVITE_REMINDED/.test(erinnern));
+ok('Die Oberfläche bietet beides an: senden und nur Link',
+  /erinnern\(true\)/.test(komp) && /erinnern\(false\)/.test(komp));
+ok('Und sagt, dass die Einwilligung bestehen bleibt', /Einwilligung bleibt bestehen/.test(komp));
 ok('Eine leere Kette führt zu keiner Aussage', /if \(!kette\.length\) return null/.test(komp));
 ok('Ohne Konto steht beim Datenraum der Grund', /Ohne Konto gibt es keinen Datenraum-Zugang/.test(abschnitt));
 

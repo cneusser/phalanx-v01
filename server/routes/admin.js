@@ -505,7 +505,9 @@ router.get('/contacts/:id/zugriff', ...isAdmin, wrap(async (req, res) => {
       // die Ansicht meldete fälschlich, die Person komme vollständig hinein.
       mandate: mandate.map((m) => ({
         project_id: m.project_id, codename: m.codename, party_role: m.party_role,
-        kette: [{ name: 'Nutzerkonto vorhanden', erfuellt: false, hinweis: warum }],
+        // Kurz, denn der ausführliche Befund steht einmal oben. Dreimal
+        // derselbe Absatz untereinander liest sich wie drei Probleme.
+        kette: [{ name: 'Nutzerkonto', erfuellt: false, hinweis: 'Es fehlt das Nutzerkonto, siehe oben.' }],
         datenraum: { offen: false, stage: null,
           grund: 'Ohne Konto gibt es keinen Datenraum-Zugang, auch wenn das Mandat freigegeben wäre.' },
         dateien: [], unterlagen: [],

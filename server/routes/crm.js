@@ -1945,6 +1945,81 @@ router.post('/contacts/:id/invite-succession', ...isStaff, canSend, wrap(async (
   res.status(201).json({ success: true, data: { link: `${base}/einwilligung?token=${token}` } });
 }));
 
+// ── Offene Einladung erinnern (v0.456) ─────────────────────────────────────
+//
+// Anlass: Ein Kontakt hat eingewilligt, aber die Anmeldung nicht zu Ende
+// gebracht. Danach steckte er fest. Eine neue Einladung lehnt der Server ab,
+// weil eine offene vorliegt, und einen Weg, die offene noch einmal zu
+// schicken, gab es nicht.
+//
+// Wichtig ist, was hier NICHT passiert: Es wird keine neue Einwilligung
+// eingeholt. Die liegt vor, mit Datum, IP und Textfassung. Sie erneut
+// abzufragen wäre nicht gründlicher, sondern verwirrend, und im schlechtesten
+// Fall sagt die Person beim zweiten Mal nein zu etwas, dem sie schon
+// zugestimmt hat.
+//
+// Derselbe Token wird weiterbenutzt und seine Frist verlängert. Ein neuer
+// Token hiesse ein zweiter offener Vorgang zur selben Person, und der alte
+// Link in ihrem Postfach führte plötzlich ins Leere.
+router.post('/contacts/:id/invite/erinnern', ...isStaff, canSend, wrap(async (req, res) => {
+  const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [req.params.id]));
+  if (!contact) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+  if (!contact.email) return res.status(400).json({ success: false, error: 'Kontakt hat keine E-Mail-Adresse.' });
+  if (contact.contact_status === 'do_not_contact' || contact.consent_status === 'opt_out') {
+    return res.status(403).json({ success: false, error: 'Dieser Kontakt hat der Kontaktaufnahme widersprochen.' });
+  }
+  const konto = await db.get('SELECT id FROM users WHERE lower(email) = lower(?) LIMIT 1', [contact.email]).catch(() => null);
+  if (konto) return res.status(409).json({ success: false, error: 'Für diese Adresse besteht bereits ein Konto. Eine Erinnerung wäre gegenstandslos.' });
+
+  const inv = await scoped(req, (t) => t.get(
+    `SELECT * FROM crm_invitations WHERE contact_id = ? AND status IN ('invited','opened','consented')
+      ORDER BY id DESC LIMIT 1`, [contact.id]));
+  if (!inv) {
+    return res.status(404).json({ success: false,
+      error: 'Es gibt keine offene Einladung. Bitte regulär einladen.' });
+  }
+
+  const expires = new Date(Date.now() + INVITE_DAYS * 24 * 3600 * 1000);
+  await scoped(req, (t) => t.run('UPDATE crm_invitations SET expires_at = ? WHERE id = ?', [expires, inv.id]));
+
+  const base = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
+  const link = `${base}/einwilligung?token=${inv.token}`;
+  const fehlt = inv.status === 'consented';
+
+  const senden = req.body.senden !== false;
+  let versendet = false;
+  if (senden) {
+    const { sendProcessUpdateEmail } = require('../utils/email');
+    const absender = [req.user.title, req.user.first_name, req.user.last_name].filter(Boolean).join(' ');
+    try {
+      await sendProcessUpdateEmail({
+        to: contact.email, firstName: contact.first_name || '', person: contact,
+        title: fehlt ? 'Ihr Zugang zu CapitalMatch: ein Schritt fehlt noch'
+          : 'Erinnerung: Ihre Einladung zu CapitalMatch',
+        message: fehlt
+          ? `Sie haben Ihre Einwilligung bereits erteilt, die Anmeldung aber noch nicht abgeschlossen. `
+            + 'Über den Knopf unten vergeben Sie Ihr Passwort, danach steht Ihnen der Zugang offen.'
+            + `<br/><br/>Bei Fragen erreichen Sie <strong>${absender}</strong> direkt per Antwort auf diese Nachricht.`
+          : `<strong>${absender}</strong> (Phalanx GmbH) hatte Sie zu <strong>CapitalMatch</strong> eingeladen. `
+            + 'Die Einladung liegt noch offen.'
+            + '<br/><br/><strong>Wichtig (DSGVO):</strong> Wir legen kein Konto für Sie an, solange Sie nicht ausdrücklich zustimmen.',
+        ctaLabel: fehlt ? 'Anmeldung abschliessen' : 'Einladung ansehen',
+        ctaPath: `/einwilligung?token=${inv.token}`,
+        meta: { type: 'invite_reminder', contactId: contact.id, actorId: req.user.id, tenantId: req.tenantId || 1 },
+      });
+      versendet = true;
+    } catch (e) {
+      // Der Link wird trotzdem zurückgegeben: Er ist das eigentliche Ergebnis
+      // und lässt sich von Hand verschicken, wenn der Versand klemmt.
+      versendet = false;
+    }
+  }
+
+  db.auditLog(req.user.id, 'CRM_INVITE_REMINDED', 'crm_contact', contact.id,
+    `${contact.email} · Stand ${inv.status} · ${versendet ? 'versendet' : 'nur Link'}`, req.ip);
+  res.json({ success: true, data: { link, status: inv.status, versendet, gueltig_bis: expires } });
+}));
+
 // Einzelne Einladung
 router.post('/contacts/:id/invite', ...isStaff, canSend, wrap(async (req, res) => {
   const contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE id = ?', [req.params.id]));

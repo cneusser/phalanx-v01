@@ -30,19 +30,30 @@ export default function ZugriffPruefen({ C, contactId, onBirdview }) {
   const [fehler, setFehler] = useState('');
   const [laeuft, setLaeuft] = useState(false);
   const [offen, setOffen] = useState({});
+  const [erinnerung, setErinnerung] = useState(null);
+  const [erinnertLaeuft, setErinnertLaeuft] = useState(false);
 
   async function pruefen() {
-    setLaeuft(true); setFehler(''); setDaten(null);
+    setLaeuft(true); setFehler(''); setDaten(null); setErinnerung(null);
     try { setDaten(await api.get(`/admin/contacts/${contactId}/zugriff`)); }
     catch (e) { setFehler(e.message); }
     setLaeuft(false);
   }
 
+  async function erinnern(senden) {
+    setErinnertLaeuft(true);
+    try { setErinnerung(await api.post(`/crm/contacts/${contactId}/invite/erinnern`, { senden })); }
+    catch (e) { setErinnerung({ fehler: e.message }); }
+    setErinnertLaeuft(false);
+  }
+
+  // Die Beschriftung nennt den Zustand, nicht das Ziel. „○ Nutzerkonto
+  // vorhanden" las sich wie das Gegenteil dessen, was gemeint war.
   const pille = (gut, text) => (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', fontWeight: 600,
       color: gut ? '#065f46' : '#92400e', background: gut ? '#ECFDF5' : '#FFFBEB',
       border: `1px solid ${gut ? '#a7f3d0' : '#fcd34d'}`, borderRadius: 20, padding: '2px 9px' }}>
-      {gut ? '✓' : '○'} {text}
+      {gut ? `✓ ${text}` : `✗ ${text}: nein`}
     </span>
   );
 
@@ -86,6 +97,43 @@ export default function ZugriffPruefen({ C, contactId, onBirdview }) {
                       {e.registered_at ? `, angemeldet am ${new Date(e.registered_at).toLocaleDateString('de-DE')}` : ''}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Der Ausweg gehört neben den Befund, nicht in ein anderes Menü. */}
+              {(daten.einladungen || []).length > 0 && (
+                <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button onClick={() => erinnern(true)} disabled={erinnertLaeuft}
+                    style={{ background: '#92400e', color: '#fff', border: 'none', borderRadius: 7, padding: '0.32rem 0.8rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                    {erinnertLaeuft ? 'Läuft…' : 'Erinnerung senden'}
+                  </button>
+                  <button onClick={() => erinnern(false)} disabled={erinnertLaeuft}
+                    style={{ background: '#fff', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 7, padding: '0.32rem 0.8rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                    Nur Link zeigen
+                  </button>
+                  <span style={{ fontSize: '0.72rem', color: '#78350f' }}>
+                    Die Einwilligung bleibt bestehen und wird nicht erneut abgefragt.
+                  </span>
+                </div>
+              )}
+
+              {erinnerung && erinnerung.fehler && (
+                <div style={{ marginTop: 6, fontSize: '0.75rem', color: '#991b1b' }}>{erinnerung.fehler}</div>
+              )}
+              {erinnerung && erinnerung.link && (
+                <div style={{ marginTop: 6, background: '#fff', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.5rem 0.6rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#78350f', marginBottom: 4 }}>
+                    {erinnerung.versendet ? 'Erinnerung versendet. ' : 'Nicht versendet. '}
+                    Link zum Weitergeben, gültig bis {new Date(erinnerung.gueltig_bis).toLocaleDateString('de-DE')}:
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input readOnly value={erinnerung.link} onFocus={(e) => e.target.select()}
+                      style={{ flex: 1, fontSize: '0.74rem', padding: '0.3rem 0.45rem', border: `1px solid ${C.border}`, borderRadius: 6 }} />
+                    <button onClick={() => navigator.clipboard?.writeText(erinnerung.link)}
+                      style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 6, padding: '0.3rem 0.65rem', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer' }}>
+                      Kopieren
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
