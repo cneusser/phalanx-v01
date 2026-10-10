@@ -103,7 +103,7 @@ console.log('\n── Fehlendes Konto ist eine Antwort, keine Leerstelle ──'
 const abschnitt = admin.split("router.get('/contacts/:id/zugriff'")[1] || '';
 ok('Die Route existiert', abschnitt.length > 0);
 ok('Ohne Konto wird geantwortet statt geschwiegen', /kein Nutzerkonto/.test(abschnitt));
-ok('Der Hinweis nennt den Ausweg (einladen oder verknüpfen)', /einladen/.test(abschnitt) && /verknüpf/i.test(abschnitt));
+ok('Der Hinweis nennt den Ausweg (Einladung oder Verknüpfung)', /Einladung/.test(abschnitt) && /verknüpf/i.test(abschnitt));
 ok('Der Fall ohne E-Mail wird eigens behandelt', /keine E-Mail hinterlegt/.test(abschnitt));
 ok('Das Konto wird wie in der Kontaktakte gesucht: Verknüpfung, dann Adresse',
   /WHERE id = \?/.test(abschnitt) && /lower\(email\) = lower\(\?\)/.test(abschnitt));
@@ -127,6 +127,35 @@ ok('Ein Fehler erscheint als Fehler, nicht als leere Liste', /fehler &&/.test(ko
 ok('Die Kontaktakte bindet sie ein', /<ZugriffPruefen/.test(drawer));
 ok('Ohne Konto führt ein Knopf zur Prüfung', /Zugriff prüfen/.test(drawer));
 ok('Mit Konto bleibt der Weg zur Birdview', /onBirdview/.test(drawer) && /startBirdview/.test(drawer));
+
+// ── 6. Warum es kein Konto gibt, nicht nur dass keines da ist (v0.455) ────
+//
+// Der erste Wurf blieb bei „kein Nutzerkonto" stehen. Das beantwortet die
+// Frage nicht, die danach kommt, und die kam sofort.
+console.log('\n── Warum kein Konto ──');
+ok('Der Einladungsverlauf wird mitgelesen', /FROM crm_invitations WHERE contact_id/.test(abschnitt));
+ok('Fall: nie eingeladen', /nie eine Einladung/.test(abschnitt));
+ok('Fall: eingeladen, nicht geöffnet', /nicht geöffnet/.test(abschnitt));
+ok('Fall: geöffnet, nicht zu Ende geklickt', /nicht zu Ende geklickt/.test(abschnitt));
+ok('Fall: eingewilligt, Anmeldung offen', /Anmeldung aber nicht abgeschlossen/.test(abschnitt));
+ok('Fall: angemeldet, aber unter anderer Adresse', /anderen Adresse erfolgt/.test(abschnitt));
+ok('Es wird gesagt, dass Einwilligung kein Konto erzeugt', /Einwilligung erzeugen keines|Einwilligung ist kein Konto/.test(abschnitt));
+ok('Die Oberfläche zeigt den Verlauf', /einladungen/.test(komp));
+
+// Ohne Konto darf bei keinem Mandat „kommt vollständig hinein" stehen.
+console.log('\n── Keine falsche Entwarnung ──');
+ok('Die Kette wird auch ohne Konto gefüllt', /kette: \[\{ name: 'Nutzerkonto vorhanden', erfuellt: false/.test(abschnitt));
+ok('Eine leere Kette führt zu keiner Aussage', /if \(!kette\.length\) return null/.test(komp));
+ok('Ohne Konto steht beim Datenraum der Grund', /Ohne Konto gibt es keinen Datenraum-Zugang/.test(abschnitt));
+
+// ── 7. Der Einladungsknopf sperrt nicht die Eingeladenen aus ──────────────
+console.log('\n── Einladungsknopf ──');
+ok('Der Knopf ist für Eingewilligte nicht mehr gesperrt',
+  !/disabled=\{blocked \|\| !k\.email \|\| k\.consent_status === 'opt_in'\}/.test(drawer));
+ok('Gesperrt wird weiterhin bei Widerspruch und fehlender Adresse',
+  /onClick=\{invite\} disabled=\{blocked \|\| !k\.email\}/.test(drawer));
+ok('Der Hinweistext erklärt, dass ein Konto erst durch die Anmeldung entsteht',
+  /erst, wenn er sich selbst anmeldet/.test(drawer));
 
 console.log(fail ? `\n${fail} Fehler` : '\nAlles grün');
 process.exit(fail ? 1 : 0);

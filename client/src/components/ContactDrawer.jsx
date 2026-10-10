@@ -476,9 +476,18 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
                 style={btn(blocked || !k.email)}>
                 <Send size={13} /> Pflege-Link
               </button>
-              <button onClick={invite} disabled={blocked || !k.email || k.consent_status === 'opt_in'}
-                title="Einladung zur Plattform mit Double-Opt-in. Unabhängig von einem Mandat, der Kontakt registriert sich selbst."
-                style={btn(blocked || !k.email || k.consent_status === 'opt_in')}>
+              {/* v0.455: Der Knopf war für opt_in gesperrt, also genau für die
+                  Leute, die eingewilligt haben. Das ist die Gruppe, die man
+                  einladen darf, und nicht die, die man aussperrt. Wer
+                  eingewilligt, aber nie ein Konto angelegt hat, konnte so nicht
+                  mehr eingeladen werden: Der einzige Weg zum Konto war zu. Der
+                  Server hat das nie so gesehen, er lehnt nur Widerspruch und
+                  laufende Einladungen ab. */}
+              <button onClick={invite} disabled={blocked || !k.email}
+                title={k.consent_status === 'opt_in'
+                  ? 'Einladung zur Plattform. Der Kontakt hat bereits eingewilligt, ein Konto entsteht aber erst, wenn er sich selbst anmeldet.'
+                  : 'Einladung zur Plattform mit Double-Opt-in. Unabhängig von einem Mandat, der Kontakt registriert sich selbst.'}
+                style={btn(blocked || !k.email)}>
                 <Mail size={13} /> Zur Plattform einladen
               </button>
               <button onClick={inviteSuccession} disabled={blocked || !k.email}

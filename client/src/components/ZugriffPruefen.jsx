@@ -75,6 +75,19 @@ export default function ZugriffPruefen({ C, contactId, onBirdview }) {
           {!daten.konto ? (
             <div style={{ fontSize: '0.78rem', color: '#92400e', background: '#FFFBEB', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.6rem 0.75rem', lineHeight: 1.6 }}>
               <strong>Kein Nutzerkonto.</strong> {daten.befund}
+              {(daten.einladungen || []).length > 0 && (
+                <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #fcd34d', fontSize: '0.74rem' }}>
+                  <div style={{ fontWeight: 700, marginBottom: 2 }}>Einladungen</div>
+                  {daten.einladungen.map((e) => (
+                    <div key={e.id}>
+                      {new Date(e.invited_at).toLocaleDateString('de-DE')} verschickt · Stand {e.status}
+                      {e.opened_at ? `, geöffnet am ${new Date(e.opened_at).toLocaleDateString('de-DE')}` : ', nicht geöffnet'}
+                      {e.consent_at ? `, eingewilligt am ${new Date(e.consent_at).toLocaleDateString('de-DE')}` : ''}
+                      {e.registered_at ? `, angemeldet am ${new Date(e.registered_at).toLocaleDateString('de-DE')}` : ''}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ fontSize: '0.76rem', color: C.text, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.55rem 0.75rem', lineHeight: 1.6 }}>
@@ -116,7 +129,12 @@ export default function ZugriffPruefen({ C, contactId, onBirdview }) {
                       {(m.kette || []).map((s) => <span key={s.name}>{pille(s.erfuellt, s.name)}</span>)}
                     </div>
                     {(() => {
-                      const ersteLuecke = (m.kette || []).find((s) => !s.erfuellt);
+                      // Eine leere Kette ist kein Freibrief. Ohne geprüfte
+                      // Punkte gibt es auch keine Aussage, und „kommt
+                      // vollständig hinein" wäre dann die falsche.
+                      const kette = m.kette || [];
+                      const ersteLuecke = kette.find((s) => !s.erfuellt);
+                      if (!kette.length) return null;
                       return (
                         <div style={{ fontSize: '0.74rem', color: ersteLuecke ? '#92400e' : '#065f46', lineHeight: 1.55, marginBottom: '0.5rem' }}>
                           {ersteLuecke ? ersteLuecke.hinweis : 'Diese Person kommt vollständig hinein.'}

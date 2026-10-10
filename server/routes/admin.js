@@ -459,20 +459,57 @@ router.get('/contacts/:id/zugriff', ...isAdmin, wrap(async (req, res) => {
        FROM crm_deal_parties dp JOIN projects p ON p.id = dp.project_id
       WHERE dp.contact_id = ? ORDER BY p.codename`, [req.params.id]).catch(() => []);
 
-  // Ohne Konto ist die Antwort schon hier vollständig, und sie ist kurz.
+  // Ohne Konto ist die Antwort schon hier vollständig.
+  //
+  // Sie darf aber nicht bei „kein Konto" stehen bleiben, denn die nächste
+  // Frage lautet immer: warum nicht. Ein Konto entsteht ausschliesslich
+  // dadurch, dass die Person sich selbst anmeldet. Ein CRM-Kontakt ist kein
+  // Konto, eine Einwilligung ist kein Konto, und eine verschickte Einladung
+  // ist auch keines, solange niemand darauf geklickt hat. Deshalb steht hier
+  // der Verlauf der Einladungen: Er sagt, an welcher Stelle es stehen blieb.
   if (!konto) {
+    const einladungen = k.email ? await db.all(
+      `SELECT id, status, invited_at, opened_at, consent_at, registered_at, expires_at
+         FROM crm_invitations WHERE contact_id = ? ORDER BY id DESC LIMIT 10`,
+      [k.id]).catch(() => []) : [];
+    const letzte = einladungen[0] || null;
+
+    let warum;
+    if (!k.email) {
+      warum = 'Am Kontakt ist keine E-Mail hinterlegt. Das Konto wird über die Adresse gesucht, '
+        + 'deshalb findet sich keines. Adresse nachtragen oder das Konto von Hand verknüpfen.';
+    } else if (!letzte) {
+      warum = `Unter ${k.email} gibt es kein Nutzerkonto, und es wurde auch noch nie eine Einladung `
+        + 'verschickt. Ein Konto entsteht nur dadurch, dass die Person sich selbst anmeldet. Ein '
+        + 'CRM-Eintrag, eine Mandatszuordnung und selbst eine Einwilligung erzeugen keines.';
+    } else if (letzte.registered_at) {
+      warum = `Es gibt eine abgeschlossene Einladung, aber unter ${k.email} kein Konto. Das spricht `
+        + 'dafür, dass die Anmeldung unter einer anderen Adresse erfolgt ist. Das Konto lässt sich '
+        + 'unter Stammdaten von Hand verknüpfen.';
+    } else {
+      const stand = letzte.consent_at ? 'die Einwilligung erteilt, die Anmeldung aber nicht abgeschlossen'
+        : letzte.opened_at ? 'die Einladung geöffnet, aber nicht zu Ende geklickt'
+          : 'die Einladung nicht geöffnet';
+      warum = `Es wurde eingeladen, aber nicht angemeldet: Die Person hat ${stand}. Solange der letzte `
+        + 'Schritt fehlt, entsteht kein Konto und damit kein Zugang.';
+    }
+
     db.auditLog(req.user.id, 'ZUGRIFF_GEPRUEFT', 'crm_contact', k.id, `${name}, kein Konto`, req.ip);
     return res.json({ success: true, data: {
       kontakt: { id: k.id, name, email: k.email || null },
       konto: null,
-      befund: k.email
-        ? `Unter ${k.email} gibt es kein Nutzerkonto. Ohne Konto gibt es keinen Zugang, den man `
-          + 'prüfen könnte: Die Person kann sich nicht anmelden und sieht daher auch keine Unterlagen. '
-          + 'Entweder zur Plattform einladen, oder das Konto läuft auf eine andere Adresse und muss '
-          + 'am Kontakt verknüpft werden.'
-        : 'Am Kontakt ist keine E-Mail hinterlegt. Das Konto wird über die Adresse gesucht, deshalb '
-          + 'findet sich keines. Adresse nachtragen oder das Konto von Hand verknüpfen.',
-      mandate: mandate.map((m) => ({ project_id: m.project_id, codename: m.codename, party_role: m.party_role, kette: [], datenraum: null, dateien: [], unterlagen: [] })),
+      einladungen,
+      befund: warum,
+      // Die Kette wird auch ohne Konto gefüllt, und zwar mit dem Punkt, an dem
+      // es scheitert. Ohne sie stünde bei jedem Mandat kein offener Punkt, und
+      // die Ansicht meldete fälschlich, die Person komme vollständig hinein.
+      mandate: mandate.map((m) => ({
+        project_id: m.project_id, codename: m.codename, party_role: m.party_role,
+        kette: [{ name: 'Nutzerkonto vorhanden', erfuellt: false, hinweis: warum }],
+        datenraum: { offen: false, stage: null,
+          grund: 'Ohne Konto gibt es keinen Datenraum-Zugang, auch wenn das Mandat freigegeben wäre.' },
+        dateien: [], unterlagen: [],
+      })),
     } });
   }
 

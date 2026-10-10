@@ -8,6 +8,8 @@ const ENTRY = {
     'Entschieden wird das nicht in der Oberfläche, sondern von denselben Funktionen, die auch einen Klick zulassen oder abweisen. Eine zweite, freundlichere Rechnung wäre wertlos: Sie würde prüfen, was sie selbst annimmt',
     'Dafür ist der Käufer-Zweig aus der Datenraum-Route in ein eigenes Modul gewandert. Datenraum und Prüfung rufen jetzt dieselbe Stelle auf; es gibt keine zweite Fassung der Regeln, die veralten könnte',
     'Hat der Kontakt kein Nutzerkonto, ist genau das die Antwort, samt Weg: einladen, oder das Konto unter einer anderen Adresse verknüpfen. Die bestehende Birdview konnte diesen Fall nicht zeigen, weil sie sich als die Person anmeldet',
+    'Dazu steht dort der Verlauf der Einladungen, denn auf "kein Konto" folgt immer die Frage, warum nicht: nie eingeladen, eingeladen und nicht geöffnet, geöffnet und nicht zu Ende geklickt, eingewilligt ohne Anmeldung, oder angemeldet unter einer anderen Adresse',
+    'Behoben: Der Knopf "Zur Plattform einladen" war für Kontakte mit Einwilligung gesperrt, also für genau die Gruppe, die man einladen darf. Wer eingewilligt, aber nie ein Konto angelegt hatte, liess sich dadurch nicht mehr einladen. Der Server hatte das nie so gesehen',
     'Die Prüfung verändert nichts und sendet nichts. Protokolliert wird, dass geprüft wurde',
   ],
 };
