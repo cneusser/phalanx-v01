@@ -52,4 +52,21 @@ ok('die Oberfläche erklärt, warum es keine Rollenansicht gibt',
 ok('gewählt wird eine Person, nicht eine Rolle', /startBirdview\(p\.id\)/.test(komp));
 ok('die Ansicht hängt auf dem Marktplatz', /<AnsichtPruefen C=\{C\} \/>/.test(markt));
 
+// ── Die Birdview führte auf die Anmeldeseite (v0.459) ────────────────────
+//
+// Das ausgestellte Token trug keinen tv-Anspruch und galt damit als
+// Token-Version 0. Beim Zielnutzer steht die Version höher, sobald er einmal
+// das Passwort zurückgesetzt hat; die Anmeldeprüfung wies das frische Token
+// deshalb als „Sitzung abgelaufen" ab. Die Oberfläche warf es weg, und der
+// Betrachter stand ohne eigene Sitzung auf der Anmeldeseite. Die Funktion
+// arbeitete also nur bei Personen, die ihr Passwort nie geändert hatten.
+console.log('\n── Token-Version im Birdview ──');
+ok('das Birdview-Token trägt die Token-Version des Zielnutzers',
+  /tv: target\.token_version \|\| 0/.test(admin));
+ok('und sie wird dafür auch gelesen',
+  /SELECT id, email, role, first_name, last_name, is_active, token_version FROM users/.test(admin));
+ok('ein gescheitertes Token kostet nicht die eigene Sitzung',
+  /phalanx_admin_token/.test(ctx) && /const eigenes = localStorage\.getItem\('phalanx_admin_token'\)/.test(ctx));
+
+console.log(fail ? `\n${fail} Fehler` : '\nAlles grün');
 process.exit(fail ? 1 : 0);

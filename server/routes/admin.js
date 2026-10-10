@@ -366,7 +366,7 @@ router.post('/impersonate/:userId', ...isSuperAdmin, wrap(async (req, res) => {
   if (targetId === req.user.id) return res.status(400).json({ success: false, error: 'Sie sind bereits Sie selbst.' });
 
   const target = await db.get(
-    'SELECT id, email, role, first_name, last_name, is_active FROM users WHERE id = ?', [targetId]);
+    'SELECT id, email, role, first_name, last_name, is_active, token_version FROM users WHERE id = ?', [targetId]);
   if (!target) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
   if (!target.is_active) return res.status(400).json({ success: false, error: 'Nutzer ist deaktiviert.' });
   if (target.role === 'super_admin') {
@@ -382,8 +382,15 @@ router.post('/impersonate/:userId', ...isSuperAdmin, wrap(async (req, res) => {
     `Birdview als ${target.email} (${target.role})`, req.ip);
 
   const jwt = require('jsonwebtoken');
+  // tv (Token-Version) muss mit (v0.459). Ohne diesen Anspruch galt das
+  // Birdview-Token als Version 0. Beim Zielnutzer steht die Version aber höher,
+  // sobald er einmal das Passwort zurückgesetzt hat oder abgemeldet wurde, und
+  // dann wies die Anmeldeprüfung das frische Token als „Sitzung abgelaufen" ab.
+  // Die Oberfläche warf daraufhin das Token weg, und man landete auf der
+  // Anmeldeseite, ohne eigene Sitzung. Die Birdview funktionierte also nur bei
+  // Personen, die ihr Passwort nie geändert hatten.
   const token = jwt.sign(
-    { userId: targetId, imp: req.user.id, log: logId },
+    { userId: targetId, imp: req.user.id, log: logId, tv: target.token_version || 0 },
     require('../utils/jwtSecret').getJwtSecret(),
     { expiresIn: '2h' },     // bewusst kurzlebig
   );

@@ -25,7 +25,20 @@ export function AuthProvider({ children }) {
     if (token) {
       api.get('/auth/me')
         .then(data => setUser(data.user))
-        .catch(() => localStorage.removeItem('phalanx_token'))
+        .catch(async () => {
+          // v0.459: Scheitert das Token, war es womöglich ein Birdview-Token.
+          // Dann liegt das eigene Admin-Token noch daneben, und es wäre
+          // unsinnig, den Betrachter abzumelden, weil die fremde Ansicht nicht
+          // funktioniert hat. Vorher landete man in diesem Fall auf der
+          // Anmeldeseite und musste sich neu anmelden.
+          localStorage.removeItem('phalanx_token');
+          const eigenes = localStorage.getItem('phalanx_admin_token');
+          if (!eigenes) return;
+          localStorage.setItem('phalanx_token', eigenes);
+          localStorage.removeItem('phalanx_admin_token');
+          try { setUser((await api.get('/auth/me')).user); }
+          catch (_) { localStorage.removeItem('phalanx_token'); }
+        })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
