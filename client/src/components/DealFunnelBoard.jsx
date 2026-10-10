@@ -60,12 +60,42 @@ export default function DealFunnelBoard({ show }) {
     } catch (e) { show('Fehler: ' + e.message); }
   }
   // Kontakt direkt zum Mandat hinzufügen
-  const [allContacts, setAllContacts] = useState([]);
   const [addContact, setAddContact] = useState('');
   const [addRole, setAddRole] = useState('buyer');
   const [addStage, setAddStage] = useState(0);
 
-  useEffect(() => { api.get('/crm/contacts').then(setAllContacts).catch(() => {}); }, []);
+  // ── Kontakt suchen statt aus einer Liste wählen (v0.453) ────────────────
+  //
+  // Vorher ein Auswahlfeld über alle Kontakte. Zwei Probleme, und das zweite
+  // ist das ernstere:
+  //
+  //   · Bei einigen hundert Einträgen findet man den richtigen nicht.
+  //   · Die Liste war serverseitig auf 500 Kontakte begrenzt. Wer darüber
+  //     hinaus suchte, sah den Kontakt schlicht nicht und musste annehmen,
+  //     es gebe ihn nicht. Dieselbe stille Lücke wie bei der Freitextsuche,
+  //     die in v0.445 behoben wurde.
+  //
+  // Deshalb wird jetzt auf dem Server gesucht, mit derselben wortweisen Suche:
+  // „Bauer Daniel" findet dasselbe wie „Daniel Bauer".
+  const [suche, setSuche] = useState('');
+  const [treffer, setTreffer] = useState(null);
+  const [sucheLaeuft, setSucheLaeuft] = useState(false);
+  const [gewaehlt, setGewaehlt] = useState(null);
+
+  useEffect(() => {
+    const q = suche.trim();
+    if (gewaehlt) return;
+    if (q.length < 3) { setTreffer(null); return; }
+    // Kurz warten, sonst eine Anfrage je Tastendruck.
+    setSucheLaeuft(true);
+    const uhr = setTimeout(() => {
+      api.get(`/crm/contacts?q=${encodeURIComponent(q)}`)
+        .then((d) => setTreffer(d || []))
+        .catch(() => setTreffer([]))
+        .finally(() => setSucheLaeuft(false));
+    }, 250);
+    return () => { clearTimeout(uhr); setSucheLaeuft(false); };
+  }, [suche, gewaehlt]);
 
 
   async function addParty() {
@@ -74,7 +104,7 @@ export default function DealFunnelBoard({ show }) {
       await api.post(`/crm/deals/${active}/parties`, {
         contact_id: Number(addContact), party_role: addRole, funnel_stage: Number(addStage),
       });
-      setAddContact('');
+      setAddContact(''); setGewaehlt(null); setSuche(''); setTreffer(null);
       await loadBoard();
       show('Kontakt zum Mandat hinzugefügt ✓');
     } catch (e) { show('Fehler: ' + e.message); }
@@ -306,16 +336,56 @@ export default function DealFunnelBoard({ show }) {
       {/* Kontakt direkt zum Mandat hinzufügen */}
       {active && (
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.2fr auto', gap: '0.4rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.7rem', marginBottom: '0.8rem' }}>
-          <select value={addContact} onChange={e => setAddContact(e.target.value)} style={SELECT}>
-            <option value="">Kontakt zum Mandat hinzufügen…</option>
-            {allContacts
-              .filter(k => !(board?.parties || []).some(p => p.contact_id === k.id))
-              .map(k => (
-                <option key={k.id} value={k.id}>
-                  {[k.first_name, k.last_name].filter(Boolean).join(' ')}{k.companies ? `, ${k.companies}` : ''}
-                </option>
-              ))}
-          </select>
+          <div style={{ position: 'relative' }}>
+            <input
+              value={gewaehlt ? `${[gewaehlt.first_name, gewaehlt.last_name].filter(Boolean).join(' ')}${gewaehlt.companies ? `, ${gewaehlt.companies}` : ''}` : suche}
+              onChange={(e) => { setGewaehlt(null); setAddContact(''); setSuche(e.target.value); }}
+              placeholder="Kontakt suchen, ab drei Zeichen…"
+              style={{ ...SELECT, width: '100%', boxSizing: 'border-box' }} />
+            {gewaehlt && (
+              <button onClick={() => { setGewaehlt(null); setAddContact(''); setSuche(''); }}
+                title="Auswahl aufheben"
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>×</button>
+            )}
+            {!gewaehlt && suche.trim().length > 0 && suche.trim().length < 3 && (
+              <div style={{ position: 'absolute', zIndex: 20, left: 0, right: 0, background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.7rem', fontSize: '0.78rem', color: C.muted, marginTop: 2 }}>
+                Noch {3 - suche.trim().length} Zeichen.
+              </div>
+            )}
+            {!gewaehlt && treffer && (
+              <div style={{ position: 'absolute', zIndex: 20, left: 0, right: 0, background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, marginTop: 2, maxHeight: 280, overflowY: 'auto', boxShadow: '0 6px 20px rgba(15,23,42,0.12)' }}>
+                {sucheLaeuft && <div style={{ padding: '0.5rem 0.7rem', fontSize: '0.78rem', color: C.muted }}>Wird gesucht…</div>}
+                {!sucheLaeuft && treffer.length === 0 && (
+                  <div style={{ padding: '0.5rem 0.7rem', fontSize: '0.78rem', color: C.muted }}>
+                    Kein Treffer. Die Suche geht über Vorname, Nachname, E-Mail, Telefon und Ort, in beliebiger Reihenfolge.
+                  </div>
+                )}
+                {treffer.slice(0, 25).map((k) => {
+                  const schonDabei = (board?.parties || []).some((p) => p.contact_id === k.id);
+                  return (
+                    <button key={k.id} disabled={schonDabei}
+                      onClick={() => { setGewaehlt(k); setAddContact(String(k.id)); setTreffer(null); }}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                        borderBottom: `1px solid ${C.border}`, padding: '0.45rem 0.7rem',
+                        cursor: schonDabei ? 'default' : 'pointer', opacity: schonDabei ? 0.5 : 1 }}>
+                      <span style={{ fontSize: '0.84rem', fontWeight: 600, color: C.navy }}>
+                        {[k.first_name, k.last_name].filter(Boolean).join(' ') || k.email}
+                        {schonDabei && <span style={{ fontWeight: 400, color: C.muted }}> · schon im Mandat</span>}
+                      </span>
+                      <span style={{ display: 'block', fontSize: '0.72rem', color: C.muted }}>
+                        {[k.companies, k.email].filter(Boolean).join(' · ')}
+                      </span>
+                    </button>
+                  );
+                })}
+                {treffer.length > 25 && (
+                  <div style={{ padding: '0.45rem 0.7rem', fontSize: '0.74rem', color: C.muted }}>
+                    {treffer.length - 25} weitere. Bitte genauer eingrenzen.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <select value={addRole} onChange={e => setAddRole(e.target.value)} style={SELECT}>
             {Object.entries(ROLE_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
