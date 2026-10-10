@@ -115,6 +115,7 @@ const EN = {
   'bw.ihre_angaben': 'Your figures',
   'bw.bitte_waehlen': 'Please choose …',
   'bw.gruendungsjahr': 'Year founded',
+  'pd.tab_korrespondenz': 'Correspondence',
   'bw.afa_hinweis': 'for the EBITDA the multiples refer to',
   'bw.falls_nicht_ebit': 'if not already included in EBIT',
   'bw.sondertraege': 'one-off income, will be adjusted out',

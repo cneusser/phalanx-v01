@@ -757,6 +757,8 @@ export default function Admin() {
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
 
+  const [korrStand, setKorrStand] = useState(null);
+
   // ── Phalanx-OS-Anbindung ──────────────────────────────────────────────
   const [phalanx, setPhalanx] = useState(null);
   const [phalanxPing, setPhalanxPing] = useState(null);
@@ -766,6 +768,9 @@ export default function Admin() {
   async function loadPhalanx() {
     try {
       const [st, rev] = await Promise.all([api.get('/admin/phalanx/status'), api.get('/admin/phalanx/reviews')]);
+      // Stand der Korrespondenzanbindung (v0.454). Loest keinen Abruf aus,
+      // liest nur, was zuletzt passiert ist.
+      api.get('/admin/phalanx/korrespondenz-stand').then(setKorrStand).catch(() => setKorrStand(null));
       setPhalanx(st); setPhalanxReviews(rev || []);
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
@@ -1761,6 +1766,44 @@ export default function Admin() {
               <button onClick={() => runPhalanxSync(true)} disabled={phalanxBusy || !phalanx?.configured} title="Liest den ganzen Pool, nicht nur das seit dem letzten Lauf Geänderte" style={{ background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 700, cursor: (phalanxBusy || !phalanx?.configured) ? 'default' : 'pointer' }}>Vollabgleich</button>
             </div>
           </div>
+
+          {korrStand && (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.8rem 1rem', marginBottom: '1rem' }}>
+              <div style={{ fontSize: '0.72rem', color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                Korrespondenz aus Phalanx OS
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.7rem', fontSize: '0.8rem' }}>
+                <div>
+                  <span style={{ color: C.muted }}>Scope</span><br />
+                  <strong style={{ color: korrStand.konfiguriert ? '#166534' : '#b45309' }}>
+                    {korrStand.scope}{korrStand.konfiguriert ? '' : ' (Zugangsdaten fehlen)'}
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ color: C.muted }}>Ansichten</span><br />
+                  <strong style={{ color: korrStand.aktiv ? '#166534' : '#b45309' }}>
+                    {korrStand.aktiv ? 'eingeschaltet' : 'abgeschaltet'}
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ color: C.muted }}>Letzter Abruf</span><br />
+                  <strong>{korrStand.letzter_erfolg ? new Date(korrStand.letzter_erfolg).toLocaleString('de-DE') : 'noch keiner'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: C.muted }}>Letzter Fehler</span><br />
+                  <strong style={{ color: korrStand.letzter_fehler ? '#991b1b' : C.muted }}>
+                    {korrStand.letzter_fehler || 'keiner'}
+                  </strong>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 8, lineHeight: 1.55 }}>
+                Die Korrespondenz wird bei jedem Aufruf aus Phalanx OS geholt und in CapitalMatch
+                nicht gespeichert. Zwischengespeichert wird sie {korrStand.zwischenspeicher_minuten} Minuten
+                im Arbeitsspeicher, derzeit {korrStand.zwischenspeicher_eintraege} Eintrag bzw. Einträge.
+                Abschalten ohne Veröffentlichung über die Variable PHALANX_MAILS_AUS = true.
+              </div>
+            </div>
+          )}
 
           {!phalanx ? <div style={{ color: C.muted }}>Laden…</div> : (
             <>

@@ -451,3 +451,47 @@ ausgenommen; Einzelkorrespondenz bleibt möglich, `consent_status` bleibt `unkno
 Verwaltung: Admin → **Phalanx OS** zeigt Verbindungsstatus (Ping mit Token),
 letzten Sync mit Zahlen, die konfigurierten Segmente und die Warteliste. Kontakte
 aus dem Pool tragen in der Kontaktliste das Kennzeichen „Phalanx-Netzwerk".
+
+## Korrespondenz aus Phalanx OS
+
+Die E-Mail-Korrespondenz liegt in Phalanx OS und bleibt dort. CapitalMatch
+zeigt sie an zwei Stellen und **speichert sie nicht**:
+
+- im Mandat unter „Korrespondenz", ausschliesslich für die Verwaltung,
+- in der Kontaktakte unter „Konversation", für Verwaltung und Mitarbeitende.
+
+Der Grund für das Nichtspeichern ist Löschbarkeit. Ein zweiter Bestand müsste
+jede Löschung nach Artikel 17, jede zurückgenommene Zuordnung und jede falsch
+abgelegte Mail nachvollziehen, und in der Praxis tut er das nie vollständig.
+Was nicht gespeichert wird, muss auch nicht gelöscht werden.
+
+Zwischengespeichert wird fünf Minuten im Arbeitsspeicher. Ist Phalanx OS nicht
+erreichbar, steht dort der Grund und **keine leere Liste**: Eine leere Liste
+sähe aus wie „keine Korrespondenz" und führte zu der Aussage, es sei nichts
+geschrieben worden.
+
+### Voraussetzungen
+
+| Variable | Zweck |
+| --- | --- |
+| `PHALANX_OS_BASE_URL` | Basis von Phalanx OS |
+| `PHALANX_OS_CLIENT_ID` | wie beim Datenpool |
+| `PHALANX_OS_CLIENT_SECRET` | wie beim Datenpool, unverändert |
+| `PHALANX_MAILS_AUS` | auf `true` schaltet beide Ansichten ab, ohne Deploy |
+
+Zusätzlich muss der Scope `pool.mails` in Phalanx OS für diesen Client
+freigeschaltet sein. Er wird mit einem eigenen Token geholt: Der Token des
+Datenpools behält `pool.read pool.write`, denn ein Lesezugriff auf Kontakte
+soll keinen Zugriff auf Korrespondenz mitbringen.
+
+### Grenzen
+
+- Nur lesen. Es gibt keinen Weg, von hier aus eine Mail zu ändern oder
+  zuzuordnen. Das geschieht in Phalanx OS.
+- Keine Anhänge, nur Namen und Grössen.
+- Die Mandatsansicht enthält Klarnamen und die Namen aller Interessenten. Sie
+  ist deshalb der Verwaltung vorbehalten, serverseitig geprüft: Ein Käufer,
+  der den Schriftwechsel mit einem anderen Käufer sähe, erführe, wer sonst
+  noch bietet.
+- Ein Mandat ohne Projektnummer aus Phalanx OS zeigt keine Korrespondenz,
+  sondern den Hinweis, dass die Nummer fehlt.

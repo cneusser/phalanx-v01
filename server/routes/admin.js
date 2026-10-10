@@ -23,6 +23,30 @@ const isAdmin = [authenticate, (req, res, next) => {
 }];
 const canManageUsers = requirePermission('users.manage');
 
+// ── Wirklich nur Verwaltende (v0.454) ──────────────────────────────────────
+//
+// Die Wache oben heisst isAdmin, prueft aber perms.isStaff und laesst damit
+// Assistenz und Analyst durch. Fuer die meisten Routen hier ist das gewollt;
+// fuer die Mandatskorrespondenz nicht. Dort stehen die Klarnamen der Mandate
+// und die Namen aller Interessenten, und der Auftrag dazu lautet ausdruecklich
+// „Admin, und sonst niemand".
+//
+// Der bestehende Name wird nicht geaendert: Er haengt an ueber hundert Routen,
+// und eine Umbenennung in einem Zug waere genau die Art Aenderung, bei der
+// eine Route uebersehen wird. Stattdessen eine zweite, enger gefasste Wache
+// mit einem Namen, der sagt, was sie tut.
+const NUR_VERWALTUNG = ['super_admin', 'advisor', 'tenant_owner'];
+const nurVerwaltung = [authenticate, (req, res, next) => {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Nicht authentifiziert' });
+  if (!NUR_VERWALTUNG.includes(req.user.role)) {
+    db.auditLog(req.user.id, 'ZUGRIFF_ABGEWIESEN', 'korrespondenz', null,
+      `Rolle ${req.user.role} ohne Berechtigung`, req.ip);
+    return res.status(403).json({ success: false,
+      error: 'Diese Ansicht ist der Verwaltung vorbehalten.' });
+  }
+  next();
+}];
+
 // Aktionen in Klartext: damit im Dashboard steht, WAS passiert ist, nicht nur ein Konstantenname.
 const ACTIVITY_TEXT = {
   ACCESS_DOCLIST: 'hat die Dokumentenliste geöffnet',
@@ -1772,6 +1796,92 @@ router.post('/berichte/multiples/aktivieren', ...isAdmin, wrap(async (req, res) 
   db.auditLog(req.user.id, 'MULTIPLES_STAND_AKTIV', 'valuation_multiples', null, stand, req.ip);
   res.json({ success: true, data: { stand, branchen: da.n,
     hinweis: 'Bestehende Bewertungen bleiben, wie sie sind. Der neue Stand gilt ab der nächsten Berechnung.' } });
+}));
+
+// ── Korrespondenz aus Phalanx OS (v0.454) ──────────────────────────────────
+//
+// Zwei Ansichten, beide lesen live aus Phalanx OS und speichern nichts.
+//
+// Die Berechtigung wird hier geprüft, nicht in der Oberfläche. Eine Prüfung
+// im Browser schützt gegen Verwechslung, nicht gegen Absicht: Wer die Adresse
+// kennt, ruft sie ohne Oberfläche auf. Das ist keine theoretische Sorge, denn
+// in der Korrespondenz stehen die Klarnamen der Mandate und die Namen der
+// übrigen Interessenten. Ein Käufer, der den Schriftwechsel mit einem anderen
+// Käufer sähe, erführe, wer sonst noch bietet, und damit wäre die
+// Anonymisierung aufgehoben, die dieses Produkt ausmacht.
+const mails = require('../sync/phalanxmail');
+
+/** Protokolliert wird der Abruf, nie sein Inhalt. Kein Betreff, kein Text. */
+function abrufProtokollieren(req, was, treffer) {
+  db.auditLog(req.user.id, 'KORRESPONDENZ_GELESEN', 'phalanx_os', null,
+    `${was} · ${treffer} Eintraege`, req.ip);
+}
+
+// Mandat: ausschliesslich Admin.
+router.get('/projects/:id/korrespondenz', ...nurVerwaltung, wrap(async (req, res) => {
+  const p = await db.get(
+    'SELECT id, codename, phalanx_projekt_nummer FROM projects WHERE id = ?', [req.params.id]);
+  if (!p) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+
+  // Ohne Projektnummer gibt es in Phalanx OS nichts zu suchen. Das wird
+  // gesagt, statt eine leere Liste zu zeigen: Eine leere Liste sähe aus wie
+  // „keine Korrespondenz" und führte zu genau der falschen Aussage.
+  if (!p.phalanx_projekt_nummer) {
+    return res.json({ success: true, data: {
+      verfuegbar: false,
+      grund: 'Diesem Mandat ist keine Projektnummer aus Phalanx OS zugeordnet. '
+        + 'Die Korrespondenz wird dort über die Nummer geführt; bitte zuerst zuordnen.',
+      items: [], total: 0,
+    } });
+  }
+
+  try {
+    const limit = Math.min(Number(req.query.limit) || 100, 200);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const d = await mails.zumMandat(p.phalanx_projekt_nummer, { limit, offset });
+    abrufProtokollieren(req, `Mandat ${p.codename}`, d.items.length);
+    res.json({ success: true, data: { verfuegbar: true, nummer: p.phalanx_projekt_nummer, ...d,
+      hinweis: 'Enthält Klarnamen. Nicht für Käufer oder Verkäufer sichtbar.' } });
+  } catch (e) {
+    // Ein Fehler bleibt ein Fehler. Keine leere Liste, kein alter Stand.
+    res.status(502).json({ success: false, error: e.message,
+      hinweis: 'Die Korrespondenz liegt in Phalanx OS und wird nicht zwischengespeichert. '
+        + 'Sobald Phalanx OS wieder erreichbar ist, steht sie hier erneut zur Verfügung.' });
+  }
+}));
+
+// Kontakt: Admin und Staff. Bewusst weiter gefasst als beim Mandat, denn hier
+// steht nur der Schriftwechsel mit dieser einen Person, nicht der mit allen
+// Interessenten eines Mandats.
+router.get('/contacts/:id/korrespondenz', ...isAdmin, wrap(async (req, res) => {
+  const k = await db.get(
+    'SELECT id, first_name, last_name, pool_contact_id FROM crm_contacts WHERE id = ?', [req.params.id]);
+  if (!k) return res.status(404).json({ success: false, error: 'Kontakt nicht gefunden' });
+
+  if (!k.pool_contact_id) {
+    return res.json({ success: true, data: {
+      verfuegbar: false,
+      grund: 'Mit dem Phalanx-Netzwerk nicht verknüpft. Ohne diese Verknüpfung '
+        + 'lässt sich die Korrespondenz nicht zuordnen.',
+      items: [], total: 0,
+    } });
+  }
+
+  try {
+    const limit = Math.min(Number(req.query.limit) || 100, 200);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const d = await mails.zumKontakt(k.pool_contact_id, { limit, offset });
+    abrufProtokollieren(req, `Kontakt #${k.id}`, d.items.length);
+    res.json({ success: true, data: { verfuegbar: true, ...d } });
+  } catch (e) {
+    res.status(502).json({ success: false, error: e.message,
+      hinweis: 'Die Korrespondenz liegt in Phalanx OS und wird nicht zwischengespeichert.' });
+  }
+}));
+
+// Für die Verwaltung: Stand der Anbindung, ohne einen Abruf auszulösen.
+router.get('/phalanx/korrespondenz-stand', ...nurVerwaltung, wrap(async (req, res) => {
+  res.json({ success: true, data: mails.stand() });
 }));
 
 // ── Kontakte ohne Konto, obwohl sie in Mandaten mitarbeiten (v0.449) ───────

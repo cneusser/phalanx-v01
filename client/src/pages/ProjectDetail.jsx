@@ -9,6 +9,7 @@ import { useT, useI18n } from '../i18n';
 import NDASignModal from '../components/NDASignModal';
 import DataRoomBrowser from '../components/DataRoomBrowser';
 import SafeDataRoom from '../components/SafeDataRoom';
+import Korrespondenz from '../components/Korrespondenz';
 import { kpiWert } from '../utils/kpi';
 import {
   Lock, CheckCircle, Clock, FileText, MapPin, Building2,
@@ -66,6 +67,13 @@ const ALL_TABS = [
   ['qa',         'qa.titel',          'Q&A'],
   ['contact',    'pd.tab_contact',    'Kontakt'],
 ];
+
+// Nur fuer die Verwaltung (v0.454). Bewusst nicht in ALL_TABS: Ein Reiter,
+// den ein Kaeufer auch nur sieht, verraet schon, dass es ihn gibt. Die
+// Berechtigung entscheidet ohnehin der Server; das hier ist die zweite,
+// sichtbare Haelfte.
+const VERWALTUNGS_ROLLEN = ['super_admin', 'advisor', 'tenant_owner'];
+const KORRESPONDENZ_TAB = ['korrespondenz', 'pd.tab_korrespondenz', 'Korrespondenz'];
 
 // Tabs die immer zugänglich sind (ohne NDA)
 const PUBLIC_TABS = ['overview', 'contact'];
@@ -755,6 +763,15 @@ export default function ProjectDetail() {
     }
 
     // Sprint 4: Q&A: nach Datenraum-Freigabe
+    if (activeTab === 'korrespondenz') {
+      // Doppelt gesichert: Der Reiter erscheint nur fuer die Verwaltung, und
+      // falls doch jemand die Adresse errät, antwortet der Server mit 403.
+      if (!user || !VERWALTUNGS_ROLLEN.includes(user.role)) {
+        return <div style={{ color: C.muted, fontSize: '0.875rem' }}>Diese Ansicht ist der Verwaltung vorbehalten.</div>;
+      }
+      return <Korrespondenz C={C} pfad={`/admin/projects/${id}/korrespondenz`} mitWarnung />;
+    }
+
     if (activeTab === 'qa') {
       if (!approved) return <LockedTabPlaceholder onRequestNDA={requestNDA} onSign={() => setShowNDAModal(true)} user={user} ndaStatus={ndaStatus} navigate={navigate} />;
 
@@ -1035,7 +1052,8 @@ export default function ProjectDetail() {
                 display: 'flex', gap: 0, borderBottom: `1px solid ${C.border}`,
                 overflowX: 'auto',
               }}>
-                {ALL_TABS.map(([key, schluessel, label]) => {
+                {[...ALL_TABS, ...(user && VERWALTUNGS_ROLLEN.includes(user.role) ? [KORRESPONDENZ_TAB] : [])]
+                  .map(([key, schluessel, label]) => {
                   const isPublic = PUBLIC_TABS.includes(key);
                   const accessible = isPublic || approved;
                   const isActive = activeTab === key;

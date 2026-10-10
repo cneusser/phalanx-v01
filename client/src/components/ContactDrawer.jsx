@@ -1045,6 +1045,13 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
 
               {tab === 'konversation' && (
                 <div>
+                  {/* Korrespondenz aus Phalanx OS (v0.454). Live geholt, nicht
+                      gespeichert: Was nicht gespeichert wird, muss auch nicht
+                      geloescht werden. */}
+                  <div style={{ marginBottom: '1rem' }}>
+                    <Korrespondenz C={C} pfad={`/admin/contacts/${contactId}/korrespondenz`} />
+                  </div>
+
                   {/* Hierher verschoben (v0.452). Der Kasten stand unter
                       „Wiedervorlagen", und dort sucht ihn niemand: Wer eine
                       eingegangene Antwort festhalten will, geht in die
