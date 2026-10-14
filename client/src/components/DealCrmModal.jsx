@@ -168,7 +168,7 @@ export default function DealCrmModal({ project, onClose, onChanged }) {
         </Section>
 
         {/* Q&A */}
-        <Section title={`Q&A (${questions.filter(q => q.status === 'open').length} offen)`}>
+        <Section title={`Q&A (${questions.filter(q => q.status !== 'answered').length} offen)`}>
           {questions.length === 0 && <div style={{ fontSize: '0.8rem', color: C.muted }}>Noch keine Fragen.</div>}
           {questions.map(q => (
             <div key={q.id} style={{ padding: '0.5rem 0', borderBottom: `1px solid ${C.border}` }}>

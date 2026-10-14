@@ -16,6 +16,7 @@ import TemplateAdmin from '../components/TemplateAdmin';
 import TaskBoard from '../components/TaskBoard';
 import MailOutbox from '../components/MailOutbox';
 import RoleMatrix from '../components/RoleMatrix';
+import QaErfassen from '../components/QaErfassen';
 
 // Auswahllisten je Formularfeld (statt Freitext), abhängig vom Mandatstyp
 const fieldOptions = (key, mandateType) => {
@@ -222,6 +223,7 @@ export default function Admin() {
   const [editDoc, setEditDoc] = useState(null);   // Dokument, dessen Bezeichnung gerade bearbeitet wird
   const [roleList, setRoleList] = useState([]);   // Rollen aus der Rollen-Tabelle (für das Dropdown)
   const [questions, setQuestions] = useState([]);
+  const [qaErfassenOffen, setQaErfassenOffen] = useState(false);
   const [answers, setAnswers] = useState({});
   const [qaOpts, setQaOpts] = useState({});   // je Frage: { notify, is_public }
   const [contactSearch, setContactSearch] = useState('');
@@ -572,6 +574,12 @@ export default function Admin() {
       showMsg(isPublic ? 'Frage ist jetzt im Mandat für alle Interessenten sichtbar ✓' : 'Frage wieder privat');
       loadQuestions();
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
+  }
+
+  // Kategorie, Verantwortlicher, Stand und interne Notiz pflegen (v0.460).
+  async function pflegeQuestion(id, patch) {
+    try { await api.put(`/admin/questions/${id}`, patch); loadQuestions(); }
+    catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
 
   async function deleteQuestion(id) {
@@ -2013,6 +2021,17 @@ export default function Admin() {
 
       {activeTab === 'qa' && (
         <div>
+          {/* Fragen, die per E-Mail oder Telefon kamen (v0.460). Ohne diesen
+              Weg entstanden Q&A-Einträge nur, wenn jemand selbst auf der
+              Plattform fragt, und das ist der seltenere Fall. */}
+          {qaErfassenOffen
+            ? <QaErfassen C={C} onFertig={() => { loadQuestions(); loadAll(); }} onAbbrechen={() => setQaErfassenOffen(false)} />
+            : (
+              <button onClick={() => setQaErfassenOffen(true)}
+                style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 6, padding: '0.5rem 1.1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', marginBottom: '1rem' }}>
+                Fragen erfassen
+              </button>
+            )}
           {!questions.length && (
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, padding: '2.5rem', textAlign: 'center', color: C.muted }}>
               Keine Fragen von Interessenten.
@@ -2020,7 +2039,7 @@ export default function Admin() {
           )}
           {questions.map(q => (
             <div key={q.id} style={{
-              background: C.card, border: `1px solid ${q.status === 'open' ? '#fcd34d' : C.border}`,
+              background: C.card, border: `1px solid ${q.status !== 'answered' ? '#fcd34d' : C.border}`,
               borderRadius: 8, padding: '1rem', marginBottom: '0.8rem',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
@@ -2029,15 +2048,31 @@ export default function Admin() {
                   {' · '}{[q.first_name, q.last_name].filter(Boolean).join(' ')}
                   {q.company ? ` (${q.company})` : ''}
                   {' · '}{q.asked_at ? new Date(q.asked_at).toLocaleDateString('de-DE') : ''}
+                  {q.herkunft ? ` · ${q.herkunft}` : ''}
+                  {q.kategorie ? ` · ${q.kategorie}` : ''}
+                  {q.verantwortlich_name ? ` · ${q.verantwortlich_name}` : ''}
                 </div>
-                <span style={{
-                  background: q.status === 'open' ? '#fef3c7' : '#d1fae5',
-                  color: q.status === 'open' ? '#92400e' : '#065f46',
-                  padding: '0.1rem 0.5rem', borderRadius: 20, fontSize: '0.68rem', fontWeight: 700,
-                }}>{q.status === 'open' ? 'offen' : 'beantwortet'}</span>
+                {/* Vier Stände seit v0.460. Die Farbe sagt nur noch, ob etwas
+                    offen ist; welcher Zwischenstand, sagt das Wort. */}
+                <select value={q.status} onChange={e => pflegeQuestion(q.id, { status: e.target.value })}
+                  style={{
+                    background: q.status !== 'answered' ? '#fef3c7' : '#d1fae5',
+                    color: q.status !== 'answered' ? '#92400e' : '#065f46',
+                    border: 'none', padding: '0.15rem 0.5rem', borderRadius: 20, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer',
+                  }}>
+                  <option value="open">offen</option>
+                  <option value="in_bearbeitung">in Bearbeitung</option>
+                  <option value="zurueckgestellt">zurückgestellt</option>
+                  <option value="answered" disabled={!q.answer}>beantwortet</option>
+                </select>
               </div>
               <div style={{ fontSize: '0.9rem', color: C.navy, fontWeight: 600, marginBottom: '0.6rem' }}>{q.question}</div>
-              {q.status === 'open' ? (
+              {q.interne_notiz && (
+                <div style={{ background: '#FFFBEB', border: '1px solid #fcd34d', borderRadius: 6, padding: '0.4rem 0.6rem', fontSize: '0.78rem', color: '#78350f', marginBottom: '0.6rem', lineHeight: 1.5 }}>
+                  Intern, nie für den Interessenten sichtbar: {q.interne_notiz}
+                </div>
+              )}
+              {q.status !== 'answered' ? (
                 <>
                   <textarea
                     value={answers[q.id] || ''}

@@ -228,7 +228,7 @@ router.get('/qa/offen', authenticate, wrap(async (req, res) => {
   const rows = await scoped(req, (t) => t.all(
     `SELECT q.buyer_id, q.project_id, COUNT(*) AS anzahl
        FROM qa_threads q
-      WHERE q.status = 'open'
+      WHERE q.status <> 'answered'
       GROUP BY q.buyer_id, q.project_id`)).catch(() => []);
   const zaehler = {};
   const geprueft = new Map();
@@ -247,7 +247,7 @@ router.get('/qa/offen/:userId', authenticate, wrap(async (req, res) => {
   const rows = await scoped(req, (t) => t.all(
     `SELECT q.id, q.project_id, q.question, q.asked_at, q.status, p.codename
        FROM qa_threads q JOIN projects p ON p.id = q.project_id
-      WHERE q.buyer_id = ? AND q.status = 'open'
+      WHERE q.buyer_id = ? AND q.status <> 'answered'
       ORDER BY q.asked_at ASC`, [other])).catch(() => []);
   // Nur Fragen zu Mandaten, die ich pflege. Sonst sähe ein Berater die Fragen
   // an einen anderen.

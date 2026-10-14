@@ -166,7 +166,8 @@ router.get('/stats', ...isAdmin, wrap(async (req, res) => {
     FROM crm_tasks
   `).catch(() => ({ open: 0, due: 0 }));
 
-  const qa = await db.get(`SELECT COUNT(*) FILTER (WHERE status='open')::int AS open FROM qa_threads`).catch(() => ({ open: 0 }));
+  // Seit v0.460 gibt es Zwischenstände: offen heisst hier „nicht beantwortet".
+  const qa = await db.get(`SELECT COUNT(*) FILTER (WHERE status <> 'answered')::int AS open FROM qa_threads`).catch(() => ({ open: 0 }));
 
   res.json({
     success: true,
@@ -299,7 +300,7 @@ router.get('/analytics', ...isAdmin, wrap(async (req, res) => {
       // Momentaufnahmen (aktueller Stand)
       pipeline: await g(`SELECT COUNT(*)::int c FROM projects WHERE deal_status IN ('in_diligence','loi')`),
       projects: await g(`SELECT COUNT(*)::int c FROM projects WHERE status='active'`),
-      qa: await g(`SELECT COUNT(*)::int c FROM qa_threads WHERE status='open'`),
+      qa: await g(`SELECT COUNT(*)::int c FROM qa_threads WHERE status <> 'answered'`),
       users_pending: await g(`SELECT COUNT(*)::int c FROM users WHERE is_approved=0 AND role NOT IN ('super_admin','advisor')`),
       // Im gewählten Zeitraum neu
       ndas: await g(`SELECT COUNT(*)::int c FROM nda_requests WHERE ${since('requested_at')}`),
@@ -1663,19 +1664,131 @@ router.get('/emails/:id', ...isAdmin, requirePermission('mail.log'), wrap(async 
 router.get('/questions', ...isAdmin, wrap(async (req, res) => {
   const rows = await db.all(`
     SELECT q.*, p.codename, p.id AS project_id,
-           u.first_name, u.last_name, u.email, u.company
+           u.first_name, u.last_name, u.email, u.company,
+           v.first_name || ' ' || v.last_name AS verantwortlich_name
     FROM qa_threads q
     LEFT JOIN projects p ON p.id = q.project_id
     LEFT JOIN users u ON u.id = q.buyer_id
-    ORDER BY (q.status = 'open') DESC, q.asked_at DESC
+    LEFT JOIN users v ON v.id = q.verantwortlich_id
+    ORDER BY (q.status <> 'answered') DESC, q.asked_at DESC
     LIMIT 200`).catch(() => []);
   res.json({
     success: true,
     data: {
       questions: rows,
-      open: rows.filter(q => q.status === 'open').length,
+      // Seit v0.460 gibt es Zwischenstände. „Offen" heisst hier deshalb
+      // „noch nicht beantwortet"; sonst fiele eine Frage in Bearbeitung aus
+      // jeder Zählung heraus, obwohl sie offener ist als je zuvor.
+      open: rows.filter(q => q.status !== 'answered').length,
     },
   });
+}));
+
+// ── Q&A: eine Frage für einen Interessenten erfassen (v0.460) ─────────────
+//
+// Anlass: Elf Fragen von Foscari zu FARADAY, per E-Mail gekommen. Q&A-Einträge
+// entstanden bisher nur, wenn der Interessent selbst auf der Plattform fragt,
+// oder aus einer Plattform-Nachricht heraus. Für den Weg, auf dem Fragen
+// tatsächlich meistens eintreffen, gab es keine Eingabe.
+//
+// Es wird nichts versendet und niemand benachrichtigt. Das ist kein Vergessen,
+// sondern der Zweck: Erfasst wird eine Frage, die der Absender bereits kennt,
+// er hat sie ja gestellt.
+router.post('/questions', ...isAdmin, wrap(async (req, res) => {
+  const { istQaStand, QA_STAND_WERTE } = require('../utils/vokabular');
+  const fragen = Array.isArray(req.body.fragen) ? req.body.fragen : [req.body];
+  if (!fragen.length) return res.status(400).json({ success: false, error: 'Keine Frage übergeben.' });
+  if (fragen.length > 50) return res.status(400).json({ success: false, error: 'Höchstens 50 Fragen auf einmal.' });
+
+  const projectId = Number(req.body.project_id || 0);
+  const buyerId = Number(req.body.buyer_id || 0);
+  if (!projectId || !buyerId) {
+    return res.status(400).json({ success: false, error: 'Mandat und Fragesteller sind erforderlich.' });
+  }
+  const projekt = await db.get('SELECT id, codename FROM projects WHERE id = ?', [projectId]);
+  if (!projekt) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden.' });
+  const frager = await db.get('SELECT id, email, first_name, last_name FROM users WHERE id = ?', [buyerId]);
+  if (!frager) {
+    return res.status(404).json({ success: false,
+      error: 'Zu diesem Fragesteller gibt es kein Nutzerkonto. Eine Frage hängt am Konto, nicht am CRM-Kontakt.' });
+  }
+  // Ein Interessent, der nicht am Mandat hängt, ist fast immer ein Vertipper
+  // bei der Auswahl. Geraten wird nichts, gemeldet schon.
+  const akte = await db.get('SELECT stage FROM interests WHERE buyer_id = ? AND project_id = ?', [buyerId, projectId]);
+  if (!akte) {
+    return res.status(409).json({ success: false,
+      error: `${frager.first_name} ${frager.last_name} ist für ${projekt.codename} nicht als Interessent geführt. `
+        + 'Bitte zuerst das Mandat zuordnen.' });
+  }
+
+  const eingang = req.body.eingegangen_am ? new Date(req.body.eingegangen_am) : new Date();
+  if (Number.isNaN(eingang.getTime())) {
+    return res.status(400).json({ success: false, error: 'Das Eingangsdatum ist nicht lesbar.' });
+  }
+  const herkunft = String(req.body.herkunft || 'E-Mail').trim().slice(0, 80);
+
+  const angelegt = []; const abgelehnt = [];
+  for (const f of fragen) {
+    const frage = String(f.question || f.frage || '').trim();
+    if (frage.length < 5) { abgelehnt.push({ frage, grund: 'zu kurz' }); continue; }
+    const stand = istQaStand(f.status) ? f.status : 'open';
+    const antwort = String(f.answer || f.antwort || '').trim();
+    // Ein Stand „beantwortet" ohne Antworttext wäre eine Behauptung ohne
+    // Inhalt: In der Liste stünde erledigt, und der Interessent bekäme nichts
+    // zu lesen.
+    if (stand === 'answered' && !antwort) {
+      abgelehnt.push({ frage: frage.slice(0, 60), grund: 'als beantwortet gekennzeichnet, aber ohne Antworttext' });
+      continue;
+    }
+    const verantwortlich = Number(f.verantwortlich_id || 0) || null;
+    const id = await db.insert(
+      `INSERT INTO qa_threads
+         (tenant_id, project_id, buyer_id, question, answer, status, kategorie, verantwortlich_id,
+          interne_notiz, herkunft, asked_at, answered_at, answered_by, is_public)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${antwort ? 'now()' : 'NULL'}, ?, 0)`,
+      [req.tenantId || 1, projectId, buyerId, frage, antwort || null, stand,
+       f.kategorie ? String(f.kategorie).trim().slice(0, 80) : null, verantwortlich,
+       f.interne_notiz ? String(f.interne_notiz).trim().slice(0, 2000) : null,
+       herkunft, eingang, antwort ? req.user.id : null]);
+    angelegt.push({ id, frage: frage.slice(0, 80), status: stand, kategorie: f.kategorie || null });
+  }
+
+  db.auditLog(req.user.id, 'QA_ERFASST', 'qa', projectId,
+    `${angelegt.length} Frage(n) für ${frager.email} zu ${projekt.codename}, Herkunft ${herkunft}, ohne Mailversand`, req.ip);
+  res.status(201).json({ success: true, data: {
+    angelegt, abgelehnt, erlaubte_staende: QA_STAND_WERTE,
+    hinweis: 'Es wurde nichts versendet und niemand benachrichtigt. Alle Einträge stehen auf "nur für diesen Interessenten".',
+  } });
+}));
+
+// ── Q&A: Kategorie, Verantwortlicher, Stand und interne Notiz pflegen ─────
+router.put('/questions/:id', ...isAdmin, wrap(async (req, res) => {
+  const { istQaStand } = require('../utils/vokabular');
+  const q = await db.get('SELECT * FROM qa_threads WHERE id = ?', [req.params.id]);
+  if (!q) return res.status(404).json({ success: false, error: 'Frage nicht gefunden' });
+  if (req.body.status !== undefined && !istQaStand(req.body.status)) {
+    return res.status(400).json({ success: false, error: 'Unbekannter Stand.' });
+  }
+  // Auf „beantwortet" setzt man über die Antwort, nicht über das Statusfeld.
+  // Sonst steht in der Liste erledigt, und beim Interessenten steht nichts.
+  if (req.body.status === 'answered' && !q.answer) {
+    return res.status(400).json({ success: false,
+      error: 'Ohne Antworttext lässt sich eine Frage nicht auf beantwortet setzen. Bitte die Antwort erfassen.' });
+  }
+  await db.run(
+    `UPDATE qa_threads SET
+       kategorie = COALESCE(?, kategorie),
+       verantwortlich_id = COALESCE(?, verantwortlich_id),
+       interne_notiz = COALESCE(?, interne_notiz),
+       status = COALESCE(?, status)
+     WHERE id = ?`,
+    [req.body.kategorie !== undefined ? String(req.body.kategorie).trim().slice(0, 80) || null : null,
+     req.body.verantwortlich_id !== undefined ? (Number(req.body.verantwortlich_id) || null) : null,
+     req.body.interne_notiz !== undefined ? String(req.body.interne_notiz).trim().slice(0, 2000) || null : null,
+     req.body.status !== undefined ? req.body.status : null,
+     req.params.id]);
+  db.auditLog(req.user.id, 'QA_GEPFLEGT', 'qa', q.id, Object.keys(req.body).join(', '), req.ip);
+  res.json({ success: true, data: { id: q.id } });
 }));
 
 // ── Sprint 4: Q&A beantworten ─────────────────────────────────────────────

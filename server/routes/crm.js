@@ -352,6 +352,9 @@ router.get('/vokabular', ...isStaff, (req, res) => {
     sektoren: vokabular.SEKTOREN,
     schwerpunkte: vokabular.SCHWERPUNKTE,
     rollen: vokabular.TRANSAKTIONSROLLEN,
+    // Q&A seit v0.460. Die Kategorien sind eine Vorschlagsliste, kein Zwang.
+    qa_kategorien: vokabular.QA_KATEGORIEN,
+    qa_staende: vokabular.QA_STAENDE,
   } });
 });
 

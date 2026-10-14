@@ -141,7 +141,44 @@ function kaeufertypAus(freitext) {
   return '';
 }
 
+// ── Q&A: Kategorien und Stände (v0.460) ────────────────────────────────────
+//
+// Die Kategorien sind eine Vorschlagsliste, kein Zwang. Sie sortieren den
+// Fragenkatalog eines Mandats, und ein Katalog mit vierzig selbst getippten
+// Kategorien sortiert nichts mehr. Wer eine eigene braucht, darf sie
+// eintragen; die Liste führt nur das, was in jedem Verfahren vorkommt.
+const QA_KATEGORIEN = [
+  'Finanzen / Normalisierung',
+  'Finanzen / Dokumente',
+  'Finanzen / Bilanz',
+  'Finanzen / Planung',
+  'Kunden',
+  'Lieferanten',
+  'Personal',
+  'Recht / Verträge',
+  'Technik / IT',
+  'Immobilien',
+  'Prozess',
+  'Organisatorisch',
+  'Sonstiges',
+];
+
+// Die beiden alten Werte heissen weiterhin open und answered. Siehe die
+// Migration qa_kategorie_verantwortung: Ein Umbenennen hätte an einem Dutzend
+// Stellen den Vergleich mitziehen müssen, und jede übersehene zählt danach
+// still falsch.
+const QA_STAENDE = [
+  ['open', 'offen'],
+  ['in_bearbeitung', 'in Bearbeitung'],
+  ['zurueckgestellt', 'zurückgestellt'],
+  ['answered', 'beantwortet'],
+];
+const QA_STAND_WERTE = QA_STAENDE.map(([w]) => w);
+const istQaStand = (s) => QA_STAND_WERTE.includes(String(s || ''));
+const qaStandLabel = (s) => (QA_STAENDE.find(([w]) => w === s) || [null, s])[1];
+
 module.exports = {
+  QA_KATEGORIEN, QA_STAENDE, QA_STAND_WERTE, istQaStand, qaStandLabel,
   KAEUFERTYPEN, KAEUFERTYP_WERTE, FIRMENTYPEN, LAENDER,
   istKaeufertyp, kaeufertypLabel, kaeufertypAus,
   SEKTOREN, SCHWERPUNKTE, TRANSAKTIONSROLLEN,

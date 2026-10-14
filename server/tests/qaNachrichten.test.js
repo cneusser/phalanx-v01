@@ -28,7 +28,10 @@ const detail = fs.readFileSync(path.join(wurzel, 'client', 'src', 'pages', 'Proj
 const offen = nachrichten.slice(nachrichten.indexOf("'/qa/offen/:userId'"), nachrichten.indexOf("'/qa/:id/antwort'"));
 ok('offene Fragen werden je Mandat auf Pflegerechte geprüft', /darfMandat\(req, r\.project_id\)/.test(offen));
 ok('das Ergebnis je Mandat wird nur einmal ermittelt', /geprueft\.has/.test(offen));
-ok('nur offene Fragen', /status = 'open'/.test(offen));
+// Seit v0.460 gibt es Zwischenstände. „Offen" heisst hier deshalb „noch nicht
+// beantwortet"; mit status = 'open' wäre eine Frage in Bearbeitung aus dem
+// Nachrichtenfenster verschwunden, obwohl gerade sie dort hingehört.
+ok('nur unbeantwortete Fragen', /status <> 'answered'/.test(offen));
 
 const antwort = nachrichten.slice(nachrichten.indexOf("'/qa/:id/antwort'"), nachrichten.indexOf("'/qa/dokumente/:projectId'"));
 ok('das Beantworten verlangt Pflegerechte', /darfMandat\(req, frage\.project_id\)/.test(antwort));
