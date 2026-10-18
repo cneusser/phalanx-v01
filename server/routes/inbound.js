@@ -16,7 +16,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const wrap = require('../utils/asyncHandler');
-const { ingestReply } = require('../utils/inbound');
+const { ingestMail } = require('../utils/inbound');
 const db = require('../db/database');
 const { parseLead } = require('../utils/leadParser');
 
@@ -44,18 +44,28 @@ const htmlToText = (html) => String(html || '')
 // Provider-Formate auf ein gemeinsames Objekt bringen
 function normalize(b) {
   const first = (v) => Array.isArray(v) ? v[0] : v;
-  const addr = (v) => {
-    const x = first(v);
+  const eine = (x) => {
     if (!x) return null;
     if (typeof x === 'string') return x;
     return x.Email || x.email || x.address || x.Address || null;
   };
+  const addr = (v) => eine(first(v));
+  // Alle Empfänger, nicht nur den ersten (v0.462). Eine ausgehende Mail an
+  // drei Interessenten gehört in drei Akten; mit nur einem Empfänger landete
+  // sie in einer und fehlte in zweien.
+  const alle = (v) => (Array.isArray(v) ? v : [v]).map(eine).filter(Boolean);
   return {
     from: addr(b.From) || addr(b.from) || addr(b.sender) || b['from'] || null,
     to: addr(b.To) || addr(b.to) || addr(b.recipient) || b['recipients'] || null,
+    empfaenger: [
+      ...alle(b.To ?? b.to ?? b.recipient ?? b.recipients),
+      ...alle(b.Cc ?? b.cc),
+    ],
     subject: b.Subject || b.subject || '',
     body: b.TextBody || b.text || b['body-plain'] || b['stripped-text'] || b.RawTextBody || b.html || b.HtmlBody || '',
     messageId: b.MessageID || b['message-id'] || b.messageId || b.uuid || null,
+    inReplyTo: b.InReplyTo || b['in-reply-to'] || b.in_reply_to || null,
+    references: b.References || b.references || null,
     sentAt: b.Date || b.date || b.SentAtDate || null,
   };
 }
@@ -72,7 +82,12 @@ router.post('/email', wrap(async (req, res) => {
   for (const it of raw) {
     const mail = normalize(it || {});
     if (!mail.from) { results.push({ skipped: 'Absender fehlt' }); continue; }
-    results.push(await ingestReply({ ...mail, source: 'webhook' }));
+    // Seit v0.462 entscheidet der Absender über die Richtung: Kommt die Mail
+    // aus dem eigenen Haus (EIGENE_DOMAINS), ist sie ausgehend, und der
+    // Kontakt ergibt sich aus dem Empfänger statt aus dem Absender.
+    results.push(await ingestMail({
+      ...mail, to: mail.empfaenger.length ? mail.empfaenger : mail.to, source: 'webhook',
+    }));
   }
   // Dem Provider immer 200 geben, damit er nicht endlos wiederholt
   res.json({ success: true, data: { processed: results.length, results } });

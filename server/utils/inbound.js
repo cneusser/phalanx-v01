@@ -16,7 +16,17 @@
 //     Erinnerung, nachdem er geantwortet hat
 //   · Wiedervorlage „Antwort beantworten" in zwei Werktagen
 // ─────────────────────────────────────────────────────────────────────────────
-const db = require('../db/database');
+// Die Datenbank wird erst beim ersten Zugriff geholt (v0.462). Dieses Modul
+// enthält reine Funktionen, die ohne Datenbank prüfbar sein sollen: das
+// Erkennen eigener Adressen, das Zerlegen von Antwortbezügen, das Kürzen von
+// Zitaten. Beim Laden eine Verbindung zu verlangen hiesse, dass sich genau
+// diese Teile nur noch mit laufender Datenbank prüfen lassen, und dann werden
+// sie irgendwann gar nicht mehr geprüft.
+let _db = null;
+const db = new Proxy({}, { get: (_, feld) => {
+  if (!_db) _db = require('../db/database');
+  return _db[feld];
+} });
 
 const REPLY_DUE_DAYS = 2;
 
@@ -86,7 +96,8 @@ function urspruenglicherAbsender(text) {
 }
 
 // Kernlogik: von Webhook UND manueller Erfassung genutzt
-async function ingestReply({ from, to, subject, body, messageId, sentAt, source = 'webhook', contactId = null, projectId = null, actorId = null }) {
+async function ingestReply({ from, to, subject, body, messageId, inReplyTo = null, references = null,
+  sentAt, source = 'webhook', contactId = null, projectId = null, actorId = null }) {
   const fromAddr = parseAddress(from);
   let contact = contactId
     ? await db.get('SELECT * FROM crm_contacts WHERE id = ?', [contactId]).catch(() => null)
@@ -109,20 +120,32 @@ async function ingestReply({ from, to, subject, body, messageId, sentAt, source 
     return { matched: false, reason: 'Kein Kontakt zu dieser Absenderadresse' };
   }
 
+  // Das Mandat ergibt sich seit v0.462 zuerst aus dem Antwortbezug, erst
+  // danach aus dem Betreff. Betreffzeilen werden gekürzt, übersetzt und mit
+  // „Aw:" versehen; nach dem dritten Hin und Her stimmen sie nicht mehr.
   const project = projectId
     ? await db.get('SELECT id, codename FROM projects WHERE id = ?', [projectId]).catch(() => null)
-    : await matchProject(subject);
+    : (await mandatFinden({ contact, subject, inReplyTo, references })).projekt;
+  const bezug = bezugsIds(inReplyTo, references);
 
   const msgId = await db.insert(`
-    INSERT INTO crm_messages (tenant_id, contact_id, project_id, direction, from_email, to_email, subject, body, message_id, source, created_by, sent_at)
-    VALUES (?, ?, ?, 'in', ?, ?, ?, ?, ?, ?, ?, ?)`,
+    INSERT INTO crm_messages (tenant_id, contact_id, project_id, direction, from_email, to_email, subject, body, message_id, in_reply_to, thread_key, source, created_by, sent_at)
+    VALUES (?, ?, ?, 'in', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT DO NOTHING`,
     [contact.tenant_id || 1, contact.id, project?.id || null,
      // Als Absender steht der Kunde, nicht der Weiterleitende. Sonst sähe die
      // Historie aus, als hätte das eigene Haus geschrieben.
      weitergeleitetVon ? (contact.email || fromAddr) : (fromAddr || String(from || '').slice(0, 200)),
      parseAddress(to) || null, String(subject || '').slice(0, 300),
      (weitergeleitetVon ? `[weitergeleitet über ${weitergeleitetVon}]\n` : '') + cleanBody(body),
-     messageId || null, source, actorId, sentAt ? new Date(sentAt) : new Date()]);
+     messageId || null, inReplyTo || null, bezug[0] || messageId || null,
+     source, actorId, sentAt ? new Date(sentAt) : new Date()]);
+
+  // Dieselbe Mail ein zweites Mal: Der eindeutige Index hat sie abgewiesen.
+  // Dann ist nichts zu tun, und vor allem keine zweite Wiedervorlage.
+  if (!msgId) {
+    return { matched: true, doppelt: true, contact: { id: contact.id }, project: project || null };
+  }
 
   // Der Kontakt hat geantwortet → Funnel und Reminder nachziehen
   if (project?.id) {
@@ -165,4 +188,148 @@ async function ingestReply({ from, to, subject, body, messageId, sentAt, source 
   };
 }
 
-module.exports = { parseAddress, cleanBody, matchProject, matchContact, ingestReply, urspruenglicherAbsender, REPLY_DUE_DAYS };
+// ─────────────────────────────────────────────────────────────────────────────
+// Die ausgehende Seite (v0.462)
+//
+// Bis hierher kannte die Historie nur eingehende Mails. Das ergibt eine halbe
+// Akte: Man sieht, was der Interessent wollte, und nicht, was ihm zugesagt
+// wurde. Bei mehreren Beratern an einem Mandat ist das der Punkt, an dem zwei
+// Leute dasselbe zweimal beantworten, und zwar verschieden.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Gehört diese Adresse dem eigenen Haus?
+ *
+ * Die Liste steht in der Umgebungskonfiguration (EIGENE_DOMAINS), nicht im
+ * Quelltext. Wer eine Domain ergänzt, soll nicht veröffentlichen müssen.
+ * Ohne gesetzte Variable gilt keine Adresse als eigene, und dann bleibt alles
+ * eingehend wie bisher: Eine fehlende Einstellung darf die Richtung nicht
+ * raten.
+ */
+function eigeneDomains() {
+  return String(process.env.EIGENE_DOMAINS || '')
+    .split(',').map((d) => d.trim().toLowerCase().replace(/^@/, '')).filter(Boolean);
+}
+function istEigeneAdresse(adresse) {
+  const a = parseAddress(adresse);
+  if (!a) return false;
+  const domain = a.split('@')[1];
+  return eigeneDomains().some((d) => domain === d || domain.endsWith(`.${d}`));
+}
+
+/** Message-Ids aus einem References-Kopf, in der Reihenfolge des Kopfes. */
+function bezugsIds(inReplyTo, references) {
+  const roh = `${inReplyTo || ''} ${references || ''}`;
+  return [...new Set((roh.match(/<[^>\s]+>/g) || []).map((s) => s.trim()))];
+}
+
+/**
+ * Das Mandat zu einer Mail bestimmen.
+ *
+ * Reihenfolge, und sie ist der Kern dieser Datei:
+ *   1. Antwortbezug. Die einzige belastbare Angabe.
+ *   2. Codename im Betreff.
+ *   3. Genau ein laufendes Mandat dieses Kontakts.
+ *   4. Keines.
+ *
+ * Punkt 4 ist kein Versagen, sondern eine Entscheidung. Eine geratene
+ * Zuordnung wandert in die Mandatsakte und wird dort geglaubt; eine fehlende
+ * fällt auf und wird nachgetragen.
+ */
+async function mandatFinden({ contact, subject, inReplyTo, references }) {
+  const ids = bezugsIds(inReplyTo, references);
+  if (ids.length) {
+    const treffer = await db.get(
+      `SELECT project_id FROM crm_messages
+        WHERE project_id IS NOT NULL AND (message_id = ANY(?) OR thread_key = ANY(?))
+        ORDER BY id DESC LIMIT 1`, [ids, ids]).catch(() => null);
+    if (treffer && treffer.project_id) {
+      const p = await db.get('SELECT id, codename FROM projects WHERE id = ?', [treffer.project_id]).catch(() => null);
+      if (p) return { projekt: p, weg: 'Antwortbezug' };
+    }
+  }
+  const ausBetreff = await matchProject(subject);
+  if (ausBetreff) return { projekt: ausBetreff, weg: 'Codename im Betreff' };
+
+  const laufende = await db.all(
+    `SELECT p.id, p.codename FROM crm_deal_parties dp JOIN projects p ON p.id = dp.project_id
+      WHERE dp.contact_id = ? AND dp.party_status <> 'dropped' AND p.status = 'active'`,
+    [contact.id]).catch(() => []);
+  if (laufende.length === 1) return { projekt: laufende[0], weg: 'einziges laufendes Mandat' };
+  return { projekt: null, weg: laufende.length > 1 ? 'mehrere laufende Mandate, deshalb keines' : 'kein Bezug erkennbar' };
+}
+
+/**
+ * Eine Mail aufnehmen, in beide Richtungen.
+ *
+ * Ausgehend: Der Kontakt ergibt sich aus dem Empfänger, nicht aus dem
+ * Absender. Bei mehreren Empfängern entsteht je bekanntem Kontakt ein
+ * eigener Eintrag. Eine Mail an drei Interessenten gehört in drei Akten; eine
+ * Sammelakte liesse sich später nicht mehr trennen.
+ *
+ * Eingehend: unverändert über ingestReply, samt Funnel, Reminder und
+ * Wiedervorlage. Das soll bei einer ausgehenden Mail gerade nicht passieren,
+ * denn geantwortet hat dabei niemand.
+ */
+async function ingestMail(mail) {
+  const { from, to, subject, body, messageId, inReplyTo, references, sentAt, source = 'webhook', actorId = null } = mail;
+  const empfaenger = (Array.isArray(to) ? to : String(to || '').split(/[;,]/))
+    .map(parseAddress).filter(Boolean);
+
+  if (!istEigeneAdresse(from)) {
+    const r = await ingestReply({ ...mail, to: empfaenger[0] || null });
+    return { richtung: 'in', ergebnisse: [r] };
+  }
+
+  // Ab hier: ausgehend.
+  if (!empfaenger.length) {
+    db.auditLog(null, 'OUTBOUND_UNMATCHED', 'crm_contact', null,
+      `ohne Empfänger · ${String(subject || '').slice(0, 120)}`, null);
+    return { richtung: 'out', ergebnisse: [{ matched: false, reason: 'Kein Empfänger erkennbar' }] };
+  }
+
+  const ergebnisse = [];
+  for (const adresse of empfaenger) {
+    if (istEigeneAdresse(adresse)) continue;            // interne Kopien gehören in keine Akte
+    const contact = await matchContact(adresse);
+    if (!contact) {
+      db.auditLog(null, 'OUTBOUND_UNMATCHED', 'crm_contact', null,
+        `${adresse} · ${String(subject || '').slice(0, 120)}`, null);
+      ergebnisse.push({ matched: false, adresse, reason: 'Kein Kontakt zu dieser Empfängeradresse' });
+      continue;
+    }
+    const { projekt, weg } = await mandatFinden({ contact, subject, inReplyTo, references });
+    const ids = bezugsIds(inReplyTo, references);
+    const eintrag = await db.insert(`
+      INSERT INTO crm_messages (tenant_id, contact_id, project_id, direction, from_email, to_email,
+                                subject, body, message_id, in_reply_to, thread_key, source, created_by, sent_at)
+      VALUES (?, ?, ?, 'out', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT DO NOTHING`,
+      [contact.tenant_id || 1, contact.id, projekt ? projekt.id : null,
+       parseAddress(from), adresse, String(subject || '').slice(0, 300), cleanBody(body),
+       messageId || null, inReplyTo || null, ids[0] || messageId || null,
+       source, actorId, sentAt ? new Date(sentAt) : new Date()]).catch(() => null);
+
+    if (!eintrag) {
+      ergebnisse.push({ matched: true, doppelt: true, adresse, contact_id: contact.id });
+      continue;
+    }
+    // Letzter Kontakt nachziehen. Bewusst NICHT replied und nicht die
+    // Funnel-Stufe: Dass wir geschrieben haben, ist keine Rückmeldung.
+    await db.run(
+      `UPDATE crm_deal_parties SET last_contact = CURRENT_DATE
+        WHERE contact_id = ?${projekt ? ' AND project_id = ?' : ''}`,
+      projekt ? [contact.id, projekt.id] : [contact.id]).catch(() => {});
+
+    db.auditLog(actorId, 'OUTBOUND_MESSAGE', 'crm_contact', contact.id,
+      `${source} · ${projekt ? projekt.codename : 'ohne Mandat'} (${weg}) · ${String(subject || '').slice(0, 100)}`, null);
+    ergebnisse.push({ matched: true, adresse, message_id: eintrag, contact_id: contact.id,
+      project: projekt || null, zuordnung: weg });
+  }
+  return { richtung: 'out', ergebnisse };
+}
+
+module.exports = {
+  parseAddress, cleanBody, matchProject, matchContact, ingestReply, urspruenglicherAbsender, REPLY_DUE_DAYS,
+  istEigeneAdresse, eigeneDomains, bezugsIds, mandatFinden, ingestMail,
+};
