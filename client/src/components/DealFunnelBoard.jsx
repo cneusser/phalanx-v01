@@ -110,6 +110,37 @@ export default function DealFunnelBoard({ show }) {
     } catch (e) { show('Fehler: ' + e.message); }
   }
 
+  // ── Passende Investoren vorschlagen (v0.463) ──────────────────────────
+  //
+  // Die Auswertung gab es seit v0.439 als Route, aber keinen Weg dorthin.
+  // Verglichen werden die Suchkriterien der Kontakte mit dem Mandat; je
+  // Treffer stehen die Gründe dabei, damit nachvollziehbar bleibt, warum
+  // jemand vorgeschlagen wird. Ohne Gründe wäre es ein Orakel.
+  const [passend, setPassend] = useState(null);
+  const [passendLaeuft, setPassendLaeuft] = useState(false);
+
+  async function suchePassende() {
+    if (!active) return;
+    setPassendLaeuft(true); setPassend(null);
+    try { setPassend(await api.get(`/crm/investoren/passend/${active}`)); }
+    catch (e) { setPassend({ fehler: e.message }); }
+    setPassendLaeuft(false);
+  }
+
+  async function uebernehmen(kontaktId) {
+    try {
+      await api.post(`/crm/deals/${active}/parties`, {
+        contact_id: Number(kontaktId), party_role: 'buyer', funnel_stage: 0,
+      });
+      await loadBoard();
+      show('Zum Mandat hinzugefügt, Stufe 0 (Longlist zur Freigabe) ✓');
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
+
+  // Beim Wechsel des Mandats den alten Vorschlag verwerfen. Sonst stünden
+  // dort Namen, die zu einem anderen Mandat ermittelt wurden.
+  useEffect(() => { setPassend(null); }, [active]);
+
   useEffect(() => {
     api.get('/crm/deals').then(d => {
       setDeals(d.deals); setStages(d.stages);
@@ -396,6 +427,66 @@ export default function DealFunnelBoard({ show }) {
             background: addContact ? C.navy : '#cbd5e1', color: '#fff', border: 'none', borderRadius: 8,
             padding: '0 1rem', fontWeight: 700, fontSize: '0.82rem', cursor: addContact ? 'pointer' : 'default', whiteSpace: 'nowrap',
           }}>+ Hinzufügen</button>
+        </div>
+      )}
+
+      {/* Passende Investoren zum Mandat (v0.463) */}
+      {active && (
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.7rem', marginBottom: '0.8rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+              Passende Investoren
+            </span>
+            <button onClick={suchePassende} disabled={passendLaeuft}
+              style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 7, padding: '0.35rem 0.8rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+              {passendLaeuft ? 'Wird geprüft…' : 'Suchkriterien abgleichen'}
+            </button>
+          </div>
+          <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
+            Vergleicht die hinterlegten Suchkriterien der Kontakte mit diesem Mandat. Es wird nichts
+            versendet; Übernommene landen auf Stufe 0 und warten auf Ihre Freigabe.
+          </div>
+
+          {passend && passend.fehler && (
+            <div style={{ marginTop: '0.6rem', fontSize: '0.78rem', color: '#991b1b' }}>{passend.fehler}</div>
+          )}
+          {passend && !passend.fehler && (
+            <div style={{ marginTop: '0.6rem' }}>
+              <div style={{ fontSize: '0.74rem', color: C.muted, marginBottom: '0.3rem' }}>
+                {passend.treffer.length} von {passend.gepruefte} Kontakten mit Suchkriterien passen.
+                {passend.gepruefte === 0 && ' Es sind noch keine Suchkriterien gepflegt, deshalb gibt es nichts zu vergleichen.'}
+              </div>
+              <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                {passend.treffer.map((k) => {
+                  const schonDabei = (board?.parties || []).some((p) => p.contact_id === k.id);
+                  return (
+                    <div key={k.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', justifyContent: 'space-between', borderTop: `1px solid ${C.border}`, padding: '0.4rem 0' }}>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: '0.84rem', fontWeight: 600, color: C.navy }}>
+                          {[k.first_name, k.last_name].filter(Boolean).join(' ') || k.email}
+                        </span>
+                        {/* Der Einwilligungsstand gehört hierher und nicht in
+                            die Fussnote: Wer nicht angeschrieben werden darf,
+                            soll nicht erst nach dem Übernehmen auffallen. */}
+                        {k.consent_status !== 'opt_in' && (
+                          <span style={{ marginLeft: 6, fontSize: '0.68rem', fontWeight: 700, color: '#92400e', background: '#FFFBEB', border: '1px solid #fcd34d', borderRadius: 20, padding: '1px 7px' }}>
+                            keine Einwilligung
+                          </span>
+                        )}
+                        <span style={{ display: 'block', fontSize: '0.72rem', color: C.muted, marginTop: 2, overflowWrap: 'anywhere' }}>
+                          {k.gruende.join(' · ')}
+                        </span>
+                      </span>
+                      <button onClick={() => uebernehmen(k.id)} disabled={schonDabei}
+                        style={{ flexShrink: 0, background: '#fff', color: schonDabei ? C.muted : C.navy, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.3rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: schonDabei ? 'default' : 'pointer' }}>
+                        {schonDabei ? 'schon dabei' : 'Auf die Longlist'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -142,12 +142,23 @@ router.post('/companies', ...isStaff, canWrite, wrap(async (req, res) => {
     }
   }
 
+  // Anschrift in getrennten Feldern (v0.463). Wird geprüft, bevor irgendetwas
+  // angelegt wird: Eine Firma mit halb falscher Adresse anzulegen und den
+  // Fehler erst danach zu melden, wäre die unangenehmere Reihenfolge.
+  const adressfelder = require('../utils/adressfelder');
+  const adresse = adressfelder.eingangPruefen(req.body);
+  if (adresse.fehler && adresse.fehler.length) {
+    return res.status(400).json({ success: false, error: adresse.fehler.join(' ') });
+  }
+
   const id = await scoped(req, (t) => t.insert(`
     INSERT INTO crm_companies (tenant_id, name, name_normalized, street, postal_code, city, country, website,
       industry, region, revenue_band, employees, company_type, buyer_category, investment_criteria,
       description, notes, tags_json, parent_company_id, relation_to_parent, created_by,
-      sektor, schwerpunkt, rollen_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sektor, schwerpunkt, rollen_json,
+      strasse, hausnummer, adresszusatz, plz, ort, land, adresse_quelle, adresse_am)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?, ?, now())`,
     [req.tenantId || 1, name, normalizeName(name),
      req.body.street || null, req.body.postal_code || null, req.body.city || null, req.body.country || null,
      req.body.website || null, req.body.industry || null, req.body.region || null, req.body.revenue_band || null,
@@ -155,7 +166,9 @@ router.post('/companies', ...isStaff, canWrite, wrap(async (req, res) => {
      req.body.buyer_category || null, req.body.investment_criteria || null, req.body.description || null,
      req.body.notes || null, JSON.stringify(req.body.tags || []),
      req.body.parent_company_id || null, req.body.relation_to_parent || null, req.user.id,
-     sektor, String(req.body.schwerpunkt || '').trim() || null, JSON.stringify(rollen)]));
+     sektor, String(req.body.schwerpunkt || '').trim() || null, JSON.stringify(rollen),
+     adresse.felder.strasse || null, adresse.felder.hausnummer || null, adresse.felder.adresszusatz || null,
+     adresse.felder.plz || null, adresse.felder.ort || null, adresse.felder.land || 'DE', 'manuell']));
 
   db.auditLog(req.user.id, 'CRM_COMPANY_CREATED', 'crm_company', id, name, req.ip);
   res.status(201).json({ success: true, data: { id } });
@@ -244,6 +257,28 @@ router.put('/companies/:id', ...isStaff, canWrite, wrap(async (req, res) => {
       sets.push(`${f} = ?`);
       params.push(f === 'employees' ? (req.body[f] ? Number(req.body[f]) : null) : (req.body[f] || null));
     }
+  }
+
+  // ── Anschrift in getrennten Feldern (v0.463) ────────────────────────────
+  //
+  // Die Prüfung liegt in utils/adressfelder, damit Oberfläche und
+  // Schnittstelle dieselbe benutzen. Von Hand gepflegte Angaben werden als
+  // solche gekennzeichnet: Eine maschinelle Zerlegung darf sie später nicht
+  // überschreiben, denn ein Mensch hat hier hingesehen.
+  const adressfelder = require('../utils/adressfelder');
+  if (['strasse', 'hausnummer', 'adresszusatz', 'plz', 'ort', 'land'].some((f) => req.body[f] !== undefined)) {
+    const geprueft = adressfelder.eingangPruefen(req.body);
+    if (geprueft.fehler && geprueft.fehler.length) {
+      return res.status(400).json({ success: false, error: geprueft.fehler.join(' ') });
+    }
+    for (const [name, wert] of Object.entries(geprueft.felder)) { sets.push(`${name} = ?`); params.push(wert); }
+    // Geleerte Felder gehören auch gespeichert, sonst lässt sich eine falsche
+    // Hausnummer nie wieder loswerden.
+    for (const f of ['strasse', 'hausnummer', 'adresszusatz', 'plz', 'ort']) {
+      if (req.body[f] !== undefined && !geprueft.felder[f]) { sets.push(`${f} = ?`); params.push(null); }
+    }
+    sets.push('adresse_quelle = ?'); params.push('manuell');
+    sets.push('adresse_am = now()');
   }
   if (req.body.name !== undefined) { sets.push('name_normalized = ?'); params.push(normalizeName(req.body.name)); }
   if (req.body.tags !== undefined) { sets.push('tags_json = ?'); params.push(JSON.stringify(req.body.tags || [])); }

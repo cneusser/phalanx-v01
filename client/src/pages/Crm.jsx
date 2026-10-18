@@ -1203,7 +1203,13 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
         {/* Kontaktdaten des Unternehmens */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.8rem 1rem', margin: '0.75rem 0' }}>
           {[
-            ['Anschrift', [company.street, [company.postal_code, company.city].filter(Boolean).join(' '), company.country].filter(Boolean).join(', ')],
+            // v0.463: Zuerst die getrennten Felder, erst danach der
+            // Altbestand. Gerechnet, nicht gespeichert.
+            ['Anschrift',
+              [[company.strasse, company.hausnummer].filter(Boolean).join(' '), company.adresszusatz,
+                [company.plz, company.ort].filter(Boolean).join(' '),
+                (company.land && company.land !== 'DE') ? company.land : null].filter(Boolean).join(', ')
+              || [company.street, [company.postal_code, company.city].filter(Boolean).join(' '), company.country].filter(Boolean).join(', ')],
             ['Website', company.website],
             ['Umsatz', company.revenue_band],
             ['Mitarbeiter', company.employees],
@@ -1372,6 +1378,10 @@ function CompanyForm({ company, companies, onClose, onSaved }) {
   const isNew = !company.id;
   const [f, setF] = useState({
     name: '', street: '', postal_code: '', city: '', country: '', website: '', industry: '', region: '',
+    // Anschrift in getrennten Feldern (v0.463). Die vier alten Felder bleiben
+    // im Formularzustand, damit der Altbestand sichtbar ist, werden aber nicht
+    // mehr bearbeitet.
+    strasse: '', hausnummer: '', adresszusatz: '', plz: '', ort: '', land: 'DE',
     revenue_band: '', employees: '', company_type: '', buyer_category: '', investment_criteria: '',
     description: '', notes: '', parent_company_id: '', relation_to_parent: '',
     sektor: '', schwerpunkt: '', ...company,
@@ -1465,15 +1475,51 @@ function CompanyForm({ company, companies, onClose, onSaved }) {
         <div><label style={LABEL}>Umsatz</label><input value={f.revenue_band || ''} onChange={set('revenue_band')} placeholder="z. B. € 10–20 Mio." style={INPUT} /></div>
         <div><label style={LABEL}>Mitarbeiter</label><input type="number" value={f.employees || ''} onChange={set('employees')} style={INPUT} /></div>
         <div><label style={LABEL}>Website</label><input value={f.website || ''} onChange={set('website')} style={INPUT} /></div>
-        <div><label style={LABEL}>Straße</label><input value={f.street || ''} onChange={set('street')} style={INPUT} /></div>
-        <div><label style={LABEL}>PLZ</label><input value={f.postal_code || ''} onChange={set('postal_code')} style={INPUT} /></div>
-        <div><label style={LABEL}>Ort</label><input value={f.city || ''} onChange={set('city')} style={INPUT} /></div>
+        {/* ── Anschrift nach deutschem Standard (v0.463) ──────────────────
+            Straße und Hausnummer getrennt, weil man sonst weder nach Straßen
+            sortieren noch eine Hausnummer berichtigen noch eine Anschrift mit
+            einem anderen System vergleichen kann.
+
+            Das Land ist zweistellig nach ISO 3166-1. „Deutschland",
+            „Germany" und „GER" meinen dasselbe und lassen sich nicht
+            vergleichen, „DE" schon.
+
+            Die alten Felder street, postal_code, city und country bleiben im
+            Bestand und werden hier nicht mehr gepflegt. Sie sind die Quelle
+            der Zerlegung und der Rückweg, falls eine Zerlegung schiefgeht. */}
+        <div style={{ gridColumn: '1 / -1', borderTop: `1px solid ${C.border}`, paddingTop: '0.6rem', marginTop: '0.2rem' }}>
+          <div style={{ ...LABEL, marginBottom: 0 }}>Anschrift</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '0.5rem', gridColumn: '1 / -1' }}>
+          <div><label style={LABEL}>Straße</label><input value={f.strasse || ''} onChange={set('strasse')} style={INPUT} /></div>
+          <div><label style={LABEL}>Hausnummer</label>
+            <input value={f.hausnummer || ''} onChange={set('hausnummer')} placeholder="28a" title="Auch 28a, 12 bis 14 oder 5/7" style={INPUT} />
+          </div>
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}><label style={LABEL}>Adresszusatz</label>
+          <input value={f.adresszusatz || ''} onChange={set('adresszusatz')} placeholder="Gebäude, Stockwerk, Postfach" style={INPUT} />
+        </div>
+        <div><label style={LABEL}>PLZ</label><input value={f.plz || ''} onChange={set('plz')} style={INPUT} /></div>
+        <div><label style={LABEL}>Ort</label><input value={f.ort || ''} onChange={set('ort')} style={INPUT} /></div>
         <div><label style={LABEL}>Land</label>
-          <select value={f.country || ''} onChange={set('country')} style={INPUT}>
-            <option value="">k. A.</option>
-            {(vok.laender || []).map(l => <option key={l} value={l}>{l}</option>)}
-            {f.country && !(vok.laender || []).includes(f.country) && <option value={f.country}>{f.country}</option>}
+          <select value={f.land || 'DE'} onChange={set('land')} style={INPUT}>
+            {(vok.laender || ['DE', 'AT', 'CH']).map(l => <option key={l} value={l}>{l}</option>)}
+            {f.land && !(vok.laender || []).includes(f.land) && <option value={f.land}>{f.land}</option>}
           </select>
+        </div>
+        {/* Die Anzeigezeile wird gerechnet, nie gespeichert. Eine gespeicherte
+            Anzeigezeile ist eine zweite Wahrheit: Sie veraltet, sobald jemand
+            ein Feld ändert, und niemand bemerkt es. */}
+        <div style={{ gridColumn: '1 / -1', fontSize: '0.76rem', color: C.muted, lineHeight: 1.5 }}>
+          {[[f.strasse, f.hausnummer].filter(Boolean).join(' '), f.adresszusatz,
+            [f.plz, f.ort].filter(Boolean).join(' '), (f.land && f.land !== 'DE') ? f.land : null]
+            .filter(Boolean).join(', ') || 'Noch keine Anschrift erfasst.'}
+          {!f.strasse && f.street && (
+            <span style={{ display: 'block', color: '#92400e', marginTop: 3 }}>
+              Im Altbestand steht „{f.street}{f.postal_code ? `, ${f.postal_code}` : ''}{f.city ? ` ${f.city}` : ''}".
+              Bitte oben in die getrennten Felder übernehmen; das alte Feld bleibt als Nachweis erhalten.
+            </span>
+          )}
         </div>
         <div><label style={LABEL}>Muttergesellschaft</label>
           <select value={f.parent_company_id || ''} onChange={set('parent_company_id')} style={INPUT}>

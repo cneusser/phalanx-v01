@@ -40,14 +40,41 @@ exports.up = async function (knex) {
   // Vor dem eindeutigen Index aufräumen: Was schon doppelt drinsteht, würde
   // ihn sonst scheitern lassen. Gelöscht wird nur die jüngere Dublette, und
   // nur bei gleicher message_id, gleichem Kontakt und gleichem Mandanten.
+  //
+  // Bewusst ohne catch: Wenn dieses Aufräumen scheitert, soll man es sehen.
   await knex.raw(`
     DELETE FROM crm_messages a USING crm_messages b
      WHERE a.id > b.id
        AND a.message_id IS NOT NULL AND a.message_id <> ''
        AND a.message_id = b.message_id
        AND a.contact_id = b.contact_id
-       AND a.tenant_id = b.tenant_id`).catch(() => {});
+       AND a.tenant_id = b.tenant_id`);
 
+  // ── Warum der Index scheitern darf und der Start trotzdem nicht ──────────
+  //
+  // Die Wanderungsschritte laufen beim Hochfahren, und ein Fehler darin
+  // verhindert den Start der gesamten Plattform. Ein eindeutiger Index auf
+  // Bestandsdaten ist genau die Art Schritt, die das auslösen kann: Bleibt
+  // wider Erwarten eine Dublette übrig, bricht er ab, und niemand kommt mehr
+  // auf die Seite.
+  //
+  // Das wäre die falsche Abwägung. Ohne den Index kann dieselbe Mail
+  // zweimal in einer Akte stehen, und das ist ärgerlich und sichtbar und
+  // nachträglich zu beheben. Eine Plattform, die nicht hochfährt, ist keines
+  // davon. Deshalb wird vorher gezählt, und bei einem Rest wird der Index
+  // ausgelassen und laut gemeldet statt erzwungen.
+  const rest = await knex.raw(`
+    SELECT COUNT(*)::int AS n FROM (
+      SELECT 1 FROM crm_messages
+       WHERE message_id IS NOT NULL AND message_id <> ''
+       GROUP BY tenant_id, contact_id, message_id HAVING COUNT(*) > 1) s`);
+  const uebrig = Number((rest.rows && rest.rows[0] && rest.rows[0].n) || 0);
+  if (uebrig > 0) {
+    console.warn(`⚠️  crm_messages: ${uebrig} Gruppen mit gleicher message_id bestehen weiter. `
+      + 'Der eindeutige Index wird deshalb nicht angelegt. Folge: Dieselbe Mail kann zweimal '
+      + 'in einer Akte stehen. Bitte die Dubletten bereinigen und die Wanderung erneut laufen lassen.');
+    return;
+  }
   await knex.raw(`
     CREATE UNIQUE INDEX IF NOT EXISTS crm_messages_msgid_idx
       ON crm_messages (tenant_id, contact_id, message_id)
