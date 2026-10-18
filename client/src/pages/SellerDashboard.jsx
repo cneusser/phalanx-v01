@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { Plus, Building2, Clock, CheckCircle, X, Users, MessageSquare, Bell } from 'lucide-react';
 import CapitalMatchLogo from '../components/CapitalMatchLogo';
+import { begruessung, naechsterSchritt } from '../utils/begruessung';
 import GroupedSelect from '../components/GroupedSelect';
 import SellerFunnel from '../components/SellerFunnel';
 import ListingWizard from '../components/ListingWizard';
@@ -148,11 +149,14 @@ export default function SellerDashboard() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
+          {/* Begrüßung wie im Käuferbereich (v0.464). „Verkäufer-Dashboard"
+              war eine Überschrift für den Bauplan, nicht für den Menschen,
+              der sein Unternehmen verkauft. */}
           <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.navy, marginBottom: '0.3rem' }}>
-            Verkäufer-Dashboard
+            {begruessung(user)}
           </h1>
           <p style={{ color: C.gray, fontSize: '0.875rem' }}>
-            Verwalten Sie Ihre Unternehmenspräsentationen auf CapitalMatch
+            {naechsterSchritt({ rolle: 'seller', deals: (myProjects || []).length })}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

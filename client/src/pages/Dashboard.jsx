@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n';
+import { begruessung, naechsterSchritt } from '../utils/begruessung';
 import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User, Award, Lock, FileCheck, Database, MessageSquare, ArrowRight, Target, Users, ClipboardList } from 'lucide-react';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB', lightBg: '#EDF4FA', gray: '#5d6670' };
@@ -179,7 +180,7 @@ export default function Dashboard() {
     return (
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
         <div style={{ marginBottom: '1.5rem' }}>
-          <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.navy }}>Willkommen, {user?.first_name}</h1>
+          <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.navy }}>{begruessung(user)}</h1>
           <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>{t('db.bereich_nachfolge', 'Ihr persönlicher Nachfolge-Bereich')}</p>
         </div>
 
@@ -282,10 +283,19 @@ export default function Dashboard() {
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
-      {/* Welcome */}
+      {/* Begrüßung (v0.464): Anrede und Nachname statt Vorname, dazu genau
+          ein nächster Schritt. Wer drei gleichwertige Vorschläge sieht, macht
+          keinen davon. */}
       <div style={{ marginBottom: '1.25rem' }}>
-        <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.navy }}>Willkommen, {user?.first_name}</h1>
-        <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>{t('db.bereich_ma', 'Ihr persönlicher M&A-Bereich')}</p>
+        <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.navy }}>{begruessung(user)}</h1>
+        <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.25rem' }}>
+          {naechsterSchritt({
+            rolle: 'buyer',
+            deals: (myDeals || []).length,
+            ndaGezeichnet: !platformNda || !!platformNda.signed_at,
+            profilGepflegt: !!(succProfile && succProfile.id),
+          })}
+        </p>
       </div>
 
       {/* So funktioniert's: jederzeit sichtbare Schritt-für-Schritt-Anleitung */}

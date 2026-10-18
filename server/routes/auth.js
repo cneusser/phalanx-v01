@@ -48,8 +48,22 @@ router.post('/register', wrap(async (req, res) => {
   if (!privacy_consent)
     return res.status(400).json({ success: false, error: 'Bitte stimmen Sie der Datenschutzerklärung zu (Speicherung und projektbezogene Nutzung Ihrer Daten)' });
 
+  // ── Keine stille Vorgabe auf „Käufer" (v0.464) ──────────────────────────
+  //
+  // Hier stand: fehlt die Rolle oder ist sie unbekannt, wird daraus „buyer".
+  // Das ist die folgenreichste Angabe der ganzen Anmeldung, und sie wurde
+  // stillschweigend geraten. Ein Verkäufer landete dadurch im Käuferbereich,
+  // sah Marktplatz und Vertraulichkeitsvereinbarung statt seines eigenen
+  // Unternehmens, und niemandem fiel es auf, bis er sich meldete.
+  //
+  // Lieber eine abgewiesene Anmeldung als ein Konto mit der falschen Rolle:
+  // Die eine kostet einen Klick, die andere kostet Vertrauen.
   const validRoles = ['buyer', 'seller'];
-  const userRole = validRoles.includes(role) ? role : 'buyer';
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ success: false,
+      error: 'Bitte wählen Sie zuerst, ob Sie ein Unternehmen suchen oder Ihr Unternehmen verkaufen möchten.' });
+  }
+  const userRole = role;
 
   // Sprint 5 (RLS): Registrierung läuft im Kontext des über die Subdomain
   // aufgelösten Tenants (Default: 1)

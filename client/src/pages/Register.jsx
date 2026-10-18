@@ -40,7 +40,12 @@ const Field = ({ label, type = 'text', value, onChange, placeholder, required, c
 export default function Register() {
   const t = useT();
   const { register } = useAuth();
-  const [roleType, setRoleType] = useState('buyer'); // 'buyer' or 'seller'
+  // Bewusst nichts vorausgewählt (v0.464). Vorher stand hier 'buyer', und wer
+  // die Umschaltung übersah, war Käufer. Ein Verkäufer landete so im
+  // Käuferbereich und sah Marktplatz und Vertraulichkeitsvereinbarung statt
+  // seines eigenen Unternehmens. Die folgenreichste Angabe der Anmeldung darf
+  // nicht die sein, die man versehentlich stehen lässt.
+  const [roleType, setRoleType] = useState('');   // '' | 'buyer' | 'seller'
   const [params] = useSearchParams();
   // Herkunft der Registrierung (z. B. ?src=linkedin), fürs Tracking.
   const signupSource = (params.get('src') || params.get('utm_source') || 'direct').toLowerCase();
@@ -62,6 +67,10 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!roleType) {
+      return setError(t('reg.pick_role',
+        'Bitte wählen Sie oben, ob Sie ein Unternehmen suchen oder Ihr Unternehmen verkaufen möchten.'));
+    }
     if (!agreed) return setError(t('reg.accept_privacy', 'Bitte akzeptieren Sie die Datenschutzhinweise.'));
     setLoading(true);
     setError('');
@@ -115,36 +124,51 @@ export default function Register() {
           <p style={{ color: C.gray, fontSize: '0.8rem' }}>{t('reg.title', 'Kostenlose Registrierung: Zugang zu exklusiven Mandaten')}</p>
         </div>
 
-        {/* Role Toggle */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', background: C.xLight, padding: '0.4rem', borderRadius: 10, border: `1px solid ${C.border}` }}>
-          {[
-            ['buyer', <><Search size={14} /> {t('reg.role_buyer', 'Ich suche (Käufer)')}</>],
-            ['seller', <><Building2 size={14} /> {t('reg.role_seller', 'Ich verkaufe (Verkäufer)')}</>],
-          ].map(([val, label]) => (
-            <button
-              key={val}
-              type="button"
-              onClick={() => setRoleType(val)}
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.4rem',
-                padding: '0.6rem 0.5rem',
-                borderRadius: 7,
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 700,
-                fontSize: '0.82rem',
-                background: roleType === val ? C.navy : 'transparent',
-                color: roleType === val ? '#fff' : C.gray,
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {label}
-            </button>
-          ))}
+        {/* ── Die Rollenwahl (v0.464) ───────────────────────────────────────
+            Vorher zwei Schalter nebeneinander, einer davon vorausgewählt. Das
+            sah aus wie ein Filter über einer Liste und nicht wie die
+            Entscheidung, die es ist. Jetzt zwei Karten, keine vorausgewählt,
+            und je ein Satz dazu, was danach passiert. Wer sich hier
+            vergreift, sieht wochenlang die falsche Plattform. */}
+        <div style={{ marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '0.84rem', fontWeight: 700, color: C.navy, marginBottom: '0.5rem' }}>
+            {t('reg.role_question', 'Was führt Sie zu CapitalMatch?')}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            {[
+              ['buyer', <Search size={16} key="i" />,
+                t('reg.role_buyer', 'Ich suche ein Unternehmen'),
+                t('reg.role_buyer_hint', 'Sie sehen anonyme Kurzprofile, zeichnen bei Interesse die Vertraulichkeitsvereinbarung und erhalten dann Unterlagen und Datenraum.')],
+              ['seller', <Building2 size={16} key="i" />,
+                t('reg.role_seller', 'Ich verkaufe mein Unternehmen'),
+                t('reg.role_seller_hint', 'Sie reichen Ihr Unternehmen ein, wir prüfen und begleiten den Prozess, und Sie sehen den Stand jedes Interessenten.')],
+            ].map(([val, icon, titel, hinweis]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => { setRoleType(val); setError(''); }}
+                style={{
+                  textAlign: 'left',
+                  padding: '0.8rem 0.9rem',
+                  borderRadius: 10,
+                  border: `2px solid ${roleType === val ? C.navy : C.border}`,
+                  background: roleType === val ? `${C.navy}0d` : '#fff',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.86rem', color: C.navy }}>
+                  {icon} {titel}
+                </span>
+                <span style={{ display: 'block', fontSize: '0.76rem', color: C.gray, lineHeight: 1.45, marginTop: 4 }}>
+                  {hinweis}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: '0.74rem', color: C.gray, marginTop: 6 }}>
+            {t('reg.role_changeable', 'Falls Sie sich hier vergreifen: Wir können das später ändern, sagen Sie uns einfach Bescheid.')}
+          </div>
         </div>
 
         {error && (
@@ -153,7 +177,16 @@ export default function Register() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        {/* Erst die Entscheidung, dann das Formular. Ein Formular, dessen
+            Felder sich je nach Rolle ändern, verwirrt, solange die Rolle noch
+            offen ist. */}
+        {!roleType && (
+          <div style={{ textAlign: 'center', color: C.gray, fontSize: '0.84rem', padding: '1.5rem 0.5rem', lineHeight: 1.6 }}>
+            {t('reg.pick_first', 'Bitte wählen Sie zuerst oben aus. Danach fragen wir nur das ab, was für Ihren Weg nötig ist.')}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: roleType ? 'block' : 'none' }}>
           {/* Anrede (Pflicht) + Titel */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 1rem' }}>
             <div style={{ marginBottom: '0.9rem' }}>

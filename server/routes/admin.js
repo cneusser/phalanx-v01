@@ -1617,8 +1617,46 @@ router.put('/users/:id/role', ...isAdmin, canManageUsers, wrap(async (req, res) 
     return res.status(403).json({ success: false, error: 'Nur ein Administrator kann Administratorrechte vergeben.' });
   }
   await db.run('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
-  db.auditLog(req.user.id, 'USER_ROLE_CHANGED', 'user', req.params.id, `${target.email}: ${target.role} → ${role}`, req.ip);
-  res.json({ success: true, data: { message: 'Rolle geändert' } });
+
+  // ── Was vom alten Leben übrig bleibt (v0.464) ───────────────────────────
+  //
+  // Anlass: Ein Verkäufer war versehentlich als Käufer angelegt. Die Rolle
+  // umzustellen genügt nicht, denn am Konto hängen Dinge, die nur für Käufer
+  // einen Sinn haben: Käufertyp, Suchprofil, Interessentenakten.
+  //
+  // Gelöscht wird davon nur, was ohne Rolle sinnlos UND inhaltsleer ist. Der
+  // Käufertyp fällt weg, weil ein Verkäufer keinen hat und er sonst in jeder
+  // Liste falsch mitläuft. Das Suchprofil und die Interessentenakten bleiben
+  // stehen und werden gemeldet: Dahinter stecken Angaben und Vorgänge, und
+  // was ein Mensch eingetragen hat, löscht keine Rollenumstellung nebenbei.
+  const reste = [];
+  if (role === 'seller' && target.role === 'buyer') {
+    await db.run('UPDATE users SET buyer_type = NULL, succession_type = NULL WHERE id = ?', [req.params.id]);
+    reste.push('Käufertyp und Nachfolge-Kennzeichen wurden entfernt, sie gelten nur für Käufer.');
+
+    const profil = await db.get('SELECT industries, regions, deal_types FROM buyer_profiles WHERE user_id = ?',
+      [req.params.id]).catch(() => null);
+    const leer = (v) => !v || v === '[]' || v === '';
+    if (profil && !(leer(profil.industries) && leer(profil.regions) && leer(profil.deal_types))) {
+      reste.push('Es besteht ein ausgefülltes Suchprofil. Es bleibt erhalten und wird nicht mehr angezeigt; '
+        + 'bitte prüfen, ob es gelöscht werden soll.');
+    }
+    const akten = await db.all(
+      `SELECT p.codename, i.stage FROM interests i JOIN projects p ON p.id = i.project_id WHERE i.buyer_id = ?`,
+      [req.params.id]).catch(() => []);
+    if (akten.length) {
+      reste.push(`Diese Person ist bei ${akten.length} Mandat(en) als Interessent geführt `
+        + `(${akten.map((a) => `${a.codename}: ${a.stage}`).join(', ')}). Das bleibt bestehen und gibt weiterhin `
+        + 'Zugang. Bitte einzeln prüfen und gegebenenfalls den Zugang entziehen.');
+    }
+  }
+
+  db.auditLog(req.user.id, 'USER_ROLE_CHANGED', 'user', req.params.id,
+    `${target.email}: ${target.role} → ${role}${reste.length ? ` · ${reste.length} Hinweis(e)` : ''}`, req.ip);
+  res.json({ success: true, data: {
+    message: `Rolle geändert: ${target.role} → ${role}`,
+    hinweise: reste,
+  } });
 }));
 
 // ── Mail-Ausgangsbuch: was ging wann an wen raus? ─────────────────────────
