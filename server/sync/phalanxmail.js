@@ -186,6 +186,57 @@ const zumMandat = (nummer, opt) =>
 const zumKontakt = (poolContactId, opt) =>
   liste(`/api/pool/v1/contacts/${encodeURIComponent(poolContactId)}/korrespondenz`, opt);
 
+/**
+ * Ein einzelner Abruf zur Prüfung der Anbindung (v0.461).
+ *
+ * Gefragt ist nach Statuscode und Feldnamen, nicht nach Inhalten. Deshalb
+ * liefert diese Funktion genau das: HTTP-Status und die Schlüssel der Antwort.
+ * Betreff und Text tauchen hier nicht auf, nicht einmal gekürzt. Eine
+ * Prüfmeldung landet in Protokollen und Bildschirmfotos; Korrespondenz aus
+ * einem laufenden Verkaufsprozess hat dort nichts zu suchen.
+ *
+ * Am Zwischenspeicher vorbei, sonst prüft man den Speicher statt die Leitung.
+ */
+async function probe(pfad) {
+  const begonnen = Date.now();
+  if (!istKonfiguriert()) {
+    return { pfad, ok: false, status: null, fehler: 'Die Anbindung ist nicht konfiguriert.' };
+  }
+  const url = `${config().baseUrl}${pfad}?limit=1&offset=0`;
+  let res;
+  try {
+    res = await holen(url, { headers: { Authorization: `Bearer ${await token()}`, Accept: 'application/json' } });
+  } catch (e) {
+    return { pfad, ok: false, status: null, dauer_ms: Date.now() - begonnen,
+      fehler: e.name === 'AbortError' ? 'Keine Antwort innerhalb der Wartezeit.' : String(e.message || e) };
+  }
+  const ergebnis = { pfad, ok: res.ok, status: res.status, dauer_ms: Date.now() - begonnen };
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    ergebnis.fehler = txt.slice(0, 200);
+    return ergebnis;
+  }
+  let daten;
+  try { daten = await res.json(); }
+  catch (e) { ergebnis.ok = false; ergebnis.fehler = 'Antwort ist kein JSON.'; return ergebnis; }
+
+  ergebnis.felder_aussen = Object.keys(daten || {});
+  ergebnis.total = Number(daten && daten.total) || 0;
+  const erster = Array.isArray(daten && daten.items) ? daten.items[0] : null;
+  ergebnis.eintraege = Array.isArray(daten && daten.items) ? daten.items.length : 0;
+  if (erster) {
+    ergebnis.felder_eintrag = Object.keys(erster);
+    // Welche der erwarteten Felder fehlen? Das ist die eigentliche Auskunft:
+    // Wo die Gegenstelle anders heisst, zeigt die Ansicht nachher Lücken.
+    const erwartet = ['id', 'richtung', 'wann', 'betreff', 'text', 'von', 'an', 'kontakt_id', 'mandat_nummer', 'anhaenge'];
+    ergebnis.fehlende_felder = erwartet.filter((f) => !(f in erster));
+    ergebnis.unbekannte_felder = ergebnis.felder_eintrag.filter((f) => !erwartet.includes(f));
+  } else {
+    ergebnis.hinweis = 'Die Antwort kam sauber, enthält aber keinen Eintrag. Die Feldnamen lassen sich daran nicht ablesen.';
+  }
+  return ergebnis;
+}
+
 /** Für die Verwaltung: was ist konfiguriert, wann lief es zuletzt. */
 function stand() {
   return {
@@ -210,6 +261,6 @@ function zuruecksetzen() {
 }
 
 module.exports = {
-  zumMandat, zumKontakt, stand, config, istKonfiguriert, istAktiv,
+  zumMandat, zumKontakt, stand, probe, config, istKonfiguriert, istAktiv,
   normalisieren, zuruecksetzen, SCOPE, CACHE_MS,
 };

@@ -766,6 +766,20 @@ export default function Admin() {
   }
 
   const [korrStand, setKorrStand] = useState(null);
+  const [probeMandat, setProbeMandat] = useState('');
+  const [probeKontakt, setProbeKontakt] = useState('');
+  const [probe, setProbe] = useState(null);
+  const [probeLaeuft, setProbeLaeuft] = useState(false);
+
+  async function pruefeKorrespondenz() {
+    setProbeLaeuft(true); setProbe(null);
+    const p = new URLSearchParams();
+    if (probeMandat) p.set('mandat', probeMandat);
+    if (probeKontakt) p.set('kontakt', probeKontakt);
+    try { setProbe(await api.get(`/admin/phalanx/korrespondenz-probe?${p}`)); }
+    catch (e) { setProbe({ fehler: e.message }); }
+    setProbeLaeuft(false);
+  }
 
   // ── Phalanx-OS-Anbindung ──────────────────────────────────────────────
   const [phalanx, setPhalanx] = useState(null);
@@ -1809,6 +1823,45 @@ export default function Admin() {
                 nicht gespeichert. Zwischengespeichert wird sie {korrStand.zwischenspeicher_minuten} Minuten
                 im Arbeitsspeicher, derzeit {korrStand.zwischenspeicher_eintraege} Eintrag bzw. Einträge.
                 Abschalten ohne Veröffentlichung über die Variable PHALANX_MAILS_AUS = true.
+              </div>
+
+              {/* Anbindung prüfen (v0.461). Ein Abruf je Endpunkt mit limit=1.
+                  Gemeldet werden Statuscode und Feldnamen, keine Inhalte: Eine
+                  Prüfmeldung landet in Protokollen und Bildschirmfotos. */}
+              <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 10, paddingTop: 10 }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: C.navy, marginBottom: 5 }}>Anbindung prüfen</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input value={probeMandat} onChange={e => setProbeMandat(e.target.value)} placeholder="Projektnummer, z. B. 30343"
+                    style={{ padding: '0.35rem 0.55rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.8rem', width: 190 }} />
+                  <input value={probeKontakt} onChange={e => setProbeKontakt(e.target.value)} placeholder="Pool-Kontaktnummer (optional)"
+                    style={{ padding: '0.35rem 0.55rem', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: '0.8rem', width: 220 }} />
+                  <button onClick={pruefeKorrespondenz} disabled={probeLaeuft || (!probeMandat && !probeKontakt)}
+                    style={{ background: (!probeMandat && !probeKontakt) ? '#cbd5e1' : C.navy, color: '#fff', border: 'none', borderRadius: 6, padding: '0.38rem 0.9rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
+                    {probeLaeuft ? 'Läuft…' : 'Je ein Abruf mit limit=1'}
+                  </button>
+                </div>
+                <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: 4 }}>
+                  Es werden Statuscode und Feldnamen gemeldet, keine Betreffzeilen und keine Texte.
+                </div>
+                {probe && probe.fehler && (
+                  <div style={{ marginTop: 7, fontSize: '0.78rem', color: '#991b1b' }}>{probe.fehler}</div>
+                )}
+                {probe && probe.proben && probe.proben.map((p, i) => (
+                  <div key={i} style={{ marginTop: 7, background: p.ok ? '#ECFDF5' : '#FEF2F2', border: `1px solid ${p.ok ? '#a7f3d0' : '#fca5a5'}`, borderRadius: 7, padding: '0.5rem 0.7rem', fontSize: '0.76rem', lineHeight: 1.6, color: p.ok ? '#065f46' : '#991b1b' }}>
+                    <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem' }}>{p.pfad}</div>
+                    <div><strong>HTTP {p.status === null ? 'keine Antwort' : p.status}</strong>{p.dauer_ms != null ? ` · ${p.dauer_ms} ms` : ''}{p.ok ? ` · ${p.total} Einträge insgesamt` : ''}</div>
+                    {p.fehler && <div>{p.fehler}</div>}
+                    {p.hinweis && <div>{p.hinweis}</div>}
+                    {p.felder_aussen && <div>Antwort: {p.felder_aussen.join(', ')}</div>}
+                    {p.felder_eintrag && <div>Eintrag: {p.felder_eintrag.join(', ')}</div>}
+                    {p.fehlende_felder && p.fehlende_felder.length > 0 && (
+                      <div style={{ color: '#92400e' }}>Erwartet, aber nicht geliefert: {p.fehlende_felder.join(', ')}</div>
+                    )}
+                    {p.unbekannte_felder && p.unbekannte_felder.length > 0 && (
+                      <div style={{ color: C.muted }}>Zusätzlich geliefert, wird nicht angezeigt: {p.unbekannte_felder.join(', ')}</div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}

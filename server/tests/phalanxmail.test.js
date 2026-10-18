@@ -191,5 +191,40 @@ function mockFetch(plan) {
     ok('die Kontaktakte zeigt sie ohne Warnung', /admin\/contacts\/\$\{contactId\}\/korrespondenz/.test(drawer));
   }
 
-  process.exit(fail ? 1 : 0);
+  // ── Anbindung prüfen, ohne Inhalte zu zeigen (v0.461) ────────────────────
+//
+// Nach der Freischaltung des Scopes gehört geprüft, ob die Endpunkte stehen
+// und wie die Felder heissen. Die Prüfmeldung darf dabei keine Betreffzeilen
+// und keine Texte enthalten: Sie landet in Protokollen und in Bildschirm-
+// fotos, und Korrespondenz aus einem laufenden Verkaufsprozess hat dort
+// nichts zu suchen.
+{
+  const fsP = require('fs');
+  const pathP = require('path');
+  const wP = pathP.join(__dirname, '..', '..');
+  const modul = fsP.readFileSync(pathP.join(wP, 'server', 'sync', 'phalanxmail.js'), 'utf8');
+  const adminP = fsP.readFileSync(pathP.join(wP, 'server', 'routes', 'admin.js'), 'utf8');
+  const ui = fsP.readFileSync(pathP.join(wP, 'client', 'src', 'pages', 'Admin.jsx'), 'utf8');
+  const fn = modul.slice(modul.indexOf('async function probe('), modul.indexOf('/** Für die Verwaltung'));
+
+  console.log('\n── Anbindung prüfen ──');
+  ok('es gibt eine Probe', fn.length > 0);
+  ok('sie ruft mit limit=1 ab', /limit=1&offset=0/.test(fn));
+  ok('sie geht am Zwischenspeicher vorbei', !/_cache/.test(fn));
+  ok('sie meldet den Statuscode', /status: res\.status/.test(fn));
+  ok('sie meldet die Feldnamen des Eintrags', /felder_eintrag = Object\.keys\(erster\)/.test(fn));
+  ok('sie nennt fehlende erwartete Felder', /fehlende_felder/.test(fn));
+  ok('sie gibt keinen Betreff heraus', !/betreff/.test(fn.replace(/'betreff'/g, '')));
+  ok('und keinen Text', !/erster\.text|\.text\b/.test(fn.replace(/res\.text\(\)/g, '')));
+  ok('eine leere Antwort wird als solche benannt', /enthält aber keinen Eintrag/.test(fn));
+  ok('die Route ist der Verwaltung vorbehalten',
+    /router\.get\('\/phalanx\/korrespondenz-probe', \.\.\.nurVerwaltung/.test(adminP));
+  ok('ohne Angabe wird nichts abgerufen', /Bitte eine Projektnummer/.test(adminP));
+  ok('der Abruf wird protokolliert', /PHALANX_PROBE/.test(adminP));
+  ok('die Verwaltung hat einen Knopf dafür', /Je ein Abruf mit limit=1/.test(ui));
+  ok('und sagt dazu, dass keine Inhalte erscheinen', /keine Betreffzeilen und keine Texte/.test(ui));
+}
+
+console.log(fail ? `\n${fail} Fehler` : '\nAlles grün');
+process.exit(fail ? 1 : 0);
 })();

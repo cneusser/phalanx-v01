@@ -2242,6 +2242,29 @@ router.get('/phalanx/korrespondenz-stand', ...nurVerwaltung, wrap(async (req, re
   res.json({ success: true, data: mails.stand() });
 }));
 
+// ── Anbindung prüfen: ein Abruf je Endpunkt mit limit=1 (v0.461) ──────────
+//
+// Nach der Freischaltung des Scopes gehört geprüft, ob die Endpunkte wirklich
+// stehen und ob die Feldnamen die erwarteten sind. Gemeldet werden Statuscode
+// und Feldnamen, keine Inhalte: Eine Prüfmeldung landet in Protokollen und
+// Bildschirmfotos, und Korrespondenz aus einem laufenden Verkaufsprozess hat
+// dort nichts zu suchen.
+router.get('/phalanx/korrespondenz-probe', ...nurVerwaltung, wrap(async (req, res) => {
+  const nummer = String(req.query.mandat || '').trim();
+  const kontakt = String(req.query.kontakt || '').trim();
+  if (!nummer && !kontakt) {
+    return res.status(400).json({ success: false,
+      error: 'Bitte eine Projektnummer (mandat) oder eine Pool-Kontaktnummer (kontakt) angeben.' });
+  }
+  const proben = [];
+  if (nummer) proben.push(await mails.probe(`/api/pool/v1/mandate/${encodeURIComponent(nummer)}/korrespondenz`));
+  if (kontakt) proben.push(await mails.probe(`/api/pool/v1/contacts/${encodeURIComponent(kontakt)}/korrespondenz`));
+
+  db.auditLog(req.user.id, 'PHALANX_PROBE', 'korrespondenz', null,
+    proben.map((p) => `${p.pfad} → ${p.status || 'kein Status'}`).join(' · '), req.ip);
+  res.json({ success: true, data: { scope: mails.SCOPE, proben } });
+}));
+
 // ── Kontakte ohne Konto, obwohl sie in Mandaten mitarbeiten (v0.449) ───────
 //
 // Anlass: „Warum hat Herr Eder kein Nutzerkonto? Ich habe mit ihm in drei
