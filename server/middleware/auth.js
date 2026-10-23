@@ -80,7 +80,27 @@ async function authenticate(req, res, next) {
   } catch (err) {
     return res.status(401).json({ success: false, error: 'Ungültiges Token' });
   }
-  const user = await lookupUser(req, decoded.userId);
+  // ── Panne ist nicht dasselbe wie abgemeldet (v0.465) ────────────────────
+  //
+  // Scheitert diese Abfrage, etwa weil eine Spalte fehlt, flog bisher eine
+  // Ausnahme. Die Oberfläche sah irgendeinen Fehler, warf das Token weg und
+  // schickte den Benutzer auf die Anmeldeseite. Von dort ging er wieder über
+  // Phalanx OS herein, und das Ganze von vorn: eine Schleife, die aussieht
+  // wie ein Anmeldeproblem und keines ist.
+  //
+  // 503 statt 401, und die Meldung sagt, dass es nicht an den Zugangsdaten
+  // liegt. Dann wirft die Oberfläche das Token nicht weg.
+  let user;
+  try {
+    user = await lookupUser(req, decoded.userId);
+  } catch (e) {
+    console.error('Nutzerabfrage gescheitert:', e.message);
+    return res.status(503).json({
+      success: false, code: 'LOOKUP_FAILED',
+      error: 'Ihr Konto lässt sich gerade nicht laden. Das liegt nicht an Ihren Zugangsdaten. '
+        + `Bitte melden Sie den folgenden Hinweis: ${e.message}`,
+    });
+  }
   if (!user || !user.is_active) {
     return res.status(401).json({ success: false, error: 'Benutzer nicht gefunden' });
   }

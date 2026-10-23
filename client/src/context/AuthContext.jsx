@@ -6,6 +6,9 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Ein Fehler, der nichts mit den Zugangsdaten zu tun hat. Er wird angezeigt,
+  // statt den Benutzer wortlos abzumelden (v0.465).
+  const [fehler, setFehler] = useState('');
 
   // In der Gastansicht wird bewusst nichts geladen: Wer prüfen will, was ein
   // Besucher sieht, darf nicht nebenher als angemeldet gelten.
@@ -25,12 +28,26 @@ export function AuthProvider({ children }) {
     if (token) {
       api.get('/auth/me')
         .then(data => setUser(data.user))
-        .catch(async () => {
+        .catch(async (e) => {
+          // ── Nur bei 401 abmelden (v0.465) ──────────────────────────────
+          //
+          // Vorher führte JEDER Fehler zum Wegwerfen des Tokens: ein
+          // Serverfehler, ein Netzaussetzer, eine Antwort, die kein JSON ist.
+          // Der Benutzer landete dann auf der Anmeldeseite, meldete sich neu
+          // an, scheiterte an derselben Stelle und war in einer Schleife, die
+          // aussieht wie ein Anmeldeproblem und keines ist.
+          //
+          // 401 heisst „nicht angemeldet", und nur dann gehört das Token weg.
+          // Alles andere heisst „gerade nicht erreichbar", und da hilft kein
+          // zweiter Anmeldeversuch.
+          if (e && e.status && e.status !== 401) {
+            setFehler(e.message || 'Der Server antwortet gerade nicht.');
+            return;
+          }
           // v0.459: Scheitert das Token, war es womöglich ein Birdview-Token.
           // Dann liegt das eigene Admin-Token noch daneben, und es wäre
           // unsinnig, den Betrachter abzumelden, weil die fremde Ansicht nicht
-          // funktioniert hat. Vorher landete man in diesem Fall auf der
-          // Anmeldeseite und musste sich neu anmelden.
+          // funktioniert hat.
           localStorage.removeItem('phalanx_token');
           const eigenes = localStorage.getItem('phalanx_admin_token');
           if (!eigenes) return;
@@ -118,7 +135,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, loginTwoFactor, register, logout, isAdmin, isSeller, isSuccessor,
+      user, loading, fehler, login, loginTwoFactor, register, logout, isAdmin, isSeller, isSuccessor,
       isImpersonating, startBirdview, endBirdview,
       gastansicht: istGastansicht(),
       starteGastansicht: () => { setzeGastansicht(true); window.location.href = '/projekte'; },

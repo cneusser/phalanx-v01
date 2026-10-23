@@ -15,6 +15,28 @@ const C = {
   border:  '#C8E4F4',
 };
 
+// ── Die Gründe im Klartext (v0.465) ────────────────────────────────────────
+//
+// Vorher stand dort das Schlüsselwort des Servers in Klammern, etwa
+// „(kein_staff_konto)". Das sagt dem, der es gebaut hat, alles, und dem, der
+// sich anmelden will, nichts. Jeder Grund nennt jetzt auch, was zu tun ist.
+const SSO_GRUND = {
+  kein_konto: 'Zu Ihrer Phalanx-OS-Kennung gibt es hier kein Mitarbeiterkonto. '
+    + 'Ein Konto wird nicht automatisch angelegt; bitte wenden Sie sich an die Verwaltung.',
+  kein_staff_konto: 'Ihr Konto ist hier nicht als Mitarbeiterkonto geführt. '
+    + 'Dieser Weg steht nur Mitarbeitenden der Phalanx GmbH offen.',
+  konto_inaktiv: 'Ihr Konto ist deaktiviert.',
+  sitzung_abgelaufen: 'Der Anmeldevorgang hat zu lange gedauert oder wurde in einem anderen '
+    + 'Fenster begonnen. Bitte noch einmal von hier aus starten.',
+  state_ungueltig: 'Der Anmeldevorgang passt nicht zu diesem Fenster. Bitte noch einmal von hier aus starten.',
+  token_tausch_fehlgeschlagen: 'Phalanx OS hat den Anmeldecode nicht anerkannt. '
+    + 'Das deutet auf eine abweichende Rücksprungadresse hin.',
+  id_token_ungueltig: 'Der Nachweis von Phalanx OS liess sich nicht prüfen.',
+  nicht_konfiguriert: 'Die Anbindung an Phalanx OS ist hier nicht eingerichtet.',
+  fehlende_parameter: 'Phalanx OS hat den Vorgang unvollständig zurückgegeben.',
+  unerwarteter_fehler: 'Unterwegs ist etwas schiefgegangen. Der Grund steht im Prüfpfad der Verwaltung.',
+};
+
 export default function Login() {
   const [challenge, setChallenge] = useState(null);   // 2FA: Zwischenschritt nach dem Passwort
   const [code, setCode] = useState('');
@@ -114,6 +136,20 @@ export default function Login() {
         </div>
 
         {/* Error */}
+        {/* Der SSO-Grund steht ausserhalb des SSO-Blocks (v0.465). Vorher
+            hing er daran, dass die Anbindung als eingeschaltet gemeldet wird.
+            Fiel diese Abfrage aus, verschwand mit dem Knopf auch die
+            Begründung, und der Benutzer sah eine blanke Anmeldeseite. */}
+        {ssoError && (
+          <div style={{ background: '#fef2f2', color: '#991b1b', borderRadius: 8, padding: '0.6rem 0.85rem', fontSize: '0.8rem', marginBottom: '0.9rem', lineHeight: 1.55 }}>
+            <strong>{t('auth.sso_failed', 'Anmeldung über Phalanx OS nicht möglich')}</strong>
+            <span style={{ display: 'block', marginTop: 3 }}>{SSO_GRUND[ssoError] || ssoError}</span>
+            <span style={{ display: 'block', marginTop: 3 }}>
+              {t('auth.sso_fallback', 'Bitte melden Sie sich mit E-Mail und Passwort an.')}
+            </span>
+          </div>
+        )}
+
         {error && (
           <div style={{
             background: '#fee2e2',
@@ -250,11 +286,6 @@ export default function Login() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.5rem 0 0.9rem', color: C.gray, fontSize: '0.78rem' }}>
               <span style={{ flex: 1, height: 1, background: C.border }} /> oder <span style={{ flex: 1, height: 1, background: C.border }} />
             </div>
-            {ssoError && (
-              <div style={{ background: '#fef2f2', color: '#991b1b', borderRadius: 8, padding: '0.55rem 0.8rem', fontSize: '0.8rem', marginBottom: '0.7rem' }}>
-                {t('auth.sso_failed', 'Anmeldung über Phalanx OS nicht möglich')} ({ssoError}). {t('auth.sso_fallback', 'Bitte melden Sie sich mit E-Mail und Passwort an.')}
-              </div>
-            )}
             <a href="/api/auth/phalanx/start" style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
               width: '100%', boxSizing: 'border-box', background: '#fff', color: C.navy,

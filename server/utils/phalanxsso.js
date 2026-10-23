@@ -87,7 +87,14 @@ async function start(req, res) {
   res.redirect(`${disc.authorization_endpoint}?${qs.toString()}`);
 }
 
-function fail(res, reason) {
+// Jeder abgewiesene Versuch wird protokolliert (v0.465). Vorher stand der
+// Grund nur in der Adresszeile des Benutzers, und wer gefragt wurde, warum die
+// Anmeldung nicht geht, hatte ihn längst weggeklickt. Jetzt steht er im
+// Prüfpfad und lässt sich nachlesen, auch Tage später.
+function fail(res, reason, einzelheiten = null, req = null) {
+  console.warn(`SSO abgewiesen: ${reason}${einzelheiten ? ` (${einzelheiten})` : ''}`);
+  db.auditLog(null, 'SSO_ABGEWIESEN', 'user', null,
+    `${reason}${einzelheiten ? ` · ${einzelheiten}` : ''}`, req ? req.ip : null);
   clearStateCookie(res);
   return res.redirect(`${frontendUrl()}/login?sso_error=${encodeURIComponent(reason)}`);
 }
@@ -95,16 +102,16 @@ function fail(res, reason) {
 // ── GET /api/auth/phalanx/callback ───────────────────────────────────────────
 async function callback(req, res) {
   try {
-    if (!pool.isConfigured()) return fail(res, 'nicht_konfiguriert');
+    if (!pool.isConfigured()) return fail(res, 'nicht_konfiguriert', null, req);
     const { code, state, error } = req.query;
-    if (error) return fail(res, String(error));
-    if (!code || !state) return fail(res, 'fehlende_parameter');
+    if (error) return fail(res, String(error), null, req);
+    if (!code || !state) return fail(res, 'fehlende_parameter', null, req);
 
     const cookies = parseCookies(req);
     let stateData;
     try { stateData = jwt.verify(cookies[COOKIE] || '', JWT_SECRET); }
-    catch { return fail(res, 'sitzung_abgelaufen'); }
-    if (!stateData || stateData.state !== state) return fail(res, 'state_ungueltig');
+    catch { return fail(res, 'sitzung_abgelaufen', 'Das Zwischenspeicher-Cookie fehlt oder ist aelter als zehn Minuten.', req); }
+    if (!stateData || stateData.state !== state) return fail(res, 'state_ungueltig', null, req);
 
     const disc = await pool.discovery();
     const c = pool.config();
@@ -123,9 +130,9 @@ async function callback(req, res) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
       body,
     });
-    if (!tokRes.ok) return fail(res, 'token_tausch_fehlgeschlagen');
+    if (!tokRes.ok) return fail(res, 'token_tausch_fehlgeschlagen', `HTTP ${tokRes.status}`, req);
     const tok = await tokRes.json();
-    if (!tok.id_token) return fail(res, 'kein_id_token');
+    if (!tok.id_token) return fail(res, 'kein_id_token', null, req);
 
     // ID-Token prüfen (RS256 via JWKS, Issuer + Audience + Nonce)
     const j = await jose();
@@ -133,11 +140,11 @@ async function callback(req, res) {
     let payload;
     try {
       ({ payload } = await j.jwtVerify(tok.id_token, keyset, { issuer: disc.issuer, audience: c.clientId }));
-    } catch { return fail(res, 'id_token_ungueltig'); }
-    if (stateData.nonce && payload.nonce && payload.nonce !== stateData.nonce) return fail(res, 'nonce_ungueltig');
+    } catch (e) { return fail(res, 'id_token_ungueltig', e.message, req); }
+    if (stateData.nonce && payload.nonce && payload.nonce !== stateData.nonce) return fail(res, 'nonce_ungueltig', null, req);
 
     const sub = String(payload.sub || '');
-    if (!sub) return fail(res, 'kein_subject');
+    if (!sub) return fail(res, 'kein_subject', null, req);
     const email = String(payload.email || '').toLowerCase();
     const emailVerified = payload.email_verified === true || payload.email_verified === 'true';
 
@@ -154,9 +161,14 @@ async function callback(req, res) {
       }
     }
 
-    if (!user) return fail(res, 'kein_konto');
-    if (!STAFF_ROLES.includes(user.role)) return fail(res, 'kein_staff_konto');
-    if (!user.is_active) return fail(res, 'konto_inaktiv');
+    if (!user) {
+      return fail(res, 'kein_konto',
+        `Phalanx OS meldet ${email || 'keine Adresse'}`
+        + `${email && !emailVerified ? ', die Adresse ist dort aber nicht bestaetigt' : ''}`
+        + '. In CapitalMatch gibt es dazu kein Mitarbeiterkonto.', req);
+    }
+    if (!STAFF_ROLES.includes(user.role)) return fail(res, 'kein_staff_konto', `Rolle ${user.role}`, req);
+    if (!user.is_active) return fail(res, 'konto_inaktiv', null, req);
 
     // App-Token ausstellen (wie regulärer Login) und an die SPA übergeben (Hash, nicht Query)
     const appToken = jwt.sign({ userId: user.id, tv: user.token_version || 0 }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -165,7 +177,7 @@ async function callback(req, res) {
     clearStateCookie(res);
     return res.redirect(`${frontendUrl()}/sso#token=${encodeURIComponent(appToken)}`);
   } catch (e) {
-    return fail(res, 'unerwarteter_fehler');
+    return fail(res, 'unerwarteter_fehler', e.message, req);
   }
 }
 
