@@ -7,48 +7,18 @@ import RechtsHinweis from './RechtsHinweis';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB' };
 
-const NDA_SECTIONS = [
-  {
-    num: '§1', title: 'Verpflichtung zur Vertraulichkeit',
-    text: `Die Vertragsparteien verpflichten sich gegenseitig, sämtliche verkörperten oder mündlich übermittelten Informationen und Erkenntnisse, die ihnen im Zusammenhang mit dem Projekt zugänglich gemacht werden, vertraulich zu behandeln, ausschließlich für das Projekt zu verwenden und nicht anderweitig zu nutzen. Der Zugang zu vertraulichen Informationen wird auf solche Mitarbeiter, Organe und Berater beschränkt, die die Informationen im Rahmen ihrer Tätigkeit benötigen. Die Weitergabe an Dritte ist nur zulässig, wenn diese zuvor schriftlich zur Geheimhaltung verpflichtet wurden.`,
-  },
-  {
-    num: '§2', title: 'Ausnahmen von der Vertraulichkeit',
-    text: `Diese Vereinbarung erstreckt sich nicht auf Informationen, die ohne Zutun der empfangenden Partei allgemein bekannt waren, sich bereits rechtmäßig im Besitz der empfangenden Partei befanden, rechtmäßig von Dritten erhalten wurden, unabhängig entwickelt wurden oder aufgrund gesetzlicher Anordnung offengelegt werden müssen.`,
-  },
-  {
-    num: '§3', title: 'Anzeige bei Verlust',
-    text: `Der Verlust oder die unberechtigte Offenlegung vertraulicher Informationen ist der anderen Vertragspartei unverzüglich schriftlich anzuzeigen.`,
-  },
-  {
-    num: '§4', title: 'Unentgeltliche Überlassung',
-    text: `Die Überlassung vertraulicher Informationen erfolgt unentgeltlich.`,
-  },
-  {
-    num: '§5', title: 'Laufzeit',
-    text: `Diese Vereinbarung gilt für einen Zeitraum von zwei (2) Jahren ab Unterzeichnung durch den Interessenten. Bei Online-Abschluss beginnt die Laufzeit mit Zugang der per E‑Mail übermittelten Vertragsexemplare.`,
-  },
-  {
-    num: '§6', title: 'Anwendbares Recht und Gerichtsstand',
-    text: `Diese Vereinbarung unterliegt deutschem Recht. Ausschließlicher Gerichtsstand ist München.`,
-  },
-  {
-    num: '§7', title: 'Haftungsbeschränkung',
-    text: `Eine Haftung besteht nur für unmittelbare Schäden. Folgeschäden, entgangener Gewinn oder sonstige indirekte Schäden sind ausgeschlossen. Rechte und Pflichten sind nicht übertragbar.`,
-  },
-  {
-    num: '§8', title: 'Salvatorische Klausel',
-    text: `Sollten einzelne Bestimmungen unwirksam sein, bleibt die Wirksamkeit der übrigen Bestimmungen unberührt.`,
-  },
-  {
-    num: '§9', title: 'Schriftform',
-    text: `Änderungen und Ergänzungen dieser Vereinbarung sowie Kündigungen bedürfen der Schriftform. Die Unterzeichnung dieser Vereinbarung begründet keine Verpflichtung zum Abschluss einer Transaktion.`,
-  },
-  {
-    num: '§10', title: 'Wirksamkeit bei Online-Abschluss',
-    text: `Wenn der Interessent diese Vereinbarung online auf der Internetseite des Transaktionsberaters bestätigt, erkennt er die Verbindlichkeit dieser Vereinbarung auch ohne eigenhändige Unterschrift an. Der online erklärte Konsens hat dieselbe rechtliche Wirkung wie eine handschriftliche Unterschrift.`,
-  },
-];
+// ── Kein Vertragstext mehr im Quelltext der Oberfläche (v0.466) ────────────
+//
+// Hier stand eine von Hand gepflegte Fassung der Vereinbarung: zehn
+// Paragraphen und eine Vertragspartei, die es gar nicht gibt (eine Advisory-
+// Gesellschaft in München statt der Phalanx GmbH in Erlangen).
+// die es nicht gibt. Das PDF entstand derweil aus der Vorlage in der
+// Datenbank. Zwei Texte, zwei Pflegewege, und sie sind auseinandergelaufen,
+// bis ein Interessent sie verglichen hat.
+//
+// Der Dialog holt die Fassung jetzt vom Server, dieselbe, aus der auch das
+// PDF entsteht, samt Fingerabdruck. Wo nur eine Fassung existiert, kann
+// keine zweite abweichen.
 
 /**
  * NDASignModal
@@ -70,12 +40,25 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
   const [error, setError] = useState('');
   const [signing, setSigning] = useState(false);
   const [pdfFilename, setPdfFilename] = useState(null);
+  const [fassung, setFassung] = useState(null);
+  const [fassungFehler, setFassungFehler] = useState('');
   const scrollRef = useRef(null);
 
   // Pre-fill name from user profile
   useEffect(() => {
     if (user) setConsentName(`${user.first_name} ${user.last_name}`);
   }, [user]);
+
+  // Die geltende Fassung holen. Scheitert das, wird nichts angezeigt und
+  // nichts unterschrieben: Ein Dialog, der im Zweifel irgendeinen Text zeigt,
+  // ist schlimmer als einer, der sagt, dass er gerade nichts zeigen kann.
+  useEffect(() => {
+    let abgebrochen = false;
+    api.get(`/ndas/${projectId}/fassung`)
+      .then((f) => { if (!abgebrochen) setFassung(f); })
+      .catch((e) => { if (!abgebrochen) setFassungFehler(e.message || 'Die Vereinbarung konnte nicht geladen werden.'); });
+    return () => { abgebrochen = true; };
+  }, [projectId]);
 
   // Track scroll to bottom
   const handleScroll = () => {
@@ -97,6 +80,9 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
       const result = await api.post(`/ndas/${projectId}/sign-online`, {
         consent_name: consentName.trim(),
         consent_confirmed: true,
+        // Der Fingerabdruck der Fassung, die hier angezeigt wurde. Der Server
+        // weist ab, wenn sich die Vorlage inzwischen geändert hat.
+        fassung_hash: fassung ? fassung.hash : null,
       });
       setPdfFilename(result.pdf_filename);
       setStep('done');
@@ -181,6 +167,25 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
               onScroll={handleScroll}
               style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}
             >
+              {/* Laedt die Fassung nicht, wird nichts angezeigt und nichts
+                  unterschrieben. Ein Dialog, der im Zweifel irgendeinen Text
+                  zeigt, ist schlimmer als einer, der sagt, dass er gerade
+                  nichts zeigen kann (v0.466). */}
+              {fassungFehler && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '1rem', marginBottom: '1.25rem', fontSize: '0.84rem', color: '#991b1b', lineHeight: 1.6 }}>
+                  <strong>{t('nda.fassung_fehlt', 'Die Vereinbarung lässt sich gerade nicht laden.')}</strong>
+                  <span style={{ display: 'block', marginTop: 4 }}>{fassungFehler}</span>
+                  <span style={{ display: 'block', marginTop: 4 }}>
+                    {t('nda.fassung_fehlt_hinweis', 'Bitte versuchen Sie es später erneut. Unterzeichnet wird nur, was Ihnen hier vollständig angezeigt wurde.')}
+                  </span>
+                </div>
+              )}
+              {!fassung && !fassungFehler && (
+                <div style={{ color: '#888', fontSize: '0.85rem', padding: '1rem 0' }}>
+                  {t('nda.fassung_laedt', 'Die Vereinbarung wird geladen …')}
+                </div>
+              )}
+
               {/* Parties */}
               <div style={{ background: C.bg, borderRadius: 10, padding: '1.1rem', marginBottom: '1.5rem', border: '1px solid #e0ddd6' }}>
                 <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#999', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>VERTRAGSPARTEIEN</div>
@@ -192,9 +197,15 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
                     <div style={{ fontSize: '0.72rem', color: C.steel, fontWeight: 600, marginTop: '0.2rem' }}>(Interessent)</div>
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: C.navy }}>Phalanx M&A Advisory GmbH</div>
-                    <div style={{ fontSize: '0.8rem', color: '#555' }}>M&A Advisory Team</div>
-                    <div style={{ fontSize: '0.75rem', color: '#888' }}>München, Deutschland</div>
+                    {/* Aus der Vorlage, nicht aus dem Quelltext (v0.466). */}
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: C.navy }}>{fassung?.parteien.berater.name || '…'}</div>
+                    {fassung?.parteien.berater.ansprechpartner && (
+                      <div style={{ fontSize: '0.8rem', color: '#555' }}>{fassung.parteien.berater.ansprechpartner}</div>
+                    )}
+                    <div style={{ fontSize: '0.75rem', color: '#888' }}>
+                      {[fassung?.parteien.berater.strasse, fassung?.parteien.berater.ort, fassung?.parteien.berater.land]
+                        .filter(Boolean).join(', ')}
+                    </div>
                     <div style={{ fontSize: '0.72rem', color: C.steel, fontWeight: 600, marginTop: '0.2rem' }}>(Transaktionsberater)</div>
                   </div>
                 </div>
@@ -215,21 +226,44 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
 
               <div style={{ marginBottom: '1.25rem' }}>
                 <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.88rem', marginBottom: '0.4rem' }}>Präambel</div>
-                <p style={{ fontSize: '0.83rem', color: '#444', lineHeight: 1.7 }}>
-                  Die Vertragsparteien beabsichtigen, Gespräche über das Mandat <strong>{projectName}</strong> zu führen und sich vertrauliche Unterlagen und Informationen bereitzustellen. Der Transaktionsberater handelt als exklusiver M&A‑Berater für den Eigentümer und wurde autorisiert, diese Vertraulichkeitsvereinbarung abzuschließen.
+                <p style={{ fontSize: '0.83rem', color: '#444', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                  {fassung?.praeambel || ''}
                 </p>
               </div>
 
               {/* Sections */}
-              {NDA_SECTIONS.map(s => (
-                <div key={s.num} style={{ marginBottom: '1rem', paddingLeft: '0.75rem', borderLeft: `3px solid ${s.num === '§10' ? C.steel : '#e0ddd6'}` }}>
-                  <div style={{ fontWeight: 700, color: s.num === '§10' ? C.steel : C.navy, fontSize: '0.82rem', marginBottom: '0.3rem' }}>
-                    {s.num} – {s.title}
-                    {s.num === '§10' && <span style={{ fontSize: '0.7rem', background: '#fef3c7', color: '#92400e', padding: '0.1rem 0.4rem', borderRadius: 10, marginLeft: '0.5rem' }}>{t('nda.online', 'Gilt für Online-Abschluss')}</span>}
+              {(fassung?.paragraphen || []).map((p) => {
+                const online = /online/i.test(p.titel);
+                return (
+                  <div key={p.nummer} style={{ marginBottom: '1rem', paddingLeft: '0.75rem', borderLeft: `3px solid ${online ? C.steel : '#e0ddd6'}` }}>
+                    <div style={{ fontWeight: 700, color: online ? C.steel : C.navy, fontSize: '0.82rem', marginBottom: '0.3rem' }}>
+                      {p.nummer} – {p.titel}
+                      {online && <span style={{ fontSize: '0.7rem', background: '#fef3c7', color: '#92400e', padding: '0.1rem 0.4rem', borderRadius: 10, marginLeft: '0.5rem' }}>{t('nda.online', 'Gilt für Online-Abschluss')}</span>}
+                    </div>
+                    {p.absaetze.map((a, i) => (
+                      <p key={i} style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.65, marginBottom: '0.35rem' }}>{a}</p>
+                    ))}
+                    {p.punkte.length > 0 && (
+                      <ul style={{ margin: '0.2rem 0 0 1rem', padding: 0 }}>
+                        {p.punkte.map((b, i) => (
+                          <li key={i} style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.6 }}>{b}</li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                  <p style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.65 }}>{s.text}</p>
+                );
+              })}
+
+              {/* Woran man diese Fassung wiedererkennt. Steht auch im
+                  Nachweis und im Prüfprotokoll (v0.466). */}
+              {fassung && (
+                <div style={{ marginTop: '1rem', paddingTop: '0.7rem', borderTop: '1px solid #f0ede7', fontSize: '0.72rem', color: '#999', lineHeight: 1.6 }}>
+                  {t('nda.fassung_kennung', 'Fassung')}
+                  {fassung.version ? ` ${fassung.version}` : ''} · {fassung.hash.slice(0, 16)}
+                  <br />
+                  {t('nda.fassung_hinweis', 'Genau dieser Text wird unterzeichnet und als PDF ausgestellt. Die Kennung finden Sie im Nachweis wieder.')}
                 </div>
-              ))}
+              )}
 
               {/* Scroll hint */}
               {!scrolled && (
@@ -247,11 +281,11 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
                 </button>
                 <button
                   onClick={() => setStep('sign')}
-                  disabled={!scrolled}
+                  disabled={!scrolled || !fassung}
                   style={{
-                    padding: '0.65rem 1.5rem', background: scrolled ? C.navy : '#ccc',
+                    padding: '0.65rem 1.5rem', background: (scrolled && fassung) ? C.navy : '#ccc',
                     color: '#fff', border: 'none', borderRadius: 8,
-                    cursor: scrolled ? 'pointer' : 'not-allowed',
+                    cursor: (scrolled && fassung) ? 'pointer' : 'not-allowed',
                     fontWeight: 700, fontSize: '0.875rem',
                     display: 'flex', alignItems: 'center', gap: '0.4rem',
                     transition: 'background 0.2s',
@@ -298,11 +332,10 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', fontSize: '0.8rem' }}>
                   {[
                     ['Projekt', projectName],
-                    ['Laufzeit', '2 Jahre'],
-                    ['Gerichtsstand', 'München'],
+                    ['Gerichtsstand', fassung?.gerichtsstand || 'wird geladen'],
                     ['Datum', today],
                     ['Interessent', `${user?.first_name} ${user?.last_name}`],
-                    ['Berater', 'Phalanx M&A Advisory GmbH'],
+                    ['Berater', fassung?.parteien.berater.name || 'wird geladen'],
                   ].map(([k, v]) => (
                     <div key={k}>
                       <span style={{ color: '#999', fontSize: '0.72rem' }}>{k}:</span>

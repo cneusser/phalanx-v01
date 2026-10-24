@@ -27,6 +27,7 @@ async function loadNdaTemplate() {
 }
 
 const { requireCompleteProfile } = require('../utils/profileCompleteness');
+const ndaFassung = require('../utils/ndaFassung');
 
 // ─── NDA anfordern (setzt vollständiges Profil voraus) ──────────────────────
 router.post('/', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
@@ -131,6 +132,32 @@ router.get('/:projectId/document', authenticate, wrap(async (req, res) => {
   }
 }));
 
+// ─── Die Fassung, die der Unterzeichnungsdialog anzeigt (v0.466) ────────────
+//
+// Anlass: Ein Interessent hat nach der Online-Unterzeichnung das signierte PDF
+// mit dem Dialogtext verglichen und drei Abweichungen gefunden, darunter eine
+// Vertragspartei, die es nicht gibt. Der Dialog trug seinen eigenen, von Hand
+// gepflegten Vertragstext; das PDF entstand aus der Vorlage. Zwei Texte, zwei
+// Pflegewege, auseinandergelaufen.
+//
+// Ab hier gibt es eine Fassung. Diese Route liefert sie, das PDF druckt
+// dieselbe, und beide tragen denselben Fingerabdruck.
+router.get('/:projectId/fassung', authenticate, wrap(async (req, res) => {
+  const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.projectId]);
+  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+  const template = await loadNdaTemplate();
+  const f = ndaFassung.fassung({
+    vorlage: template,
+    kaeufer: {
+      first_name: [user.title, user.first_name].filter(Boolean).join(' '),
+      last_name: user.last_name, company: user.company, email: user.email,
+    },
+    mandat: { codename: project.codename },
+  });
+  res.json({ success: true, data: f });
+}));
+
 // ─── NDA Online unterzeichnen (§10) ──────────────────────────────────────────
 router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
   const { consent_name, consent_confirmed } = req.body;
@@ -145,6 +172,39 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
 
   const project = await db.get('SELECT * FROM projects WHERE id = ?', [req.params.projectId]);
   const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+
+  // ── Es wird nur unterschrieben, was angezeigt wurde (v0.466) ─────────────
+  //
+  // Der Dialog schickt den Fingerabdruck der Fassung mit, die er angezeigt
+  // hat. Stimmt er nicht mit der jetzt geltenden überein, wurde die Vorlage
+  // zwischenzeitlich geändert, und der Interessent würde etwas anderes
+  // unterschreiben als das, was er gelesen hat. Dann wird abgebrochen und
+  // nicht etwa die neue Fassung still untergeschoben.
+  const geltend = ndaFassung.fassung({
+    vorlage: await loadNdaTemplate(),
+    kaeufer: {
+      first_name: [user.title, user.first_name].filter(Boolean).join(' '),
+      last_name: user.last_name, company: user.company, email: user.email,
+    },
+    mandat: { codename: project.codename },
+  });
+  const gezeigt = String(req.body.fassung_hash || '');
+  if (!gezeigt) {
+    return res.status(400).json({
+      success: false, code: 'FASSUNG_FEHLT',
+      error: 'Es ist nicht nachvollziehbar, welche Fassung Ihnen angezeigt wurde. '
+        + 'Bitte laden Sie die Seite neu und lesen Sie die Vereinbarung erneut.',
+    });
+  }
+  if (gezeigt !== geltend.hash) {
+    db.auditLog(req.user.id, 'NDA_FASSUNG_ABWEICHUNG', 'nda_request', nda.id,
+      `angezeigt ${gezeigt.slice(0, 12)}, geltend ${geltend.hash.slice(0, 12)}`, req.ip);
+    return res.status(409).json({
+      success: false, code: 'FASSUNG_GEAENDERT',
+      error: 'Die Vereinbarung wurde geändert, seit sie Ihnen angezeigt wurde. '
+        + 'Bitte laden Sie die Seite neu und lesen Sie die neue Fassung, bevor Sie unterzeichnen.',
+    });
+  }
 
   const consentIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
   const now = new Date().toISOString();
@@ -204,9 +264,18 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
           online_consent_at=?,
           consent_name=?,
           consent_ip=?,
-          signed_pdf_path=?
+          signed_pdf_path=?,
+          fassung_hash=?,
+          fassung_version=?,
+          fassung_text=?
       WHERE user_id=? AND project_id=?
-    `, [now, consent_name.trim(), consentIp, pdfFilename, req.user.id, req.params.projectId]);
+    `, [now, consent_name.trim(), consentIp, pdfFilename,
+        // Der Wortlaut wird mitgespeichert und nicht nur sein Fingerabdruck
+        // (v0.466). Ein Fingerabdruck beweist, dass sich nichts geaendert
+        // hat; er stellt den Text aber nicht wieder her, wenn die Vorlage
+        // spaeter ueberschrieben wird. Und genau dann braucht man ihn.
+        geltend.hash, geltend.version || null, ndaFassung.alsText(geltend),
+        req.user.id, req.params.projectId]);
 
     // 4. Zustandsautomat: nda_signed erreicht → IM/Exposé automatisch
     //    freischalten (im_granted, Sprint 3). Beim nachträglichen Signieren eines
