@@ -46,6 +46,7 @@ export default function Datenpflege() {
   const [rundmails, setRundmails] = useState([]);
   const [rundVorschau, setRundVorschau] = useState(null);
   const [sprachen, setSprachen] = useState(null);
+  const [sprachenFehler, setSprachenFehler] = useState('');
   const [entwurf, setEntwurf] = useState({});   // id → { feld_en: Text }
   const [meldung, setMeldung] = useState('');
   const [fehler, setFehler] = useState('');
@@ -60,7 +61,12 @@ export default function Datenpflege() {
         api.get('/pflege/rundmails').catch(() => []),
       ]);
       setUebersicht(u); setKampagnen(k); setVok(v); setRundmails(r || []);
-      try { setSprachen(await api.get('/pflege/uebersetzungen')); } catch { /* erst nach der Migration da */ }
+      // Kein stilles catch mehr (v0.467). Hier stand „erst nach der
+      // Migration da", und genau das war der Fehler: Die Abfrage antwortete
+      // mit 500, der Abschnitt erschien nie, und es sah aus, als gäbe es ihn
+      // nicht. Ein verschluckter Fehler sieht aus wie eine fehlende Funktion.
+      try { setSprachen(await api.get('/pflege/uebersetzungen')); }
+      catch (e) { setSprachenFehler(e.message || 'Die Übersetzungen lassen sich nicht laden.'); }
     } catch (e) { setFehler(e.message); }
   }, [filter]);
 
@@ -425,6 +431,14 @@ export default function Datenpflege() {
         </div>
 
         {/* ── Übersetzungen der Mandate ─────────────────────────────────── */}
+        {sprachenFehler && (
+          <div style={{ ...KARTE, marginTop: '1.2rem', borderColor: '#fca5a5', background: '#fef2f2' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1rem', color: '#991b1b', margin: '0 0 0.5rem' }}>
+              <Languages size={17} color="#991b1b" /> Übersetzungen der Mandate
+            </h2>
+            <p style={{ fontSize: '0.85rem', color: '#991b1b', margin: 0, lineHeight: 1.6 }}>{sprachenFehler}</p>
+          </div>
+        )}
         {sprachen && (
           <div style={{ ...KARTE, marginTop: '1.2rem' }}>
             <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1rem', color: C.navy, margin: '0 0 0.9rem' }}>

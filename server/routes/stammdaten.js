@@ -404,6 +404,32 @@ const UEBERSETZBAR = ['short_description', 'deal_type', 'industry'];
 
 router.get('/uebersetzungen', wrap(async (req, res) => {
   const q = qFor(req);
+  // ── Fehlt eine Spalte, soll das dastehen (v0.467) ───────────────────────
+  //
+  // Diese Abfrage antwortete in der Produktion mit 500, und die Oberfläche
+  // verschluckte das mit einem leeren catch. Folge: Der ganze Abschnitt
+  // „Übersetzungen der Mandate" erschien überhaupt nicht, und es sah aus,
+  // als gäbe es ihn nicht. Niemand konnte eine englische Fassung pflegen,
+  // und niemand wusste, warum.
+  //
+  // Die Spalten entstehen in der Wanderung dynamisch; fällt eine aus, bricht
+  // hier alles. Deshalb wird jetzt zuerst nachgesehen, welche es gibt, und
+  // eine fehlende wird benannt statt den Aufruf zu sprengen.
+  const SPALTEN = ['sprache', 'uebersetzung_status', 'uebersetzt_am',
+    ...UEBERSETZBAR, ...UEBERSETZBAR.map((f) => `${f}_en`)];
+  const vorhanden = new Set((await db.all(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = 'projects'`,
+  ).catch(() => [])).map((r) => r.column_name));
+  const fehlend = SPALTEN.filter((c) => !vorhanden.has(c));
+  if (fehlend.length) {
+    return res.status(503).json({
+      success: false, code: 'SPALTEN_FEHLEN',
+      error: `Die Zweisprachigkeit ist in der Datenbank nicht vollständig eingerichtet. `
+        + `Es fehlen: ${fehlend.join(', ')}. Bitte die Wanderung erneut ausführen.`,
+      data: { fehlend },
+    });
+  }
+
   const zeilen = await q.all(`
     SELECT id, codename, mandate_type, status, sprache, uebersetzung_status, uebersetzt_am,
            short_description, short_description_en, deal_type, deal_type_en, industry, industry_en
