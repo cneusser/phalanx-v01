@@ -47,6 +47,23 @@ export default function Datenpflege() {
   const [rundVorschau, setRundVorschau] = useState(null);
   const [sprachen, setSprachen] = useState(null);
   const [sprachenFehler, setSprachenFehler] = useState('');
+  // Übersetzungen: zugeklappt als Standard (v0.471). Aufgeklappt wird, woran
+  // gerade gearbeitet wird, und das ist immer genau ein Mandat.
+  const [offeneMandate, setOffeneMandate] = useState(() => new Set());
+  const [sprachFilter, setSprachFilter] = useState('offen');
+  const mandatUmschalten = (id) => setOffeneMandate((alt) => {
+    const neu = new Set(alt);
+    if (neu.has(id)) neu.delete(id); else neu.add(id);
+    return neu;
+  });
+  const sichtbareMandate = ((sprachen && sprachen.mandate) || []).filter((m) => (
+    sprachFilter === 'alle'
+      ? true
+      : (sprachFilter === 'freigegeben'
+        ? m.uebersetzung_status === 'freigegeben'
+        : m.uebersetzung_status !== 'freigegeben')
+  ));
+
   const [kriterien, setKriterien] = useState(null);
   const [kriterienLaeuft, setKriterienLaeuft] = useState(false);
 
@@ -508,14 +525,53 @@ export default function Datenpflege() {
               {!sprachen.dienst_eingerichtet && ' Ein Übersetzungsdienst ist nicht eingerichtet, die Vorbelegung steht daher nicht zur Verfügung.'}
             </p>
 
-            {sprachen.mandate.map((m) => (
+            {/* Filter und Sammelschalter (v0.471). Acht Mandate nebeneinander
+                aufgeklappt sind mehrere Bildschirmhöhen, und gearbeitet wird
+                immer nur an einem. */}
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.9rem' }}>
+              {[['offen', 'Noch offen'], ['freigegeben', 'Freigegeben'], ['alle', 'Alle']].map(([wert, text]) => (
+                <button key={wert} type="button" onClick={() => setSprachFilter(wert)}
+                  style={{
+                    padding: '0.35rem 0.75rem', borderRadius: 7, fontSize: '0.79rem', fontWeight: 600, cursor: 'pointer',
+                    border: `1px solid ${sprachFilter === wert ? C.navy : C.border}`,
+                    background: sprachFilter === wert ? C.navy : '#fff',
+                    color: sprachFilter === wert ? '#fff' : C.navy,
+                  }}>{text}</button>
+              ))}
+              <span style={{ flex: 1 }} />
+              <button type="button" onClick={() => setOffeneMandate(new Set(sichtbareMandate.map((m) => m.id)))}
+                style={{ ...KNOPF_HELL, fontSize: '0.79rem' }}>Alle aufklappen</button>
+              <button type="button" onClick={() => setOffeneMandate(new Set())}
+                style={{ ...KNOPF_HELL, fontSize: '0.79rem' }}>Alle zuklappen</button>
+            </div>
+
+            {!sichtbareMandate.length && (
+              <p style={{ fontSize: '0.83rem', color: C.muted, margin: 0 }}>
+                {sprachFilter === 'offen' ? 'Kein Mandat ist mehr offen.'
+                  : (sprachFilter === 'freigegeben' ? 'Noch kein Mandat ist freigegeben.' : 'Es gibt noch kein Mandat.')}
+              </p>
+            )}
+
+            {sichtbareMandate.map((m) => (
               <div key={m.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '0.9rem', marginBottom: '0.7rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.7rem' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.92rem' }}>{m.codename}</div>
-                    <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: 2 }}>
-                      erfasst auf {m.sprache === 'en' ? 'Englisch' : 'Deutsch'}
-                      {m.uebersetzt_am ? ` · zuletzt bearbeitet ${new Date(m.uebersetzt_am).toLocaleDateString('de-DE')}` : ''}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.6rem', marginBottom: offeneMandate.has(m.id) ? '0.7rem' : 0 }}>
+                  <div
+                    onClick={() => mandatUmschalten(m.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); mandatUmschalten(m.id); } }}
+                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    <span style={{ color: C.muted, fontSize: '0.8rem', width: 12, display: 'inline-block' }}>
+                      {offeneMandate.has(m.id) ? '▾' : '▸'}
+                    </span>
+                    <div>
+                      <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.92rem' }}>{m.codename}</div>
+                      <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: 2 }}>
+                        erfasst auf {m.sprache === 'en' ? 'Englisch' : 'Deutsch'}
+                        {m.uebersetzt_am ? ` · zuletzt bearbeitet ${new Date(m.uebersetzt_am).toLocaleDateString('de-DE')}` : ''}
+                        {!offeneMandate.has(m.id) && !m.vollstaendig ? ' · englische Fassung unvollständig' : ''}
+                      </div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -541,7 +597,7 @@ export default function Datenpflege() {
                   </div>
                 </div>
 
-                {m.felder.filter((f) => f.de || f.en).map((f) => (
+                {offeneMandate.has(m.id) && m.felder.filter((f) => f.de || f.en).map((f) => (
                   <div key={f.feld} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginBottom: '0.6rem' }}>
                     <div>
                       <div style={{ fontSize: '0.7rem', color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>
