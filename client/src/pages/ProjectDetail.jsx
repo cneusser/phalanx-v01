@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { naceLabel } from '../constants/projectOptions';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import ProjectEditModal from '../components/ProjectEditModal';
 import SuccessionCandidates from '../components/SuccessionCandidates';
@@ -452,7 +453,7 @@ export default function ProjectDetail() {
                       {s.sector_emoji ? `${s.sector_emoji} ` : ''}{s.codename}
                     </div>
                     <div style={{ fontSize: '0.72rem', color: C.muted, marginBottom: 4 }}>
-                      {[s.industry, s.region].filter(Boolean).join(' · ')}
+                      {[naceLabel(s.industry, lang), s.region].filter(Boolean).join(' · ')}
                     </div>
                     {s.revenue_band && s.revenue_band !== 'k. A.' && (
                       <div style={{ fontSize: '0.72rem', color: C.text, fontWeight: 600 }}>Umsatz {s.revenue_band}</div>
@@ -482,7 +483,7 @@ export default function ProjectDetail() {
                 <KpiCard label="MITARBEITER" value={fullData?.details?.employees || 'k. A.'} icon={Users} />
                 <KpiCard label={t('pd.gruendungsjahr', 'GRÜNDUNGSJAHR')} value={fullData?.details?.founding_year || 'k. A.'} icon={Calendar} />
                 <KpiCard label="STANDORT" value={teaser.location_city || teaser.region || 'k. A.'} icon={MapPin} />
-                <KpiCard label="BRANCHE" value={teaser.industry || 'k. A.'} icon={Building2} />
+                <KpiCard label="BRANCHE" value={naceLabel(teaser.industry, lang) || 'k. A.'} icon={Building2} />
               </>
             )}
           </div>
@@ -959,7 +960,7 @@ export default function ProjectDetail() {
                     onClick={() => navigate(`/projekte?industry=${encodeURIComponent(teaser.industry)}`)}
                     title="Mandate dieser Branche anzeigen"
                     style={{ background: C.bg, color: C.muted, padding: '0.22rem 0.6rem', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600, border: `1px solid ${C.border}`, cursor: 'pointer' }}>
-                    <Building2 size={10} style={{ verticalAlign: 'middle', marginRight: 3 }} />{teaser.industry}
+                    <Building2 size={10} style={{ verticalAlign: 'middle', marginRight: 3 }} />{naceLabel(teaser.industry, lang)}
                   </span>
                 )}
                 {(teaser.location_city || teaser.region) && (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { naceLabel } from '../constants/projectOptions';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import { useT, useI18n } from '../i18n';
@@ -174,7 +175,7 @@ function MandateCard({ p, ndaStatus, onNdaRequest, ndaLoading, isAdmin, watched,
           <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
             {p.industry && (
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.71rem', color: C.muted }}>
-                <Building2 size={10} /> {p.industry}
+                <Building2 size={10} /> {naceLabel(p.industry, lang)}
               </span>
             )}
             {(p.location_city || p.region) && (
@@ -530,7 +531,7 @@ export default function Projects() {
                               {p.codename}
                             </td>
                             <td style={{ padding: '0.6rem 0.8rem' }}><span style={{ background: p.mandate_type === 'fundraising' ? '#ede9fe' : C.bg, color: p.mandate_type === 'fundraising' ? '#5b21b6' : C.navy, padding: '0.1rem 0.45rem', borderRadius: 6, fontSize: '0.66rem', fontWeight: 700 }}>{p.mandate_type === 'fundraising' ? 'Startup' : 'M&A'}</span></td>
-                            <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.industry || 'k. A.'}</td>
+                            <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{naceLabel(p.industry, lang) || 'k. A.'}</td>
                             <td style={{ padding: '0.6rem 0.8rem', color: '#555' }}>{p.region || 'k. A.'}</td>
                             <td style={{ padding: '0.6rem 0.8rem', color: '#555', whiteSpace: 'nowrap' }}>{p.revenue_band || (p.mandate_type === 'fundraising' ? p.investment_needed : 'k. A.') || 'k. A.'}</td>
                             <td style={{ padding: '0.6rem 0.8rem', color: '#555', whiteSpace: 'nowrap' }}>{p.ebitda_band || 'k. A.'}</td>

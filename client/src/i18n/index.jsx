@@ -20,6 +20,8 @@ import React, { createContext, useContext, useState, useCallback, useMemo, useEf
 const EN = {
   // Navigation
   'nav.marketplace': 'Marketplace',
+  'allgemein.bitte_waehlen': 'Please choose…',
+  'allgemein.bisheriger_wert': '(previous value)',
   'allgemein.nach_oben': 'Back to top',
 
   // Mandatsdetail, ergänzt v0.414

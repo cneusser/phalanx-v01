@@ -17,6 +17,7 @@
 // Gestaltung: die Bildsprache von phalanx.de, Werte in styles/marke.css.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from 'react';
+import { naceLabel } from '../constants/projectOptions';
 import { Link } from 'react-router-dom';
 import {
   Menu, X, CalendarDays, Lock, Check, Building2, Landmark, Users,
@@ -169,7 +170,7 @@ export default function Landing() {
                 <article className="mandat" key={p.id}>
                   <div className="meta">
                     <span>{istFinanzierung ? T.markt.finanzierung : (p.deal_type || T.markt.transaktion)}</span>
-                    <span>{p.industry}</span>
+                    <span>{naceLabel(p.industry, lang)}</span>
                   </div>
                   <h3>{p.codename}</h3>
                   <p>{p.short_description}</p>
