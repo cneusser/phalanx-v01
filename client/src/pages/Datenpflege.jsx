@@ -522,7 +522,15 @@ export default function Datenpflege() {
               {' '}{sprachen.offen > 0
                 ? <strong>{sprachen.offen} von {sprachen.mandate.length} Mandaten sind noch offen.</strong>
                 : <strong>Alle Mandate sind freigegeben.</strong>}
-              {!sprachen.dienst_eingerichtet && ' Ein Übersetzungsdienst ist nicht eingerichtet, die Vorbelegung steht daher nicht zur Verfügung.'}
+              {!sprachen.dienst_eingerichtet && (
+                <>
+                  {' '}Ein Übersetzungsdienst ist nicht eingerichtet, die Vorbelegung steht daher nicht
+                  zur Verfügung. Dafür genügt in der Umgebungskonfiguration der Schlüssel
+                  {' '}<code>UEBERSETZER_SCHLUESSEL</code>, dazu wahlweise{' '}
+                  <code>UEBERSETZER_ART</code> mit <code>deepl</code> oder <code>openai</code>.
+                  Vorbelegtes bleibt Entwurf und geht nie ungeprüft nach aussen.
+                </>
+              )}
             </p>
 
             {/* Filter und Sammelschalter (v0.471). Acht Mandate nebeneinander

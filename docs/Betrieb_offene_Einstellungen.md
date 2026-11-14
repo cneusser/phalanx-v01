@@ -83,3 +83,41 @@ verdeckt hat.
 Das Exposé selbst ist einsprachig. Die englische Fassung gehört in die
 Marktplatzkarte des Mandats, und die braucht die `_en`-Spalten. Solange die
 fehlen, nimmt die Plattform den englischen Text nicht an.
+
+---
+
+## 3. Übersetzungsdienst für die Vorbelegung
+
+Der Knopf „Vorbelegen" in der Datenpflege fehlt nicht, er ist ausgeblendet,
+solange kein Dienst eingerichtet ist. Der Code dafür steht seit v0.410 in
+`server/utils/uebersetzung.js` und wartet nur auf einen Schlüssel.
+
+In Railway zu setzen:
+
+```
+UEBERSETZER_SCHLUESSEL=<Schlüssel des Anbieters>
+UEBERSETZER_ART=deepl          # oder openai, Standard ist deepl
+```
+
+Bei DeepL erkennt die Plattform am Schlüssel selbst, ob der kostenfreie oder
+der kostenpflichtige Zugang gemeint ist; eine Adresse muss nicht gesetzt
+werden. Bei `openai` lässt sich das Modell über `UEBERSETZER_MODELL`
+vorgeben, Standard ist ein kleines, günstiges.
+
+Drei Dinge, die dabei gelten und die ich nicht geändert habe:
+
+- Vorbelegtes bleibt Entwurf. Nach aussen geht nur, was ein Mensch
+  freigegeben hat.
+- Vorhandene englische Fassungen werden nie überschrieben.
+- Ohne Schlüssel bleibt alles wie heute, nur eben ohne Vorbelegung. Eine
+  halbe Übersetzung wäre schlimmer als gar keine, weil bei einem
+  Unternehmensverkauf ein schiefer Satz kein Schönheitsfehler ist, sondern
+  ein Sachfehler.
+
+### Stand der englischen Fassungen am 14.11.2026
+
+Alle acht Mandate tragen jetzt in allen drei Feldern eine englische Fassung,
+Status Entwurf. Freigegeben ist keines; das ist Ihre Entscheidung je Mandat.
+Bei Cavendish stand im deutschen Branchenfeld englischer Text
+(„CleanTech / Green Hydrogen"); dort steht jetzt
+„CleanTech / grüner Wasserstoff (PEM-Elektrolyseur-Stacks)".
