@@ -1329,6 +1329,72 @@ router.post('/projects/:projectId/interests/:userId/revoke-dataroom', ...isAdmin
   } });
 }));
 
+// ── Kontaktoffenlegung je Mandat (v0.468) ───────────────────────────────────
+// Wer steht sich hier gegenüber, was ist freigegeben, und was fehlt noch?
+// Die Liste nennt bewusst auch die Fälle, die NICHT freigegeben werden dürfen,
+// mit dem Grund. Ein ausgegrauter Knopf ohne Begründung erzeugt nur Rückfragen.
+router.get('/projects/:projectId/kontakt-freigaben', ...isAdmin, wrap(async (req, res) => {
+  const kf = require('../utils/kontaktFreigabe');
+  const pid = Number(req.params.projectId);
+  const projekt = await db.get('SELECT id, codename, created_by, mandate_type, status FROM projects WHERE id = ?', [pid]);
+  if (!projekt) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+
+  const interessenten = await db.all(`
+    SELECT DISTINCT u.id, u.first_name, u.last_name, u.company, u.email
+      FROM users u
+     WHERE u.id IN (SELECT buyer_id FROM interests WHERE project_id = ?)
+        OR u.id IN (SELECT user_id FROM nda_requests WHERE project_id = ?)`, [pid, pid]).catch(() => []);
+
+  const gegenseite = projekt.created_by;
+  const zeilen = [];
+  for (const i of interessenten) {
+    if (!gegenseite || i.id === gegenseite) continue;
+    const v = await kf.voraussetzungen(pid, i.id);
+    zeilen.push({
+      interessent_id: i.id,
+      name: [i.first_name, i.last_name].filter(Boolean).join(' '),
+      company: i.company || null,
+      nda_status: v.nda_status,
+      freigegeben: await kf.istFrei(pid, i.id, gegenseite),
+      darf_freigegeben_werden: v.erfuellt,
+      fehlend: v.fehlend,
+    });
+  }
+  res.json({ success: true, data: { codename: projekt.codename, gegenseite_user_id: gegenseite, zeilen } });
+}));
+
+router.post('/projects/:projectId/kontakt-freigaben', ...isAdmin, wrap(async (req, res) => {
+  const kf = require('../utils/kontaktFreigabe');
+  const pid = Number(req.params.projectId);
+  const interessentId = Number(req.body.interessent_id);
+  if (!interessentId) return res.status(400).json({ success: false, error: 'interessent_id fehlt' });
+  const projekt = await db.get('SELECT id, created_by, codename FROM projects WHERE id = ?', [pid]);
+  if (!projekt) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  if (!projekt.created_by) {
+    return res.status(400).json({ success: false, error: 'Das Mandat hat keine hinterlegte Gegenseite. Bitte zuerst den Verkäufer am Mandat eintragen.' });
+  }
+  const r = await kf.freigeben({
+    projectId: pid, interessentId, gegenseiteId: projekt.created_by,
+    actorId: req.user.id, grund: req.body.grund || null, ip: req.ip,
+  });
+  if (!r.ok) {
+    return res.status(400).json({ success: false, error: `Die Kontaktdaten dürfen noch nicht offengelegt werden: ${r.fehlend.join(' ')}` });
+  }
+  res.json({ success: true, data: { freigegeben: true } });
+}));
+
+router.delete('/projects/:projectId/kontakt-freigaben/:interessentId', ...isAdmin, wrap(async (req, res) => {
+  const kf = require('../utils/kontaktFreigabe');
+  const pid = Number(req.params.projectId);
+  const projekt = await db.get('SELECT id, created_by FROM projects WHERE id = ?', [pid]);
+  if (!projekt) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  const r = await kf.widerrufen({
+    projectId: pid, aId: Number(req.params.interessentId), bId: projekt.created_by,
+    actorId: req.user.id, ip: req.ip,
+  });
+  res.json({ success: true, data: { widerrufen: r.ok, hinweis: r.hinweis || null } });
+}));
+
 router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {
   const nda = await db.get('SELECT * FROM nda_requests WHERE id = ?', [req.params.id]);
   if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });

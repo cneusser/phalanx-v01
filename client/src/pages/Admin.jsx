@@ -12,6 +12,7 @@ import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, 
 import DealCrmModal, { DEAL_STATUS_LABELS, DEAL_TRANSITIONS } from '../components/DealCrmModal';
 import ContactDrawer from '../components/ContactDrawer';
 import DocumentGrantsModal from '../components/DocumentGrantsModal';
+import KontaktFreigabeModal from '../components/KontaktFreigabeModal';
 import TemplateAdmin from '../components/TemplateAdmin';
 import TaskBoard from '../components/TaskBoard';
 import MailOutbox from '../components/MailOutbox';
@@ -255,6 +256,7 @@ export default function Admin() {
 
   // Edit project modal
   const [editProject, setEditProject] = useState(null);
+  const [kontaktProjekt, setKontaktProjekt] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
   // Pflegerechte (project_members) im Bearbeiten-Dialog
   const [editMembers, setEditMembers] = useState([]);
@@ -1614,6 +1616,9 @@ export default function Admin() {
                       </button>
                       <button onClick={() => { openUpload(p); loadProjectDocs(p.id); }} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#dcfce7', color: '#166534', border: 'none', padding: '0.3rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
                         <Upload size={11} /> Dokumente
+                      </button>
+                      <button onClick={() => setKontaktProjekt(p.id)} title="Kontaktdaten zwischen Verkäufer und Interessent offenlegen" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#ede9fe', color: '#5b21b6', border: 'none', padding: '0.3rem 0.6rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
+                        Kontakt
                       </button>
                       <Link to={`/mandat/${p.id}/safe`} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#111820', color: '#fff', padding: '0.3rem 0.6rem', borderRadius: 5, fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none' }}>
                         🔒 Safe
@@ -3379,6 +3384,11 @@ export default function Admin() {
       {/* Feingranulare Dokument-Freigaben */}
       {grantsDoc && uploadProject && (
         <DocumentGrantsModal projectId={uploadProject.id} doc={grantsDoc} onClose={() => setGrantsDoc(null)} onChanged={reloadUploadDocs} />
+      )}
+
+      {/* Kontaktoffenlegung je Mandat (v0.468) */}
+      {kontaktProjekt && (
+        <KontaktFreigabeModal projectId={kontaktProjekt} onClose={() => setKontaktProjekt(null)} />
       )}
 
       {/* Sprint 4: Deal-CRM-Modal */}

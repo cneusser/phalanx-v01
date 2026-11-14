@@ -66,15 +66,26 @@ router.get('/connections', authenticate, wrap(async (req, res) => {
     WHERE c.requester_id = ? OR c.addressee_id = ?
     ORDER BY c.created_at DESC`, [req.user.id, req.user.id]));
   const me = req.user.id;
-  const map = (c) => {
-    // E-Mail der Gegenseite erst preisgeben, wenn die Verbindung angenommen ist.
+  const kontaktFreigabe = require('../utils/kontaktFreigabe');
+  // Zwei Bedingungen, nicht eine (v0.468): Die Verbindung muss angenommen sein,
+  // UND bei Parteien desselben Mandats muss die Kontaktoffenlegung freigegeben
+  // sein. Für alle anderen Verbindungen im Netzwerk ändert sich nichts.
+  const map = async (c) => {
     const accepted = c.status === 'accepted';
     const other = c.requester_id === me
-      ? { id: c.addressee_id, name: `${c.adr_first} ${c.adr_last}`, company: c.adr_company, email: accepted ? c.adr_email : null }
-      : { id: c.requester_id, name: `${c.req_first} ${c.req_last}`, company: c.req_company, email: accepted ? c.req_email : null };
-    return { id: c.id, status: c.status, direction: c.requester_id === me ? 'outgoing' : 'incoming', other };
+      ? { id: c.addressee_id, name: `${c.adr_first} ${c.adr_last}`, company: c.adr_company, email: c.adr_email }
+      : { id: c.requester_id, name: `${c.req_first} ${c.req_last}`, company: c.req_company, email: c.req_email };
+    const urteil = accepted
+      ? await kontaktFreigabe.darfSehen(req.user, other.id)
+      : { frei: false, grund: 'nicht_angenommen' };
+    return {
+      id: c.id, status: c.status,
+      direction: c.requester_id === me ? 'outgoing' : 'incoming',
+      other: { ...other, email: urteil.frei ? other.email : null },
+      kontakt_grund: urteil.grund,
+    };
   };
-  res.json({ success: true, data: rows.map(map) });
+  res.json({ success: true, data: await Promise.all(rows.map(map)) });
 }));
 
 // ── Anfrage annehmen/ablehnen ───────────────────────────────────────────────
