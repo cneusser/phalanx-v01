@@ -6,9 +6,20 @@ und woran man erkennt, ob es gewirkt hat.
 
 ---
 
-## 1. EIGENE_DOMAINS
+## 1. EIGENE_DOMAINS: erledigt
 
-### Was ohne die Variable passiert
+In Railway steht seit spätestens 14.11.2026:
+
+```
+EIGENE_DOMAINS=phalanx.de,capitalmatch.de
+```
+
+Damit ist dieser Punkt zu. Der Rest dieses Abschnitts bleibt stehen, weil er
+erklärt, was die Variable tut und woran man erkennt, dass sie wirkt. Falls
+später über eine weitere Versanddomain zugestellt wird, gehört sie in dieselbe
+Zeile.
+
+### Was ohne die Variable passieren würde
 
 Der Mailverlauf (seit v0.462) kann eingehende und ausgehende Mails
 unterscheiden. Woran er das erkennt, steht in `EIGENE_DOMAINS`. Ist die
