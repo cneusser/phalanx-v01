@@ -47,6 +47,17 @@ export default function Datenpflege() {
   const [rundVorschau, setRundVorschau] = useState(null);
   const [sprachen, setSprachen] = useState(null);
   const [sprachenFehler, setSprachenFehler] = useState('');
+  const [kriterien, setKriterien] = useState(null);
+  const [kriterienLaeuft, setKriterienLaeuft] = useState(false);
+
+  // Trockenlauf und Übernahme laufen durch dieselbe Route. Der Unterschied ist
+  // ein Schalter, damit beide dasselbe tun und nur eines davon schreibt.
+  async function kriterienLauf(uebernehmen) {
+    setKriterienLaeuft(true);
+    try { setKriterien(await api.post('/crm/kriterien-ableiten', { uebernehmen })); }
+    catch (e) { setKriterien({ geprueft: 0, vorgesehen: 0, ohne_zuordnung: 0, geschrieben: 0, zeilen: [], fehler: e.message }); }
+    finally { setKriterienLaeuft(false); }
+  }
   const [entwurf, setEntwurf] = useState({});   // id → { feld_en: Text }
   const [meldung, setMeldung] = useState('');
   const [fehler, setFehler] = useState('');
@@ -428,6 +439,49 @@ export default function Datenpflege() {
             );
           })}
           {!kampagnen.length && <p style={{ fontSize: '0.85rem', color: C.muted, margin: 0 }}>Noch kein Mailing angelegt.</p>}
+        </div>
+
+        {/* ── Suchkriterien aus dem Schwerpunkt ableiten (v0.469) ───────── */}
+        <div style={{ ...KARTE, marginTop: '1.2rem' }}>
+          <h2 style={{ fontSize: '1rem', color: C.navy, margin: '0 0 0.6rem' }}>Suchkriterien aus dem Schwerpunkt</h2>
+          <p style={{ fontSize: '0.83rem', color: C.muted, margin: '0 0 0.9rem', lineHeight: 1.6 }}>
+            Recherchierte Kontakte tragen oft nur einen Satz wie „Bau, Infrastruktur, Immobilien,
+            Technologie". Der Abgleich im Deal-Funnel vergleicht aber Branchen und Regionen als
+            Kennung. Hier wird der Satz in diese Kennungen übersetzt. Bestehende Kriterien bleiben
+            unverändert, und was sich nicht eindeutig zuordnen lässt, wird genannt statt geraten.
+          </p>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.8rem' }}>
+            <button onClick={() => kriterienLauf(false)} disabled={kriterienLaeuft}
+              style={{ padding: '0.45rem 0.9rem', borderRadius: 8, border: `1px solid ${C.border}`, background: '#fff', color: C.navy, cursor: 'pointer', fontSize: '0.83rem', fontWeight: 600 }}>
+              Trockenlauf
+            </button>
+            <button onClick={() => kriterienLauf(true)} disabled={kriterienLaeuft || !kriterien || !kriterien.vorgesehen}
+              style={{ padding: '0.45rem 0.9rem', borderRadius: 8, border: 'none', background: kriterien && kriterien.vorgesehen ? C.accent : '#e2e8f0', color: kriterien && kriterien.vorgesehen ? '#fff' : C.muted, cursor: kriterien && kriterien.vorgesehen ? 'pointer' : 'not-allowed', fontSize: '0.83rem', fontWeight: 600 }}>
+              Übernehmen
+            </button>
+          </div>
+          {kriterien && (
+            <>
+              <p style={{ fontSize: '0.83rem', color: C.navy, margin: '0 0 0.6rem' }}>
+                {kriterien.geprueft} Kontakte mit Schwerpunkt geprüft,
+                {' '}{kriterien.vorgesehen} würden ergänzt,
+                {' '}{kriterien.ohne_zuordnung} ohne eindeutige Zuordnung.
+                {kriterien.geschrieben > 0 && <strong> {kriterien.geschrieben} wurden geschrieben.</strong>}
+              </p>
+              <div style={{ maxHeight: 280, overflow: 'auto', border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                {kriterien.zeilen.map((z) => (
+                  <div key={z.id} style={{ padding: '0.5rem 0.7rem', borderBottom: `1px solid ${C.border}`, fontSize: '0.79rem' }}>
+                    <span style={{ fontWeight: 600, color: C.navy }}>{z.name}</span>
+                    <span style={{ color: C.muted }}> · {z.text}</span>
+                    <div style={{ color: z.aenderung ? '#166534' : C.muted, marginTop: 2 }}>
+                      {z.aenderung ? `${z.branchen.join(', ')}${z.regionen.length ? ' · ' + z.regionen.join(', ') : ''}` : z.grund}
+                      {z.unklar.length > 0 && <span style={{ color: '#92400e' }}> · nicht zugeordnet: {z.unklar.join(', ')}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* ── Übersetzungen der Mandate ─────────────────────────────────── */}

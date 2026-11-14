@@ -1607,6 +1607,60 @@ router.get('/investoren/passend/:projectId', ...isStaff, wrap(async (req, res) =
   res.json({ success: true, data: { mandat: p, gepruefte: kontakte.length, treffer } });
 }));
 
+// ── Suchkriterien aus dem Schwerpunkt ableiten (v0.469) ─────────────────────
+// Recherchierte Kontakte tragen einen Fliesstext und keine Kriterien. Der
+// Abgleich im Deal-Funnel sieht den Fliesstext nicht an, und damit greift er
+// bei genau diesen Kontakten nicht. Diese Route übersetzt den Text in Codes.
+//
+// Standard ist der Trockenlauf. Geschrieben wird erst, wenn ausdrücklich
+// `uebernehmen` gesetzt ist. Bestehende Kriterien bleiben unangetastet, und
+// was sich nicht zuordnen liess, steht im Bericht.
+router.post('/kriterien-ableiten', ...isStaff, wrap(async (req, res) => {
+  const { planen } = require('../utils/kriterienAusText');
+  const uebernehmen = req.body.uebernehmen === true;
+  const nurIds = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : null;
+
+  const kontakte = await scoped(req, (t) => t.all(
+    `SELECT id, first_name, last_name, company, focus_industries, focus_regions, investment_focus
+       FROM crm_contacts
+      WHERE contact_status = 'active' AND anonymized_at IS NULL
+        AND COALESCE(investment_focus, '') <> ''
+      LIMIT 5000`)).catch(() => []);
+
+  const zeilen = kontakte
+    .filter((k) => !nurIds || nurIds.includes(k.id))
+    .map(planen);
+
+  let geschrieben = 0;
+  if (uebernehmen) {
+    for (const z of zeilen.filter((x) => x.aenderung)) {
+      await scoped(req, (t) => t.run(
+        `UPDATE crm_contacts
+            SET focus_industries = CASE WHEN ? = '[]' THEN focus_industries ELSE ? END,
+                focus_regions    = CASE WHEN ? = '[]' THEN focus_regions    ELSE ? END,
+                updated_at = now()
+          WHERE id = ?`,
+        [JSON.stringify(z.branchen), JSON.stringify(z.branchen),
+          JSON.stringify(z.regionen), JSON.stringify(z.regionen), z.id]));
+      geschrieben++;
+    }
+    db.auditLog(req.user.id, 'KRITERIEN_ABGELEITET', 'crm_contact', null,
+      `${geschrieben} Kontakte aus dem Schwerpunkt ergänzt`, req.ip);
+  }
+
+  res.json({
+    success: true,
+    data: {
+      trockenlauf: !uebernehmen,
+      geprueft: zeilen.length,
+      vorgesehen: zeilen.filter((z) => z.aenderung).length,
+      geschrieben,
+      ohne_zuordnung: zeilen.filter((z) => !z.aenderung && z.unklar.length).length,
+      zeilen,
+    },
+  });
+}));
+
 router.post('/leads/parse', ...isStaff, wrap(async (req, res) => {
   const text = String(req.body.text || '');
   if (text.trim().length < 20) return res.status(400).json({ success: false, error: 'Bitte fügen Sie die vollständige Anfrage-E-Mail ein.' });
