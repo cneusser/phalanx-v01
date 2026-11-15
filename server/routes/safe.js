@@ -1065,6 +1065,12 @@ async function materializeToDocument(req, projectId, item, accessLevel, desc) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [projectId, item.name, item.mime || 'application/octet-stream', item.size, accessLevel, desc || '', req.user.id,
      item.storage_key, item.id, folder || null, contentText]));
+  // Das Safe-Objekt selbst traegt ab v0.478 die Stufe: Wer hier freigibt,
+  // gibt den Eintrag im Baum frei und nicht nur eine zweite Zeile daneben.
+  const { ausZugangsart } = require('../utils/safeStufe');
+  await scoped(req, (t) => t.run(
+    "UPDATE safe_items SET sichtbar_ab = ?, stand = 'freigegeben' WHERE id = ? AND project_id = ?",
+    [ausZugangsart(accessLevel), item.id, projectId])).catch(() => {});
   return { document_id: docId };
 }
 

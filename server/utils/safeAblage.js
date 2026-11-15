@@ -79,6 +79,7 @@ async function ordnerSicherstellen(lauf, neu, { projectId, pfad, userId }) {
  */
 async function alsSafeObjekt(lauf, neu, {
   projectId, name, storageKey, mime, size, pruefsumme, stufe, ordner, userId, contentText,
+  stand = 'freigegeben',
 }) {
   const zielpfad = (ordner && String(ordner).trim()) || ordnerFuerStufe(stufe);
   const elternId = await ordnerSicherstellen(lauf, neu, { projectId, pfad: zielpfad, userId });
@@ -91,10 +92,15 @@ async function alsSafeObjekt(lauf, neu, {
     elternId === null ? [projectId, name] : [projectId, name, elternId]);
   if (da) return { safe_item_id: da.id, angelegt: false };
 
+  // Stufe und Stand gehoeren an die Zeile (v0.478). Ohne sie griffe die
+  // Vorgabe „Entwurf auf Datenraum-Stufe", und ein hochgeladener Teaser
+  // waere fuer den Kaeufer wieder unsichtbar.
+  const { ausZugangsart } = require('./safeStufe');
   const id = await neu(
-    `INSERT INTO safe_items (project_id, parent_id, name, is_folder, storage_key, size, mime, checksum_sha256, uploaded_by, content_text)
-     VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
-    [projectId, elternId, name, storageKey, size || 0, mime || null, pruefsumme || null, userId || null, contentText || null]);
+    `INSERT INTO safe_items (project_id, parent_id, name, is_folder, storage_key, size, mime, checksum_sha256, uploaded_by, content_text, sichtbar_ab, stand, fassung)
+     VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    [projectId, elternId, name, storageKey, size || 0, mime || null, pruefsumme || null, userId || null,
+     contentText || null, ausZugangsart(stufe), stand]);
   return { safe_item_id: id, angelegt: true };
 }
 

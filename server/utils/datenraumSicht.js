@@ -34,14 +34,20 @@ async function kaeuferKontext(user, projectId, alle) {
   const db = require('../db/database');
   const { getStage } = require('../middleware/gates');
   const { stageAllows } = require('./dealStateMachine');
+  const stufen = require('./safeStufe');
   const stage = await getStage(user.id, projectId);
-  if (!stageAllows(stage, 'dataroom')) return { offen: false, stage: stage || null };
+  // Seit v0.478 ist das Gate nicht mehr nur auf oder zu. Wer die
+  // Datenraum-Freigabe nicht hat, sieht trotzdem, was auf seine Stufe
+  // gehoert: den Teaser oeffentlich, das Memorandum ab Unterschrift. Was
+  // auf die Datenraum-Stufe gehoert, bleibt zu wie bisher.
+  const stufe = stufen.stufeAusAkte(stage, { stageAllows });
   const u = await db.get('SELECT buyer_type FROM users WHERE id = ?', [user.id]).catch(() => null);
   const gruppen = await alle(
     'SELECT group_id FROM safe_group_members WHERE user_id = ?', [user.id]).catch(() => []);
   return {
     offen: true,
     stage,
+    stufe,
     userId: user.id,
     buyerType: (u && u.buyer_type) || null,
     groupIds: (gruppen || []).map((g) => g.group_id),
@@ -54,9 +60,17 @@ async function kaeuferKontext(user, projectId, alle) {
  */
 async function bewerteFuer(ktx, projectId, alle) {
   if (!ktx || !ktx.offen) return null;
-  const items = await alle(
-    'SELECT id, parent_id, is_folder, confidential, name FROM safe_items WHERE project_id = ? AND deleted_at IS NULL',
+  const stufen = require('./safeStufe');
+  const alleItems = await alle(
+    `SELECT id, parent_id, is_folder, confidential, name,
+            COALESCE(sichtbar_ab, 'dataroom') AS sichtbar_ab,
+            COALESCE(stand, 'freigegeben') AS stand
+       FROM safe_items WHERE project_id = ? AND deleted_at IS NULL`,
     [projectId]);
+  // Erst wegnehmen, was auf dieser Stufe gar nicht in Frage kommt, dann
+  // bewerten. Vertraulichkeit und Einzelfreigaben entscheidet unveraendert
+  // safeVisibility auf dem, was uebrig bleibt.
+  const items = stufen.fuerStufe(alleItems, ktx.stufe || 'dataroom');
   const grants = await alle(
     'SELECT item_id, subject_type, subject_ref, level FROM safe_grants WHERE project_id = ?',
     [projectId]).catch(() => []);
