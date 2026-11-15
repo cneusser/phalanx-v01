@@ -1362,6 +1362,82 @@ router.post('/:projectId/item/:id/redact', authenticate, wrap(async (req, res) =
   res.json({ success: true, data: { id: created.id, name, hits } });
 }));
 
+// ── Klarnamen im Datenraum prüfen (v0.479) ─────────────────────────────────
+//
+// Was ein Interessent sieht, soll keinen Mitarbeiter beim Namen nennen. Die
+// Prüfung dafür gab es seit v0.427, aber sie sah nur Mandatstexte und
+// Dateinamen an. Hier läuft sie über den Inhalt.
+//
+// Sie meldet und ändert nichts. Drei Stufen, und die dritte ist die, auf die
+// es ankommt:
+//
+//   treffer       im Text steht ein Name, eine Adresse oder eine Nummer
+//   verdacht      Name oder Ordner deutet auf Personaldaten
+//   ungeprueft    es gab keinen Text, etwa bei einem Scan
+//
+// „ungeprueft" heisst nicht sauber. Eine Prüfung, die Nichtgeprüftes als
+// unauffällig ausweist, ist schlimmer als keine.
+router.get('/:projectId/klarnamen-pruefung', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const projectId = req.params.projectId;
+  const pruefung = require('../utils/klarnamenImDatenraum');
+
+  // Namen, die das System zu diesem Mandat ohnehin kennt.
+  const beteiligte = await scoped(req, (t) => t.all(
+    `SELECT DISTINCT c.first_name, c.last_name
+       FROM crm_deal_parties dp JOIN crm_contacts c ON c.id = dp.contact_id
+      WHERE dp.project_id = ? AND c.anonymized_at IS NULL`, [projectId])).catch(() => []);
+  const mitglieder = await scoped(req, (t) => t.all(
+    `SELECT DISTINCT u.first_name, u.last_name
+       FROM project_members m JOIN users u ON u.id = m.user_id
+      WHERE m.project_id = ?`, [projectId])).catch(() => []);
+  const bekannt = [...(beteiligte || []), ...(mitglieder || [])]
+    .map((r) => `${r.first_name || ''} ${r.last_name || ''}`.trim()).filter(Boolean);
+
+  // Zusätzliche Begriffe darf der Aufrufer mitgeben, etwa den Klarnamen der
+  // Firma und den Ort. Das ist die Sperrliste aus der Roadmap, solange sie
+  // noch nicht am Mandat steht.
+  const sperre = String(req.query.sperrliste || '').split(',').map((t) => t.trim()).filter((t) => t.length >= 3).slice(0, 50);
+
+  const alle = await scoped(req, (t) => t.all(
+    `SELECT id, parent_id, name, is_folder, mime, size, confidential, content_text
+       FROM safe_items WHERE project_id = ? AND deleted_at IS NULL`, [projectId]));
+  const proId = new Map(alle.map((i) => [Number(i.id), i]));
+  const pfadVon = (i) => {
+    const teile = []; let p = i.parent_id == null ? null : Number(i.parent_id); let schutz = 0;
+    while (p != null && proId.has(p) && schutz++ < 50) {
+      const e = proId.get(p); teile.unshift(e.name); p = e.parent_id == null ? null : Number(e.parent_id);
+    }
+    return teile.join('/');
+  };
+  const dateien = alle.filter((i) => Number(i.is_folder) === 0)
+    .map((i) => ({ ...i, pfad: pfadVon(i) }));
+
+  const r = pruefung.bewerteAlle(dateien, bekannt, sperre);
+  db.auditLog(req.user.id, 'SAFE_KLARNAMEN_PRUEFUNG', 'project', projectId,
+    `${r.stand.dateien} Dateien, ${r.stand.treffer} mit Fund`, req.ip);
+  res.json({ success: true, data: { ...r, bekannte_namen: bekannt.length, sperrliste: sperre } });
+}));
+
+// Gefundene Dateien als vertraulich kennzeichnen (Clean Team). Das ist die
+// Stufe, die es heute gibt: Der Eintrag erscheint für Unberechtigte nur als
+// gesperrt. Ein eigener Bereich mit eigenem Schlüssel kommt in Sprint 2.
+router.post('/:projectId/klarnamen-pruefung/vertraulich', authenticate, wrap(async (req, res) => {
+  if (!(await guard(req, res))) return;
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+  if (!ids.length) return res.status(400).json({ success: false, error: 'Bitte mindestens eine Datei auswählen.' });
+  const treffer = await scoped(req, (t) => t.all(
+    `SELECT id, name FROM safe_items WHERE project_id = ? AND deleted_at IS NULL AND is_folder = 0
+       AND id IN (${ids.map(() => '?').join(',')})`, [req.params.projectId, ...ids]));
+  for (const i of treffer) {
+    // eslint-disable-next-line no-await-in-loop
+    await scoped(req, (t) => t.run('UPDATE safe_items SET confidential = 1 WHERE id = ?', [i.id]));
+  }
+  db.auditLog(req.user.id, 'SAFE_KLARNAMEN_VERTRAULICH', 'project', req.params.projectId,
+    `${treffer.length} Datei(en) als vertraulich gekennzeichnet`, req.ip);
+  res.json({ success: true, data: { gesetzt: treffer.length, namen: treffer.map((i) => i.name) } });
+}));
+
 // ── Speicherverbrauch (Mandat) ──────────────────────────────────────────────
 router.get('/:projectId/usage', authenticate, wrap(async (req, res) => {
   if (!(await guardRead(req, res))) return;
