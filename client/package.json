@@ -1,6 +1,6 @@
 {
   "name": "phalanx-client",
-  "version": "0.472.0",
+  "version": "0.473.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

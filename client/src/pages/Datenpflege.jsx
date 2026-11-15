@@ -108,6 +108,13 @@ export default function Datenpflege() {
 
   const stapelSpeichern = async () => {
     if (!stapelWert || !auswahl.length) return;
+    // Eine Sammelaktion ist schnell und damit gefaehrlich (v0.473): 276
+    // Firmen auf einen falschen Wert zu setzen dauert einen Klick, das
+    // Zuruecknehmen dauert einen Abend.
+    if (auswahl.length > 25) {
+      const feldName = (STAPEL_FELDER.find(([w]) => w === stapelFeld) || [, stapelFeld])[1];
+      if (!window.confirm(`${feldName} für ${auswahl.length} Firmen auf „${stapelWert}" setzen?`)) return;
+    }
     setBusy(true); setFehler(''); setMeldung('');
     try {
       const r = await api.post('/pflege/pflege/stapel', {
@@ -288,7 +295,7 @@ export default function Datenpflege() {
 
           {/* Je Feld, damit man sieht, wo der Hebel liegt. */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
-            <button type="button" onClick={() => setFilter('')} style={{
+            <button type="button" onClick={() => { setFilter(''); setAuswahl([]); }} style={{
               ...KNOPF_HELL, background: filter ? '#fff' : C.navy, color: filter ? C.navy : '#fff',
               padding: '0.35rem 0.7rem', fontSize: '0.78rem',
             }}>alle</button>
@@ -300,8 +307,35 @@ export default function Datenpflege() {
             ))}
           </div>
 
+          {/* Auswaehlen, ohne zur Tabelle zu scrollen (v0.473).
+              Das Kaestchen in der Kopfzeile gibt es laenger, nur steht es
+              genau dort, wohin man erst scrollen muss. Bei 276 Zeilen ist
+              das der Unterschied zwischen zwei Klicks und zwei Minuten. */}
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
+            <button type="button" onClick={alleUmschalten} style={{
+              ...KNOPF_HELL, padding: '0.35rem 0.7rem', fontSize: '0.78rem',
+            }}>
+              {auswahl.length && auswahl.length === (uebersicht?.zeilen || []).length
+                ? 'Auswahl aufheben'
+                : `alle ${(uebersicht?.zeilen || []).length} auswählen`}
+            </button>
+            {auswahl.length > 0 && (
+              <span style={{ fontSize: '0.78rem', color: C.muted }}>
+                {auswahl.length} ausgewählt
+                {filter ? ` · gefiltert nach „${(uebersicht?.je_feld || []).find((f) => f.feld === filter)?.label || filter}"` : ''}
+              </span>
+            )}
+          </div>
+
           {/* Stapelbearbeitung */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '0.7rem', marginBottom: '1rem' }}>
+          {/* Klebt oben (v0.473): Wer unten in der Liste auswaehlt, soll den
+              Knopf nicht suchen muessen, mit dem er den Wert setzt. */}
+          <div style={{
+            display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center',
+            background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9,
+            padding: '0.7rem', marginBottom: '1rem',
+            position: 'sticky', top: 0, zIndex: 5, boxShadow: '0 2px 10px rgba(0,0,0,.05)',
+          }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: C.navy }}>Für die Auswahl setzen:</span>
             <select style={INPUT} value={stapelFeld} onChange={(e) => { setStapelFeld(e.target.value); setStapelWert(''); setStapelSektor(''); }}>
               {STAPEL_FELDER.map(([w, l]) => <option key={w} value={w}>{l}</option>)}
