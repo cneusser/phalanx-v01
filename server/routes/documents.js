@@ -70,9 +70,12 @@ async function streamDocument(res, doc, user, projectId, via) {
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.filename)}"`);
   res.setHeader('Content-Type', doc.file_type || 'application/octet-stream');
 
+  const ablage = require('../utils/dateiAblage');
+  const inhalt = await ablage.holen(doc);
+
   if (needsWatermark) {
     try {
-      const stamped = await addWatermark(fs.readFileSync(doc.file_path), {
+      const stamped = await addWatermark(inhalt, {
         name: `${user.first_name} ${user.last_name}`,
         email: user.email,
         date: new Date(),
@@ -82,7 +85,7 @@ async function streamDocument(res, doc, user, projectId, via) {
       console.warn('Wasserzeichen fehlgeschlagen, liefere Original:', e.message);
     }
   }
-  res.sendFile(path.resolve(doc.file_path));
+  res.send(inhalt);
 }
 
 const { mitFehlermeldung } = require('../utils/hochladen');
@@ -114,23 +117,11 @@ const ALLOWED_EXT = new Set([
   '.jpg', '.jpeg', '.png', '.webp',
 ]);
 
-const storage = multer.diskStorage({
-  destination: (req, _file, cb) => {
-    // Unterordner pro Projekt
-    const projectId = req.params.projectId || req.body.project_id || 'misc';
-    const dir = path.join(UPLOAD_DIR, `project_${projectId}`);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (_req, file, cb) => {
-    const ext  = path.extname(file.originalname).toLowerCase();
-    const base = path.basename(file.originalname, ext)
-      .replace(/[^a-zA-Z0-9_\-\.äöüÄÖÜ]/g, '_')
-      .substring(0, 60);
-    const ts = Date.now();
-    cb(null, `${base}_${ts}${ext}`);
-  },
-});
+// Seit v0.477 geht der Inhalt durch den Arbeitsspeicher und von dort an den
+// Speicheranbieter. Vorher schrieb multer unmittelbar auf das Volume, an der
+// Speicherwahl vorbei; deshalb lagen Teaser und IM bei Railway, waehrend der
+// Datenraum laengst bei R2 war.
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -155,8 +146,7 @@ router.post('/:projectId', ...isAdmin, mitFehlermeldung(upload.single('file'), 5
   const { projectId } = req.params;
   const project = await db.get('SELECT id FROM projects WHERE id = ?', [projectId]);
   if (!project) {
-    // Datei wieder löschen wenn Projekt nicht gefunden
-    fs.unlink(req.file.path, () => {});
+    // Nichts aufzuraeumen: Der Inhalt liegt nur im Arbeitsspeicher.
     return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
   }
 
@@ -171,27 +161,55 @@ router.post('/:projectId', ...isAdmin, mitFehlermeldung(upload.single('file'), 5
   let contentText = null;
   try {
     const { extractIfPdf } = require('../utils/pdfText');
-    contentText = (await extractIfPdf(fs.readFileSync(req.file.path), req.file.mimetype, displayName)) || null;
+    contentText = (await extractIfPdf(req.file.buffer, req.file.mimetype, displayName)) || null;
   } catch { /* ignore */ }
 
   const level = ['public', 'nda', 'approved'].includes(access_level) ? access_level : 'nda';
   const kategorie = { public: 'teaser', nda: 'im', approved: 'dataroom' }[level];
+  const ablage = require('../utils/dateiAblage');
+  const abgelegt = await ablage.ablegen(req.file.buffer, {
+    projectId, bereich: 'dokumente', dateiname: displayName, mime: req.file.mimetype,
+  });
   const docId = await db.insert(`
-    INSERT INTO documents (project_id, filename, file_type, file_size, access_level, category, folder, description, uploaded_by, file_path, content_text)
+    INSERT INTO documents (project_id, filename, file_type, file_size, access_level, category, folder, description, uploaded_by, storage_key, content_text)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [
     projectId,
     displayName,
     req.file.mimetype,
-    req.file.size,
+    abgelegt.size,
     level,
     kategorie,
     folder,
     description,
     req.user.id,
-    req.file.path,
+    abgelegt.storage_key,
     contentText,
   ]);
+
+  // Und derselbe Inhalt bekommt einen Platz im Datenraum-Baum (v0.477).
+  // Kein zweiter Schluessel, keine zweite Datei: nur ein Eintrag, der auf
+  // dieselbe Ablage zeigt. Damit steht der Teaser dort, wo der Kaeufer
+  // ihn sucht, und nicht nur in einem Reiter daneben.
+  let safeItemId = null;
+  try {
+    const safeAblage = require('../utils/safeAblage');
+    const r = await safeAblage.alsSafeObjekt(
+      (sql, pr) => db.get(sql, pr),
+      (sql, pr) => db.insert(sql, pr),
+      {
+        projectId, name: displayName, storageKey: abgelegt.storage_key,
+        mime: req.file.mimetype, size: abgelegt.size, pruefsumme: abgelegt.pruefsumme,
+        stufe: level, ordner: folder, userId: req.user.id, contentText,
+      });
+    safeItemId = r.safe_item_id;
+    await db.run('UPDATE documents SET safe_item_id = ? WHERE id = ?', [safeItemId, docId]);
+  } catch (e) {
+    // Der Eintrag im Baum ist wichtig, aber er darf den Upload nicht
+    // scheitern lassen: Die Datei liegt bereits, und die Dokumentzeile
+    // steht. Der Fehler wird genannt, damit er nicht untergeht.
+    console.error('Eintrag im Datenraum-Baum fehlgeschlagen:', e.message);
+  }
 
   db.auditLog(req.user.id, 'UPLOAD_DOCUMENT', 'document', docId,
     `${displayName} → Projekt ${projectId}`, req.ip);
@@ -242,7 +260,10 @@ router.get('/signed/:token', wrap(async (req, res) => {
 
   const user = await db.get('SELECT id, email, first_name, last_name, role, is_active FROM users WHERE id = ?', [parsed.userId]);
   const doc = await db.get('SELECT * FROM documents WHERE id = ?', [parsed.docId]);
-  if (!user || !user.is_active || !doc || !doc.file_path || !fs.existsSync(doc.file_path)) {
+  // Eine Datei liegt vor, wenn sie beim Speicheranbieter liegt ODER noch als
+  // Datei auf dem Volume. Die Pruefung auf das Dateisystem allein hat nach dem
+  // Umzug jede Zeile fuer verschwunden erklaert (v0.477).
+  if (!user || !user.is_active || !doc || !(doc.storage_key || doc.file_path)) {
     return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
   }
   const access = await checkDownloadAccess(user, doc, doc.project_id);
@@ -255,7 +276,7 @@ router.get('/signed/:token', wrap(async (req, res) => {
 // Ablaufender Download-Link (Standard 15 Min.), z. B. zum Öffnen im Browser
 router.post('/:projectId/:docId/link', authenticate, wrap(async (req, res) => {
   const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [req.params.docId, req.params.projectId]);
-  if (!doc || !doc.file_path) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
+  if (!doc || !(doc.storage_key || doc.file_path)) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
   const access = await checkDownloadAccess(req.user, doc, req.params.projectId);
   if (!access.ok) {
     db.activityLog(req.user.id, 'DOWNLOAD_LINK_DENIED', docCategory(doc), doc.id, req.ip);
@@ -275,7 +296,7 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
   const docs = await db.all(`
     SELECT id, filename, file_type, file_size, access_level, category, folder, version, description, created_at,
            COALESCE(restricted, 0) AS restricted,
-           (file_path IS NOT NULL)::int AS has_file
+           ((storage_key IS NOT NULL) OR (file_path IS NOT NULL))::int AS has_file
     FROM documents WHERE project_id = ? ORDER BY created_at DESC
   `, [projectId]);
 
@@ -372,7 +393,7 @@ router.get('/:projectId/search', authenticate, wrap(async (req, res) => {
 
   const rows = await db.all(
     `SELECT id, filename, folder, access_level, category, file_size,
-            COALESCE(restricted, 0) AS restricted, (file_path IS NOT NULL)::int AS has_file,
+            COALESCE(restricted, 0) AS restricted, ((storage_key IS NOT NULL) OR (file_path IS NOT NULL))::int AS has_file,
             ts_rank(content_tsv, plainto_tsquery('german', ?)) AS rank,
             ts_headline('german', coalesce(content_text, ''), plainto_tsquery('german', ?),
               'MaxFragments=1, MaxWords=20, MinWords=6, ShortWord=2, StartSel=«, StopSel=»') AS snippet
@@ -418,7 +439,7 @@ router.get('/:projectId/:docId/download', authenticate, wrap(async (req, res) =>
   const isAdminUser = ['super_admin', 'advisor'].includes(req.user.role);
 
   const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
-  if (!doc || !doc.file_path) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
+  if (!doc || !(doc.storage_key || doc.file_path)) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
 
   // Zugangskontrolle: Stage-Gate + granulare Datenraum-Rechte (Sprint 4)
   const access = await checkDownloadAccess(req.user, doc, projectId);
@@ -426,9 +447,6 @@ router.get('/:projectId/:docId/download', authenticate, wrap(async (req, res) =>
     db.activityLog(req.user.id, 'DOWNLOAD_DENIED', docCategory(doc), docId, req.ip);
     return res.status(403).json({ success: false, error: access.error });
   }
-
-  if (!fs.existsSync(doc.file_path))
-    return res.status(404).json({ success: false, error: 'Datei nicht gefunden' });
 
   db.auditLog(req.user.id, 'DOWNLOAD_DOCUMENT', 'document', docId,
     `${doc.filename} von Projekt ${projectId}`, req.ip);
@@ -460,10 +478,8 @@ router.delete('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
   const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
   if (!doc) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
 
-  // Datei löschen
-  if (doc.file_path && fs.existsSync(doc.file_path)) {
-    fs.unlink(doc.file_path, err => { if (err) console.error('File delete error:', err); });
-  }
+  // Datei löschen, egal wo sie liegt.
+  await require('../utils/dateiAblage').entfernen(doc);
 
   await db.run('DELETE FROM documents WHERE id = ?', [docId]);
   db.auditLog(req.user.id, 'DELETE_DOCUMENT', 'document', docId, doc.filename, req.ip);
@@ -611,20 +627,21 @@ router.post('/:projectId/:docId/file', ...isAdmin, mitFehlermeldung(upload.singl
   if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen' });
 
   const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
-  if (!doc) {
-    fs.unlink(req.file.path, () => {});
-    return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
-  }
+  if (!doc) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
 
-  const oldPath = doc.file_path;
+  const ablage = require('../utils/dateiAblage');
+  const vorher = { storage_key: doc.storage_key, file_path: doc.file_path };
+  const abgelegt = await ablage.ablegen(req.file.buffer, {
+    projectId, bereich: 'dokumente', dateiname: doc.filename, mime: req.file.mimetype,
+  });
   await db.run(
     `UPDATE documents
-     SET file_path = ?, file_type = ?, file_size = ?, storage_ref = ?, version = COALESCE(version, 1) + 1
+     SET storage_key = ?, file_path = NULL, file_type = ?, file_size = ?, storage_ref = ?, version = COALESCE(version, 1) + 1
      WHERE id = ?`,
-    [req.file.path, req.file.mimetype, req.file.size, req.file.path, docId]
+    [abgelegt.storage_key, req.file.mimetype, abgelegt.size, abgelegt.storage_key, docId]
   );
-  // Alte Datei aufräumen (falls vorhanden und nicht identisch)
-  if (oldPath && oldPath !== req.file.path) fs.unlink(oldPath, () => {});
+  // Die alte Fassung aufraeumen, erst nachdem die neue sicher liegt.
+  await ablage.entfernen(vorher);
 
   db.auditLog(req.user.id, 'UPLOAD_DOCUMENT_FILE', 'document', docId,
     `${doc.filename}: Datei hinterlegt (${req.file.originalname}, ${(req.file.size / 1024 / 1024).toFixed(2)} MB)`, req.ip);

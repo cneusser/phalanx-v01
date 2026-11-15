@@ -1019,9 +1019,16 @@ router.delete('/:projectId/item/:id/purge', authenticate, wrap(async (req, res) 
   res.json({ success: true, data: { purged: ids.length } });
 }));
 
-// ── In Datenraum/IM/Teaser übernehmen (kopiert in documents) ────────────────
-const DOC_UPLOAD_DIR = process.env.UPLOAD_DIR
-  || (process.env.RAILWAY_VOLUME_MOUNT_PATH ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads') : path.join(__dirname, '../../uploads'));
+// ── In Datenraum übernehmen, ohne zweite Kopie (v0.477) ────────────────────
+//
+// Bis v0.476 legte diese Stelle eine zweite physische Kopie auf dem Railway-
+// Volume an: dieselbe Unterlage zweimal, einmal beim Speicheranbieter im
+// Safe und einmal als Datei daneben. Zwei Kopien bedeuten zwei Schicksale.
+// Wird im Safe geschwärzt, bleibt die Kopie ungeschwärzt; wird im Safe
+// gelöscht, bleibt die Kopie liegen.
+//
+// Jetzt zeigt die Zeile in `documents` auf denselben Schlüssel wie das
+// Safe-Objekt und merkt sich, woher sie stammt. Kopiert wird nichts mehr.
 
 // Ordnerpfad eines Safe-Objekts aus der Elternkette (Namen, mit „/" verbunden).
 async function folderPathOf(req, projectId, parentId) {
@@ -1036,29 +1043,28 @@ async function folderPathOf(req, projectId, parentId) {
   return parts.join('/');
 }
 
-// Eine Safe-Datei in den Datenraum (documents) materialisieren. Dublettenschutz
-// über den Dateinamen je Mandat, damit Sammel-Übernahmen nichts doppeln. Der
-// Ordnerpfad wird aus der Safe-Struktur übernommen, damit der Käufer sich genauso
-// durch Ordner klicken kann wie im Safe.
+// Eine Safe-Datei im Datenraum sichtbar machen. Dublettenschutz über den
+// Dateinamen je Mandat, damit Sammel-Übernahmen nichts doppeln. Der
+// Ordnerpfad wird aus der Safe-Struktur übernommen, damit der Käufer sich
+// genauso durch Ordner klicken kann wie im Safe.
 async function materializeToDocument(req, projectId, item, accessLevel, desc) {
   if (!item || item.is_folder || !item.storage_key) return { skipped: 'keine Datei' };
   const dup = await scoped(req, (t) => t.get('SELECT id FROM documents WHERE project_id = ? AND filename = ?', [projectId, item.name]));
   if (dup) return { skipped: 'bereits im Datenraum', document_id: dup.id };
-  const buf = await getStorage().get(item.storage_key);
-  const dir = path.join(DOC_UPLOAD_DIR, `project_${projectId}`);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const ext = path.extname(item.name).toLowerCase();
-  const base = path.basename(item.name, ext).replace(/[^a-zA-Z0-9_\-\.äöüÄÖÜ]/g, '_').substring(0, 60);
-  const diskPath = path.join(dir, `${base}_${Date.now()}${ext}`);
-  fs.writeFileSync(diskPath, buf);
   const folder = await folderPathOf(req, projectId, item.parent_id);
-  // Vorhandenen Safe-Text übernehmen, sonst aus der Datei extrahieren.
+  // Den Volltext nur dann neu gewinnen, wenn der Safe ihn nicht schon hat.
   let contentText = item.content_text || null;
-  if (!contentText) contentText = (await require('../utils/pdfText').extractIfPdf(buf, item.mime, item.name)) || null;
+  if (!contentText) {
+    try {
+      const buf = await getStorage().get(item.storage_key);
+      contentText = (await require('../utils/pdfText').extractIfPdf(buf, item.mime, item.name)) || null;
+    } catch { /* ohne Volltext laesst sich die Datei trotzdem freigeben */ }
+  }
   const docId = await scoped(req, (t) => t.insert(
-    `INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, file_path, folder, content_text)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [projectId, item.name, item.mime || 'application/octet-stream', item.size, accessLevel, desc || '', req.user.id, diskPath, folder || null, contentText]));
+    `INSERT INTO documents (project_id, filename, file_type, file_size, access_level, description, uploaded_by, storage_key, safe_item_id, folder, content_text)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [projectId, item.name, item.mime || 'application/octet-stream', item.size, accessLevel, desc || '', req.user.id,
+     item.storage_key, item.id, folder || null, contentText]));
   return { document_id: docId };
 }
 
