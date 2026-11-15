@@ -40,6 +40,9 @@ const optionaleTeile = (q) => q.replace(/\$\{[^{}]*\?[^{}]*\}/g, WEG);
 const eingesetzteWerte = (q) => q.replace(/\$\{[^{}]*\}/g, ':x');
 
 const muster = (pfad) => pfad
+  // Express 5 schreibt einen wahlfreien Teil als {/:name} statt :name?.
+  // Beide Schreibweisen meinen dasselbe und werden hier zur Leerstelle.
+  .replace(/\{\/:[A-Za-z_]+\}/g, WEG)
   .replace(/:[A-Za-z_]+\?/g, WEG)
   .replace(/:[A-Za-z_]+/g, ':x')
   .replace(/\?.*$/, '')

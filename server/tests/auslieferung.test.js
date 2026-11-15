@@ -38,7 +38,9 @@ ok('express.static liefert index.html nicht selbst aus', /index:\s*false/.test(q
   const app = express();
   app.use('/assets', express.static(path.join(dist, 'assets'), { immutable: true, maxAge: '1y' }));
   app.use(express.static(dist, { index: false, etag: true, maxAge: 0 }));
-  app.get('*', (req, res) => {
+  // Gleiche Schreibweise wie in index.js. Express 5 verlangt einen Namen
+  // fuer den Platzhalter.
+  app.get('{*rest}', (req, res) => {
     res.set('Cache-Control', 'no-store, must-revalidate');
     res.sendFile(path.join(dist, 'index.html'));
   });

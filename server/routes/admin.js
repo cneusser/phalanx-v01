@@ -2610,7 +2610,9 @@ router.post('/berichte/fehler/:id/erledigt', ...isAdmin, wrap(async (req, res) =
  *
  * Ohne :projectId werden alle Mandate geprüft.
  */
-router.get('/berichte/klarnamen/:projectId?', ...isAdmin, wrap(async (req, res) => {
+// Express 5: Ein wahlfreier Parameter heisst jetzt '{/:projectId}' und nicht
+// mehr ':projectId?'. Gemeint ist dasselbe: mit und ohne Mandat.
+router.get('/berichte/klarnamen{/:projectId}', ...isAdmin, wrap(async (req, res) => {
   const { pruefeMandat } = require('../utils/klarnamen');
   const nur = req.params.projectId ? parseInt(req.params.projectId, 10) : null;
 

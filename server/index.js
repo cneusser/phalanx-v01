@@ -74,6 +74,18 @@ app.use(require('./utils/hochladen').mitAbfluss);
 app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 
+// ── Ein leerer Rumpf ist ein leeres Objekt (v0.475) ─────────────────────────
+//
+// Express 4 setzte `req.body` immer auf `{}`, auch wenn nichts ankam. Express 5
+// laesst es in dem Fall undefiniert. Im Bestand stehen rund 330 Stellen, die
+// `req.body` direkt auslesen oder zerlegen; jede davon wuerde bei einer
+// Anfrage ohne Inhaltstyp mit einem Serverfehler enden statt mit „Feld fehlt".
+//
+// Diese drei Zeilen stellen das alte Verhalten wieder her. Das ist ehrlicher
+// als 330 Stellen anzufassen, von denen jede einzelne ein Ort zum Vertippen
+// waere, und es laesst sich spaeter Stueck fuer Stueck wieder entfernen.
+app.use((req, _res, next) => { if (req.body === undefined) req.body = {}; next(); });
+
 // Sprint 5: Tenant über Subdomain auflösen (Fallback: Default-Tenant)
 app.use(require('./middleware/tenant').resolveTenant);
 
@@ -134,7 +146,9 @@ if (fs.existsSync(path.join(clientDist, 'index.html'))) {
     immutable: true, maxAge: '1y',
   }));
   app.use(express.static(clientDist, { index: false, etag: true, maxAge: 0 }));
-  app.get('*', (req, res, next) => {
+  // Express 5 verlangt fuer den Platzhalter einen Namen: aus '*' wird
+  // '{*rest}'. Gemeint ist dasselbe, naemlich alles, was keine Datei war.
+  app.get('{*rest}', (req, res, next) => {
     if (req.path.startsWith('/api/')) return next();
     res.set('Cache-Control', 'no-store, must-revalidate');
     res.sendFile(path.join(clientDist, 'index.html'));

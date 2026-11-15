@@ -1702,24 +1702,15 @@ const multer = require('multer');
 const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 6 * 1024 * 1024 } });
 const { detectHeaderRow, guessMapping, buildContacts } = require('../utils/contactImport');
 
-function parseSheet(file) {
-  const name = (file.originalname || '').toLowerCase();
-  if (name.endsWith('.csv') || (file.mimetype || '').includes('csv')) {
-    const text = file.buffer.toString('utf8').replace(/^﻿/, '');
-    const first = text.split(/\r?\n/)[0] || '';
-    const delim = (first.match(/;/g) || []).length >= (first.match(/,/g) || []).length ? ';' : ',';
-    return text.split(/\r?\n/).map(l => l.split(delim).map(c => c.replace(/^"(.*)"$/, '$1')));
-  }
-  const XLSX = require('xlsx');
-  const wb = XLSX.read(file.buffer, { type: 'buffer' });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-}
+// Seit v0.475 ueber exceljs statt xlsx. Liest jetzt asynchron, deshalb
+// warten die beiden Aufrufstellen darauf.
+const tabelle = require('../utils/tabelleLesen');
+const parseSheet = (file) => tabelle.zeilen(file);
 
 router.post('/import/analyze', ...isStaff, canWrite, mitFehlermeldung(importUpload.single('file'), 6291456), wrap(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei empfangen.' });
   let rows;
-  try { rows = parseSheet(req.file); } catch (e) { return res.status(400).json({ success: false, error: 'Datei nicht lesbar: ' + e.message }); }
+  try { rows = await parseSheet(req.file); } catch (e) { return res.status(400).json({ success: false, error: 'Datei nicht lesbar: ' + e.message }); }
   if (!rows || rows.length < 2) return res.status(400).json({ success: false, error: 'Zu wenige Zeilen in der Datei.' });
 
   const headerIdx = detectHeaderRow(rows);
@@ -2253,11 +2244,9 @@ router.post('/invite/emails', ...isStaff, canSend, wrap(async (req, res) => {
 // Excel/CSV hochladen: Spalten E-Mail, Vorname, Nachname (Header werden erkannt)
 router.post('/invite/import-file', ...isStaff, canSend, mitFehlermeldung(importUpload.single('file'), 6291456), wrap(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen.' });
-  const XLSX = require('xlsx');
   let rows;
   try {
-    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
-    rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+    rows = await tabelle.objekte(req.file);
   } catch { return res.status(400).json({ success: false, error: 'Datei konnte nicht gelesen werden.' }); }
   if (!rows || !rows.length) return res.status(400).json({ success: false, error: 'Die Datei enthält keine Zeilen.' });
 
