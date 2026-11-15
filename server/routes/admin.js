@@ -1758,10 +1758,30 @@ router.get('/emails', ...isAdmin, requirePermission('mail.log'), wrap(async (req
 }));
 
 // Eine Mail im Original ansehen (genau das HTML, das versendet wurde)
+// Zugangsmails tragen den Schluessel im Text (v0.473). Wer das Postfach
+// nicht hat, soll den Link nicht lesen koennen, auch nicht im Ausgangsbuch:
+// Sonst loest ein Konto mit `mail.log` ueber die oeffentliche Vergessen-
+// Funktion ein Zuruecksetzen fuer ein fremdes Konto aus und liest den Link
+// hier mit. Dass die Mail hinausging, bleibt sichtbar; ihr Inhalt nicht.
+const MAIL_OHNE_VOLLTEXT = ['password_reset', 'verify_email', 'invite', 'invite_reminder',
+  'invitation', 'consent', 'profile_link', 'magic_link'];
+// Zweiter Riegel, unabhaengig von der Art: Wo ein Schluessel im Link steht,
+// wird er unkenntlich gemacht. Die Art wird beim Versand gesetzt und kann
+// vergessen werden; ein `token=` im Text kann man nicht vergessen.
+const SCHLUESSEL_IM_LINK = /([?&](?:token|t|code|key|schluessel)=)[A-Za-z0-9._-]{8,}/gi;
+const ohneSchluessel = (html) => (html ? String(html).replace(SCHLUESSEL_IM_LINK, '$1entfernt') : html);
 router.get('/emails/:id', ...isAdmin, requirePermission('mail.log'), wrap(async (req, res) => {
   const mail = await db.get('SELECT * FROM email_log WHERE id = ?', [req.params.id]);
   if (!mail) return res.status(404).json({ success: false, error: 'Mail nicht gefunden' });
-  res.json({ success: true, data: mail });
+  if (MAIL_OHNE_VOLLTEXT.includes(String(mail.mail_type || ''))) {
+    res.json({ success: true, data: {
+      ...mail, body_html: null, body_text: null,
+      inhalt_zurueckgehalten: 'Diese Mail enthält einen persönlichen Zugangslink. '
+        + 'Der Inhalt wird hier nicht angezeigt.',
+    } });
+    return;
+  }
+  res.json({ success: true, data: { ...mail, body_html: ohneSchluessel(mail.body_html) } });
 }));
 
 // ── Q&A: offene und beantwortete Fragen (Admin-Tab) ───────────────────────

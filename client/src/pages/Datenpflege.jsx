@@ -31,6 +31,41 @@ function Zahl({ label, wert, ton }) {
   );
 }
 
+
+// Ein Bereich, der sich zuklappen laesst (v0.474).
+//
+// Die Seite trug fuenf Bereiche untereinander, alle offen. Zusammen sind das
+// mehrere Bildschirmhoehen, und gearbeitet wird immer an einem. Zugeklappt
+// bleibt die Ueberschrift mit einer Zeile, die sagt, was drinsteht; so muss
+// man nicht aufklappen, um zu sehen, ob es sich lohnt.
+//
+// Die Wahl steht im localStorage. Wer die Seite neu laedt, findet sie so vor,
+// wie er sie verlassen hat.
+function Bereich({ id, titel, Symbol, zusatz, ton, offen, umschalten, children }) {
+  const auf = offen.has(id);
+  return (
+    <div style={{ ...KARTE, marginBottom: '1.2rem', ...(ton || {}) }}>
+      <button
+        type="button"
+        onClick={() => umschalten(id)}
+        aria-expanded={auf}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '0.45rem', width: '100%',
+          background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <span style={{ color: C.muted, fontSize: '0.8rem', width: 12 }}>{auf ? '\u25be' : '\u25b8'}</span>
+        {Symbol ? <Symbol size={17} color={ton ? '#991b1b' : C.steel} /> : null}
+        <h2 style={{ fontSize: '1rem', color: ton ? '#991b1b' : C.navy, margin: 0 }}>{titel}</h2>
+        {zusatz && !auf ? (
+          <span style={{ fontSize: '0.78rem', color: C.muted, marginLeft: 'auto' }}>{zusatz}</span>
+        ) : null}
+      </button>
+      {auf && <div style={{ marginTop: '0.9rem' }}>{children}</div>}
+    </div>
+  );
+}
+
 export default function Datenpflege() {
   const [uebersicht, setUebersicht] = useState(null);
   const [filter, setFilter] = useState('');
@@ -47,6 +82,21 @@ export default function Datenpflege() {
   const [rundVorschau, setRundVorschau] = useState(null);
   const [sprachen, setSprachen] = useState(null);
   const [sprachenFehler, setSprachenFehler] = useState('');
+  // Welche Bereiche sind aufgeklappt. Beim ersten Besuch nur der erste.
+  const [offeneBereiche, setOffeneBereiche] = useState(() => {
+    try {
+      const gespeichert = JSON.parse(localStorage.getItem('cm_datenpflege_bereiche') || 'null');
+      if (Array.isArray(gespeichert)) return new Set(gespeichert);
+    } catch { /* privater Modus oder kaputter Eintrag */ }
+    return new Set(['luecken']);
+  });
+  const bereichUmschalten = (id) => setOffeneBereiche((alt) => {
+    const neu = new Set(alt);
+    if (neu.has(id)) neu.delete(id); else neu.add(id);
+    try { localStorage.setItem('cm_datenpflege_bereiche', JSON.stringify([...neu])); }
+    catch { /* nicht schlimm, dann merkt es sich die Seite eben nicht */ }
+    return neu;
+  });
   // Übersetzungen: zugeklappt als Standard (v0.471). Aufgeklappt wird, woran
   // gerade gearbeitet wird, und das ist immer genau ein Mandat.
   const [offeneMandate, setOffeneMandate] = useState(() => new Set());
@@ -282,10 +332,9 @@ export default function Datenpflege() {
         )}
 
         {/* ── Was fehlt wo ─────────────────────────────────────────────── */}
-        <div style={{ ...KARTE, marginBottom: '1.2rem' }}>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1rem', color: C.navy, margin: '0 0 0.9rem' }}>
-            <ListChecks size={17} color={C.steel} /> Fehlende Angaben
-          </h2>
+        <Bereich id="luecken" titel="Fehlende Angaben" Symbol={ListChecks}
+          offen={offeneBereiche} umschalten={bereichUmschalten}
+          zusatz={uebersicht ? `${uebersicht.unvollstaendig} von ${uebersicht.gesamt} Firmen mit Lücken` : null}>
 
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
             <Zahl label="Firmen insgesamt" wert={uebersicht?.gesamt ?? '.'} />
@@ -403,13 +452,12 @@ export default function Datenpflege() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Bereich>
 
         {/* ── Mailings ─────────────────────────────────────────────────── */}
-        <div style={KARTE}>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1rem', color: C.navy, margin: '0 0 0.9rem' }}>
-            <Mail size={17} color={C.steel} /> Aktualisierungsmailings
-          </h2>
+        <Bereich id="mailings" titel="Aktualisierungsmailings" Symbol={Mail}
+          offen={offeneBereiche} umschalten={bereichUmschalten}
+          zusatz={kampagnen.length ? `${kampagnen.length} angelegt` : 'noch keines angelegt'}>
           <p style={{ fontSize: '0.83rem', color: C.muted, margin: '0 0 0.9rem', lineHeight: 1.6 }}>
             Angeschrieben werden nur Ansprechpersonen mit Einwilligung. Jede Person bekommt je Mailing
             genau eine Mail, mit einem Link, der einmal gilt. Der Versand läuft in Rationen und nur
@@ -490,11 +538,12 @@ export default function Datenpflege() {
             );
           })}
           {!kampagnen.length && <p style={{ fontSize: '0.85rem', color: C.muted, margin: 0 }}>Noch kein Mailing angelegt.</p>}
-        </div>
+        </Bereich>
 
         {/* ── Suchkriterien aus dem Schwerpunkt ableiten (v0.469) ───────── */}
-        <div style={{ ...KARTE, marginTop: '1.2rem' }}>
-          <h2 style={{ fontSize: '1rem', color: C.navy, margin: '0 0 0.6rem' }}>Suchkriterien aus dem Schwerpunkt</h2>
+        <Bereich id="kriterien" titel="Suchkriterien aus dem Schwerpunkt"
+          offen={offeneBereiche} umschalten={bereichUmschalten}
+          zusatz={kriterien ? `${kriterien.vorgesehen} würden ergänzt` : null}>
           <p style={{ fontSize: '0.83rem', color: C.muted, margin: '0 0 0.9rem', lineHeight: 1.6 }}>
             Recherchierte Kontakte tragen oft nur einen Satz wie „Bau, Infrastruktur, Immobilien,
             Technologie". Der Abgleich im Deal-Funnel vergleicht aber Branchen und Regionen als
@@ -533,22 +582,23 @@ export default function Datenpflege() {
               </div>
             </>
           )}
-        </div>
+        </Bereich>
 
         {/* ── Übersetzungen der Mandate ─────────────────────────────────── */}
         {sprachenFehler && (
-          <div style={{ ...KARTE, marginTop: '1.2rem', borderColor: '#fca5a5', background: '#fef2f2' }}>
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1rem', color: '#991b1b', margin: '0 0 0.5rem' }}>
-              <Languages size={17} color="#991b1b" /> Übersetzungen der Mandate
-            </h2>
+          <Bereich id="sprachen" titel="Übersetzungen der Mandate" Symbol={Languages}
+            offen={offeneBereiche} umschalten={bereichUmschalten}
+            ton={{ borderColor: '#fca5a5', background: '#fef2f2' }}
+            zusatz="lässt sich nicht laden">
             <p style={{ fontSize: '0.85rem', color: '#991b1b', margin: 0, lineHeight: 1.6 }}>{sprachenFehler}</p>
-          </div>
+          </Bereich>
         )}
         {sprachen && (
-          <div style={{ ...KARTE, marginTop: '1.2rem' }}>
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1rem', color: C.navy, margin: '0 0 0.9rem' }}>
-              <Languages size={17} color={C.steel} /> Übersetzungen der Mandate
-            </h2>
+          <Bereich id="sprachen" titel="Übersetzungen der Mandate" Symbol={Languages}
+            offen={offeneBereiche} umschalten={bereichUmschalten}
+            zusatz={sprachen.offen > 0
+              ? `${sprachen.offen} von ${sprachen.mandate.length} offen`
+              : 'alle freigegeben'}>
             <p style={{ fontSize: '0.83rem', color: C.muted, margin: '0 0 0.9rem', lineHeight: 1.6 }}>
               Links steht die deutsche Fassung, rechts die englische. Gezeigt wird einem englischen
               Leser nur, was freigegeben ist. Solange nichts freigegeben ist, sieht er den deutschen
@@ -665,14 +715,13 @@ export default function Datenpflege() {
                 ))}
               </div>
             ))}
-          </div>
+          </Bereich>
         )}
 
         {/* ── Rundmail an alle registrierten Konten ─────────────────────── */}
-        <div style={{ ...KARTE, marginTop: '1.2rem' }}>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1rem', color: C.navy, margin: '0 0 0.9rem' }}>
-            <Megaphone size={17} color={C.steel} /> Rundmail an registrierte Konten
-          </h2>
+        <Bereich id="rundmail" titel="Rundmail an registrierte Konten" Symbol={Megaphone}
+          offen={offeneBereiche} umschalten={bereichUmschalten}
+          zusatz={rundmails.length ? `${rundmails.length} angelegt` : 'noch keine angelegt'}>
           <p style={{ fontSize: '0.83rem', color: C.muted, margin: '0 0 0.9rem', lineHeight: 1.6 }}>
             Für Mitteilungen, die den Zugang betreffen. Angeschrieben werden nur Konten mit bestätigter
             Adresse, die aktiv und freigeschaltet sind. Widerspruch im CRM und die Sperrliste gelten auch
@@ -745,7 +794,7 @@ export default function Datenpflege() {
             );
           })}
           {!rundmails.length && <p style={{ fontSize: '0.85rem', color: C.muted, margin: 0 }}>Noch keine Rundmail angelegt.</p>}
-        </div>
+        </Bereich>
       </div>
     </div>
   );

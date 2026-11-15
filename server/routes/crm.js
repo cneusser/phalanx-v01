@@ -2408,6 +2408,19 @@ router.post('/invite/:token/decline', wrap(async (req, res) => {
 router.post('/invite/:token/erase', wrap(async (req, res) => {
   const inv = await db.get('SELECT * FROM crm_invitations WHERE token = ?', [req.params.token]);
   if (!inv) return res.status(404).json({ success: false, error: 'Einladung nicht gefunden' });
+  // Ablauf und Stand pruefen (v0.473). Ohne das loescht ein alter Link aus
+  // einem weitergeleiteten Postfach unwiderruflich eine Akte, und zwar
+  // Jahre nach der Einladung. Die Einwilligungsroute prueft beides seit
+  // jeher; hier fehlte es.
+  if (inv.expires_at && new Date(inv.expires_at) < new Date()) {
+    return res.status(410).json({
+      success: false,
+      error: 'Dieser Link ist abgelaufen. Bitte schreiben Sie uns, dann löschen wir Ihre Daten von Hand.',
+    });
+  }
+  if (inv.status === 'declined') {
+    return res.json({ success: true, data: { erased: true, message: 'Ihre Daten wurden bereits gelöscht.' } });
+  }
   // Zur Nachweisführung vor dem Löschen protokollieren (ohne personenbezogene Restdaten).
   db.auditLog(null, 'CRM_CONTACT_ERASED', 'crm_contact', inv.contact_id, `Löschung auf eigenen Wunsch über Einladung (${inv.email})`, req.ip);
   if (inv.contact_id) {
@@ -3485,28 +3498,10 @@ router.delete('/tasks/:id', ...isStaff, wrap(async (req, res) => {
 
 // Plattform-Nutzer → CRM-Kontakt: vorhandenen finden oder anlegen (und verknüpfen).
 // Damit lässt sich aus der Nutzerliste heraus direkt die 360°-Ansicht öffnen.
-router.post('/contacts/from-user/:userId', ...isStaff, wrap(async (req, res) => {
-  const u = await db.get('SELECT * FROM users WHERE id = ?', [req.params.userId]);
-  if (!u) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
-
-  let contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE user_id = ?', [u.id]));
-  if (!contact && u.email) {
-    contact = await scoped(req, (t) => t.get('SELECT * FROM crm_contacts WHERE lower(email) = ?', [String(u.email).toLowerCase()]));
-    if (contact) await scoped(req, (t) => t.run('UPDATE crm_contacts SET user_id = ? WHERE id = ?', [u.id, contact.id]));
-  }
-  if (!contact) {
-    const id = await scoped(req, (t) => t.insert(`
-      INSERT INTO crm_contacts (tenant_id, salutation, title, first_name, last_name, email, mobile,
-                                responsibility, consent_status, contact_status, user_id, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'opt_in', 'active', ?, ?)`,
-      [req.tenantId || 1, u.salutation || null, u.title || null, u.first_name, u.last_name,
-       String(u.email).toLowerCase(), u.mobile || null, u.position || null, u.id, req.user.id]));
-    contact = { id };
-    db.auditLog(req.user.id, 'CRM_CONTACT_FROM_USER', 'crm_contact', id, u.email, req.ip);
-    // Registrierte Nutzer haben der Nutzung zugestimmt → consent_status = opt_in
-  }
-  res.json({ success: true, data: { contact_id: contact.id } });
-}));
+// Die zweite, abgesicherte Fassung dieser Route steht weiter unten. Hier
+// stand bis v0.473 eine erste, die nur `isStaff` verlangte. Express nimmt
+// die erste Registrierung, also galt die ungeschuetzte, und die geprueefte
+// war toter Code.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Sprint 13: DSGVO: Auskunft (Art. 15) und Vergessenwerden (Art. 17)

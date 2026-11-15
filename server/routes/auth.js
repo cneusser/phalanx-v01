@@ -200,7 +200,12 @@ router.post('/login', wrap(async (req, res) => {
   // Ist 2FA aktiv, gibt es hier noch kein Sitzungs-Token, sondern nur eine
   // kurzlebige Challenge (5 Minuten). Erst der richtige Code schaltet frei.
   if (user.totp_enabled === 1) {
-    const challenge = jwt.sign({ userId: user.id, twofa: true }, JWT_SECRET, { expiresIn: '5m' });
+    // Der Schein traegt seinen Zweck und die Token-Version. Ohne den Zweck
+    // liesse er sich als Sitzungstoken verwenden und der zweite Faktor
+    // ueberspringen (v0.473).
+    const challenge = jwt.sign(
+      { userId: user.id, twofa: true, zweck: '2fa', tv: user.token_version || 0 },
+      JWT_SECRET, { expiresIn: '5m' });
     db.auditLog(user.id, 'LOGIN_2FA_CHALLENGE', 'user', user.id, null, req.ip);
     return res.json({ success: true, data: { twofa_required: true, challenge } });
   }
@@ -391,9 +396,11 @@ router.post('/forgot-password', wrap(async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'https://www.capitalmatch.de';
     const resetUrl = `${frontendUrl}/passwort-reset?token=${token}`;
 
-    console.log(`\n🔑 Password Reset angefordert für ${user.email}`);
-    console.log(`   Reset-Link: ${resetUrl}`);
-    console.log(`   Gültig bis: ${new Date(expires).toLocaleString('de-DE')}\n`);
+    // Der Link gehoert in die Mail und sonst nirgendwohin. Im Protokoll von
+    // Railway liest ihn ein groesserer Personenkreis als die Anwendung, und
+    // wer ihn liest, uebernimmt das Konto (v0.473).
+    console.log(`\n🔑 Passwort-Zuruecksetzen angefordert fuer Nutzer #${user.id}`);
+    console.log(`   Gueltig bis: ${new Date(expires).toLocaleString('de-DE')}\n`);
 
     // Reset-Mail an den Nutzer (nur wenn SMTP konfiguriert, sonst nur Log)
     const { sendPasswordResetEmail } = require('../utils/email');

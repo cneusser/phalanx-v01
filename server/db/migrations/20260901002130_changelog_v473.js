@@ -1,12 +1,14 @@
-/** Changelog v0.473 (Auswahl in der Datenpflege, ohne Scrollen). */
+/** Changelog v0.473 (fünf Befunde aus der Durchsicht). */
 const ENTRY = {
   version: 'v0.473', released_on: '2026-11-15',
-  title: 'Auswählen, ohne zu scrollen',
+  title: 'Der zweite Faktor war eine Höflichkeitsfrage',
   items: [
-    'Neben den Reitern steht jetzt "alle N auswählen". Das Kästchen in der Tabellenkopfzeile gab es länger, nur steht es genau dort, wohin man erst scrollen muss; bei 276 Zeilen ist das der Unterschied zwischen zwei Klicks und zwei Minuten',
-    'Die Leiste "Für die Auswahl setzen" bleibt beim Scrollen oben stehen, damit Auswählen und Setzen nicht an zwei Enden der Seite liegen',
-    'Vor dem Setzen für mehr als 25 Firmen wird nachgefragt, mit Feldname, Wert und Zahl: Eine Sammelaktion ist schnell und damit gefährlich',
-    'Behoben: Ein Klick auf "alle" liess die Auswahl des vorigen Reiters stehen',
+    'Bei aktivem zweitem Faktor gab die Anmeldung nach richtigem Passwort eine Bescheinigung zurück, mit der nur der Code eingelöst werden sollte. Sie trug keine Token-Version, und die Prüfung liess eine fehlende Version als Null durchgehen. Damit war diese Bescheinigung fünf Minuten lang ein vollwertiges Sitzungstoken: Wer das Passwort kannte, konnte den zweiten Faktor überspringen',
+    'Die Bescheinigung trägt jetzt ihren Zweck und die Token-Version, und die Prüfung weist sie ausdrücklich ab. Ein Schein, der zwei Dinge kann, kann eines davon zu früh',
+    'Eine Route zum Anlegen eines Kontakts aus einem Nutzerkonto war zweimal registriert. Express nimmt die erste, und das war die ohne Schreibrecht; die geprüfte Fassung war toter Code. Die ungeschützte ist entfernt',
+    'Die Dateitypprüfung beim Hochladen verknüpfte Mimetype und Endung mit ODER. Den Mimetype bestimmt der Absender frei, also genügte die Behauptung "PDF". Jetzt müssen beide stimmen',
+    'Die Löschung über einen Einladungslink prüfte weder Ablauf noch Stand. Ein alter Link aus einem weitergeleiteten Postfach löschte damit unwiderruflich eine Akte. Jetzt endet ein abgelaufener Link mit einer Meldung statt mit einer Löschung',
+    'Der Link zum Zurücksetzen des Passworts stand im Serverprotokoll und im Mail-Ausgangsbuch im Klartext. Beides ist weg: protokolliert wird die Nutzerkennung, und im Ausgangsbuch werden Zugangsmails ohne Inhalt gezeigt, zusätzlich wird jeder Schlüssel in einem Link unkenntlich gemacht',
   ],
 };
 exports.up = async function (knex) {

@@ -12,6 +12,23 @@ function tokenVersionOk(decoded, user) {
   return (decoded.tv || 0) === (user.token_version || 0);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Der Zwischenschein des zweiten Faktors ist kein Zugang (v0.473).
+//
+// Bei aktivem zweitem Faktor gibt die Anmeldung nach richtigem Passwort eine
+// kurzlebige Bescheinigung aus, mit der NUR der Code eingelöst wird. Sie trug
+// `{ userId, twofa: true }` und sonst nichts. Hier wurde aber allein
+// `decoded.userId` gelesen, und `tv` fehlte, was als Version 0 durchging.
+// Damit war diese Bescheinigung fünf Minuten lang ein vollwertiges
+// Sitzungstoken: Wer das Passwort kannte, konnte den zweiten Faktor
+// überspringen, indem er die Antwort der Anmeldung als `Bearer` weiterreichte.
+//
+// Ein Schein, der zwei Dinge kann, kann eines davon zu früh.
+// ─────────────────────────────────────────────────────────────────────────────
+function istZwischenschein(decoded) {
+  return !!(decoded && (decoded.twofa === true || decoded.zweck === '2fa'));
+}
+
 // Sprint 5 (RLS): Nutzer-Lookup im Kontext des über die Subdomain aufgelösten
 // Tenants: sonst wären Nutzer anderer Mandanten unsichtbar (fail closed).
 async function lookupUser(req, userId) {
@@ -80,6 +97,12 @@ async function authenticate(req, res, next) {
   } catch (err) {
     return res.status(401).json({ success: false, error: 'Ungültiges Token' });
   }
+  if (istZwischenschein(decoded)) {
+    return res.status(401).json({
+      success: false, code: 'ZWEITER_FAKTOR_OFFEN',
+      error: 'Bitte schließen Sie die Anmeldung mit Ihrem zweiten Faktor ab.',
+    });
+  }
   // ── Panne ist nicht dasselbe wie abgemeldet (v0.465) ────────────────────
   //
   // Scheitert diese Abfrage, etwa weil eine Spalte fehlt, flog bisher eine
@@ -123,6 +146,8 @@ async function optionalAuth(req, res, next) {
   } catch (_) {
     return next();   // ungültiges Token → als anonym behandeln
   }
+  // Auch hier: ein offener zweiter Faktor ist keine Anmeldung.
+  if (istZwischenschein(decoded)) return next();
   const user = await lookupUser(req, decoded.userId).catch(() => null);
   if (user && user.is_active && tokenVersionOk(decoded, user)) {
     req.user = user;
@@ -141,4 +166,5 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { authenticate, optionalAuth, requireRole };
+module.exports = {
+  istZwischenschein, authenticate, optionalAuth, requireRole };

@@ -137,7 +137,10 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ALLOWED_TYPES.has(file.mimetype) || ALLOWED_EXT.has(ext)) {
+    // UND, nicht ODER (v0.473): Den Mimetype bestimmt der Absender frei. Mit
+    // ODER genuegte die Behauptung „application/pdf", und eine .html-Datei
+    // landete im Bestand.
+    if (ALLOWED_TYPES.has(file.mimetype) && ALLOWED_EXT.has(ext)) {
       cb(null, true);
     } else {
       cb(new Error(`Dateityp nicht erlaubt: ${file.mimetype}`), false);

@@ -425,6 +425,9 @@ async function sendPasswordResetEmail({ to, firstName, person, resetUrl, expires
       ${ctaButton('Neues Passwort vergeben', resetUrl)}
       <p style="font-size:12px;color:#888;">Der Link gilt bis ${new Date(expires).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}. Waren Sie das nicht, ignorieren Sie diese Mail einfach. Ihr Passwort bleibt dann unverändert.</p>
     `, { promo: false }),
+    // Eigene Art, damit das Ausgangsbuch diese Mail als Zugangsmail erkennt
+    // und ihren Inhalt nicht anzeigt (v0.473).
+    meta: { type: 'password_reset' },
   });
 }
 
