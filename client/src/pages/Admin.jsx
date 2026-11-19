@@ -655,10 +655,13 @@ export default function Admin() {
     setTimeout(() => setMsg({ text: '', type: 'success' }), 3500);
   };
 
-  async function approveUser(id) {
+  // Freigeben, auf Wunsch gleich mit der offenen Vertraulichkeits-
+  // vereinbarung (v0.480). Wer ein Mandat anfragt und sich dabei
+  // registriert, brauchte bisher zwei Knoepfe an zwei Stellen.
+  async function approveUser(id, mitNda = false) {
     try {
-      await api.put(`/admin/users/${id}/approve`, {});
-      showMsg('Nutzer freigegeben ✓');
+      const r = await api.put(`/admin/users/${id}/approve`, mitNda ? { nda_freigeben: true } : {});
+      showMsg((r && r.message) ? `${r.message} ✓` : 'Nutzer freigegeben ✓');
       loadAll();
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
@@ -1500,6 +1503,13 @@ export default function Admin() {
                   <button onClick={() => approveUser(u.id)} style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
                     ✓ Freigeben
                   </button>
+                  {u.nda_offen > 0 && (
+                    <button onClick={() => approveUser(u.id, true)}
+                      title={`Zugang freigeben und die Vereinbarung für ${u.nda_offen_mandate || 'das Mandat'} zur Unterschrift freigeben`}
+                      style={{ background: '#e0e7ff', color: '#3730a3', border: '1px solid #c7d2fe', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
+                      ✓ Freigeben und NDA ({u.nda_offen_mandate || u.nda_offen})
+                    </button>
+                  )}
                   <button onClick={() => deactivateUser(u.id)} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}>
                     Ablehnen
                   </button>
@@ -2387,6 +2397,13 @@ export default function Admin() {
                       {!u.is_approved && (
                         <button onClick={() => approveUser(u.id)} style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
                           ✓ Freigeben
+                        </button>
+                      )}
+                      {u.nda_offen > 0 && (
+                        <button onClick={() => approveUser(u.id, true)}
+                          title={`Zugang freigeben und die Vereinbarung für ${u.nda_offen_mandate || 'das Mandat'} zur Unterschrift freigeben`}
+                          style={{ background: '#e0e7ff', color: '#3730a3', border: '1px solid #c7d2fe', padding: '0.3rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>
+                          ✓ Freigeben und NDA ({u.nda_offen_mandate || u.nda_offen})
                         </button>
                       )}
                       {u.is_active ? (

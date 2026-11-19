@@ -333,7 +333,12 @@ router.put('/:projectId/sign', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { status: 'signed' } });
 }));
 
-// ─── Admin: NDA als "Versendet" markieren (requested → sent) ─────────────────
+// ─── Admin: NDA zur Unterschrift freigeben (requested → sent) ────────────────
+//
+// Seit v0.480 ruft diese Route denselben Vorgang auf wie die Kontofreigabe in
+// der Verwaltung. Vorher stand die Logik hier und nur hier; als die
+// Kontofreigabe dasselbe tun sollte, waere sie ein zweites Mal entstanden,
+// und zwei Fassungen derselben Regel laufen irgendwann auseinander.
 router.put('/:projectId/send', authenticate, wrap(async (req, res) => {
   const { user_id } = req.body;
   if (!['super_admin', 'advisor'].includes(req.user.role)) return res.status(403).json({ success: false, error: 'Keine Berechtigung' });
@@ -341,23 +346,14 @@ router.put('/:projectId/send', authenticate, wrap(async (req, res) => {
   const nda = await db.get('SELECT * FROM nda_requests WHERE user_id = ? AND project_id = ?', [targetUserId, req.params.projectId]);
   if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });
   if (nda.status !== 'requested') return res.status(400).json({ success: false, error: 'NDA muss den Status "angefordert" haben' });
-  await db.run(`UPDATE nda_requests SET status='sent', sent_at=now() WHERE user_id=? AND project_id=?`, [targetUserId, req.params.projectId]);
-  await setStage(targetUserId, req.params.projectId, 'nda_pending', req.user.id, req.ip);
-  db.auditLog(req.user.id, 'NDA_SENT', 'nda_request', nda.id, null, req.ip);
-  // Investor informieren: NDA liegt zur Unterzeichnung bereit
-  {
-    const buyer = await db.get('SELECT email, first_name, last_name FROM users WHERE id = ?', [targetUserId]);
-    const proj = await db.get('SELECT codename FROM projects WHERE id = ?', [req.params.projectId]);
-    if (buyer) {
-      const { sendProcessUpdateEmail } = require('../utils/email');
-      sendProcessUpdateEmail({
-        to: buyer.email, firstName: buyer.first_name, person: buyer,
-        title: `NDA bereit zur Unterzeichnung: ${proj ? proj.codename : 'Mandat'}`,
-        message: `Ihre Vertraulichkeitsvereinbarung für das Mandat <strong>${proj ? proj.codename : ''}</strong> liegt bereit und kann jetzt online unterzeichnet werden.`,
-        ctaLabel: 'NDA jetzt unterzeichnen', ctaPath: `/projekte/${req.params.projectId}`,
-      }).catch(() => {});
-    }
-  }
+
+  const projekt = await db.get('SELECT codename FROM projects WHERE id = ?', [req.params.projectId]);
+  const { eineFreigeben } = require('../utils/ndaFreigabe');
+  const r = await eineFreigeben({
+    anfrage: { id: nda.id, project_id: nda.project_id, codename: projekt ? projekt.codename : null },
+    actorId: req.user.id, ip: req.ip, db, setStage,
+  });
+  if (!r.ok) return res.status(400).json({ success: false, error: r.grund });
   res.json({ success: true, data: { status: 'sent' } });
 }));
 

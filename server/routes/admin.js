@@ -1057,7 +1057,15 @@ router.get('/users', ...isAdmin, wrap(async (req, res) => {
       c.id AS crm_company_id,
       c.name AS crm_company_name,
       (SELECT COUNT(*)::int FROM nda_requests nr WHERE nr.user_id = u.id) as nda_count,
-      (SELECT COUNT(*)::int FROM nda_requests nr WHERE nr.user_id = u.id AND nr.status='approved') as approved_count
+      (SELECT COUNT(*)::int FROM nda_requests nr WHERE nr.user_id = u.id AND nr.status='approved') as approved_count,
+      -- Offene Anfragen nach einer Vertraulichkeitsvereinbarung (v0.480).
+      -- Wer sich beim Anfragen eines Mandats registriert, legt beides an:
+      -- ein Konto zum Freischalten und eine Anfrage zum Versenden. Damit die
+      -- Verwaltung das in einem Schritt tun kann, muss sie es hier sehen.
+      (SELECT COUNT(*)::int FROM nda_requests nr WHERE nr.user_id = u.id AND nr.status='requested') as nda_offen,
+      (SELECT string_agg(p2.codename, ', ' ORDER BY p2.codename)
+         FROM nda_requests nr2 JOIN projects p2 ON p2.id = nr2.project_id
+        WHERE nr2.user_id = u.id AND nr2.status='requested') as nda_offen_mandate
     FROM users u
     LEFT JOIN crm_contacts k ON k.user_id = u.id
     LEFT JOIN LATERAL (
@@ -1081,10 +1089,29 @@ router.put('/users/:id/approve', ...isAdmin, canManageUsers, wrap(async (req, re
   await db.run('UPDATE users SET is_approved = 1, is_active = 1 WHERE id = ?', [req.params.id]);
   db.auditLog(req.user.id, 'USER_APPROVED', 'user', user.id, user.email, req.ip);
   console.log(`✅ User freigegeben: ${user.first_name} <${user.email}>`);
-  // Nutzer informieren: Zugang ist jetzt nutzbar
+
+  // Auf Wunsch gleich die offenen Vertraulichkeitsvereinbarungen zur
+  // Unterschrift freigeben (v0.480). Ohne das wartet jemand, der sich beim
+  // Anfragen eines Mandats registriert hat, auf einen zweiten Knopf an einer
+  // anderen Stelle.
+  let ndas = null;
+  if (req.body && req.body.nda_freigeben) {
+    const { alleFreigeben } = require('../utils/ndaFreigabe');
+    const { setStage } = require('../middleware/gates');
+    ndas = await alleFreigeben({ userId: user.id, actorId: req.user.id, ip: req.ip, db, setStage });
+  }
+
+  // Die Mail zur Kontofreigabe entfaellt, wenn ohnehin eine zur
+  // Vereinbarung hinausgeht: Zwei Mails in derselben Minute sind eine zu viel.
   const { sendAccountApprovedEmail } = require('../utils/email');
-  sendAccountApprovedEmail({ to: user.email, firstName: user.first_name }).catch(() => {});
-  res.json({ success: true, data: { message: `${user.first_name} wurde freigegeben` } });
+  if (!ndas || !ndas.freigegeben.length) {
+    sendAccountApprovedEmail({ to: user.email, firstName: user.first_name }).catch(() => {});
+  }
+
+  const zusatz = ndas && ndas.freigegeben.length
+    ? ` und die Vereinbarung für ${ndas.freigegeben.map((f) => f.codename).filter(Boolean).join(', ')} liegt zur Unterschrift bereit`
+    : '';
+  res.json({ success: true, data: { message: `${user.first_name} wurde freigegeben${zusatz}`, ndas } });
 }));
 
 // Deactivate/reject user
