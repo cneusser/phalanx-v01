@@ -30,6 +30,7 @@ export default function Messages() {
   const [jetzt, setJetzt] = useState(Date.now());       // laesst die Restzeit herunterzaehlen
   // Q&A im Gespraech (v0.437)
   const [fragen, setFragen] = useState([]);          // offene Q&A-Fragen dieses Partners
+  const [datenraeume, setDatenraeume] = useState([]); // Mandate dieses Kontakts mit Stand (v0.481)
   const [antwortAuf, setAntwortAuf] = useState(null); // Frage, die gerade beantwortet wird
   const [dokWahl, setDokWahl] = useState(null);       // { projectId } waehrend der Dokumentauswahl
   const [dokListe, setDokListe] = useState(null);     // { dateien, ordner }
@@ -77,7 +78,18 @@ export default function Messages() {
     // einer leeren Liste: eine nicht geladene Q&A darf das Gespraech nicht
     // blockieren.
     api.get(`/messages/qa/offen/${pid}`).then((d) => setFragen(d || [])).catch(() => setFragen([]));
+    ladeDatenraeume(pid);
   }, [loadThreads]);
+
+  // Welche Datenräume dieses Kontakts sind offen? Nur für Pflegende. Scheitert
+  // die Abfrage, bleibt die Leiste leer: Es wird nie ein Knopf gezeigt, dessen
+  // Mandat nicht bestätigt ist.
+  function ladeDatenraeume(pid) {
+    if (!isAdmin || !pid) { setDatenraeume([]); return; }
+    api.get(`/admin/users/${pid}/datenraum-offen`)
+      .then((d) => setDatenraeume(Array.isArray(d) ? d : []))
+      .catch(() => setDatenraeume([]));
+  }
 
   // ── Eine einzelne Blase zitieren, kopieren, vormerken ─────────────────────
   //
@@ -222,11 +234,13 @@ export default function Messages() {
   }
   // Mandatsbezug der Konversation: jüngste Nachricht mit Mandat (für Berater-Aktionen).
   const mandateCtx = thread && [...thread.messages].reverse().find(m => m.project_id);
-  async function approveNda(projectId) {
+  async function approveNda(projectId, codename) {
     setMsg('');
+    if (!window.confirm(`Datenraum für ${codename} freigeben?\n\n${thread.partner.name} erhält damit Zugriff auf den Datenraum dieses Mandats und wird per E-Mail informiert.`)) return;
     try {
       const d = await api.post(`/admin/projects/${projectId}/interests/${active}/approve-nda`, {});
-      setMsg(d.nda ? t('msg.nda_freigegeben', 'NDA freigegeben, Datenraum geöffnet ✓') : 'Datenraum freigegeben ✓');
+      setMsg(`Datenraum ${d.codename || codename} freigegeben ✓`);
+      ladeDatenraeume(active);
       openThread(active);
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }
@@ -453,12 +467,42 @@ export default function Messages() {
           ) : (
             <>
               <div style={{ padding: '0.9rem 1.1rem', borderBottom: `1px solid ${C.border}`, fontWeight: 700, color: C.navy }}>{thread.partner.name}{thread.partner.company ? ` · ${thread.partner.company}` : ''}</div>
+              {/* v0.481: Der Knopf nennt das Mandat, das er freigibt.
+                  Vorher gab er das Mandat frei, das in der Unterhaltung
+                  zuletzt genannt worden war. Wer über zwei Mandate schreibt,
+                  gab damit das falsche frei, und der angefragte Datenraum
+                  blieb zu. Die Liste kommt jetzt vom Server, Mandat für
+                  Mandat, mit Stand und Hindernis. */}
+              {isAdmin && datenraeume.length > 0 && (
+                <div style={{ padding: '0.55rem 1.1rem', borderBottom: `1px solid ${C.border}`, background: '#f8fbff' }}>
+                  <div style={{ fontSize: '0.72rem', color: C.muted, fontWeight: 600, marginBottom: '0.4rem' }}>
+                    Datenraum für {thread.partner.name}:
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    {datenraeume.map((d) => (
+                      <button
+                        key={d.project_id}
+                        disabled={!d.moeglich}
+                        onClick={() => approveNda(d.project_id, d.codename)}
+                        title={d.moeglich
+                          ? `Datenraum ${d.codename} für diesen Kontakt freigeben`
+                          : `${d.codename}: ${d.hindernis}`}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
+                          background: d.moeglich ? '#065f46' : '#f1f5f9',
+                          color: d.moeglich ? '#fff' : C.muted,
+                          border: d.moeglich ? 'none' : `1px solid ${C.border}`,
+                          borderRadius: 7, padding: '0.35rem 0.75rem', fontSize: '0.76rem', fontWeight: 700,
+                          cursor: d.moeglich ? 'pointer' : 'not-allowed' }}>
+                        <ShieldCheck size={13} /> {d.codename}
+                        {!d.moeglich && <span style={{ fontWeight: 500 }}> ({d.hindernis})</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {isAdmin && mandateCtx && (
                 <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', padding: '0.55rem 1.1rem', borderBottom: `1px solid ${C.border}`, background: '#f8fbff' }}>
                   <span style={{ fontSize: '0.72rem', color: C.muted, fontWeight: 600 }}>Mandat {mandateCtx.project_codename || `#${mandateCtx.project_id}`}:</span>
-                  <button onClick={() => approveNda(mandateCtx.project_id)} title={t('msg.nda_freigeben', 'NDA freigeben und Datenraum für diesen Kontakt öffnen')} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#065f46', color: '#fff', border: 'none', borderRadius: 7, padding: '0.35rem 0.75rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
-                    <ShieldCheck size={13} /> NDA freigeben und Datenraum
-                  </button>
                   <button onClick={() => navigate(`/projekte/${mandateCtx.project_id}`)} title="Zum Mandat" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.35rem 0.75rem', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
                     <ArrowUpRight size={13} /> Zum Mandat
                   </button>

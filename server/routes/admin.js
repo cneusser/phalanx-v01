@@ -1301,33 +1301,43 @@ router.post('/projects/:projectId/interests/:userId/grant-dataroom', ...isAdmin,
   res.json({ success: true, data: { stage: 'dataroom_granted', notified: req.body.notify !== false } });
 }));
 
-// NDA für (Nutzer, Mandat) freigeben, ohne die nda_request-Id zu kennen (z. B.
-// direkt aus dem Chat). Markiert eine vorhandene NDA als „approved" und öffnet
-// den Datenraum. Liegt keine NDA vor, wird der Datenraum trotzdem freigegeben.
+// Was ist für diesen Nutzer offen? (v0.481)
+//
+// Der Chat fragt das, bevor er einen Knopf anbietet. Vorher hat der Chat das
+// Mandat aus der Unterhaltung erraten, nämlich das zuletzt genannte, und damit
+// das falsche freigegeben. Hier steht, was es wirklich gibt, Mandat für Mandat,
+// mit Stand und Hindernis.
+router.get('/users/:userId/datenraum-offen', ...isAdmin, wrap(async (req, res) => {
+  const buyer = await db.get('SELECT id FROM users WHERE id = ?', [req.params.userId]);
+  if (!buyer) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
+  const eintraege = await require('../utils/datenraumFreigabe').offenFuer(buyer.id, db);
+  res.json({ success: true, data: eintraege });
+}));
+
+// Datenraum eines benannten Mandats für einen benannten Nutzer freigeben
+// (z. B. aus dem Chat). Die Regel steht in utils/datenraumFreigabe.js und ist
+// dieselbe wie bei der Mandatsroute: ohne Unterschrift keine Freigabe, einzige
+// Ausnahme sind Startup-Finanzierungen.
 router.post('/projects/:projectId/interests/:userId/approve-nda', ...isAdmin, wrap(async (req, res) => {
-  const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.projectId]);
-  if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
   const buyer = await db.get('SELECT id, email, first_name FROM users WHERE id = ?', [req.params.userId]);
   if (!buyer) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
 
-  const nda = await db.get(
-    `SELECT id FROM nda_requests WHERE project_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1`,
-    [project.id, buyer.id]).catch(() => null);
-  if (nda) {
-    await db.run(`UPDATE nda_requests SET status = 'approved', approved_at = now(), approved_by = ? WHERE id = ?`, [req.user.id, nda.id]);
-  }
   const { setStage } = require('../middleware/gates');
-  await setStage(buyer.id, project.id, 'dataroom_granted', req.user.id, req.ip);
-  db.auditLog(req.user.id, nda ? 'NDA_APPROVED' : 'DATAROOM_GRANTED_DIRECT', nda ? 'nda_request' : 'project', nda ? nda.id : project.id, `Freigabe aus Chat für ${buyer.email}`, req.ip);
-  require('../utils/xp').award(buyer.id, 'DATAROOM_GRANTED', { refType: 'project', refId: project.id }).catch(() => {});
+  const r = await require('../utils/datenraumFreigabe').freigeben({
+    userId: buyer.id, projectId: Number(req.params.projectId),
+    actorId: req.user.id, ip: req.ip, db, setStage,
+  });
+  if (!r.ok) return res.status(400).json({ success: false, error: r.grund });
+
+  require('../utils/xp').award(buyer.id, 'DATAROOM_GRANTED', { refType: 'project', refId: r.project_id }).catch(() => {});
   require('../utils/email').sendProcessUpdateEmail({
     to: buyer.email, firstName: buyer.first_name,
-    title: `Datenraum freigeschaltet: ${project.codename}`,
-    message: `Ihr Zugang für das Mandat <strong>${project.codename}</strong> wurde freigegeben. Sie haben ab sofort Zugriff auf den Datenraum.`,
-    ctaLabel: 'Zum Datenraum', ctaPath: `/projekte/${project.id}`,
-    meta: { type: 'process', projectId: project.id, userId: buyer.id, actorId: req.user.id },
+    title: `Datenraum freigeschaltet: ${r.codename}`,
+    message: `Ihr Zugang für das Mandat <strong>${r.codename}</strong> wurde freigegeben. Sie haben ab sofort Zugriff auf den Datenraum.`,
+    ctaLabel: 'Zum Datenraum', ctaPath: `/projekte/${r.project_id}`,
+    meta: { type: 'process', projectId: r.project_id, userId: buyer.id, actorId: req.user.id },
   }).catch(() => {});
-  res.json({ success: true, data: { stage: 'dataroom_granted', nda: !!nda } });
+  res.json({ success: true, data: { stage: 'dataroom_granted', nda: !!r.nda, codename: r.codename } });
 }));
 
 // Datenraum-Zugang wieder entziehen (Rechte löschen, Stage zurücksetzen)
@@ -1428,16 +1438,14 @@ router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {
   // Datenraum-Freigabe setzt eine Unterschrift voraus. Ausnahme: Startup-
   // Finanzierungen, bei denen institutionelle Investoren regelmäßig kein NDA
   // zeichnen und eine ausdrückliche Freigabe die Unterschrift ersetzt.
-  const proj0 = await db.get('SELECT mandate_type FROM projects WHERE id = ?', [nda.project_id]);
-  const isFundraising = proj0 && proj0.mandate_type === 'fundraising';
-  const isSigned = nda.status === 'signed' || !!nda.online_consent_at;
-  if (!isSigned && !isFundraising) {
-    return res.status(400).json({ success: false, error: 'Der NDA ist noch nicht unterschrieben. Bitte zuerst „Versenden" und den Käufer online unterzeichnen lassen; erst danach kann der Datenraum freigegeben werden.' });
-  }
-  await db.run(`UPDATE nda_requests SET status='approved', approved_at=now(), approved_by=? WHERE id=?`, [req.user.id, req.params.id]);
-  // Zustandsautomat: Datenraum-Gate öffnen
-  await setStage(nda.user_id, nda.project_id, 'dataroom_granted', req.user.id, req.ip);
-  db.auditLog(req.user.id, 'NDA_APPROVED', 'nda_request', nda.id, null, req.ip);
+  // v0.481: Die Regel steht in utils/datenraumFreigabe.js, damit der Weg über
+  // den Chat nicht lockerer entscheidet als dieser hier. Vorher gab es sie
+  // zweimal, und die zweite Fassung liess ohne Unterschrift frei.
+  const frei = await require('../utils/datenraumFreigabe').freigeben({
+    userId: nda.user_id, projectId: nda.project_id,
+    actorId: req.user.id, ip: req.ip, db, setStage,
+  });
+  if (!frei.ok) return res.status(400).json({ success: false, error: frei.grund });
   // Sprint 17: XP für Datenraum-Freigabe
   require('../utils/xp').award(nda.user_id, 'DATAROOM_GRANTED', { refType: 'project', refId: nda.project_id }).catch(() => {});
   // Investor informieren: Vollzugriff freigeschaltet

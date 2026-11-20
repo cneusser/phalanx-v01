@@ -54,6 +54,20 @@ async function checkDownloadAccess(user, doc, projectId) {
     if (!lvl) return { ok: false, error: 'Dieses Dokument ist nicht für Sie freigegeben' };
     if (lvl !== 'download') return { ok: false, error: 'Für dieses Dokument ist nur die Ansicht freigegeben, kein Download' };
   }
+  // v0.481: Die Vertraulichkeit des Datenraums gilt auch auf diesem Weg.
+  //
+  // Das war der gemeldete Fehler: Eine im Datenraum als vertraulich
+  // gekennzeichnete Datei antwortete dort mit 403, wurde aber unter
+  // „Unterlagen" ausgeliefert, weil dieser Weg nur `restricted` kannte. Zwei
+  // Ablagen, zwei Begriffe, und die Sperre stand nur in einer.
+  const vs = require('../utils/vertraulichkeitSperre');
+  const sperre = await vs.fuerKaeufer(user, projectId, (sql, p) => db.all(sql, p)).catch(() => null);
+  if (vs.istGesperrt(doc, sperre)) {
+    return { ok: false, error: 'Dieses Dokument ist als vertraulich gekennzeichnet und für Sie nicht freigegeben.' };
+  }
+  if (vs.nurAnsicht(doc, sperre)) {
+    return { ok: false, error: 'Für dieses Dokument ist nur die Ansicht freigegeben, kein Download.' };
+  }
   return { ok: true };
 }
 
@@ -346,13 +360,20 @@ router.get('/:projectId', authenticate, wrap(async (req, res) => {
     for (const g of gr) { if (!byDoc.has(g.document_id)) byDoc.set(g.document_id, []); byDoc.get(g.document_id).push(g); }
     for (const id of restrictedIds) if (resolveLevel(byDoc.get(id) || [], ctx)) grantedSet.add(id);
   }
+  // v0.481: Was der Datenraum als vertraulich sperrt, bleibt auch hier gesperrt.
+  // Vorher kannte diese Liste nur ihr eigenes Kennzeichen `restricted` und
+  // zeigte deshalb Dateien, die im Datenraum hinter einer Sperre lagen.
+  const sperre = await require('../utils/vertraulichkeitSperre')
+    .fuerKaeufer(req.user, projectId, (sql, p) => db.all(sql, p)).catch(() => null);
+  const { istGesperrt, nurAnsicht } = require('../utils/vertraulichkeitSperre');
   const visible = docs.filter(d => {
     const cat = docCategory(d);
     if (!stageAllows(stage, cat)) return false;
     if (cat === 'dataroom' && !dataroomRead) return false;
     if (d.restricted && !grantedSet.has(d.id)) return false;
+    if (istGesperrt(d, sperre)) return false;
     return true;
-  });
+  }).map((d) => (nurAnsicht(d, sperre) ? { ...d, nur_ansicht: true } : d));
   // Exposé nur zeigen, wenn es veröffentlicht ist UND das IM-Gate offen steht
   const exposeVisible = exposeEntry && exposeEntry.expose_status === 'published' && stageAllows(stage, 'im');
   const out = exposeVisible ? [exposeEntry, ...visible] : visible;
@@ -392,7 +413,7 @@ router.get('/:projectId/search', authenticate, wrap(async (req, res) => {
   const like = `%${q.replace(/[%_]/g, '')}%`;
 
   const rows = await db.all(
-    `SELECT id, filename, folder, access_level, category, file_size,
+    `SELECT id, filename, folder, access_level, category, file_size, safe_item_id,
             COALESCE(restricted, 0) AS restricted, ((storage_key IS NOT NULL) OR (file_path IS NOT NULL))::int AS has_file,
             ts_rank(content_tsv, plainto_tsquery('german', ?)) AS rank,
             ts_headline('german', coalesce(content_text, ''), plainto_tsquery('german', ?),
@@ -407,6 +428,8 @@ router.get('/:projectId/search', authenticate, wrap(async (req, res) => {
   if (!isAdminUser) {
     const stage = await getStage(req.user.id, projectId);
     const dataroomRead = await hasPermission(req.user, projectId, 'read');
+    const sperre = await require('../utils/vertraulichkeitSperre')
+      .fuerKaeufer(req.user, projectId, (sql, p) => db.all(sql, p)).catch(() => null);
     const restrictedIds = rows.filter(d => d.restricted).map(d => d.id);
     let grantedSet = new Set();
     if (restrictedIds.length) {
@@ -423,6 +446,10 @@ router.get('/:projectId/search', authenticate, wrap(async (req, res) => {
       if (!stageAllows(stage, cat)) return false;
       if (cat === 'dataroom' && !dataroomRead) return false;
       if (d.restricted && !grantedSet.has(d.id)) return false;
+      // v0.481: Vertrauliches erscheint auch in der Suche nicht. Hier wog es
+      // schwerer als in der Liste: Die Suche liefert einen Ausschnitt aus dem
+      // Text mit, bei einer Gehaltsliste also genau das, was geschützt gehört.
+      if (require('../utils/vertraulichkeitSperre').istGesperrt(d, sperre)) return false;
       return true;
     });
   }

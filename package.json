@@ -1,6 +1,6 @@
 {
   "name": "phalanx-platform",
-  "version": "0.480.0",
+  "version": "0.481.0",
   "description": "Phalanx M&A Platform",
   "engines": {
     "node": ">=18.0.0"
@@ -10,8 +10,10 @@
     "start": "NODE_ENV=production node server/index.js",
     "check:texts": "node scripts/check-texts.js",
     "test": "for f in server/tests/*.test.js; do echo \"→ $f\"; node \"$f\" || exit 1; done",
+    "test:pruefstand": "for f in server/tests/integration/*.test.js; do echo \"→ $f\"; node \"$f\" || exit 1; done",
     "check:build": "cd client && npm run build",
     "check": "npm run check:texts && npm test",
-    "check:full": "npm run check && npm run check:build"
+    "check:full": "npm run check && npm run check:build",
+    "check:alles": "npm run check:full && npm run test:pruefstand"
   }
 }

@@ -1358,8 +1358,17 @@ router.post('/:projectId/item/:id/redact', authenticate, wrap(async (req, res) =
   const base = String(item.name).replace(/\.pdf$/i, '');
   const name = `${base} (geschwärzt).pdf`;
   const created = await putSafeFile(req, req.params.projectId, item.parent_id, name, buffer, 'application/pdf');
+  // v0.481: Das Original wird mit demselben Griff vertraulich gesetzt.
+  //
+  // Anlass, wörtlich: „Kunden können Daten abrufen, die eigentlich geschwärzt
+  // sein müssten." Bisher legte dieser Weg die geschwärzte Kopie neben das
+  // Original, und das Original blieb offen im selben Ordner stehen. Wer
+  // schwärzt, will das Ungeschwärzte nicht ausliefern. Gelöscht wird es nicht,
+  // es bleibt für das Mandatsteam sichtbar.
+  await scoped(req, (t) => t.run('UPDATE safe_items SET confidential = 1 WHERE id = ?', [item.id]));
+  db.auditLog(req.user.id, 'SAFE_CONFIDENTIAL_ON', 'safe_item', item.id, `Original nach Schwärzung gesperrt: ${item.name}`, req.ip);
   db.auditLog(req.user.id, 'SAFE_REDACT', 'safe_item', created.id, `${hits} Fundstelle(n) geschwärzt aus ${item.name}`, req.ip);
-  res.json({ success: true, data: { id: created.id, name, hits } });
+  res.json({ success: true, data: { id: created.id, name, hits, original_gesperrt: true } });
 }));
 
 // ── Klarnamen im Datenraum prüfen (v0.479) ─────────────────────────────────

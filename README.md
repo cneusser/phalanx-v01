@@ -255,6 +255,39 @@ cd phalanx-v01
 - **Frontend:** http://localhost:5173
 - **Backend API:** http://localhost:3001
 
+## Prüfstand (Prüfungen gegen eine echte Datenbank)
+
+Die Prüfungen in `server/tests/*.test.js` lesen den Quelltext und suchen Muster
+darin. Sie sind schnell und brauchen keine Datenbank, finden aber nur, was in
+einer einzelnen Datei falsch steht. Zwei Fehler aus v0.481 haben gezeigt, wo
+das endet: Beide entstanden erst, als zwei für sich richtige Teile
+zusammenarbeiteten. Der Knopf im Chat gab das Mandat frei, das die Oberfläche
+ihm nannte, und die Oberfläche nannte ihm das falsche.
+
+Dafür gibt es `server/tests/integration/`. Diese Prüfungen fahren die
+Anwendung hoch, wie sie ist, und sprechen über HTTP mit ihr, wie ein Browser es
+täte. Sie brauchen deshalb eine eigene, leere PostgreSQL:
+
+```bash
+# Einmal: eine Wegwerf-Datenbank anlegen
+createdb capitalmatch_pruefstand
+
+# Dann jederzeit
+PRUEFSTAND_DATABASE_URL=postgres://localhost:5432/capitalmatch_pruefstand \
+  npm run test:pruefstand
+
+# Alles zusammen: Textprüfung, Quelltextprüfungen, Client-Build, Prüfstand
+PRUEFSTAND_DATABASE_URL=... npm run check:alles
+```
+
+Ohne `PRUEFSTAND_DATABASE_URL` überspringt sich der Prüfstand mit einem
+Hinweis, damit `npm run check` auf jedem Rechner durchläuft.
+
+**Die Datenbank wird migriert und beschrieben.** Der Prüfstand weigert sich
+deshalb zu starten, wenn die Adresse nicht erkennbar eine Wegwerf-Datenbank ist
+(`test`, `pruef`, `staging`, `localhost`) oder wenn `prod` darin vorkommt. Das
+ist eine Bremse, kein Beweis: Richten Sie die Adresse trotzdem mit Bedacht ein.
+
 ## Projektstruktur
 
 ```
