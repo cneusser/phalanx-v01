@@ -27,6 +27,7 @@ import InvitationAccept from './pages/InvitationAccept';
 import Crm from './pages/Crm';
 import ConsentInvite from './pages/ConsentInvite';
 import BirdviewBanner from './components/BirdviewBanner';
+import StufenBalken from './components/StufenBalken';
 import ErrorBoundary from './components/ErrorBoundary';
 import ContactSelfService from './pages/ContactSelfService';
 import Stammdaten from './pages/Stammdaten';
@@ -115,6 +116,7 @@ function AppRoutes() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <SpracheAusProfil />
+      <StufenBalken />
       <BirdviewBanner />
       <GastBalken />
       <NavbarWennNoetig />

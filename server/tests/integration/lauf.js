@@ -92,13 +92,22 @@ async function hochfahren({ port = 5599 } = {}) {
       [codename, art]);
   }
 
+  // Das Profil wird vollstaendig angelegt. Die Plattform verlangt sieben
+  // Felder, bevor ein Interessent ein Mandat auch nur ansehen darf
+  // (requireCompleteProfile). Ein Pruefkonto ohne diese Felder scheitert an
+  // der Huerde und nicht an der Sache, die geprueft werden soll.
   async function kaeufer(email, { vorname = 'Kim', nachname = 'Kaeufer' } = {}) {
     const hash = await bcrypt.hash('Pruefstand!2026', 10);
     await db.run(
-      `INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, role, is_active, is_approved, email_verified)
-       VALUES (1, ?, ?, ?, ?, 'buyer', 1, 1, 1)
-       ON CONFLICT (email) DO UPDATE SET is_approved = 1, is_active = 1`,
-      [email, hash, vorname, nachname]);
+      `INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, role,
+                          salutation, company, position, mobile, phone, street, postal_code, city,
+                          is_active, is_approved, email_verified)
+       VALUES (1, ?, ?, ?, ?, 'buyer', 'Frau', ?, 'Geschaeftsfuehrung', '+49 160 0000000',
+               '+49 911 0000000', 'Pruefweg 1', '90000', 'Pruefstadt', 1, 1, 1)
+       ON CONFLICT (email) DO UPDATE SET is_approved = 1, is_active = 1,
+             salutation = 'Frau', company = EXCLUDED.company, position = 'Geschaeftsfuehrung',
+             mobile = '+49 160 0000000', street = 'Pruefweg 1', postal_code = '90000', city = 'Pruefstadt'`,
+      [email, hash, vorname, nachname, `${nachname} Beteiligungen`]);
     return db.get('SELECT * FROM users WHERE email = ?', [email]);
   }
 

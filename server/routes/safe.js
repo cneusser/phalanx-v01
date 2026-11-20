@@ -50,7 +50,18 @@ async function leseKontext(req, projectId) {
   if (await access.canView(getFn(req), req.user, projectId)) return { pfleger: true };
   const k = await sicht.kaeuferKontext(req.user, projectId, alleFn(req));
   if (!k.offen) return null;
-  return { pfleger: false, userId: k.userId, buyerType: k.buyerType, groupIds: k.groupIds, offen: true };
+  // v0.482: `stufe` muss mit. Hier stand vorher eine von Hand
+  // zusammengesetzte Kopie des Kontexts, und die liess genau dieses Feld
+  // liegen. `bewerteFuer` fiel deshalb auf seinen Standardwert zurueck, und
+  // der war „dataroom", also die hoechste Stufe. Wirkung: Wer ein Mandat nur
+  // angefragt hatte, lud Memorandum und Datenraum herunter.
+  //
+  // Gefunden hat das der Pruefstand, Drehbuch Punkt 2.5. Im Quelltext war es
+  // nicht zu sehen: Beide Dateien waren fuer sich richtig.
+  //
+  // Deshalb wird der Kontext jetzt weitergegeben und nicht nachgebaut. Was
+  // `kaeuferKontext` hinzufuegt, kommt damit automatisch mit.
+  return { ...k, pfleger: false };
 }
 
 // Bewertung des gesamten Baums für einen Käufer. Für Pflegende: null (keine Grenzen).
@@ -821,8 +832,9 @@ async function archivAusgeben(req, res, { wurzelId = null, nurIds = null, titel 
     return teile.join('/');
   };
 
-  const archiver = require('archiver');
-  const archiv = archiver('zip', { zlib: { level: 6 } });
+  // v0.482: ueber utils/archiv.js, weil `archiver` in Fassung 8 keine
+  // aufrufbare Funktion mehr ist. Der Pruefstand fand das als 500.
+  const archiv = require('../utils/archiv').zipStrom({ zlib: { level: 6 } });
   const dateiname = `${String(titel).replace(/[^\p{L}\p{N}._ -]/gu, '_')}.zip`;
   res.setHeader('Content-Type', 'application/zip');
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(dateiname)}"`);
@@ -898,8 +910,9 @@ router.get('/:projectId/folder/:id/zip', authenticate, wrap(async (req, res) => 
     return teile.join('/');
   };
 
-  const archiver = require('archiver');
-  const archiv = archiver('zip', { zlib: { level: 6 } });
+  // v0.482: ueber utils/archiv.js, weil `archiver` in Fassung 8 keine
+  // aufrufbare Funktion mehr ist. Der Pruefstand fand das als 500.
+  const archiv = require('../utils/archiv').zipStrom({ zlib: { level: 6 } });
   const dateiname = `${String(ordner.name).replace(/[^\p{L}\p{N}._ -]/gu, '_')}.zip`;
   res.setHeader('Content-Type', 'application/zip');
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(dateiname)}"`);

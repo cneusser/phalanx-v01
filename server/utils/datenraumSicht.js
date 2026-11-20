@@ -70,7 +70,15 @@ async function bewerteFuer(ktx, projectId, alle) {
   // Erst wegnehmen, was auf dieser Stufe gar nicht in Frage kommt, dann
   // bewerten. Vertraulichkeit und Einzelfreigaben entscheidet unveraendert
   // safeVisibility auf dem, was uebrig bleibt.
-  const items = stufen.fuerStufe(alleItems, ktx.stufe || 'dataroom');
+  //
+  // v0.482: Der Rueckfall ist „public" und nicht mehr „dataroom".
+  //
+  // Vorher stand hier `ktx.stufe || 'dataroom'`. Das ist die falsche Richtung
+  // fuer einen Rueckfall: Fehlt die Angabe, galt die hoechste Stufe. Genau das
+  // passierte, als ein Aufrufer den Kontext nachbaute und das Feld dabei
+  // verlor. Ein Versehen wurde so zu einem offenen Datenraum. Jetzt ist die
+  // Wirkung eines Versehens ein zu enger Blick, und den meldet der Nutzer.
+  const items = stufen.fuerStufe(alleItems, ktx.stufe || 'public');
   const grants = await alle(
     'SELECT item_id, subject_type, subject_ref, level FROM safe_grants WHERE project_id = ?',
     [projectId]).catch(() => []);

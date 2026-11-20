@@ -86,6 +86,21 @@ app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 // waere, und es laesst sich spaeter Stueck fuer Stueck wieder entfernen.
 app.use((req, _res, next) => { if (req.body === undefined) req.body = {}; next(); });
 
+// ── Die Teststufe hinter einem Tor (v0.482) ─────────────────────────────────
+//
+// Der Einladungslink steht vor dem Tor, sonst käme er selbst nicht durch. Auf
+// der Produktion tun beide Zeilen nichts: Sie fragen bei jeder Anfrage die
+// Stufe neu, und ohne CM_STUFE=teststufe reichen sie durch.
+const teststufe = require('./middleware/teststufenTor');
+app.get('/teststufe/:schluessel', teststufe.einladung);
+app.use(teststufe.tor);
+
+// Welche Stufe ist das? Die Oberfläche fragt das vor der Anmeldung, um den
+// Hinweisbalken zu zeigen. Der Schlüssel kommt in der Antwort nie vor.
+app.get('/api/stufe', (req, res) => {
+  res.json({ success: true, data: require('./utils/stufe').fuerDieOberflaeche() });
+});
+
 // Sprint 5: Tenant über Subdomain auflösen (Fallback: Default-Tenant)
 app.use(require('./middleware/tenant').resolveTenant);
 

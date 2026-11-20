@@ -201,6 +201,24 @@ function defaultReplyTo(explicit) {
 
 async function sendMail({ to, subject, html, attachments, meta, replyTo }) {
   replyTo = defaultReplyTo(replyTo);
+  // v0.482: Auf der Teststufe geht nichts nach draussen, was nicht
+  // ausdrücklich freigeschaltet ist.
+  //
+  // Der Grund ist die Datenbank. Die Teststufe hat ihre eigene mit erfundenen
+  // Daten, aber ein eingespielter Auszug, ein von Hand angelegter Kontakt oder
+  // ein Tippfehler genügt, und ein Durchlauf des Mailings schreibt echte
+  // Investoren an, mit [TESTSTUFE] im Betreff oder ohne. Deshalb liegt die
+  // Bremse hier, an der einen Stelle, durch die jeder Versand läuft, und nicht
+  // in den Aufrufern.
+  {
+    const st = require('./stufe');
+    subject = st.betreff(subject);
+    if (!st.darfMailen(to)) {
+      console.log(`✉️  [Teststufe] E-Mail NICHT gesendet: "${subject}" an ${to}. Freischaltung über TESTSTUFE_MAIL_AN.`);
+      logMail({ to, subject, html, meta, status: 'failed', error: 'Teststufe, Adresse nicht freigeschaltet' });
+      return false;
+    }
+  }
   try {
     if (process.env.BREVO_API_KEY) {
       await sendViaBrevoApi({ to, subject, html, attachments, replyTo });
