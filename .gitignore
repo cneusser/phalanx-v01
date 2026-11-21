@@ -3,3 +3,14 @@ node_modules/
 server/.env
 .env
 *.log
+
+# Hochgeladene Dateien gehoeren nicht ins Repository (v0.487).
+#
+# Anlass: Beim Pruefen und beim Aufnehmen der Bildschirmfotos legt die
+# Anwendung ihre Dateien ab. Ohne Angabe landen sie in uploads/safe, also
+# mitten im Arbeitsverzeichnis, und wandern beim naechsten `git add -A`
+# unbemerkt in einen Commit. Genau das ist zwischen v0.481 und v0.487
+# passiert: 142 Testdateien im Repository, die dort nichts zu suchen haben.
+#
+# Im Betrieb liegen diese Dateien auf dem Railway-Volume oder in R2, nie hier.
+uploads/
