@@ -171,10 +171,6 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Sprint 13: Sicherheit: Zwei-Faktor-Authentifizierung */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <TwoFactorCard />
-      </div>
 
       {/* v0.488: Kam der Nutzer mit einem Auftrag, steht er hier zuoberst, mit
           dem Grund und den Feldern beim Namen. */}
@@ -183,7 +179,7 @@ export default function Profile() {
           <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: 2 }} />
           <div>
             <div style={{ fontWeight: 700, marginBottom: '0.35rem' }}>
-              Es fehlt noch {auftragFelder.length === 1 ? 'eine Angabe' : `${auftragFelder.length} Angaben`}: {auftragFelder.map((f) => BESCHRIFTUNG[f] || f).join(', ')}
+              {auftragFelder.length === 1 ? 'Es fehlt noch eine Angabe' : `Es fehlen noch ${auftragFelder.length} Angaben`}: {auftragFelder.map((f) => BESCHRIFTUNG[f] || f).join(', ')}
             </div>
             <div style={{ lineHeight: 1.55 }}>
               {GRUND_TEXT[auftragGrund] || 'Diese Angaben sind Voraussetzung für den nächsten Schritt.'}
@@ -195,6 +191,12 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      {/* Sprint 13: Sicherheit: Zwei-Faktor-Authentifizierung */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <TwoFactorCard />
+      </div>
+
 
       {/* Vollständigkeits-Hinweis: Kontaktdaten sind Voraussetzung für den Prozess */}
       {auftragFelder.length === 0 && missingFields.length > 0 && (

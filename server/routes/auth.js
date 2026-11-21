@@ -342,20 +342,26 @@ router.get('/me', authenticate, wrap(async (req, res) => {
   res.json({ success: true, data: { user: { ...req.user, platform_nda_signed_at: row?.platform_nda_signed_at || null }, profile } });
 }));
 
-// ── Plattform-NDA: einmaliges Gütesiegel, das ein Käufer selbst zeichnet ────
+// ── Plattform-NDA: entfallen mit v0.489 ────────────────────────────────────
+//
+// Dahinter stand kein Dokument. Ein Klick setzte users.platform_nda_signed_at
+// auf „jetzt", sonst nichts: kein Text, keine Fassung, kein Nachweis, keine
+// Mail. Das Guetesiegel im Dashboard stand damit auf einem Datum ohne Urkunde,
+// und gegenueber einem Verkaeufer trug es nichts.
+//
+// Das Lesen bleibt, weil der Deal-Funnel das Kennzeichen bei Bestandskonten
+// noch anzeigt. Das Zeichnen ist weg: Verbindlich wird es bei der
+// Vereinbarung zum konkreten Mandat, und die hat Text, Fassungsabgleich,
+// Namenseingabe, Protokoll und PDF.
 router.get('/platform-nda', authenticate, wrap(async (req, res) => {
   const row = await db.get('SELECT platform_nda_signed_at FROM users WHERE id = ?', [req.user.id]).catch(() => null);
-  res.json({ success: true, data: { signed_at: row?.platform_nda_signed_at || null } });
+  res.json({ success: true, data: { signed_at: row?.platform_nda_signed_at || null, abgeschafft: true } });
 }));
 router.post('/platform-nda', authenticate, wrap(async (req, res) => {
-  const row = await db.get('SELECT platform_nda_signed_at FROM users WHERE id = ?', [req.user.id]);
-  if (row && row.platform_nda_signed_at) {
-    return res.json({ success: true, data: { signed_at: row.platform_nda_signed_at, message: 'Bereits gezeichnet' } });
-  }
-  await db.run('UPDATE users SET platform_nda_signed_at = now() WHERE id = ?', [req.user.id]);
-  db.auditLog(req.user.id, 'PLATFORM_NDA_SIGNED', 'user', req.user.id, 'Plattform-NDA gezeichnet', req.ip);
-  const fresh = await db.get('SELECT platform_nda_signed_at FROM users WHERE id = ?', [req.user.id]);
-  res.json({ success: true, data: { signed_at: fresh.platform_nda_signed_at, message: 'Plattform-NDA gezeichnet' } });
+  res.status(410).json({
+    success: false,
+    error: 'Das Plattform-NDA gibt es nicht mehr. Verbindlich ist die Vertraulichkeitsvereinbarung zum jeweiligen Mandat.',
+  });
 }));
 
 // ── POST /impersonate/end: Birdview beenden ───────────────────────────────

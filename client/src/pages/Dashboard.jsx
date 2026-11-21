@@ -122,7 +122,6 @@ export default function Dashboard() {
   const [ndas, setNdas] = useState([]);
   const [projects, setProjects] = useState([]);
   const [xp, setXp] = useState(null);
-  const [platformNda, setPlatformNda] = useState(null); // { signed_at } | null
   const [myDeals, setMyDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [succProfile, setSuccProfile] = useState(null);
@@ -146,7 +145,6 @@ export default function Dashboard() {
       setProjects(projectsData.projects.slice(0, 3));
     }).catch(console.error).finally(() => setLoading(false));
     api.get('/gamification/me').then(setXp).catch(() => {});
-    api.get('/auth/platform-nda').then(setPlatformNda).catch(() => {});
     api.get('/projects/my-deals').then(d => setMyDeals(d || [])).catch(() => {});
     api.get('/crm/my-prepared-mandates').then(d => setPrepared(d || [])).catch(() => {});
     // Nachfolge-Kontext (harmlos auch für Käufer): eigenes Profil + passende Mandate
@@ -154,10 +152,6 @@ export default function Dashboard() {
     api.get('/succession/matches').then(d => setSuccMatches((d && d.matches) || [])).catch(() => {});
   }, []);
 
-  async function signPlatformNda() {
-    try { const r = await api.post('/auth/platform-nda', {}); setPlatformNda(r); }
-    catch (e) { console.error(e); }
-  }
 
   const approved = ndas.filter(n => n.status === 'approved').length;
   const pending = ndas.filter(n => ['requested', 'sent', 'signed'].includes(n.status)).length;
@@ -292,7 +286,7 @@ export default function Dashboard() {
           {naechsterSchritt({
             rolle: 'buyer',
             deals: (myDeals || []).length,
-            ndaGezeichnet: !platformNda || !!platformNda.signed_at,
+            ndaGezeichnet: true,
             profilGepflegt: !!(succProfile && succProfile.id),
           })}
         </p>
@@ -364,29 +358,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Plattform-NDA: Gütesiegel (Stufe C) */}
-      {platformNda && (
-        <div style={{ background: platformNda.signed_at ? '#ede9fe' : C.lightBg, border: `1px solid ${platformNda.signed_at ? '#c4b5fd' : C.steel}`, borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Award size={22} color={platformNda.signed_at ? '#5b21b6' : C.navy} />
-            <div>
-              <div style={{ fontWeight: 800, color: platformNda.signed_at ? '#5b21b6' : C.navy, fontSize: '0.92rem' }}>
-                {platformNda.signed_at ? 'Plattform-NDA gezeichnet' : 'Plattform-NDA zeichnen'}
-              </div>
-              <div style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.5, maxWidth: 620 }}>
-                {platformNda.signed_at
-                  ? t('db.siegel_aktiv', 'Ihr Gütesiegel ist aktiv. Verkäufer sehen, dass Sie Diskretion zusichern.')
-                  : t('db.siegel_text', 'Ein einmaliges, plattformweites Vertraulichkeitsversprechen. Es signalisiert Ernsthaftigkeit und verbessert Ihre Chancen, das richtige Unternehmen zu finden.')}
-              </div>
-            </div>
-          </div>
-          {!platformNda.signed_at && (
-            <button onClick={signPlatformNda} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 8, padding: '0.6rem 1.2rem', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
-              Jetzt zeichnen
-            </button>
-          )}
-        </div>
-      )}
+      {/* v0.489: Das Guetesiegel „Plattform-NDA" ist entfallen.
+          Dahinter stand kein Dokument, nur ein Zeitstempel: ein Klick setzte
+          eine Spalte auf „jetzt". Kein Text, keine Fassung, kein Nachweis,
+          keine Mail. Als Zusage gegenueber einem Verkaeufer trug das nichts,
+          und es stand als zusaetzlicher Schritt im Weg. Verbindlich wird es
+          dort, wo es hingehoert: bei der Vereinbarung zum konkreten Mandat. */}
 
       {/* Nachfolge-Einstieg: prominent oben, auch für (noch) nicht als Nachfolger markierte Nutzer */}
       <div style={{ background: `${C.navy}0a`, border: `1px solid ${C.navy}22`, borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>

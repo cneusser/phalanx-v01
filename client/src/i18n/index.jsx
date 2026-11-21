@@ -474,6 +474,7 @@ const EN = {
   'pd.nda_unterzeichnen': 'Sign the NDA now',
   'pd.nda_anfordern_cim': 'Request an NDA to receive the full CIM, team details and financial plan.',
   'pd.nda_anfordern_zugang': 'Request a confidentiality agreement (NDA) to gain access.',
+  'pd.unterlagen_anfragen': 'Request the documents. We release the pitch deck, company profile and financial plan after a brief review; no confidentiality agreement is needed for that.',
   'pd.tab_overview': 'Overview',
   'pd.tab_company': 'Company',
   'pd.tab_market': 'Market and potential',

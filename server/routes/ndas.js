@@ -292,6 +292,24 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
       if (stageRank(cur) < stageRank('im_granted')) {
         await setStage(req.user.id, req.params.projectId, 'im_granted', req.user.id, consentIp);
       }
+      // v0.489: Mit der Unterschrift geht auch der Datenraum auf.
+      //
+      // Bisher folgte darauf eine zweite, von Hand ausgeloeste Freigabe. Aus
+      // Sicht des Interessenten war die Unterschrift damit ein Schritt, nach
+      // dem sichtbar wenig passierte: „NDA unterschrieben, Freigabe
+      // ausstehend". Christians Entscheidung: alles sofort, ausser dem
+      // Clean Team.
+      //
+      // Das Heikle bleibt heikel. Als vertraulich gekennzeichnete Ordner und
+      // Dateien sind damit nicht freigegeben; dafuer braucht es weiterhin die
+      // Einzelfreigabe je Person. Das entscheidet safeVisibility, nicht diese
+      // Stufe, und daran aendert sich nichts.
+      if (stageRank(cur) < stageRank('dataroom_granted')) {
+        await setStage(req.user.id, req.params.projectId, 'dataroom_granted', req.user.id, consentIp);
+        await db.run("UPDATE nda_requests SET status = 'approved', approved_at = now() WHERE id = ?", [nda.id]).catch(() => {});
+        db.auditLog(req.user.id, 'NDA_APPROVED', 'nda_request', nda.id,
+          'Datenraum mit der Unterschrift geoeffnet (v0.489). Vertrauliches bleibt gesperrt.', consentIp);
+      }
     }
     db.auditLog(req.user.id, 'NDA_SIGNED_ONLINE', 'nda_request', nda.id,
       `Online §10 (${providerName}/FES): ${consent_name.trim()} | IP: ${consentIp} | PDF: ${pdfFilename} | SHA-256: ${auditRef.slice(0, 16)}…`, consentIp);
@@ -307,14 +325,58 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
 
     console.log(`NDA für ${project.codename} online unterzeichnet von ${user.email} (${consent_name.trim()})`);
 
-    // Investor informieren: Signatur bestätigt + IM freigeschaltet
-    const { sendProcessUpdateEmail } = require('../utils/email');
+    // ── Das unterzeichnete PDF geht an beide Seiten (v0.489) ──────────────
+    //
+    // Bisher bekam der Unterzeichner eine Hinweismail ohne Anhang, und die
+    // Beratung bekam gar nichts. Eine Vereinbarung, die niemand in der Hand
+    // haelt, ist als Nachweis wenig wert. Also: dieselbe Urkunde an den
+    // Unterzeichner und an die Beratung, mit Fingerabdruck in der Mail.
+    const { sendProcessUpdateEmail, sendMail } = require('../utils/email');
+    let anhang = [];
+    try {
+      const fsp = require('fs');
+      const pfad = path.join(NDA_DIR, pdfFilename);
+      if (fsp.existsSync(pfad)) {
+        anhang = [{
+          filename: `Vertraulichkeitsvereinbarung_${project.codename}.pdf`,
+          content: fsp.readFileSync(pfad).toString('base64'),
+          encoding: 'base64',
+          contentType: 'application/pdf',
+        }];
+      }
+    } catch (e) { console.warn('NDA-Anhang nicht lesbar:', e.message); }
+
     sendProcessUpdateEmail({
       to: user.email, firstName: user.first_name, person: user,
-      title: `NDA unterzeichnet: Informationsmemorandum freigeschaltet (${project.codename})`,
-      message: `Ihre Vertraulichkeitsvereinbarung für <strong>${project.codename}</strong> wurde erfolgreich unterzeichnet. Das Informationsmemorandum und die Erstunterlagen sind ab sofort für Sie freigeschaltet. Nach der Datenraum-Freigabe durch unser Team erhalten Sie Zugriff auf die vollständigen Unterlagen.`,
-      ctaLabel: 'Unterlagen ansehen', ctaPath: `/projekte/${req.params.projectId}`,
+      title: `Vertraulichkeitsvereinbarung unterzeichnet: ${project.codename}`,
+      message: `Ihre Vertraulichkeitsvereinbarung für <strong>${project.codename}</strong> ist unterzeichnet. `
+        + `Die Unterlagen und der Datenraum sind ab sofort für Sie freigeschaltet; als vertraulich gekennzeichnete Bereiche geben wir Ihnen bei Bedarf einzeln frei. `
+        + `Das unterzeichnete Dokument liegt dieser Mail bei.`,
+      ctaLabel: 'Zum Mandat', ctaPath: `/projekte/${req.params.projectId}`,
+      attachments: anhang,
     }).catch(() => {});
+
+    // Die Beratung bekommt dieselbe Urkunde, damit sie nicht in der Plattform
+    // gesucht werden muss. Adresse ueber NDA_ARCHIV_MAIL aenderbar.
+    {
+      const archiv = process.env.NDA_ARCHIV_MAIL || 'info@phalanx.de';
+      sendMail({
+        to: archiv,
+        subject: `Unterzeichnet: Vertraulichkeitsvereinbarung ${project.codename}, ${user.first_name} ${user.last_name}`,
+        html: `<p>Eine Vertraulichkeitsvereinbarung wurde online unterzeichnet.</p>
+<table cellpadding="4" style="font-size:14px">
+<tr><td><strong>Mandat</strong></td><td>${project.codename}</td></tr>
+<tr><td><strong>Unterzeichnet von</strong></td><td>${consent_name.trim()}</td></tr>
+<tr><td><strong>Konto</strong></td><td>${user.email}${user.company ? `, ${user.company}` : ''}</td></tr>
+<tr><td><strong>Zeitpunkt</strong></td><td>${new Date().toLocaleString('de-DE')}</td></tr>
+<tr><td><strong>IP-Adresse</strong></td><td>${consentIp}</td></tr>
+<tr><td><strong>Fingerabdruck</strong></td><td style="font-family:monospace">${auditRef}</td></tr>
+</table>
+<p>Der Datenraum ist damit freigeschaltet. Als vertraulich gekennzeichnete Bereiche bleiben gesperrt und brauchen weiterhin eine Einzelfreigabe.</p>`,
+        attachments: anhang,
+        meta: { type: 'nda', projectId: project.id, userId: user.id },
+      }).catch(() => {});
+    }
 
     res.json({ success: true, data: { status: 'signed', pdf_filename: pdfFilename, audit_ref: auditRef } });
   } catch (e) {

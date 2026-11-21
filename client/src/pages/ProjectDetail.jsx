@@ -33,9 +33,13 @@ const C = {
 // Der Schlüssel steht neben dem deutschen Text. Übersetzt wird erst beim
 // Zeichnen: am Modulrand gibt es weder eine gewählte Sprache noch t().
 const statusMap = {
-  requested: { schluessel: 'pd.nda_angefordert', label: 'NDA angefordert - Prüfung ausstehend', icon: Clock,       color: '#f59e0b', bg: '#fef3c7' },
+  // v0.489: „Pruefung ausstehend" stimmte nicht. Es wird nichts geprueft,
+  // die Vereinbarung liegt sofort bereit.
+  requested: { schluessel: 'pd.nda_bereit', label: 'Vertraulichkeitsvereinbarung liegt bereit', icon: PenLine, color: '#f59e0b', bg: '#fef3c7' },
   sent:      { schluessel: 'pd.nda_versendet',   label: 'NDA versendet - bitte unterschreiben', icon: PenLine,     color: '#3b82f6', bg: '#dbeafe' },
-  signed:    { schluessel: 'pd.nda_unterschrieben', label: 'NDA unterschrieben - Freigabe ausstehend', icon: Clock, color: '#8b5cf6', bg: '#ede9fe' },
+  // Seit v0.489 geht der Datenraum mit der Unterschrift auf, es ist also
+  // keine Freigabe mehr ausstehend. Vertrauliches bleibt einzeln freizugeben.
+  signed:    { schluessel: 'pd.nda_unterschrieben', label: 'Unterzeichnet, Unterlagen freigeschaltet', icon: CheckCircle, color: '#10b981', bg: '#d1fae5' },
   approved:  { schluessel: 'pd.zugang_frei',     label: 'Zugang freigeschaltet',                icon: CheckCircle, color: '#10b981', bg: '#d1fae5' },
   rejected:  { schluessel: 'pd.zugang_abgelehnt', label: 'Zugang abgelehnt',                    icon: AlertCircle, color: '#ef4444', bg: '#fee2e2' },
 };
@@ -250,6 +254,18 @@ export default function ProjectDetail() {
       const result = await api.post('/ndas', { project_id: parseInt(id) });
       setNdaStatus('requested');
       if (result.id) setNdaId(result.id);
+      // v0.489: Ein Klick statt zwei.
+      //
+      // Bisher legte „NDA anfordern" nur einen Satz in der Datenbank an, und
+      // der Nutzer musste danach ein zweites Mal klicken, um die Vereinbarung
+      // ueberhaupt zu sehen. Dafuer gab es keinen fachlichen Grund: Der Text
+      // steht sofort bereit, die Unterschrift ist derselbe Vorgang. Also
+      // oeffnet sich das Dokument jetzt direkt.
+      //
+      // Bei Startup-Finanzierungen bleibt es beim Anfragen: Dort gibt es
+      // keine Vereinbarung zu unterschreiben, die Beratung gibt die
+      // Unterlagen ohne NDA frei.
+      if (!isStartup) setShowNDAModal(true);
     } catch (e) {
       if (e.message?.includes('bereits')) setNdaStatus('requested');
       // v0.488: Fehlt etwas im Profil, ist eine Fehlermeldung die falsche
@@ -1132,7 +1148,12 @@ export default function ProjectDetail() {
                       </div>
                     );
                   })()}
-                  {(ndaStatus === 'sent' || ndaStatus === 'requested') && (
+                  {/* v0.489: Bei einer Startup-Finanzierung gibt es nichts zu
+                      unterschreiben. Bisher stand hier trotzdem „NDA vorab
+                      ansehen und unterzeichnen", waehrend zwei Handbreit
+                      darunter „ein NDA ist dafuer nicht noetig" stand. Beides
+                      auf derselben Seite. */}
+                  {!isStartup && (ndaStatus === 'sent' || ndaStatus === 'requested') && (
                     <button onClick={() => setShowNDAModal(true)} style={{
                       width: '100%', background: ndaStatus === 'sent' ? '#3b82f6' : '#f59e0b',
                       color: '#fff', border: 'none', padding: '0.75rem', borderRadius: 6,
@@ -1164,7 +1185,7 @@ export default function ProjectDetail() {
                 <>
                   <p style={{ color: C.muted, fontSize: '0.83rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
                     {isStartup
-                      ? t('pd.nda_anfordern_cim', 'Fordern Sie eine NDA an, um das vollständige CIM, Teamdetails und Finanzplan zu erhalten.')
+                      ? t('pd.unterlagen_anfragen', 'Fragen Sie die Unterlagen an. Pitch Deck, Kurzprofil und Finanzplan geben wir nach kurzer Prüfung frei, eine Vertraulichkeitsvereinbarung ist dafür nicht nötig.')
                       : t('pd.nda_anfordern_zugang', 'Fordern Sie eine Vertraulichkeitsvereinbarung (NDA) an, um Zugang zu erhalten.')}
                   </p>
                   <button onClick={requestNDA} disabled={requesting} style={{
