@@ -180,8 +180,8 @@ router.get('/:projectId/document', authenticate, wrap(async (req, res) => {
       template,
       signature,
       // v0.491: Gegengezeichnet wird nur, was auch unterzeichnet ist.
-      gegenzeichnung: signature
-        ? gegenzeichnungAus(template, (nda && nda.countersigned_at) || signature.date)
+      gegenzeichnung: (signature && nda && nda.countersigned_at)
+        ? gegenzeichnungAus(template, nda.countersigned_at)
         : null,
     });
 
@@ -581,7 +581,10 @@ router.get('/:projectId/download', authenticate, wrap(async (req, res) => {
     },
     project: { codename: project.codename, industry: project.industry, region: project.region },
     template,
-    gegenzeichnung: gegenzeichnungAus(template, nda.countersigned_at || nda.online_consent_at || nda.signed_at),
+    // v0.492: Nur was wirklich gegengezeichnet wurde. Vorher stand hier ein
+    // Rueckfall auf den Unterschriftszeitpunkt, und damit waere unter jedem
+    // alten Nachdruck ploetzlich eine Unterschrift erschienen, die es nie gab.
+    gegenzeichnung: nda.countersigned_at ? gegenzeichnungAus(template, nda.countersigned_at) : null,
     signature: {
       name: nda.consent_name || `${buyer.first_name} ${buyer.last_name}`,
       company: buyer.company || '',
@@ -592,6 +595,121 @@ router.get('/:projectId/download', authenticate, wrap(async (req, res) => {
   const filename = nda.signed_pdf_path || `NDA_${project.codename}_${buyer.id}.pdf`;
   res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"` });
   res.send(pdfBuffer);
+}));
+
+// ─── Die Urkunde noch einmal zustellen (v0.492) ─────────────────────────────
+//
+// Anlass, wörtlich: „Gäbe es die Möglichkeit, einen NDA nochmals zu
+// verschicken, könnten wir es vielleicht testen, oder?"
+//
+// Der Anlass war eine Prüfung, der Nutzen ist größer: Mails gehen verloren,
+// landen im Spam oder werden gelöscht. Bisher blieb in dem Fall nur, das PDF
+// herunterzuladen und von Hand als Mail zu schicken, und dann fehlt der
+// Vorgang im Protokoll.
+//
+// Zwei Festlegungen:
+//
+//   1. Standard ist der Versand nur an die Beratung. Wer eine Prüfung macht,
+//      soll dabei nicht versehentlich einen Interessenten anschreiben. An
+//      beide geht es nur, wenn es ausdrücklich verlangt wird.
+//   2. Es wird nichts neu unterzeichnet und nichts geändert. Dieselbe
+//      Urkunde, derselbe Fingerabdruck, nur noch einmal zugestellt. Der
+//      Vorgang steht danach im Protokoll.
+router.post('/:projectId/erneut-senden', authenticate, wrap(async (req, res) => {
+  if (!['super_admin', 'advisor'].includes(req.user.role)) {
+    return res.status(403).json({ success: false, error: 'Nur die Verwaltung kann eine Urkunde erneut zustellen.' });
+  }
+  const zielPerson = parseInt(req.body.user_id, 10);
+  if (!zielPerson) return res.status(400).json({ success: false, error: 'user_id fehlt' });
+  const anBeide = req.body.ziel === 'beide';
+
+  const nda = await db.get('SELECT * FROM nda_requests WHERE user_id = ? AND project_id = ?', [zielPerson, req.params.projectId]);
+  if (!nda || !nda.online_consent_at) {
+    return res.status(404).json({ success: false, error: 'Für diese Person liegt keine unterzeichnete Vereinbarung vor.' });
+  }
+  const buyer = await db.get('SELECT * FROM users WHERE id = ?', [zielPerson]);
+  const project = await db.get('SELECT * FROM projects WHERE id = ?', [req.params.projectId]);
+  const template = await loadNdaTemplate();
+
+  // Bevorzugt die abgelegte Datei. Sie ist die Urkunde; ein Nachdruck ist nur
+  // der Ersatz, wenn die Datei verloren ging.
+  let puffer = null;
+  if (nda.signed_pdf_path) {
+    const pfad = path.join(NDA_DIR, nda.signed_pdf_path);
+    if (fs.existsSync(pfad)) puffer = fs.readFileSync(pfad);
+  }
+  if (!puffer) {
+    puffer = await generateNDA({
+      buyer: {
+        id: buyer.id,
+        first_name: [buyer.title, buyer.first_name].filter(Boolean).join(' '),
+        last_name: buyer.last_name,
+        company: buyer.company || '',
+        position: buyer.position || '',
+        email: buyer.email,
+        address: buyer.street || '',
+        city: [buyer.postal_code, buyer.city].filter(Boolean).join(' '),
+        country: 'Deutschland',
+        company_seat: buyer.company_seat || '',
+        company_register: buyer.company_register || '',
+        company_representative: buyer.company_representative || '',
+      },
+      project: { codename: project.codename, industry: project.industry, region: project.region },
+      template,
+      gegenzeichnung: nda.countersigned_at ? gegenzeichnungAus(template, nda.countersigned_at) : null,
+      signature: {
+        name: nda.consent_name || `${buyer.first_name} ${buyer.last_name}`,
+        company: buyer.company || '',
+        date: nda.online_consent_at,
+        ip: nda.consent_ip || null,
+      },
+    });
+  }
+  const abdruck = crypto.createHash('sha256').update(puffer).digest('hex');
+  const anhang = [{
+    filename: `Vertraulichkeitsvereinbarung_${project.codename}.pdf`,
+    content: puffer.toString('base64'),
+    encoding: 'base64',
+    contentType: 'application/pdf',
+  }];
+
+  const { sendMail, sendProcessUpdateEmail } = require('../utils/email');
+  const archiv = process.env.NDA_ARCHIV_MAIL || 'info@phalanx.de';
+  const empfaenger = [archiv];
+
+  await sendMail({
+    to: archiv,
+    subject: `Erneut zugestellt: Vertraulichkeitsvereinbarung ${project.codename}, ${buyer.first_name} ${buyer.last_name}`,
+    html: `<p>Diese Urkunde wurde erneut zugestellt. Unterzeichnet wurde nichts Neues.</p>
+<table cellpadding="4" style="font-size:14px">
+<tr><td><strong>Mandat</strong></td><td>${project.codename}</td></tr>
+<tr><td><strong>Unterzeichnet von</strong></td><td>${nda.consent_name || `${buyer.first_name} ${buyer.last_name}`}</td></tr>
+<tr><td><strong>Konto</strong></td><td>${buyer.email}${buyer.company ? `, ${buyer.company}` : ''}</td></tr>
+<tr><td><strong>Unterzeichnet am</strong></td><td>${new Date(nda.online_consent_at).toLocaleString('de-DE')}</td></tr>
+${nda.countersigned_at ? `<tr><td><strong>Gegengezeichnet</strong></td><td>${nda.countersigned_by || ''}, ${new Date(nda.countersigned_at).toLocaleString('de-DE')}</td></tr>` : ''}
+<tr><td><strong>Fingerabdruck</strong></td><td style="font-family:monospace">${abdruck}</td></tr>
+<tr><td><strong>Erneut zugestellt</strong></td><td>${new Date().toLocaleString('de-DE')} durch ${req.user.email || req.user.id}</td></tr>
+</table>`,
+    attachments: anhang,
+    meta: { type: 'nda', projectId: project.id, userId: buyer.id },
+  }).catch((e) => { console.warn('Archivmail nicht zugestellt:', e.message); });
+
+  if (anBeide) {
+    empfaenger.push(buyer.email);
+    sendProcessUpdateEmail({
+      to: buyer.email, firstName: buyer.first_name, person: buyer,
+      title: `Ihre Vertraulichkeitsvereinbarung: ${project.codename}`,
+      message: `Hier noch einmal Ihre unterzeichnete Vertraulichkeitsvereinbarung für <strong>${project.codename}</strong> als Anhang. `
+        + `An der Vereinbarung ändert sich dadurch nichts.`,
+      ctaLabel: 'Zum Mandat', ctaPath: `/projekte/${project.id}`,
+      attachments: anhang,
+    }).catch(() => {});
+  }
+
+  db.auditLog(req.user.id, 'NDA_ERNEUT_GESENDET', 'nda_request', nda.id,
+    `an ${empfaenger.join(', ')} | SHA-256: ${abdruck.slice(0, 16)}…`, req.ip);
+
+  res.json({ success: true, data: { empfaenger, fingerabdruck: abdruck } });
 }));
 
 module.exports = router;

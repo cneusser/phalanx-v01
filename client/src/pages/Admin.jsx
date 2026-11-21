@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   BarChart3, Users, FileText, CheckCircle, Plus, Eye, X, Building2,
   Edit2, Activity, Send, Download, Upload, Trash2, Lock, Globe, Shield,
-  ClipboardList, ChevronLeft, ChevronRight,
+  ClipboardList, ChevronLeft, ChevronRight, Mail,
 } from 'lucide-react';
 import GroupedSelect from '../components/GroupedSelect';
 import { NACE_INDUSTRIES, BUNDESLAENDER, DEAL_TYPES_MA, DEAL_TYPES_FUNDRAISING, FUNDRAISING_STAGES, REVENUE_CLASSES } from '../constants/projectOptions';
@@ -1767,6 +1767,23 @@ export default function Admin() {
                               <Download size={9} /> PDF
                             </button>
                           )}
+                          {/* v0.492: Dieselbe Urkunde noch einmal zustellen.
+                              Standard ist nur die Beratung; an den
+                              Unterzeichner geht sie nur nach Rückfrage. */}
+                          <button onClick={async () => {
+                            const anBeide = window.confirm(
+                              'Die unterzeichnete Urkunde noch einmal zustellen.\n\n'
+                              + 'OK: an die Beratung und an den Unterzeichner\n'
+                              + 'Abbrechen: nur an die Beratung');
+                            try {
+                              const r = await api.post(`/ndas/${n.project_id}/erneut-senden`, {
+                                user_id: n.user_id, ziel: anBeide ? 'beide' : 'archiv',
+                              });
+                              showMsg(`Zugestellt an ${(r.empfaenger || []).join(', ')}`);
+                            } catch (e) { showMsg('Zustellung fehlgeschlagen: ' + e.message, 'error'); }
+                          }} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', background: '#f1f5f9', color: '#334155', border: 'none', padding: '0.2rem 0.5rem', borderRadius: 4, cursor: 'pointer', fontSize: '0.68rem', fontWeight: 600, marginTop: '0.2rem' }}>
+                            <Mail size={9} /> Erneut senden
+                          </button>
                         </div>
                       ) : <span style={{ fontSize: '0.72rem', color: '#ccc' }}>–</span>}
                     </td>
