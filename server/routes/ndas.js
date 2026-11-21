@@ -41,6 +41,32 @@ const VERTRAGSFELDER_NAMEN = {
   company_representative: 'vertretungsberechtigte Person',
 };
 
+/**
+ * Die Gegenzeichnung der Beratung (v0.491).
+ *
+ * § 8 der Vereinbarung sagt, sie tritt „mit Unterzeichnung durch beide
+ * Parteien" in Kraft. Bis v0.490 trug die Urkunde nur eine Unterschrift. Die
+ * Gegenzeichnung geschieht jetzt im selben Vorgang und in derselben Form, in
+ * der auch der Interessent zeichnet: in Textform, mit Name, Funktion, Ort und
+ * Zeitpunkt. § 10 Absatz 1 lässt das ausdrücklich genügen.
+ *
+ * Sie hängt an keiner Handlung und an keiner Freigabe. Ein Vertrag, der an
+ * einem Posten in jemandes Postfach hängt, ist genau der zweite Schritt, den
+ * v0.489 entfernt hat.
+ *
+ * @returns {object|null} { name, role, place, date }
+ */
+function gegenzeichnungAus(template, zeitpunkt) {
+  const unterzeichner = (template.advisor && template.advisor.signer) || null;
+  if (!unterzeichner || !unterzeichner.name) return null;
+  return {
+    name: unterzeichner.name,
+    role: unterzeichner.role || null,
+    place: unterzeichner.place || null,
+    date: zeitpunkt,
+  };
+}
+
 /** Der Interessent, wie ihn die Fassung braucht. Eine Stelle, nicht drei. */
 function kaeuferAus(user) {
   return {
@@ -153,6 +179,10 @@ router.get('/:projectId/document', authenticate, wrap(async (req, res) => {
       project: { codename: project.codename, industry: project.industry, region: project.region },
       template,
       signature,
+      // v0.491: Gegengezeichnet wird nur, was auch unterzeichnet ist.
+      gegenzeichnung: signature
+        ? gegenzeichnungAus(template, (nda && nda.countersigned_at) || signature.date)
+        : null,
     });
 
     res.set({
@@ -320,11 +350,13 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
     }
 
     // 2. Signiertes PDF revisionssicher ablegen (Datei + SHA-256-Audit-Referenz)
+    const gegen = gegenzeichnungAus(template, now);
     const pdfFilename = await saveNDA({
       buyer: buyerData,
       project: projectData,
       template,
       signature: { name: consent_name.trim(), company: user.company || '', date: now, ip: consentIp },
+      gegenzeichnung: gegen,
     });
     const signedBuffer = fs.readFileSync(require('path').join(NDA_DIR, pdfFilename));
     const auditRef = crypto.createHash('sha256').update(signedBuffer).digest('hex');
@@ -347,7 +379,9 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
           signed_pdf_path=?,
           fassung_hash=?,
           fassung_version=?,
-          fassung_text=?
+          fassung_text=?,
+          countersigned_at=?,
+          countersigned_by=?
       WHERE user_id=? AND project_id=?
     `, [now, consent_name.trim(), consentIp, pdfFilename,
         // Der Wortlaut wird mitgespeichert und nicht nur sein Fingerabdruck
@@ -355,6 +389,8 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
         // hat; er stellt den Text aber nicht wieder her, wenn die Vorlage
         // spaeter ueberschrieben wird. Und genau dann braucht man ihn.
         geltend.hash, geltend.version || null, ndaFassung.alsText(geltend),
+        gegen ? now : null,
+        gegen ? `${gegen.name}${gegen.role ? `, ${gegen.role}` : ''}` : null,
         req.user.id, req.params.projectId]);
 
     // 4. Zustandsautomat: nda_signed erreicht → IM/Exposé automatisch
@@ -427,7 +463,8 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
     sendProcessUpdateEmail({
       to: user.email, firstName: user.first_name, person: user,
       title: `Vertraulichkeitsvereinbarung unterzeichnet: ${project.codename}`,
-      message: `Ihre Vertraulichkeitsvereinbarung für <strong>${project.codename}</strong> ist unterzeichnet. `
+      message: `Ihre Vertraulichkeitsvereinbarung für <strong>${project.codename}</strong> ist unterzeichnet`
+        + `${gegen ? ` und von der Phalanx GmbH gegengezeichnet (${gegen.name}${gegen.role ? `, ${gegen.role}` : ''})` : ''}. `
         + `Die Unterlagen und der Datenraum sind ab sofort für Sie freigeschaltet; als vertraulich gekennzeichnete Bereiche geben wir Ihnen bei Bedarf einzeln frei. `
         + `Das unterzeichnete Dokument liegt dieser Mail bei.`,
       ctaLabel: 'Zum Mandat', ctaPath: `/projekte/${req.params.projectId}`,
@@ -449,6 +486,7 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
 <tr><td><strong>Zeitpunkt</strong></td><td>${new Date().toLocaleString('de-DE')}</td></tr>
 <tr><td><strong>IP-Adresse</strong></td><td>${consentIp}</td></tr>
 <tr><td><strong>Fingerabdruck</strong></td><td style="font-family:monospace">${auditRef}</td></tr>
+${gegen ? `<tr><td><strong>Gegengezeichnet</strong></td><td>${gegen.name}${gegen.role ? `, ${gegen.role}` : ''}</td></tr>` : ''}
 </table>
 <p>Der Datenraum ist damit freigeschaltet. Als vertraulich gekennzeichnete Bereiche bleiben gesperrt und brauchen weiterhin eine Einzelfreigabe.</p>`,
         attachments: anhang,
@@ -543,6 +581,7 @@ router.get('/:projectId/download', authenticate, wrap(async (req, res) => {
     },
     project: { codename: project.codename, industry: project.industry, region: project.region },
     template,
+    gegenzeichnung: gegenzeichnungAus(template, nda.countersigned_at || nda.online_consent_at || nda.signed_at),
     signature: {
       name: nda.consent_name || `${buyer.first_name} ${buyer.last_name}`,
       company: buyer.company || '',

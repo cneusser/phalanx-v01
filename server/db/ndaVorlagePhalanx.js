@@ -35,6 +35,13 @@ module.exports = {
     address: 'Helene-Lange-Straße 28',
     city: '91056 Erlangen',
     country: 'Deutschland',
+    // Wer für die Phalanx GmbH gegenzeichnet (v0.491). Steht so in der
+    // Unterschriftszeile des Dokuments.
+    signer: {
+      name: 'Dr. Christian Neusser',
+      role: 'Geschäftsführer / Managing Director',
+      place: 'Erlangen',
+    },
   },
 
   titel: 'Vertraulichkeitsvereinbarung',

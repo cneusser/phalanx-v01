@@ -47,6 +47,9 @@ function generateNDA(opts) {
     project,
     template = DEFAULT_TEMPLATE,
     signature = null,
+    // v0.491: Die Gegenzeichnung der Beratung, in Textform.
+    // { name, role, place, date } oder null (dann bleibt die Zeile leer).
+    gegenzeichnung = null,
   } = opts;
 
   const advisor = template.advisor || DEFAULT_TEMPLATE.advisor;
@@ -299,20 +302,53 @@ function generateNDA(opts) {
     const sig2X = 72 + sigColW + 30;
     const sigStartY = doc.y;
 
-    // Berater signature (left)
-    doc.font('Helvetica').fontSize(8.5).fillColor(GRAY)
-      .text(zweisprachig ? 'Ort, Datum / Place, date' : 'Ort, Datum', sig1X, sigStartY);
-    doc.moveDown(2.5);
-    hline(doc.y, '#999', sigColW);
-    doc.moveDown(0.3);
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY)
-      .text(zweisprachig ? 'Unterschrift / Signature Phalanx GmbH' : 'Unterschrift Transaktionsberater', sig1X, doc.y, { width: sigColW });
-    doc.font('Helvetica').fontSize(9).fillColor(BLACK)
-      .text(advisor.name, sig1X, doc.y, { width: sigColW });
-    // Wer für die Beratung unterschreibt, steht im Hausdokument namentlich da.
-    if (advisor.contact) {
+    // ── Berater, links. Gegengezeichnet oder leer (v0.491) ─────────────────
+    //
+    // § 8 der Vereinbarung sagt: Sie tritt „mit Unterzeichnung durch beide
+    // Parteien" in Kraft. Bis v0.490 trug die Urkunde nur die Unterschrift des
+    // Interessenten, die Zeile der Beratung blieb leer. Wer das Dokument
+    // später hervorholte, sah einen Vertrag, der nach seinem eigenen Wortlaut
+    // noch nicht galt.
+    //
+    // Die Gegenzeichnung geschieht in Textform, nicht als Bild: Name, Funktion,
+    // Ort und Zeitpunkt. Das ist dieselbe Form, in der auch der Interessent
+    // zeichnet, und § 10 Absatz 1 lässt sie ausdrücklich genügen.
+    if (gegenzeichnung) {
+      const gzDatum = new Date(gegenzeichnung.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+      doc.rect(sig1X - 8, sigStartY - 8, sigColW + 16, 138).fillAndStroke('#f8fafc', '#cbd5e1');
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY)
+        .text(zweisprachig ? 'Elektronisch gegengezeichnet / Countersigned' : 'Elektronisch gegengezeichnet', sig1X, sigStartY, { width: sigColW });
       doc.font('Helvetica').fontSize(8.5).fillColor(GRAY)
-        .text(advisor.contact, sig1X, doc.y, { width: sigColW });
+        .text(`${gegenzeichnung.place || ''}${gegenzeichnung.place ? ', ' : ''}${gzDatum}`, sig1X, doc.y, { width: sigColW });
+
+      const gzBoxY = doc.y + 5;
+      const gzBoxH = 42;
+      doc.rect(sig1X, gzBoxY, sigColW, gzBoxH).fillAndStroke('#ffffff', '#64748b');
+      doc.font('Times-Italic').fontSize(18).fillColor(NAVY)
+        .text(gegenzeichnung.name, sig1X, gzBoxY + 13, { width: sigColW, align: 'center' });
+
+      doc.y = gzBoxY + gzBoxH + 5;
+      doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY)
+        .text(zweisprachig ? 'Unterschrift / Signature Phalanx GmbH' : 'Unterschrift Transaktionsberater', sig1X, doc.y, { width: sigColW });
+      doc.font('Helvetica').fontSize(9).fillColor(BLACK)
+        .text(gegenzeichnung.name, sig1X, doc.y, { width: sigColW });
+      doc.font('Helvetica').fontSize(8.5).fillColor(GRAY)
+        .text(gegenzeichnung.role || advisor.contact || '', sig1X, doc.y, { width: sigColW });
+    } else {
+      doc.font('Helvetica').fontSize(8.5).fillColor(GRAY)
+        .text(zweisprachig ? 'Ort, Datum / Place, date' : 'Ort, Datum', sig1X, sigStartY);
+      doc.moveDown(2.5);
+      hline(doc.y, '#999', sigColW);
+      doc.moveDown(0.3);
+      doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY)
+        .text(zweisprachig ? 'Unterschrift / Signature Phalanx GmbH' : 'Unterschrift Transaktionsberater', sig1X, doc.y, { width: sigColW });
+      doc.font('Helvetica').fontSize(9).fillColor(BLACK)
+        .text(advisor.name, sig1X, doc.y, { width: sigColW });
+      // Wer für die Beratung unterschreibt, steht im Hausdokument namentlich da.
+      if (advisor.contact) {
+        doc.font('Helvetica').fontSize(8.5).fillColor(GRAY)
+          .text(advisor.contact, sig1X, doc.y, { width: sigColW });
+      }
     }
 
     // Interessent signature (right)
@@ -359,7 +395,7 @@ function generateNDA(opts) {
 
     // ─── AUDIT TRAIL BOX (only on signed copies) ─────────────────────────────
     if (signature) {
-      doc.rect(72, doc.y, PAGE_W, signature.ip ? 70 : 52).fillAndStroke('#eff6ff', '#bfdbfe');
+      doc.rect(72, doc.y, PAGE_W, (signature.ip ? 70 : 52) + (gegenzeichnung ? 14 : 0)).fillAndStroke('#eff6ff', '#bfdbfe');
       const auditY = doc.y + 10;
       doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY)
         .text('Nachweis der Online-Unterzeichnung (Audit Trail)', 84, auditY);
@@ -368,6 +404,10 @@ function generateNDA(opts) {
       doc.text(`E-Mail:  ${buyer.email}`, 84, doc.y);
       doc.text(`Zeitstempel:  ${new Date(signature.date).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })} (MEZ/MESZ)`, 84, doc.y);
       if (signature.ip) doc.text(`IP-Adresse:  ${signature.ip}`, 84, doc.y);
+      if (gegenzeichnung) {
+        doc.text(`Gegenzeichnung:  ${gegenzeichnung.name}${gegenzeichnung.role ? ', ' + gegenzeichnung.role : ''}, `
+          + `${new Date(gegenzeichnung.date).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}`, 84, doc.y);
+      }
       doc.text(`Projekt:  ${project.codename}  ·  Plattform: phalanx.de`, 84, doc.y);
       doc.y += 14;
     }
