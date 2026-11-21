@@ -101,6 +101,61 @@ app.get('/api/stufe', (req, res) => {
   res.json({ success: true, data: require('./utils/stufe').fuerDieOberflaeche() });
 });
 
+// ── Während des Starts antworten statt schweigen (v0.485) ───────────────────
+//
+// Anlass: Der erste Start der Teststufe hing minutenlang, und von aussen kam
+// „Application failed to respond", der Fehler 502 von Railway.
+//
+// Der Grund lag im Aufbau: Bis v0.484 rief index.js erst `initialize()` auf
+// und erst danach `app.listen()`. Auf einer leeren Datenbank bedeutet das über
+// 300 Migrationen und den Startseed, bevor überhaupt jemand lauscht. Railway
+// wartet nicht so lange, haelt den Dienst fuer tot und startet ihn neu, mitten
+// im Lauf. Der naechste Versuch beginnt wieder von vorn.
+//
+// Das ist nicht nur beim Einrichten laestig. Es trifft jedes Deployment, das
+// eine lange Migration mitbringt, auch auf der Produktion.
+//
+// Deshalb lauscht die Anwendung jetzt sofort und sagt waehrend des Starts, was
+// los ist: 503 mit einer Begruendung. Der Dienstzustand antwortet dabei mit
+// 200 und dem Vermerk „startet", damit die Ueberwachung den Dienst als lebendig
+// erkennt und ihn in Ruhe arbeiten laesst.
+let bereit = false;
+let startFehler = null;
+app.get('/api/health', (req, res) => {
+  res.json({ success: true, data: { status: bereit ? 'ok' : 'starting', fehler: startFehler } });
+});
+app.use((req, res, next) => {
+  if (bereit) return next();
+  if (req.path.startsWith('/api/')) {
+    return res.status(503).json({
+      success: false,
+      error: startFehler
+        ? 'Der Start ist fehlgeschlagen. Bitte die Protokolle ansehen.'
+        : 'Die Anwendung startet gerade. Migrationen laufen, bitte in einem Moment erneut versuchen.',
+      status: startFehler ? 'failed' : 'starting',
+    });
+  }
+  res.status(503).type('html').send(`<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+${startFehler ? '' : '<meta http-equiv="refresh" content="10">'}
+<title>${startFehler ? 'Start fehlgeschlagen' : 'Startet'}</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+         background:#0f172a; color:#e2e8f0; }
+  main { max-width:30rem; padding:2.5rem; }
+  h1 { font-size:1.15rem; margin:0 0 .9rem; }
+  p { font-size:.92rem; line-height:1.6; color:#94a3b8; margin:0 0 .7rem; }
+</style></head>
+<body><main>
+  <h1>${startFehler ? 'Der Start ist fehlgeschlagen' : 'CapitalMatch startet'}</h1>
+  <p>${startFehler
+    ? 'Die Anwendung konnte die Datenbank nicht vorbereiten. Die Protokolle des Dienstes nennen den Grund.'
+    : 'Die Datenbank wird gerade vorbereitet. Beim ersten Start eines neuen Dienstes dauert das einige Minuten. Diese Seite lädt sich von selbst neu.'}</p>
+</main></body></html>`);
+});
+
 // Sprint 5: Tenant über Subdomain auflösen (Fallback: Default-Tenant)
 app.use(require('./middleware/tenant').resolveTenant);
 
@@ -133,7 +188,9 @@ app.use('/api/profile', require('./routes/profile'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/documents', require('./routes/documents'));
 
-app.get('/api/health', (req, res) => {
+// Der Dienstzustand steht seit v0.485 weiter oben, damit er schon waehrend des
+// Starts antwortet. Hier bleibt die ausfuehrliche Auskunft fuer den Betrieb.
+app.get('/api/health/details', (req, res) => {
   res.json({ success: true, data: { status: 'ok', version: '0.1.0', timestamp: new Date().toISOString(), dirname: __dirname, clientDist: path.join(__dirname, '../client/dist') } });
 });
 
@@ -178,9 +235,20 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, error: 'Interner Serverfehler' });
 });
 
-// Initialize DB then start server
+// ── Erst lauschen, dann vorbereiten (v0.485) ────────────────────────────────
+//
+// Bis v0.484 stand hier initialize().then(() => app.listen(...)). Die
+// Reihenfolge war falsch herum: Auf einer leeren Datenbank lauschte erst nach
+// mehreren Minuten jemand, und bis dahin antwortete der Dienst gar nicht.
+// Jetzt steht der Port sofort offen, die Middleware oben erklaert waehrend der
+// Vorbereitung, was los ist, und `bereit` schaltet die Anwendung frei.
+app.listen(PORT, () => {
+  console.log(`📡 Backend lauscht auf Port ${PORT}, Datenbank wird vorbereitet.`);
+});
+
 initialize().then(() => {
-  app.listen(PORT, () => {
+  bereit = true;
+  {
     const fassung = (() => { try { return require('./package.json').version; } catch { return '?'; } })();
     console.log(`\n💼  CapitalMatch Platform v${fassung} (eine Marke der Phalanx GmbH)`);
     console.log(`📡 Backend: http://localhost:${PORT}`);
@@ -202,8 +270,13 @@ initialize().then(() => {
     try { require('./utils/ndaReminders').startScheduler(); } catch (e) { console.warn('NDA-Erinnerungen nicht gestartet:', e.message); }
     try { require('./utils/docNotify').startScheduler(); } catch (e) { console.warn('Unterlagen-Hinweise nicht gestartet:', e.message); }
     try { require('./utils/nachrichtVersand').startScheduler(); } catch (e) { console.warn('Nachrichten-Zustellung nicht gestartet:', e.message); }
-  });
-}).catch(err => {
+  }
+}).catch((err) => {
+  // Der Port bleibt offen, damit die Ursache lesbar ist statt „Application
+  // failed to respond". Beendet wird trotzdem, sonst sieht die Ueberwachung
+  // einen gesunden Dienst, der nichts kann. Die fuenf Sekunden geben einem
+  // Browser, der gerade wartet, noch die Seite mit der Begruendung.
+  startFehler = err.message || String(err);
   console.error('Failed to initialize database:', err);
-  process.exit(1);
+  setTimeout(() => process.exit(1), 5000);
 });
