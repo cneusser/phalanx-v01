@@ -26,8 +26,17 @@ trifft die Produktion nicht, und das ist der ganze Zweck.
 
 ## Schritt 1: Branch anlegen
 
+Entweder in GitHub Desktop, ohne Terminal:
+
+1. Menü **Branch** → **New Branch**, Name `staging`, **Create Branch**
+2. Oben auf **Publish branch** klicken
+3. Bei **Current Branch** wieder auf `main` zurückstellen
+
+Oder im Terminal. Der Pfad enthält Leerzeichen und braucht deshalb
+Anführungszeichen, sonst meldet git „not a git repository":
+
 ```bash
-cd phalanx-v01
+cd "/Users/christianneusser/Downloads/Claude/Projekte/Phalanx Plattform/phalanx-v01"
 git checkout -b staging
 git push -u origin staging
 git checkout main
@@ -148,17 +157,33 @@ Sehen Sie den Balken **nicht**, brechen Sie ab und prüfen `CM_STUFE`. Ohne
 Balken wissen Sie nicht, auf welcher Stufe Sie stehen, und dann ist die
 Teststufe gefährlicher als keine.
 
-## Was ich künftig je Release tue
+## Der Ablauf je Release
 
-1. Ich committe auf `main`, Sie pushen `main` auf `staging`.
-2. Ich lasse den Prüfstand gegen die Teststufe laufen
-   (`npm run test:pruefstand`) und spiele das Drehbuch durch.
-3. Ich melde Ihnen das Ergebnis, Punkt für Punkt.
-4. Erst danach pushen Sie die Produktion.
+So sieht ein Release künftig aus. Die ersten vier Schritte sind meine, die
+mit **Sie** markierten Ihre.
+
+| | Schritt | Wer |
+|---|---|---|
+| 1 | Bauen, Quelltextprüfungen, Textprüfung, Client-Build (`npm run check:full`) | ich |
+| 2 | Commit mit Fassungsnummer, Changelog-Migration, `./scripts/fassung-markieren.sh` | ich |
+| 3 | **Push auf `staging`:** `git push origin main:staging --follow-tags` (im Repository-Verzeichnis, siehe Schritt 1) | Sie |
+| 4 | Prüfstand gegen die Teststufe: `npm run test:pruefstand` | ich |
+| 5 | Testdrehbuch von Hand, `docs/testdrehbuch.md` | Sie |
+| 6 | Bericht, Punkt für Punkt, offene Punkte benannt | ich |
+| 7 | **Freigabe.** Ohne sie geht nichts weiter | Sie |
+| 8 | **Push auf die Produktion:** `git push origin main --follow-tags` | Sie |
+
+`--follow-tags` schickt das Fassungs-Tag mit. Ohne das bleibt die Version in
+GitHub Desktop leer, weil die Anzeige dort am Tag hängt und nicht an
+`package.json`.
 
 Dafür brauche ich von Ihnen einmal: die Adresse der Teststufe und den
 Einladungsschlüssel. Die Datenbank-Adresse brauche ich **nicht**, und Sie
 sollen sie mir auch nicht geben.
+
+Wenn auf der Teststufe etwas bricht, bleibt die Produktion unberührt und ich
+baue nach. Das ist der ganze Zweck des Aufbaus, und deshalb ist Schritt 7
+keine Formalie.
 
 ## Laufende Kosten
 
