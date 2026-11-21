@@ -32,6 +32,16 @@ function belegt(namen) {
 export default function ProjectSafe() {
   const { id: pid } = useParams();
   const [items, setItems] = useState([]);
+  // v0.488: Der Server schickt `nur_lesend` seit v0.392 mit, benutzt wurde es
+  // nie. Ergebnis: Ein Interessent sah im Datenraum die vollstaendige
+  // Verwaltungsleiste, vierzehn Schaltflaechen samt Papierkorb, auf den
+  // Unterlagen des Verkaeufers. Der Server hat jede dieser Handlungen
+  // abgewiesen, die Oberflaeche hat sie trotzdem angeboten.
+  //
+  // Standard ist true, also die vorsichtige Annahme: Bis die Antwort da ist,
+  // wird nichts zum Verwalten gezeigt. Ein kurz fehlender Knopf ist harmlos,
+  // ein kurz gezeigter Papierkorb nicht.
+  const [nurLesend, setNurLesend] = useState(true);
   const [crumbs, setCrumbs] = useState([]);
   const [parent, setParent] = useState(null);
   const [usage, setUsage] = useState(null);
@@ -270,6 +280,7 @@ export default function ProjectSafe() {
       const q = parentId ? `?parent_id=${parentId}` : '';
       const d = await api.get(`/safe/${pid}${q}`);
       setItems(d.items); setCrumbs(d.breadcrumb); setParent(d.parent_id); if (d.project) setProject(d.project);
+      setNurLesend(!!d.nur_lesend);
       api.get(`/safe/${pid}/usage`).then(setUsage).catch(() => {});
     } catch (e) { if ((e.message || '').includes('Zugriff')) setDenied(true); else setMsg('Fehler: ' + e.message); }
     finally { setLoading(false); }
@@ -503,13 +514,20 @@ export default function ProjectSafe() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'rgba(255,255,255,0.65)', fontSize: '0.78rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                <HardDrive size={15} /> Container-Safe
+                <HardDrive size={15} /> {nurLesend ? 'Datenraum' : 'Container-Safe'}
               </div>
               <h1 style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: 4, display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                 {project ? project.codename : `Mandat #${pid}`}
                 {project && <span style={{ fontSize: '0.66rem', fontWeight: 700, background: project.mandate_type === 'fundraising' ? 'rgba(139,92,246,0.25)' : 'rgba(41,171,226,0.22)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', padding: '0.15rem 0.55rem', borderRadius: 20, letterSpacing: '0.03em' }}>{project.mandate_type === 'fundraising' ? 'STARTUP' : 'M&A'}</span>}
               </h1>
-              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', marginTop: 4 }}>Mandat #{pid}{project && project.industry ? ` · ${project.industry}` : ''} · zugleich der Datenraum: freigegebene Käufer sehen diesen Ordnerbaum, als vertraulich gekennzeichnete Bereiche nur mit Einzelfreigabe.</p>
+              {/* v0.488: Fuer einen Interessenten ist „Container-Safe" und der
+                  Satz darueber, was Kaeufer sehen, interne Sprache. Er sieht
+                  nur, worum es geht. */}
+              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', marginTop: 4 }}>
+                {nurLesend
+                  ? `${project && project.industry ? `${project.industry} · ` : ''}Alle Unterlagen, die für Sie freigegeben sind.`
+                  : `Mandat #${pid}${project && project.industry ? ` · ${project.industry}` : ''} · zugleich der Datenraum: freigegebene Käufer sehen diesen Ordnerbaum, als vertraulich gekennzeichnete Bereiche nur mit Einzelfreigabe.`}
+              </p>
             </div>
             {usage && <div style={{ textAlign: 'right', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)' }}><div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{fmtBytes(usage.bytes)}</div><div>{usage.files} Dateien · {usage.folders} Ordner</div></div>}
           </div>
@@ -517,7 +535,9 @@ export default function ProjectSafe() {
       </div>
 
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '1.5rem' }}>
-        {/* Toolbar */}
+        {/* Toolbar: nur fuer Pflegende. Ein Kaeufer liest, sucht, oeffnet und
+            laedt; alles andere waere ein Angebot, das der Server ablehnt. */}
+        {!nurLesend && (
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem', alignItems: 'center' }}>
           <button onClick={createFolder} style={btn(C.navy, '#fff')}><FolderPlus size={15} /> Neuer Ordner</button>
           <button onClick={() => fileInput.current?.click()} style={btn('#fff', C.navy, true)}><Upload size={15} /> Dateien</button>
@@ -537,6 +557,17 @@ export default function ProjectSafe() {
           <input ref={fileInput} type="file" multiple hidden onChange={e => doUpload(Array.from(e.target.files), false)} />
           <input ref={dirInput} type="file" hidden multiple onChange={e => doUpload(Array.from(e.target.files), true)} />
         </div>
+        )}
+
+        {nurLesend && (
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', background: '#f1f5f9', border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.7rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: C.muted }}>
+            <Lock size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+            <div>
+              Sie sehen den Datenraum als Interessent. Unterlagen lassen sich öffnen, laden und durchsuchen.
+              Als vertraulich gekennzeichnete Bereiche bleiben gesperrt, bis sie Ihnen einzeln freigegeben werden.
+            </div>
+          </div>
+        )}
 
         {/* Volltextsuche im Safe (Name + Dateiinhalt) */}
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
@@ -546,7 +577,7 @@ export default function ProjectSafe() {
               style={{ width: '100%', boxSizing: 'border-box', padding: '0.5rem 0.7rem 0.5rem 1.9rem', fontSize: '0.85rem', border: `1px solid ${C.border}`, borderRadius: 8, outline: 'none' }} />
           </div>
           {safeQ && <button onClick={() => setSafeQ('')} style={btn('#fff', C.muted, true)}>Zurück zur Ordneransicht</button>}
-          <button onClick={reindex} disabled={reindexing} title="Text aus vorhandenen PDFs für die Suche nachziehen" style={btn('#fff', C.muted, true)}>{reindexing ? 'Indexiere…' : 'Index aktualisieren'}</button>
+          {!nurLesend && <button onClick={reindex} disabled={reindexing} title="Text aus vorhandenen PDFs für die Suche nachziehen" style={btn('#fff', C.muted, true)}>{reindexing ? 'Indexiere…' : 'Index aktualisieren'}</button>}
         </div>
 
         {msg &&<div style={{ background: msg.includes('Fehler') ? '#fee2e2' : '#d1fae5', borderRadius: 8, padding: '0.6rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem', color: msg.includes('Fehler') ? '#991b1b' : '#065f46' }}>{msg}</div>}
@@ -678,7 +709,13 @@ export default function ProjectSafe() {
                       )}
                       {!it.is_folder && <span style={{ fontSize: '0.74rem', color: C.muted, minWidth: 60, textAlign: 'right' }}>{fmtBytes(it.size)}</span>}
                       {!it.is_folder && pubDot(it.published_level)}
+                      {/* v0.488: Fuer einen Interessenten bleiben Vorschau und
+                          Download. Sortieren, Vertraulichkeit, Einzelfreigaben,
+                          Umbenennen, Verschieben, Schwaerzen, Uebernehmen und
+                          Loeschen sind Werkzeuge der Pflege und gehoeren nicht
+                          auf die Unterlagen eines fremden Verkaeufers. */}
                       <span style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        {!nurLesend && <>
                         <button title="Nach oben" disabled={i === 0} onClick={() => moveItem(it, 'up')} style={{ ...iconBtn, color: i === 0 ? '#cbd5e1' : C.muted }}><ChevronUp size={15} /></button>
                         <button title="Nach unten" disabled={i === listItems.length - 1} onClick={() => moveItem(it, 'down')} style={{ ...iconBtn, color: i === listItems.length - 1 ? '#cbd5e1' : C.muted }}><ChevronDown size={15} /></button>
                         <button title={it.confidential ? 'Vertraulichkeit aufheben' : 'Als vertraulich kennzeichnen (Clean Team, nur mit Einzelfreigabe sichtbar)'}
@@ -693,10 +730,13 @@ export default function ProjectSafe() {
                         <button title="Umbenennen" onClick={() => { setRenameId(it.id); setRenameVal(displayName(it.name)); }} style={iconBtn}><Edit2 size={15} /></button>
                         <button title="In einen anderen Ordner verschieben" onClick={() => oeffneVerschieben(it)} style={iconBtn}><FolderInput size={15} /></button>
                         {it.is_folder && <button title="Ganzen Ordner in Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button>}
-                        {!it.is_folder && <><button title="Vorschau (mit Wasserzeichen)" onClick={() => preview(it)} style={iconBtn}><Eye size={15} /></button><button title="Herunterladen" onClick={() => download(it)} style={iconBtn}><Download size={15} /></button>
-                          {(String(it.mime || '').includes('pdf') || /\.pdf$/i.test(it.name || '')) && <button title="Schwärzen (Begriffe unkenntlich machen)" onClick={() => openRedact(it)} style={iconBtn}><Eraser size={15} /></button>}
-                          <button title="In Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button></>}
-                        <button title="Löschen" onClick={() => del(it)} style={{ ...iconBtn, color: '#991b1b' }}><Trash2 size={15} /></button>
+                        </>}
+                        {!it.is_folder && !it.gesperrt && <><button title="Vorschau (mit Wasserzeichen)" onClick={() => preview(it)} style={iconBtn}><Eye size={15} /></button>
+                          {(it.darf_download !== false) && <button title="Herunterladen" onClick={() => download(it)} style={iconBtn}><Download size={15} /></button>}
+                          {!nurLesend && (String(it.mime || '').includes('pdf') || /\.pdf$/i.test(it.name || '')) && <button title="Schwärzen (Begriffe unkenntlich machen)" onClick={() => openRedact(it)} style={iconBtn}><Eraser size={15} /></button>}
+                          {!nurLesend && <button title="In Datenraum übernehmen" onClick={() => setPublishItem(it)} style={iconBtn}><Share2 size={15} /></button>}</>}
+                        {it.gesperrt && <span title="Als vertraulich gekennzeichnet, für Sie nicht freigegeben" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.74rem', color: '#b45309' }}><Lock size={14} /> gesperrt</span>}
+                        {!nurLesend && <button title="Löschen" onClick={() => del(it)} style={{ ...iconBtn, color: '#991b1b' }}><Trash2 size={15} /></button>}
                       </span>
                     </div>
                   ))}

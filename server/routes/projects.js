@@ -406,7 +406,8 @@ router.post('/:id/candidates/:partyId/decision', authenticate, wrap(async (req, 
 
 // ── POST /my-project: Seller submits a new project (starts as draft) ─────
 // Setzt vollständiges Profil voraus (Kontaktdaten Pflicht vor Mandatsanlage)
-router.post('/my-project', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
+// Wer ein eigenes Mandat anlegt, tritt selbst als Partei auf: volle Stufe.
+router.post('/my-project', authenticate, requireCompleteProfile('voll'), wrap(async (req, res) => {
   if (!['seller', 'super_admin', 'advisor'].includes(req.user.role)) {
     return res.status(403).json({ success: false, error: 'Nur Verkäufer können Projekte einreichen' });
   }
@@ -763,7 +764,9 @@ router.get('/:id/questions', authenticate, wrap(async (req, res) => {
 }));
 
 // ── GET /:id: Full detail (requires auth + vollständiges Profil + NDA) ───
-router.get('/:id', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
+// v0.488: Fuer das Ansehen genuegt die fruehe Stufe, vier Angaben. Die
+// vollstaendigen Kontaktdaten verlangt erst die Vereinbarung.
+router.get('/:id', authenticate, requireCompleteProfile('frueh'), wrap(async (req, res) => {
   const project = await db.get(`SELECT ${await publicFields()} FROM projects WHERE id = ? AND status = 'active'`, [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
   // Vertrauliches Mandat: nur Team, Ersteller, Mitglieder und Eingeladene

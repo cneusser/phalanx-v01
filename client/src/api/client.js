@@ -41,6 +41,13 @@ async function request(method, path, body = null) {
     const err = new Error(data.error || 'Ein Fehler ist aufgetreten');
     err.status = res.status;
     err.code = data.code || null;   // z. B. IMPERSONATION_READONLY, EMAIL_UNVERIFIED
+    // v0.488: Bei PROFILE_INCOMPLETE reicht die Meldung nicht. Der Aufrufer
+    // soll den Nutzer auf die Profilseite fuehren koennen, und dafuer braucht
+    // er die fehlenden Felder, nicht nur den Satz darueber.
+    err.missing = data.missing || null;
+    err.missingLabels = data.missing_labels || null;
+    err.stufe = data.stufe || null;
+    err.anlass = data.anlass || null;
     throw err;
   }
   return data.data;

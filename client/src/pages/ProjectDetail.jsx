@@ -252,7 +252,15 @@ export default function ProjectDetail() {
       if (result.id) setNdaId(result.id);
     } catch (e) {
       if (e.message?.includes('bereits')) setNdaStatus('requested');
-      else setError(e.message);
+      // v0.488: Fehlt etwas im Profil, ist eine Fehlermeldung die falsche
+      // Antwort. Der Nutzer weiss dann, dass etwas fehlt, aber nicht was und
+      // nicht wo. Also fuehren wir ihn hin, merken uns die Stelle und bringen
+      // ihn nach dem Speichern zurueck.
+      else if (e.code === 'PROFILE_INCOMPLETE') {
+        const zurueck = encodeURIComponent(`/projekte/${id}`);
+        const fehlt = encodeURIComponent((e.missing || []).join(','));
+        navigate(`/profil?weiter=${zurueck}&fehlt=${fehlt}&grund=nda`);
+      } else setError(e.message);
     } finally {
       setRequesting(false);
     }

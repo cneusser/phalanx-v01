@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../db/database');
 const { authenticate } = require('../middleware/auth');
 const wrap = require('../utils/asyncHandler');
-const { missingProfileFields } = require('../utils/profileCompleteness');
+const { missingProfileFields, FRUEH } = require('../utils/profileCompleteness');
 const router = express.Router();
 
 const USER_FIELDS = 'id, email, role, salutation, title, first_name, last_name, company, position, buyer_type, mobile, phone, street, postal_code, city, about, website, linkedin_url, privacy_consent_at, created_at';
@@ -12,8 +12,22 @@ router.get('/', authenticate, wrap(async (req, res) => {
   const profile = await db.get('SELECT * FROM buyer_profiles WHERE user_id = ?', [req.user.id]);
   const parsed = profile ? { ...profile, industries: JSON.parse(profile.industries||'[]'), regions: JSON.parse(profile.regions||'[]'), deal_types: JSON.parse(profile.deal_types||'[]') } : null;
   // Vollständigkeit mitliefern: Client kann Hinweis anzeigen
+  // v0.488: zwei Stufen. `missing_fields` bleibt die vollstaendige Liste,
+  // damit nichts Bestehendes bricht. `missing_frueh` nennt die vier Angaben,
+  // ohne die nicht einmal ein Mandat zu sehen ist, damit die Oberflaeche
+  // zwischen „jetzt noetig" und „spaeter noetig" unterscheiden kann.
   const missing = missingProfileFields(user || {});
-  res.json({ success: true, data: { user, profile: parsed, profile_complete: missing.length === 0, missing_fields: missing } });
+  const missingFrueh = missingProfileFields(user || {}, 'frueh');
+  res.json({
+    success: true,
+    data: {
+      user, profile: parsed,
+      profile_complete: missing.length === 0,
+      missing_fields: missing,
+      missing_frueh: missingFrueh,
+      felder_frueh: FRUEH,
+    },
+  });
 }));
 
 router.put('/', authenticate, wrap(async (req, res) => {

@@ -30,7 +30,9 @@ const { requireCompleteProfile } = require('../utils/profileCompleteness');
 const ndaFassung = require('../utils/ndaFassung');
 
 // ─── NDA anfordern (setzt vollständiges Profil voraus) ──────────────────────
-router.post('/', authenticate, requireCompleteProfile(), wrap(async (req, res) => {
+// v0.488: Hier werden die vollstaendigen Kontaktdaten verlangt, und hier sind
+// sie begruendet: Mit der Vereinbarung wird der Interessent Vertragspartei.
+router.post('/', authenticate, requireCompleteProfile('voll'), wrap(async (req, res) => {
   const { project_id } = req.body;
   if (!project_id) return res.status(400).json({ success: false, error: 'project_id fehlt' });
   const project = await db.get(`SELECT id, codename, created_by FROM projects WHERE id = ? AND status = 'active'`, [project_id]);

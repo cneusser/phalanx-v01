@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import TwoFactorCard from '../components/TwoFactorCard';
 import { useAuth } from '../context/AuthContext';
 import { Save, User, Download, AlertTriangle } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useT, useI18n } from '../i18n';
 import { BRANCHEN, REGIONEN, auswahl } from '../constants/taxonomie';
 
@@ -34,8 +35,30 @@ const MultiSelect = ({ label, options, value = [], onChange }) => (
   </div>
 );
 
+// v0.488: Mit welchem Auftrag kommt jemand hierher?
+//
+// Vorher landete ein Interessent, dem Angaben fehlten, mit einer Fehlermeldung
+// irgendwo und musste selbst herausfinden, welches Feld gemeint war. Jetzt
+// nennt die Adresse den Grund (`grund`), die fehlenden Felder (`fehlt`) und
+// die Stelle, zu der es danach zurueckgeht (`weiter`).
+const BESCHRIFTUNG = {
+  salutation: 'Anrede', first_name: 'Vorname', last_name: 'Nachname',
+  company: 'Unternehmen', position: 'Position', mobile: 'Mobilnummer',
+  street: 'Straße', postal_code: 'PLZ', city: 'Ort',
+};
+const GRUND_TEXT = {
+  nda: 'Für die Vertraulichkeitsvereinbarung werden Sie Vertragspartei. Dafür brauchen wir Ihre vollständigen Kontaktdaten.',
+  mandat: 'Damit wir wissen, wer das Mandat ansieht, brauchen wir diese Angaben.',
+  anlegen: 'Für ein eigenes Mandat treten Sie selbst als Partei auf. Dafür brauchen wir Ihre vollständigen Kontaktdaten.',
+};
+
 export default function Profile() {
   const t = useT();
+  const navigate = useNavigate();
+  const [suche] = useSearchParams();
+  const auftragFelder = (suche.get('fehlt') || '').split(',').filter(Boolean);
+  const auftragGrund = suche.get('grund');
+  const auftragWeiter = suche.get('weiter');
   const { lang } = useI18n();
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
@@ -46,7 +69,7 @@ export default function Profile() {
   const [revenueMax, setRevenueMax] = useState(100);
   // Kontaktdaten + Pitchbook-Selbstdarstellung
   const [contact, setContact] = useState({ salutation: '', title: '', first_name: '', last_name: '', company: '', position: '', mobile: '', phone: '', street: '', postal_code: '', city: '', about: '', website: '', linkedin_url: '' });
-  const [missingFields, setMissingFields] = useState([]);
+  const [missingFields, setMissingFields] = useState(auftragFelder);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -82,6 +105,15 @@ export default function Profile() {
 
   const setC = (key) => (e) => setContact(prev => ({ ...prev, [key]: e.target.value }));
 
+  // Zum ersten fehlenden Feld rollen und hineinspringen, sobald die Seite steht.
+  useEffect(() => {
+    if (loading || !auftragFelder.length) return;
+    const el = document.querySelector(`[data-feld="${auftragFelder[0]}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => { try { el.focus({ preventScroll: true }); } catch { /* egal */ } }, 400);
+  }, [loading]);
+
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -93,7 +125,16 @@ export default function Profile() {
       // Benachrichtigungs-Einstellungen separat speichern (booleans dürfen 0 sein)
       await api.put('/community/notifications', notif).catch(() => {});
       const d = await api.get('/profile');
-      setMissingFields(d.missing_fields || []);
+      const offen = d.missing_fields || [];
+      setMissingFields(offen);
+      // Kam der Nutzer mit einem Auftrag hierher und ist dieser erfuellt,
+      // bringen wir ihn zurueck, statt ihn den Weg selbst suchen zu lassen.
+      const auftragOffen = auftragFelder.filter((f) => offen.includes(f));
+      if (auftragWeiter && auftragFelder.length && auftragOffen.length === 0) {
+        setMsg('Gespeichert. Zurück zum Mandat …');
+        setTimeout(() => navigate(auftragWeiter), 900);
+        return;
+      }
       setMsg('Profil gespeichert ✓');
       setTimeout(() => setMsg(''), 3000);
     } catch (err) { setMsg('Fehler: ' + err.message); }
@@ -135,8 +176,28 @@ export default function Profile() {
         <TwoFactorCard />
       </div>
 
+      {/* v0.488: Kam der Nutzer mit einem Auftrag, steht er hier zuoberst, mit
+          dem Grund und den Feldern beim Namen. */}
+      {auftragFelder.length > 0 && (
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', background: '#fff7ed', border: '1px solid #fb923c', borderRadius: 8, padding: '1rem 1.1rem', marginBottom: '1.25rem', fontSize: '0.9rem', color: '#7c2d12' }}>
+          <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: '0.35rem' }}>
+              Es fehlt noch {auftragFelder.length === 1 ? 'eine Angabe' : `${auftragFelder.length} Angaben`}: {auftragFelder.map((f) => BESCHRIFTUNG[f] || f).join(', ')}
+            </div>
+            <div style={{ lineHeight: 1.55 }}>
+              {GRUND_TEXT[auftragGrund] || 'Diese Angaben sind Voraussetzung für den nächsten Schritt.'}
+              {auftragWeiter ? ' Nach dem Speichern geht es automatisch dorthin zurück, wo Sie waren.' : ''}
+            </div>
+            <div style={{ marginTop: '0.5rem', fontSize: '0.82rem', opacity: 0.85 }}>
+              Die fehlenden Felder sind unten orange umrandet. Wir sind bereits hingesprungen.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Vollständigkeits-Hinweis: Kontaktdaten sind Voraussetzung für den Prozess */}
-      {missingFields.length > 0 && (
+      {auftragFelder.length === 0 && missingFields.length > 0 && (
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.9rem 1rem', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#92400e' }}>
           <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
           <div>
@@ -155,7 +216,7 @@ export default function Profile() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Anrede *</label>
-              <select value={contact.salutation} onChange={setC('salutation')} style={{ ...INPUT, background: '#fff', borderColor: missingFields.includes('salutation') ? '#f59e0b' : '#ddd' }}>
+              <select data-feld="salutation" value={contact.salutation} onChange={setC('salutation')} style={{ ...INPUT, background: '#fff', borderColor: missingFields.includes('salutation') ? '#f59e0b' : '#ddd' }}>
                 <option value="">{t('prof.bitte_waehlen', 'Bitte wählen…')}</option>
                 <option value="Herr">Herr</option>
                 <option value="Frau">Frau</option>
@@ -169,17 +230,17 @@ export default function Profile() {
             {[['Vorname *', 'first_name'], ['Nachname *', 'last_name'], ['Unternehmen *', 'company'], ['Position *', 'position'], ['Mobilnummer *', 'mobile'], ['Telefon (optional)', 'phone'], [t('prof.strasse', 'Straße + Hausnummer *'), 'street']].map(([label, key]) => (
               <div key={key}>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>{label}</label>
-                <input value={contact[key]} onChange={setC(key)} style={{ ...INPUT, borderColor: missingFields.includes(key) ? '#f59e0b' : '#ddd' }} />
+                <input data-feld={key} value={contact[key]} onChange={setC(key)} style={{ ...INPUT, borderColor: missingFields.includes(key) ? '#f59e0b' : '#ddd' }} />
               </div>
             ))}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.75rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>PLZ *</label>
-                <input value={contact.postal_code} onChange={setC('postal_code')} style={{ ...INPUT, borderColor: missingFields.includes('postal_code') ? '#f59e0b' : '#ddd' }} />
+                <input data-feld="postal_code" value={contact.postal_code} onChange={setC('postal_code')} style={{ ...INPUT, borderColor: missingFields.includes('postal_code') ? '#f59e0b' : '#ddd' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>Ort *</label>
-                <input value={contact.city} onChange={setC('city')} style={{ ...INPUT, borderColor: missingFields.includes('city') ? '#f59e0b' : '#ddd' }} />
+                <input data-feld="city" value={contact.city} onChange={setC('city')} style={{ ...INPUT, borderColor: missingFields.includes('city') ? '#f59e0b' : '#ddd' }} />
               </div>
             </div>
           </div>
