@@ -30,6 +30,46 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+// ── Gesetzt ist nicht brauchbar (v0.484) ────────────────────────────────────
+//
+// Anlass: Beim Einrichten der Teststufe stand in DATABASE_URL der Verweis als
+// Text, „${{Postgres.DATABASE_URL}}" statt des aufgeloesten Wertes. Railway
+// loest eine Referenz nur auf, wenn sie als Referenz angelegt wurde; getippt
+// bleibt sie Text.
+//
+// Die Anwendung meldete daraufhin, eine Stunde lang und in Schleife:
+//
+//     Failed to initialize database: getaddrinfo ENOTFOUND base
+//
+// „base" ist kein Rechner, sondern ein Bruchstueck. Der Verbindungsparser
+// zerschneidet jede Zeichenkette ohne „://" und findet in „DATA-BASE-_URL"
+// das Wort „base". Die Meldung zeigt also auf das Netz, obwohl der Fehler in
+// der Variablen steht. Niemand kommt darauf, ohne den Parser zu befragen.
+//
+// Deshalb hier eine Pruefung vor dem ersten Verbindungsversuch. Sie kostet
+// nichts und nennt den Fehler beim Namen.
+{
+  const roh = String(process.env.DATABASE_URL).trim();
+  if (!/^postgres(ql)?:\/\//i.test(roh)) {
+    const sieht = roh.length > 60 ? `${roh.slice(0, 60)}…` : roh;
+    console.error(`
+❌  DATABASE_URL ist gesetzt, aber keine Verbindungsadresse.
+
+    Gefunden:  ${sieht}
+    Erwartet:  postgresql://benutzer:kennwort@rechner:5432/datenbank
+
+${/\$\{\{|DATABASE_URL/i.test(roh) ? `    Das sieht nach einem Verweis aus, der nicht aufgeloest wurde. In Railway
+    loest sich ein Verweis nur auf, wenn er ueber „Add Reference" angelegt
+    wurde. Getippt bleibt er Text. Variable loeschen und ueber
+    „New Variable" → „Add Reference" neu setzen.
+
+` : ''}    Ohne diese Pruefung meldet der Verbindungsaufbau „ENOTFOUND base" und
+    zeigt damit auf das Netz statt auf die Variable.
+`);
+    process.exit(1);
+  }
+}
+
 // pg liefert COUNT()/SUM() als String (BIGINT/NUMERIC), für die App nach
 // Number parsen, damit z. B. `a + b` nicht zu Stringkonkatenation wird.
 const pgTypes = require('pg').types;
