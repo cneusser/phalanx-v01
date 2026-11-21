@@ -66,22 +66,39 @@ Im bestehenden Railway-Projekt, nicht in einem neuen:
 
 1. Im Projekt: **New** → **Database** → **PostgreSQL**.
 2. Umbenennen auf `postgres-teststufe`, damit Sie die beiden nie verwechseln.
-3. Beim Dienst `capitalmatch-teststufe`: **Variables** → **New Variable** →
-   **Add Reference** → `postgres-teststufe` → `DATABASE_URL`.
+3. Die Verbindung wird **beim Dienst** eingetragen, nicht beim Postgres: auf
+   `capitalmatch-teststufe` klicken, dann **Variables** → **New Variable** →
+   **Add Reference** → `postgres-teststufe` → `DATABASE_URL`. Die Datenbank
+   liefert den Wert, die Anwendung bekommt ihn.
 
 **Prüfen Sie diese Zuordnung zweimal.** Eine Teststufe, die auf die
 Produktionsdatenbank zeigt, ist die gefährlichste Fehlkonfiguration in diesem
 ganzen Aufbau. Danach setzen die Migrationen die Tabellen auf, und die
 Demowelt schreibt hinein.
 
-## Schritt 4: Eigenes Volume
+## Schritt 4: Eigenes Volume, optional
 
-**Settings** → **Volumes** → **New Volume**, Mount-Pfad genauso wie beim
-Produktionsdienst (dort nachsehen, meist `/data`).
+**Diesen Schritt können Sie überspringen.** Auf der Teststufe liegen nur
+erfundene Demo-PDFs, die `demowelt.js` jederzeit neu erzeugt. Ohne Volume sind
+sie nach jedem Deploy weg, und Sie setzen die Demowelt einmal neu. Das ist ein
+Befehl statt eines dauerhaft bezahlten Speichers.
 
-Für die Teststufe reicht das Volume. Die R2-Zugangsdaten der Produktion gehören
-**nicht** hierher: Ein Deployment auf der Teststufe soll Dateien der Produktion
-nicht überschreiben können. Also `STORAGE_PROVIDER=local` setzen (Schritt 5).
+Wenn Sie die Dateien trotzdem behalten wollen, sitzt die Stelle dort, wo man
+sie nicht vermutet. Nicht in den Einstellungen des Dienstes:
+
+1. In der Projektansicht mit der rechten Maustaste auf die leere Fläche
+   klicken, oder `Cmd+K` drücken
+2. **New Volume** wählen
+3. Railway fragt, zu welchem Dienst es gehört: `capitalmatch-teststufe`
+4. Als Mount-Pfad `/data` eintragen
+
+Den Pfad müssen Sie **nicht** vom Produktionsdienst abschreiben. Railway setzt
+beim Anhängen automatisch die Variable `RAILWAY_VOLUME_MOUNT_PATH`, und
+`providers/storage/localVolumeProvider.js` liest genau diese. Jeder Pfad geht.
+
+Die R2-Zugangsdaten der Produktion gehören hier **nicht** hinein: Ein
+Deployment auf der Teststufe soll Dateien der Produktion nicht überschreiben
+können. Deshalb steht in Schritt 5 `STORAGE_PROVIDER=local`.
 
 ## Schritt 5: Variablen
 
@@ -96,7 +113,7 @@ Beim Dienst `capitalmatch-teststufe` unter **Variables**:
 | `STORAGE_PROVIDER` | `local` | Dateien aufs eigene Volume |
 | `NODE_ENV` | `production` | es ist ein echtes Deployment |
 | `FRONTEND_URL` | `https://staging.capitalmatch.de` | |
-| `DATABASE_URL` | Referenz aus Schritt 3 | |
+| `DATABASE_URL` | Referenz aus Schritt 3, gesetzt **beim Dienst**, nicht bei Postgres | |
 
 Den Schlüssel erzeugen:
 
