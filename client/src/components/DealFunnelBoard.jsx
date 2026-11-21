@@ -858,9 +858,12 @@ export default function DealFunnelBoard({ show }) {
                           {p.identity_revealed === 1 && (
                             <span title="Klarname für diesen Interessenten freigegeben" style={{ background: '#dcfce7', color: '#166534', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 800 }}>Klarname</span>
                           )}
-                          {p.platform_nda && (
-                            <span title="Käufer hat das Plattform-NDA gezeichnet" style={{ background: '#ede9fe', color: '#5b21b6', padding: '0.05rem 0.35rem', borderRadius: 10, fontSize: '0.58rem', fontWeight: 800 }}>Plattform-NDA</span>
-                          )}
+                          {/* v0.490: Das Kennzeichen „Plattform-NDA" ist entfallen.
+                              Mit v0.489 gibt es das Plattform-NDA nicht mehr, neue
+                              Interessenten können es nicht erwerben. Stehen bliebe
+                              ein Abzeichen, das Altbestand auszeichnet und Neue
+                              schlechter aussehen lässt, ohne dass dahinter ein
+                              Unterschied steht. */}
                           {p.consent_status === 'opt_in' && <ShieldCheck size={11} color="#059669" title="Einwilligung erteilt" />}
                           {(p.consent_status === 'opt_out' || p.contact_status === 'do_not_contact') && <ShieldOff size={11} color="#dc2626" title="Widerspruch, nicht kontaktieren" />}
                           {invited && <Mail size={11} color={C.accent} title={`Einladung: ${p.invite_status}`} />}

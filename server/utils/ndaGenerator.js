@@ -55,9 +55,15 @@ function generateNDA(opts) {
     project_codename: project.codename,
     buyer_name: `${buyer.first_name} ${buyer.last_name}`,
     buyer_company: buyer.company || '',
+    // v0.490: Die Angaben, mit denen die Vorlage die Vertragspartei benennt.
+    buyer_seat: buyer.company_seat || '',
+    buyer_register: buyer.company_register || '',
+    buyer_representative: buyer.company_representative || '',
     court_venue: courtVenue,
     advisor_name: advisor.name,
   };
+  // Zweisprachig wird gesetzt, sobald die Vorlage eine englische Spalte hat.
+  const zweisprachig = !!template.preamble_en;
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -109,6 +115,47 @@ function generateNDA(opts) {
         .text(`\u2013  ${text}`, 84, doc.y, { width: PAGE_W - 12, lineGap: 2 });
     };
 
+    // \u2500\u2500 Zweispaltiger Satz, deutsch links, englisch rechts (v0.490) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    //
+    // So steht es im Hausdokument, und so soll es bleiben: Wer den Vertrag
+    // liest, sieht beide Fassungen nebeneinander und kann sie vergleichen.
+    // Massgeblich ist nach \u00a7 10 Absatz 4 die deutsche Fassung, deshalb steht
+    // sie links und in der kr\u00e4ftigeren Farbe.
+    //
+    // PDFKit kennt keine Spalten. Also wird jedes Paar einzeln gemessen und
+    // gesetzt: Passt es nicht mehr auf die Seite, kommt eine neue, und danach
+    // r\u00fcckt der Satzspiegel um die h\u00f6here der beiden Spalten weiter. Damit
+    // bleiben deutscher und englischer Absatz immer auf einer H\u00f6he.
+    const SPALTE_LUECKE = 18;
+    const SPALTE_W = (PAGE_W - SPALTE_LUECKE) / 2;
+    const SPALTE_2_X = 72 + SPALTE_W + SPALTE_LUECKE;
+
+    // `zusatz` hält Platz für das frei, was unmittelbar folgen muss. Eine
+    // Überschrift allein am Seitenfuss, deren Absätze auf der nächsten Seite
+    // stehen, sieht nach Versehen aus; bei einem Vertrag auch nach Lücke.
+    const paar = (links, rechts, { fett = false, farbe = null, groesse = 8.3, abstand = 4, zusatz = 0 } = {}) => {
+      const schrift = fett ? 'Helvetica-Bold' : 'Helvetica';
+      doc.font(schrift).fontSize(groesse);
+      const optL = { width: SPALTE_W, align: fett ? 'left' : 'justify', lineGap: 1.8 };
+      const optR = { ...optL };
+      const hL = links ? doc.heightOfString(links, optL) : 0;
+      const hR = rechts ? doc.heightOfString(rechts, optR) : 0;
+      const hoehe = Math.max(hL, hR);
+      const platz = doc.page.height - doc.page.margins.bottom - doc.y;
+      if (hoehe + zusatz > platz) { doc.addPage(); }
+      const y = doc.y;
+      if (links) {
+        doc.font(schrift).fontSize(groesse).fillColor(farbe || BLACK)
+          .text(links, 72, y, optL);
+      }
+      if (rechts) {
+        doc.font(schrift).fontSize(groesse).fillColor(farbe || GRAY)
+          .text(rechts, SPALTE_2_X, y, optR);
+      }
+      doc.y = y + hoehe + abstand;
+      doc.x = 72;
+    };
+
     // ─── HEADER ──────────────────────────────────────────────────────────────
     doc.rect(0, 0, doc.page.width, 52).fill(NAVY);
     doc.fillColor('#fff').font('Helvetica-Bold').fontSize(13)
@@ -122,7 +169,10 @@ function generateNDA(opts) {
 
     // ─── TITLE ───────────────────────────────────────────────────────────────
     doc.font('Helvetica-Bold').fontSize(14).fillColor(NAVY)
-      .text('Beidseitige Vertraulichkeitsvereinbarung', { align: 'center' });
+      .text(template.titel || 'Beidseitige Vertraulichkeitsvereinbarung', { align: 'center' });
+    if (zweisprachig && template.titel_en) {
+      doc.font('Helvetica').fontSize(11).fillColor(GRAY).text(template.titel_en, { align: 'center' });
+    }
     doc.moveDown(0.2);
     doc.font('Helvetica').fontSize(10).fillColor(GRAY)
       .text(`für Interessenten zu Mandat/Projekt: ${project.codename}`, { align: 'center' });
@@ -160,8 +210,14 @@ function generateNDA(opts) {
     if (buyer.address) doc.text(buyer.address, col1X, doc.y, { width: colW });
     if (buyer.city) doc.text(buyer.city, col1X, doc.y, { width: colW });
     doc.text(buyer.country || 'Deutschland', col1X, doc.y, { width: colW });
+    // v0.490: Sitz, Register und vertretungsberechtigte Person, wie sie das
+    // Hausdokument nennt. Fehlt eine Angabe, steht sie auch nicht da; der
+    // Server lässt ohne sie aber gar nicht unterschreiben.
+    if (buyer.company_seat) doc.text(`Sitz / Registered office: ${buyer.company_seat}`, col1X, doc.y, { width: colW });
+    if (buyer.company_register) doc.text(`Register / Commercial register: ${buyer.company_register}`, col1X, doc.y, { width: colW });
+    if (buyer.company_representative) doc.text(`vertreten durch / represented by: ${buyer.company_representative}`, col1X, doc.y, { width: colW });
     doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY)
-      .text('(nachfolgend "Interessent")', col1X, doc.y, { width: colW });
+      .text('(nachfolgend "Interessent" / hereinafter the "Prospective Buyer")', col1X, doc.y, { width: colW });
 
     const leftBottom = doc.y;
 
@@ -185,30 +241,55 @@ function generateNDA(opts) {
     hline(doc.y);
     doc.moveDown(0.5);
 
-    // ─── PRÄAMBEL (aus Vorlage, Platzhalter befüllt) ─────────────────────────
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY).text('Präambel');
-    doc.moveDown(0.2);
-    body(fillPlaceholders(template.preamble, vars));
-
-    // ─── §§ aus der Vorlage ──────────────────────────────────────────────────
-    (template.sections || []).forEach((sec, idx) => {
-      section(idx + 1, fillPlaceholders(sec.title, vars));
-      (sec.paragraphs || []).forEach((p, i) => {
-        if (i > 0) doc.moveDown(0.3);
-        body(fillPlaceholders(p, vars));
+    // ─── PRÄAMBEL und §§ ─────────────────────────────────────────────────────
+    //
+    // Zweisprachige Vorlagen werden zweispaltig gesetzt, einsprachige wie
+    // bisher über die volle Breite. Dieselbe Funktion, zwei Fälle, damit alte
+    // Vorlagen und alte Nachdrucke unverändert bleiben.
+    if (zweisprachig) {
+      paar('Präambel', 'Preamble', { fett: true, farbe: NAVY, groesse: 9.5, abstand: 3 });
+      paar(fillPlaceholders(template.preamble, vars), fillPlaceholders(template.preamble_en, vars));
+      (template.sections || []).forEach((sec, idx) => {
+        doc.moveDown(0.4);
+        paar(`§ ${idx + 1}  ${fillPlaceholders(sec.title, vars)}`,
+          sec.title_en ? `§ ${idx + 1}  ${fillPlaceholders(sec.title_en, vars)}` : '',
+          { fett: true, farbe: NAVY, groesse: 9.5, abstand: 3, zusatz: 60 });
+        const de = sec.paragraphs || [];
+        const en = sec.paragraphs_en || [];
+        for (let i = 0; i < Math.max(de.length, en.length); i += 1) {
+          paar(de[i] ? fillPlaceholders(de[i], vars) : '', en[i] ? fillPlaceholders(en[i], vars) : '');
+        }
+        const pDe = sec.bullets || [];
+        const pEn = sec.bullets_en || [];
+        for (let i = 0; i < Math.max(pDe.length, pEn.length); i += 1) {
+          paar(pDe[i] ? fillPlaceholders(pDe[i], vars) : '', pEn[i] ? fillPlaceholders(pEn[i], vars) : '',
+            { abstand: 2 });
+        }
       });
-      if (sec.bullets && sec.bullets.length) {
-        doc.moveDown(0.2);
-        sec.bullets.forEach(b => bullet(fillPlaceholders(b, vars)));
-      }
-    });
+    } else {
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY).text('Präambel');
+      doc.moveDown(0.2);
+      body(fillPlaceholders(template.preamble, vars));
+
+      (template.sections || []).forEach((sec, idx) => {
+        section(idx + 1, fillPlaceholders(sec.title, vars));
+        (sec.paragraphs || []).forEach((p, i) => {
+          if (i > 0) doc.moveDown(0.3);
+          body(fillPlaceholders(p, vars));
+        });
+        if (sec.bullets && sec.bullets.length) {
+          doc.moveDown(0.2);
+          sec.bullets.forEach(b => bullet(fillPlaceholders(b, vars)));
+        }
+      });
+    }
 
     // ─── NEW PAGE for signature ───────────────────────────────────────────────
     doc.addPage();
 
     // ─── SIGNATURE BLOCK ─────────────────────────────────────────────────────
     doc.font('Helvetica-Bold').fontSize(12).fillColor(NAVY)
-      .text('Unterschriften', { align: 'center' });
+      .text(zweisprachig ? 'Unterschriften / Signatures' : 'Unterschriften', { align: 'center' });
     doc.moveDown(0.3);
     hline(doc.y);
     doc.moveDown(1.2);
@@ -220,14 +301,19 @@ function generateNDA(opts) {
 
     // Berater signature (left)
     doc.font('Helvetica').fontSize(8.5).fillColor(GRAY)
-      .text('Ort, Datum', sig1X, sigStartY);
+      .text(zweisprachig ? 'Ort, Datum / Place, date' : 'Ort, Datum', sig1X, sigStartY);
     doc.moveDown(2.5);
     hline(doc.y, '#999', sigColW);
     doc.moveDown(0.3);
     doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY)
-      .text('Unterschrift Transaktionsberater', sig1X, doc.y, { width: sigColW });
+      .text(zweisprachig ? 'Unterschrift / Signature Phalanx GmbH' : 'Unterschrift Transaktionsberater', sig1X, doc.y, { width: sigColW });
     doc.font('Helvetica').fontSize(9).fillColor(BLACK)
       .text(advisor.name, sig1X, doc.y, { width: sigColW });
+    // Wer für die Beratung unterschreibt, steht im Hausdokument namentlich da.
+    if (advisor.contact) {
+      doc.font('Helvetica').fontSize(8.5).fillColor(GRAY)
+        .text(advisor.contact, sig1X, doc.y, { width: sigColW });
+    }
 
     // Interessent signature (right)
     if (signature) {
@@ -254,13 +340,13 @@ function generateNDA(opts) {
       if (signature.company) doc.text(signature.company, sig2X, doc.y, { width: sigColW });
     } else {
       doc.font('Helvetica').fontSize(8.5).fillColor(GRAY)
-        .text('Ort, Datum', sig2X, sigStartY);
+        .text(zweisprachig ? 'Ort, Datum / Place, date' : 'Ort, Datum', sig2X, sigStartY);
       doc.y = sigStartY;
       doc.moveDown(2.5);
       hline(doc.y, '#999', sigColW);
       doc.y -= 0; // position after line
       doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY)
-        .text('Unterschrift Interessent', sig2X, doc.y + 5, { width: sigColW });
+        .text(zweisprachig ? 'Unterschrift / Signature Interessent' : 'Unterschrift Interessent', sig2X, doc.y + 5, { width: sigColW });
       doc.font('Helvetica').fontSize(9).fillColor(BLACK)
         .text(`${buyer.first_name} ${buyer.last_name}`, sig2X, doc.y, { width: sigColW });
       if (buyer.company) doc.text(buyer.company, sig2X, doc.y, { width: sigColW });

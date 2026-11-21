@@ -5,7 +5,7 @@ const wrap = require('../utils/asyncHandler');
 const { missingProfileFields, FRUEH } = require('../utils/profileCompleteness');
 const router = express.Router();
 
-const USER_FIELDS = 'id, email, role, salutation, title, first_name, last_name, company, position, buyer_type, mobile, phone, street, postal_code, city, about, website, linkedin_url, privacy_consent_at, created_at';
+const USER_FIELDS = 'id, email, role, salutation, title, first_name, last_name, company, position, buyer_type, mobile, phone, street, postal_code, city, company_seat, company_register, company_representative, about, website, linkedin_url, privacy_consent_at, created_at';
 
 router.get('/', authenticate, wrap(async (req, res) => {
   const user = await db.get(`SELECT ${USER_FIELDS} FROM users WHERE id = ?`, [req.user.id]);
@@ -33,13 +33,16 @@ router.get('/', authenticate, wrap(async (req, res) => {
 router.put('/', authenticate, wrap(async (req, res) => {
   const { first_name, last_name, company, position, buyer_type, mobile, phone, about, website, linkedin_url,
           salutation, title, street, postal_code, city,
+          // v0.490: Die Angaben, die die Vereinbarung über die Vertragspartei nennt.
+          company_seat, company_register, company_representative,
           industries, regions, revenue_min, revenue_max, ebitda_min, ebitda_max, deal_types, investment_style, notes } = req.body;
   if (salutation && !['Herr', 'Frau', 'Divers'].includes(salutation)) {
     return res.status(400).json({ success: false, error: 'Ungültige Anrede (Herr, Frau oder Divers)' });
   }
-  await db.run(`UPDATE users SET first_name=COALESCE(?,first_name), last_name=COALESCE(?,last_name), company=COALESCE(?,company), position=COALESCE(?,position), buyer_type=COALESCE(?,buyer_type), mobile=COALESCE(?,mobile), phone=COALESCE(?,phone), about=COALESCE(?,about), website=COALESCE(?,website), linkedin_url=COALESCE(?,linkedin_url), salutation=COALESCE(?,salutation), title=COALESCE(?,title), street=COALESCE(?,street), postal_code=COALESCE(?,postal_code), city=COALESCE(?,city) WHERE id=?`,
+  await db.run(`UPDATE users SET first_name=COALESCE(?,first_name), last_name=COALESCE(?,last_name), company=COALESCE(?,company), position=COALESCE(?,position), buyer_type=COALESCE(?,buyer_type), mobile=COALESCE(?,mobile), phone=COALESCE(?,phone), about=COALESCE(?,about), website=COALESCE(?,website), linkedin_url=COALESCE(?,linkedin_url), salutation=COALESCE(?,salutation), title=COALESCE(?,title), street=COALESCE(?,street), postal_code=COALESCE(?,postal_code), city=COALESCE(?,city), company_seat=COALESCE(?,company_seat), company_register=COALESCE(?,company_register), company_representative=COALESCE(?,company_representative) WHERE id=?`,
     [first_name||null, last_name||null, company||null, position||null, buyer_type||null, mobile||null, phone||null, about??null, website??null, linkedin_url??null,
-     salutation||null, title??null, street||null, postal_code||null, city||null, req.user.id]);
+     salutation||null, title??null, street||null, postal_code||null, city||null,
+     company_seat||null, company_register||null, company_representative||null, req.user.id]);
   const ep = await db.get('SELECT id FROM buyer_profiles WHERE user_id = ?', [req.user.id]);
   if (ep) {
     await db.run(`UPDATE buyer_profiles SET industries=COALESCE(?,industries), regions=COALESCE(?,regions), revenue_min=COALESCE(?,revenue_min), revenue_max=COALESCE(?,revenue_max), ebitda_min=COALESCE(?,ebitda_min), ebitda_max=COALESCE(?,ebitda_max), deal_types=COALESCE(?,deal_types), investment_style=COALESCE(?,investment_style), notes=COALESCE(?,notes), updated_at=now() WHERE user_id=?`,

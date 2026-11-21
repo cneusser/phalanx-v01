@@ -7,6 +7,14 @@ import RechtsHinweis from './RechtsHinweis';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB' };
 
+// Die Angaben, mit denen die Vereinbarung die Vertragspartei benennt (v0.490).
+// Beschriftung, Erklärung und Beispiel, damit niemand raten muss, was gemeint ist.
+const FELDER = [
+  ['company_seat', 'Sitz', 'Der Ort, an dem Ihre Gesellschaft ihren Sitz hat', 'Erlangen'],
+  ['company_register', 'Register und Nummer', 'Registergericht und Nummer, bei ausländischen Gesellschaften das dortige Register', 'Amtsgericht Fürth, HRB 12345'],
+  ['company_representative', 'Vertretungsberechtigte Person', 'Wer die Gesellschaft vertritt, meist die Geschäftsführung', 'Dr. Erika Mustermann'],
+];
+
 // ── Kein Vertragstext mehr im Quelltext der Oberfläche (v0.466) ────────────
 //
 // Hier stand eine von Hand gepflegte Fassung der Vereinbarung: zehn
@@ -42,6 +50,10 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
   const [pdfFilename, setPdfFilename] = useState(null);
   const [fassung, setFassung] = useState(null);
   const [fassungFehler, setFassungFehler] = useState('');
+  // v0.490: Die drei Angaben, mit denen der Vertrag die Vertragspartei
+  // benennt. Sie stehen im Profil, werden aber hier erhoben, weil sie erst
+  // hier gebraucht werden und hier erklärbar sind.
+  const [vertrag, setVertrag] = useState({ company_seat: '', company_register: '', company_representative: '' });
   const scrollRef = useRef(null);
 
   // Pre-fill name from user profile
@@ -55,7 +67,11 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
   useEffect(() => {
     let abgebrochen = false;
     api.get(`/ndas/${projectId}/fassung`)
-      .then((f) => { if (!abgebrochen) setFassung(f); })
+      .then((f) => {
+        if (abgebrochen) return;
+        setFassung(f);
+        if (f.vertragsangaben) setVertrag((v) => ({ ...v, ...f.vertragsangaben }));
+      })
       .catch((e) => { if (!abgebrochen) setFassungFehler(e.message || 'Die Vereinbarung konnte nicht geladen werden.'); });
     return () => { abgebrochen = true; };
   }, [projectId]);
@@ -74,15 +90,27 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
     e.preventDefault();
     if (!confirmed) { setError(t('nda.bitte_bestaetigen', 'Bitte bestätigen Sie, dass Sie die NDA gelesen und verstanden haben.')); return; }
     if (!consentName || consentName.trim().length < 3) { setError(t('nda.name_fehlt', 'Bitte geben Sie Ihren vollständigen Namen ein.')); return; }
+    const offen = FELDER.filter(([k]) => !vertrag[k] || !vertrag[k].trim());
+    if (offen.length) {
+      setError(t('nda.vertragsangaben_fehlen', 'Bitte ergänzen Sie noch: ') + offen.map(([, n]) => n).join(', '));
+      return;
+    }
     setSigning(true);
     setError('');
     try {
+      // v0.490: Erst die Fassung mit den eben eingetragenen Angaben holen,
+      // dann unterschreiben. So trägt der Fingerabdruck genau den Text, der
+      // hier steht, samt Vertragspartei.
+      const frisch = await api.get(`/ndas/${projectId}/fassung?${new URLSearchParams(
+        Object.fromEntries(FELDER.map(([k]) => [k, vertrag[k].trim()]))).toString()}`);
+      setFassung(frisch);
       const result = await api.post(`/ndas/${projectId}/sign-online`, {
         consent_name: consentName.trim(),
         consent_confirmed: true,
+        vertragsdaten: Object.fromEntries(FELDER.map(([k]) => [k, vertrag[k].trim()])),
         // Der Fingerabdruck der Fassung, die hier angezeigt wurde. Der Server
         // weist ab, wenn sich die Vorlage inzwischen geändert hat.
-        fassung_hash: fassung ? fassung.hash : null,
+        fassung_hash: frisch.hash,
       });
       setPdfFilename(result.pdf_filename);
       setStep('done');
@@ -125,7 +153,8 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
       zIndex: 2000, padding: '1rem',
     }}>
       <div style={{
-        background: '#fff', borderRadius: 16, width: '100%', maxWidth: 680,
+        // Zweisprachig braucht zwei Spalten, und zwei Spalten brauchen Platz.
+        background: '#fff', borderRadius: 16, width: '100%', maxWidth: fassung?.zweisprachig ? 920 : 680,
         maxHeight: '92vh', display: 'flex', flexDirection: 'column',
         boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
       }}>
@@ -194,6 +223,14 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
                     <div style={{ fontWeight: 700, fontSize: '0.85rem', color: C.navy }}>{user?.first_name} {user?.last_name}</div>
                     {user?.company && <div style={{ fontSize: '0.8rem', color: '#555' }}>{user.company}</div>}
                     <div style={{ fontSize: '0.75rem', color: '#888' }}>{user?.email}</div>
+                    {/* v0.490: So, wie die Vereinbarung die Vertragspartei nennt.
+                        Was noch fehlt, steht als Lücke da und wird im nächsten
+                        Schritt abgefragt. */}
+                    {FELDER.map(([k, name]) => (
+                      <div key={k} style={{ fontSize: '0.75rem', color: vertrag[k] ? '#888' : '#b45309' }}>
+                        {name}: {vertrag[k] || t('nda.wird_erfragt', 'wird im nächsten Schritt erfragt')}
+                      </div>
+                    ))}
                     <div style={{ fontSize: '0.72rem', color: C.steel, fontWeight: 600, marginTop: '0.2rem' }}>(Interessent)</div>
                   </div>
                   <div>
@@ -211,24 +248,42 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
                 </div>
               </div>
 
-              {/* Preamble */}
-              {/* Der Vertragstext bleibt deutsch, er ist die verbindliche Fassung.
-                  Englische Unterzeichner bekommen die Kernpunkte in ihrer Sprache. */}
-              <RechtsHinweis punkte={[
-                'You undertake to keep all information about this mandate confidential and to use it only to assess the transaction.',
-                'The duty of confidentiality does not cover information that is already public or that you demonstrably knew beforehand.',
-                'You must report any loss of documents immediately.',
-                'Documents are provided free of charge and remain the property of the owner.',
-                'The agreement runs for the period stated in the German text.',
-                'German law applies, with the place of jurisdiction named in the German text.',
-                'Section 10 governs the online signature: typing your full name and confirming the checkbox creates a binding signature.',
-              ]} />
+              {/* v0.490: Die Vereinbarung ist selbst zweisprachig, deutsch und
+                  englisch nebeneinander wie im Hausdokument. Die frühere
+                  Zusammenfassung in englischer Sprache ist damit entfallen;
+                  sie war ein Behelf, solange der Vertrag nur deutsch vorlag.
+                  Einsprachige Vorlagen zeigen weiter diesen Behelf. */}
+              {fassung && !fassung.zweisprachig && (
+                <RechtsHinweis punkte={[
+                  'You undertake to keep all information about this mandate confidential and to use it only to assess the transaction.',
+                  'The duty of confidentiality does not cover information that is already public or that you demonstrably knew beforehand.',
+                  'You must report any loss of documents immediately.',
+                  'German law applies, with the place of jurisdiction named in the German text.',
+                ]} />
+              )}
+              {fassung?.zweisprachig && (
+                <div style={{ fontSize: '0.75rem', color: '#777', marginBottom: '1rem', lineHeight: 1.6 }}>
+                  {t('nda.zweisprachig_hinweis', 'Links die deutsche, rechts die englische Fassung. Bei Abweichungen ist nach § 10 Absatz 4 die deutsche Fassung maßgeblich.')}
+                </div>
+              )}
 
               <div style={{ marginBottom: '1.25rem' }}>
-                <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.88rem', marginBottom: '0.4rem' }}>Präambel</div>
-                <p style={{ fontSize: '0.83rem', color: '#444', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                  {fassung?.praeambel || ''}
-                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: fassung?.zweisprachig ? '1fr 1fr' : '1fr', gap: '1.25rem' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.88rem', marginBottom: '0.4rem' }}>Präambel</div>
+                    <p style={{ fontSize: '0.83rem', color: '#444', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                      {fassung?.praeambel || ''}
+                    </p>
+                  </div>
+                  {fassung?.zweisprachig && (
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#777', fontSize: '0.88rem', marginBottom: '0.4rem' }}>Preamble</div>
+                      <p style={{ fontSize: '0.83rem', color: '#777', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                        {fassung?.praeambel_en || ''}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Sections */}
@@ -240,16 +295,39 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
                       {p.nummer} – {p.titel}
                       {online && <span style={{ fontSize: '0.7rem', background: '#fef3c7', color: '#92400e', padding: '0.1rem 0.4rem', borderRadius: 10, marginLeft: '0.5rem' }}>{t('nda.online', 'Gilt für Online-Abschluss')}</span>}
                     </div>
-                    {p.absaetze.map((a, i) => (
-                      <p key={i} style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.65, marginBottom: '0.35rem' }}>{a}</p>
-                    ))}
-                    {p.punkte.length > 0 && (
-                      <ul style={{ margin: '0.2rem 0 0 1rem', padding: 0 }}>
-                        {p.punkte.map((b, i) => (
-                          <li key={i} style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.6 }}>{b}</li>
+                    <div style={{ display: 'grid', gridTemplateColumns: fassung?.zweisprachig ? '1fr 1fr' : '1fr', gap: '1.25rem' }}>
+                      <div>
+                        {p.absaetze.map((a, i) => (
+                          <p key={i} style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.65, marginBottom: '0.35rem' }}>{a}</p>
                         ))}
-                      </ul>
-                    )}
+                        {p.punkte.length > 0 && (
+                          <ul style={{ margin: '0.2rem 0 0 1rem', padding: 0 }}>
+                            {p.punkte.map((b, i) => (
+                              <li key={i} style={{ fontSize: '0.8rem', color: '#555', lineHeight: 1.6 }}>{b}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      {fassung?.zweisprachig && (
+                        <div>
+                          {p.titel_en && (
+                            <div style={{ fontWeight: 700, color: '#777', fontSize: '0.8rem', marginBottom: '0.3rem' }}>
+                              {p.nummer} – {p.titel_en}
+                            </div>
+                          )}
+                          {(p.absaetze_en || []).map((a, i) => (
+                            <p key={i} style={{ fontSize: '0.8rem', color: '#888', lineHeight: 1.65, marginBottom: '0.35rem' }}>{a}</p>
+                          ))}
+                          {(p.punkte_en || []).length > 0 && (
+                            <ul style={{ margin: '0.2rem 0 0 1rem', padding: 0 }}>
+                              {(p.punkte_en || []).map((b, i) => (
+                                <li key={i} style={{ fontSize: '0.8rem', color: '#888', lineHeight: 1.6 }}>{b}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -347,6 +425,35 @@ export default function NDASignModal({ projectId, projectName, onClose, onSigned
 
               {/* Sign form */}
               <form onSubmit={handleSign}>
+                {/* ── Die Vertragspartei, wie sie im Vertrag steht (v0.490) ──
+                    Drei Angaben, die der Vertrag nennt und die wir bisher
+                    nirgends hatten. Sie stehen hier und nicht im Profil, weil
+                    sie hier gebraucht werden und hier erklärbar sind. Beim
+                    nächsten Mandat sind sie schon ausgefüllt. */}
+                <div style={{ marginBottom: '1.25rem', padding: '1rem 1.1rem', background: '#fff', border: '1px solid #e0ddd6', borderRadius: 10 }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#999', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>
+                    {t('nda.vertragspartei', 'IHRE ANGABEN ALS VERTRAGSPARTEI')}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#777', marginBottom: '0.8rem', lineHeight: 1.6 }}>
+                    {t('nda.vertragspartei_warum', 'Diese drei Angaben erscheinen im Kopf der Vereinbarung. Wir merken sie uns für Ihr Profil, beim nächsten Mandat müssen Sie sie nicht erneut eintragen.')}
+                  </div>
+                  {FELDER.map(([k, name, erklaerung, beispiel]) => (
+                    <div key={k} style={{ marginBottom: '0.7rem' }}>
+                      <label style={{ display: 'block', fontWeight: 600, color: '#333', fontSize: '0.82rem', marginBottom: '0.2rem' }}>
+                        {name} *
+                      </label>
+                      <div style={{ fontSize: '0.72rem', color: '#999', marginBottom: '0.25rem' }}>{erklaerung}</div>
+                      <input
+                        type="text"
+                        value={vertrag[k]}
+                        onChange={(e) => setVertrag({ ...vertrag, [k]: e.target.value })}
+                        placeholder={beispiel}
+                        style={{ width: '100%', padding: '0.55rem 0.8rem', border: '1px solid #ddd', borderRadius: 8, fontSize: '0.875rem', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
                 <div style={{ marginBottom: '1rem' }}>
                   <label style={{ display: 'block', fontWeight: 600, color: '#333', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
                     Vollständiger Name *

@@ -56,10 +56,21 @@ const { hochfahren, zaehler } = require('./lauf');
 
   console.log('\n══ Die Unterschrift oeffnet den Datenraum ══');
   {
-    const fassung = (await ruf(`/api/ndas/${pid}/fassung`, { token: t })).daten;
+    // v0.490: Die Vereinbarung nennt die Vertragspartei mit Sitz, Register und
+    // vertretungsberechtigter Person. Der Dialog erhebt sie und holt damit die
+    // Fassung, die er gleich unterschreibt. Hier genauso.
+    const angaben = {
+      company_seat: 'Erlangen',
+      company_register: 'Amtsgericht Fürth, HRB 12345',
+      company_representative: 'Uta Unterschrift',
+    };
+    const fassung = (await ruf(`/api/ndas/${pid}/fassung?${new URLSearchParams(angaben).toString()}`, { token: t })).daten;
     const r = await ruf(`/api/ndas/${pid}/sign-online`, {
       token: t, methode: 'POST',
-      koerper: { consent_name: 'Uta Unterschrift', consent_confirmed: true, fassung_hash: fassung.hash },
+      koerper: {
+        consent_name: 'Uta Unterschrift', consent_confirmed: true,
+        fassung_hash: fassung.hash, vertragsdaten: angaben,
+      },
     });
     ok('die Unterschrift wird angenommen', r.status === 200, String(r.status) + ' ' + String((r.json && r.json.error) || ''));
     ok('die Stufe steht auf Datenraum', (await stufe(pid, u.id)) === 'dataroom_granted', String(await stufe(pid, u.id)));

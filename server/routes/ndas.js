@@ -22,7 +22,35 @@ async function loadNdaTemplate() {
     court_venue: row.court_venue,
     advisor: JSON.parse(row.advisor_json || '{}'),
     preamble: row.preamble,
+    // v0.490: Die englische Spalte. Fehlt sie, bleibt die Vorlage einsprachig,
+    // und alles weitere verhält sich wie bisher.
+    preamble_en: row.preamble_en || null,
+    titel: row.titel || null,
+    titel_en: row.titel_en || null,
     sections: JSON.parse(row.sections_json || '[]'),
+  };
+}
+
+// Die Angaben, die der Vertrag über den Interessenten nennt (v0.490).
+// Sie stehen im Profil, werden aber im Unterschriftsdialog erhoben, weil sie
+// erst dort gebraucht werden und dort erklärbar sind.
+const VERTRAGSFELDER = ['company_seat', 'company_register', 'company_representative'];
+const VERTRAGSFELDER_NAMEN = {
+  company_seat: 'Sitz',
+  company_register: 'Register und Nummer',
+  company_representative: 'vertretungsberechtigte Person',
+};
+
+/** Der Interessent, wie ihn die Fassung braucht. Eine Stelle, nicht drei. */
+function kaeuferAus(user) {
+  return {
+    first_name: [user.title, user.first_name].filter(Boolean).join(' '),
+    last_name: user.last_name,
+    company: user.company,
+    email: user.email,
+    company_seat: user.company_seat || '',
+    company_register: user.company_register || '',
+    company_representative: user.company_representative || '',
   };
 }
 
@@ -104,6 +132,11 @@ router.get('/:projectId/document', authenticate, wrap(async (req, res) => {
       address: user.street || '',
       city: [user.postal_code, user.city].filter(Boolean).join(' '),
       country: 'Deutschland',
+      // v0.490: Die Vorlage nennt die Vertragspartei mit Sitz, Register
+      // und vertretungsberechtigter Person.
+      company_seat: user.company_seat || '',
+      company_register: user.company_register || '',
+      company_representative: user.company_representative || '',
     };
 
     // If already signed, include signature info
@@ -149,14 +182,26 @@ router.get('/:projectId/fassung', authenticate, wrap(async (req, res) => {
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
   const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
   const template = await loadNdaTemplate();
+  // Vorschau mit noch nicht gespeicherten Angaben (v0.490): Der Dialog erhebt
+  // Sitz, Register und vertretungsberechtigte Person erst kurz vor der
+  // Unterschrift. Damit der Interessent genau den Text sieht, den er gleich
+  // unterschreibt, darf er sie hier mitgeben. Gespeichert wird dabei nichts.
+  const kaeufer = kaeuferAus(user);
+  for (const feld of VERTRAGSFELDER) {
+    const wert = req.query[feld];
+    if (typeof wert === 'string' && wert.trim()) kaeufer[feld] = wert.trim();
+  }
   const f = ndaFassung.fassung({
     vorlage: template,
-    kaeufer: {
-      first_name: [user.title, user.first_name].filter(Boolean).join(' '),
-      last_name: user.last_name, company: user.company, email: user.email,
-    },
+    kaeufer,
     mandat: { codename: project.codename },
   });
+  // Was im Vertrag noch fehlt, sagt die Antwort gleich mit. Der Dialog fragt
+  // genau diese Felder ab, statt den Nutzer suchen zu lassen (v0.490).
+  f.fehlende_vertragsangaben = VERTRAGSFELDER
+    .filter((k) => !kaeufer[k] || String(kaeufer[k]).trim() === '')
+    .map((k) => ({ feld: k, bezeichnung: VERTRAGSFELDER_NAMEN[k] }));
+  f.vertragsangaben = Object.fromEntries(VERTRAGSFELDER.map((k) => [k, user[k] || '']));
   res.json({ success: true, data: f });
 }));
 
@@ -173,7 +218,38 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
   }
 
   const project = await db.get('SELECT * FROM projects WHERE id = ?', [req.params.projectId]);
-  const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+  let user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+
+  // ── Die Angaben, die der Vertrag über die Vertragspartei nennt (v0.490) ──
+  //
+  // Sitz, Register mit Nummer und die vertretungsberechtigte Person stehen im
+  // Kopf der Vereinbarung. Fehlen sie, entsteht ein Vertrag mit Lücken, und
+  // zwar genau dort, wo er die Partei benennt. Also werden sie hier verlangt.
+  // Der Dialog schickt sie mit, sie werden ins Profil übernommen und beim
+  // nächsten Mandat nicht erneut abgefragt.
+  const eingereicht = req.body.vertragsdaten || {};
+  const zuSetzen = {};
+  for (const feld of VERTRAGSFELDER) {
+    const wert = String(eingereicht[feld] == null ? '' : eingereicht[feld]).trim();
+    if (wert) zuSetzen[feld] = wert;
+  }
+  if (Object.keys(zuSetzen).length) {
+    await db.run(
+      `UPDATE users SET ${Object.keys(zuSetzen).map((k) => `${k} = ?`).join(', ')} WHERE id = ?`,
+      [...Object.values(zuSetzen), req.user.id]);
+    user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+  }
+  const fehlend = VERTRAGSFELDER.filter((k) => !user[k] || String(user[k]).trim() === '');
+  if (fehlend.length) {
+    return res.status(400).json({
+      success: false,
+      code: 'VERTRAGSANGABEN_FEHLEN',
+      error: `Für die Vereinbarung fehlen noch ${fehlend.length === 1 ? 'eine Angabe' : `${fehlend.length} Angaben`}: `
+        + `${fehlend.map((k) => VERTRAGSFELDER_NAMEN[k]).join(', ')}. Sie benennen die Vertragspartei und stehen im Vertrag.`,
+      missing: fehlend,
+      missing_labels: fehlend.map((k) => VERTRAGSFELDER_NAMEN[k]),
+    });
+  }
 
   // ── Es wird nur unterschrieben, was angezeigt wurde (v0.466) ─────────────
   //
@@ -184,10 +260,7 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
   // nicht etwa die neue Fassung still untergeschoben.
   const geltend = ndaFassung.fassung({
     vorlage: await loadNdaTemplate(),
-    kaeufer: {
-      first_name: [user.title, user.first_name].filter(Boolean).join(' '),
-      last_name: user.last_name, company: user.company, email: user.email,
-    },
+    kaeufer: kaeuferAus(user),
     mandat: { codename: project.codename },
   });
   const gezeigt = String(req.body.fassung_hash || '');
@@ -224,6 +297,11 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
       address: user.street || '',
       city: [user.postal_code, user.city].filter(Boolean).join(' '),
       country: 'Deutschland',
+      // v0.490: Die Vorlage nennt die Vertragspartei mit Sitz, Register
+      // und vertretungsberechtigter Person.
+      company_seat: user.company_seat || '',
+      company_register: user.company_register || '',
+      company_representative: user.company_representative || '',
     };
     const projectData = { codename: project.codename, industry: project.industry, region: project.region };
 
@@ -457,6 +535,11 @@ router.get('/:projectId/download', authenticate, wrap(async (req, res) => {
       address: buyer.street || '',
       city: [buyer.postal_code, buyer.city].filter(Boolean).join(' '),
       country: 'Deutschland',
+      // v0.490: Die Vorlage nennt die Vertragspartei mit Sitz, Register
+      // und vertretungsberechtigter Person.
+      company_seat: buyer.company_seat || '',
+      company_register: buyer.company_register || '',
+      company_representative: buyer.company_representative || '',
     },
     project: { codename: project.codename, industry: project.industry, region: project.region },
     template,

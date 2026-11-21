@@ -56,6 +56,12 @@ function fassung({ vorlage, kaeufer = {}, mandat = {} }) {
     project_codename: mandat.codename || '',
     buyer_name: [kaeufer.first_name, kaeufer.last_name].filter(Boolean).join(' '),
     buyer_company: kaeufer.company || '',
+    // v0.490: Die Vorlage nennt den Interessenten mit Sitz, Register und
+    // vertretungsberechtigter Person. Fehlt eine Angabe, bleibt die Lücke
+    // sichtbar, statt still zu verschwinden.
+    buyer_seat: kaeufer.company_seat || '',
+    buyer_register: kaeufer.company_register || '',
+    buyer_representative: kaeufer.company_representative || '',
     court_venue: gerichtsstand,
     advisor_name: berater.name || '',
   };
@@ -65,6 +71,10 @@ function fassung({ vorlage, kaeufer = {}, mandat = {} }) {
     titel: fuellen(s.title, werte),
     absaetze: (s.paragraphs || []).map((p) => fuellen(p, werte)),
     punkte: (s.bullets || []).map((b) => fuellen(b, werte)),
+    // Die englische Spalte. Leer, solange eine Vorlage nur deutsch ist.
+    titel_en: s.title_en ? fuellen(s.title_en, werte) : null,
+    absaetze_en: (s.paragraphs_en || []).map((p) => fuellen(p, werte)),
+    punkte_en: (s.bullets_en || []).map((b) => fuellen(b, werte)),
   }));
 
   const ergebnis = {
@@ -78,6 +88,9 @@ function fassung({ vorlage, kaeufer = {}, mandat = {} }) {
       interessent: {
         name: werte.buyer_name,
         firma: kaeufer.company || null,
+        sitz: kaeufer.company_seat || null,
+        register: kaeufer.company_register || null,
+        vertreter: kaeufer.company_representative || null,
         email: kaeufer.email || null,
         rolle: 'Interessent',
       },
@@ -90,7 +103,11 @@ function fassung({ vorlage, kaeufer = {}, mandat = {} }) {
         rolle: 'Transaktionsberater',
       },
     },
+    titel: vorlage.titel || 'Vertraulichkeitsvereinbarung',
+    titel_en: vorlage.titel_en || null,
     praeambel: fuellen(vorlage.preamble, werte),
+    praeambel_en: vorlage.preamble_en ? fuellen(vorlage.preamble_en, werte) : null,
+    zweisprachig: !!vorlage.preamble_en,
     paragraphen,
   };
   ergebnis.hash = fingerabdruck(ergebnis);
@@ -107,10 +124,18 @@ function fassung({ vorlage, kaeufer = {}, mandat = {} }) {
 function fingerabdruck(f) {
   const teile = [
     f.parteien.interessent.name, f.parteien.interessent.firma || '',
+    // v0.490: Sitz, Register und vertretungsberechtigte Person stehen im
+    // Vertrag und gehören deshalb in den Abdruck. Wer sie ändert, ändert die
+    // Vertragspartei, und das darf nicht unbemerkt bleiben.
+    f.parteien.interessent.sitz || '', f.parteien.interessent.register || '',
+    f.parteien.interessent.vertreter || '',
     f.parteien.berater.name || '', f.parteien.berater.strasse || '', f.parteien.berater.ort || '',
     f.gerichtsstand,
-    f.praeambel,
-    ...f.paragraphen.flatMap((p) => [p.nummer, p.titel, ...p.absaetze, ...p.punkte]),
+    f.praeambel, f.praeambel_en || '',
+    ...f.paragraphen.flatMap((p) => [
+      p.nummer, p.titel, ...p.absaetze, ...p.punkte,
+      p.titel_en || '', ...(p.absaetze_en || []), ...(p.punkte_en || []),
+    ]),
   ];
   const text = teile.join('\n').replace(/\s+/g, ' ').trim();
   return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
@@ -122,7 +147,11 @@ function alsText(f) {
     `Vertraulichkeitsvereinbarung${f.vorlage_name ? ` (${f.vorlage_name}` : ''}${f.version ? `, Fassung ${f.version})` : f.vorlage_name ? ')' : ''}`,
     '',
     'Vertragsparteien',
-    `${f.parteien.interessent.name}${f.parteien.interessent.firma ? `, ${f.parteien.interessent.firma}` : ''} (Interessent)`,
+    [`${f.parteien.interessent.name}${f.parteien.interessent.firma ? `, ${f.parteien.interessent.firma}` : ''}`,
+      f.parteien.interessent.sitz ? `Sitz: ${f.parteien.interessent.sitz}` : '',
+      f.parteien.interessent.register ? `Register: ${f.parteien.interessent.register}` : '',
+      f.parteien.interessent.vertreter ? `vertreten durch: ${f.parteien.interessent.vertreter}` : '',
+    ].filter(Boolean).join(', ') + ' (Interessent)',
     [f.parteien.berater.name, f.parteien.berater.strasse, f.parteien.berater.ort]
       .filter(Boolean).join(', ') + ' (Transaktionsberater)',
     '',

@@ -138,7 +138,11 @@ console.log('\n── Der Wortlaut zum Nachlesen ──');
 console.log('\n── Nur das Angezeigte wird unterschrieben ──');
 ok('es gibt eine Route für die Fassung', /router\.get\('\/:projectId\/fassung'/.test(routen));
 ok('der Dialog holt sie dort', /\/ndas\/\$\{projectId\}\/fassung/.test(modal));
-ok('und schickt den Abdruck beim Unterzeichnen mit', /fassung_hash: fassung \? fassung\.hash : null/.test(modal));
+// v0.490: Der Dialog holt die Fassung unmittelbar vor der Unterschrift noch
+// einmal, mit den eben eingetragenen Angaben zur Vertragspartei, und schickt
+// deren Abdruck. Vorher stand hier der Abdruck aus dem ersten Laden.
+ok('und schickt den Abdruck beim Unterzeichnen mit', /fassung_hash: frisch\.hash/.test(modal));
+ok('und zwar den der Fassung mit den eingetragenen Angaben', /const frisch = await api\.get\(`\/ndas\/\$\{projectId\}\/fassung\?/.test(modal));
 ok('ohne Abdruck wird nicht unterzeichnet', /FASSUNG_FEHLT/.test(routen));
 ok('bei abweichendem Abdruck auch nicht', /FASSUNG_GEAENDERT/.test(routen));
 ok('und die Abweichung wird protokolliert', /NDA_FASSUNG_ABWEICHUNG/.test(routen));
