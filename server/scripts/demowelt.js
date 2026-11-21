@@ -120,7 +120,28 @@ const INTERESSENTEN = [
   { email: `datenraum${DOMAENE}`, vorname: 'Dana',  nachname: 'Datenraum', firma: 'Datenraum Partners',        typ: 'strategic',     stand: 'im_datenraum' },
 ];
 
+// Zwei Verkaeufer, nicht einer. Mit nur einem gehoeren alle Demomandate
+// derselben Person, und dann laesst sich die wichtigste Frage der
+// Verkaeufersicht gar nicht stellen: Kommt jemand an ein fremdes Mandat?
+// Aufgefallen beim ersten Durchgang des Drehbuchs auf der Teststufe, Punkt 1.5.
 const VERKAEUFER = { email: `verkaeufer${DOMAENE}`, vorname: 'Elke', nachname: 'Verkauf', firma: 'Nordlicht Holding' };
+const VERKAEUFER_ZWEI = { email: `verkaeufer2${DOMAENE}`, vorname: 'Falk', nachname: 'Zweitverkauf', firma: 'Talsohle Beteiligungen' };
+
+// Jedes Demokonto bekommt ein vollstaendiges Profil.
+//
+// Die Plattform verlangt neun Felder, bevor ein Interessent ein Mandat
+// ueberhaupt im Detail ansehen darf (utils/profileCompleteness.js). Ohne sie
+// endet jeder Durchgang am selben Punkt, mit „Bitte vervollstaendigen Sie
+// zuerst Ihr Profil", und die eigentliche Frage wird nie geprueft. Genau das
+// passierte beim ersten Durchgang auf der Teststufe.
+//
+// Dass diese Huerde hoch ist, bleibt eine eigene Beobachtung fuer die
+// Vereinfachung. Hier wird sie nur aus dem Weg geraeumt.
+const ANSCHRIFT = {
+  salutation: 'Frau', position: 'Geschäftsführung',
+  mobile: '+49 160 0000000', phone: '+49 911 0000000',
+  street: 'Demoweg 1', postal_code: '90000', city: 'Demostadt',
+};
 
 // ── Die erfundenen Unterlagen ───────────────────────────────────────────────
 const UNTERLAGEN = [
@@ -157,15 +178,22 @@ async function aufsetzen({ db, zuruecksetzen = false, leise = false } = {}) {
   const konto = async (p, rolle, typ) => {
     await db.run(
       `INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, company, role, buyer_type,
+                          salutation, position, mobile, phone, street, postal_code, city,
                           is_active, is_approved, email_verified, language)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 'de')
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 'de')
        ON CONFLICT (email) DO UPDATE SET is_approved = 1, is_active = 1, email_verified = 1,
-                                         password_hash = EXCLUDED.password_hash`,
-      [p.email, hash, p.vorname, p.nachname, p.firma || null, rolle, typ || null]);
+                                         password_hash = EXCLUDED.password_hash,
+                                         salutation = EXCLUDED.salutation, position = EXCLUDED.position,
+                                         mobile = EXCLUDED.mobile, street = EXCLUDED.street,
+                                         postal_code = EXCLUDED.postal_code, city = EXCLUDED.city`,
+      [p.email, hash, p.vorname, p.nachname, p.firma || null, rolle, typ || null,
+        ANSCHRIFT.salutation, ANSCHRIFT.position, ANSCHRIFT.mobile, ANSCHRIFT.phone,
+        ANSCHRIFT.street, ANSCHRIFT.postal_code, ANSCHRIFT.city]);
     return db.get('SELECT * FROM users WHERE email = ?', [p.email]);
   };
 
   const verkaeufer = await konto(VERKAEUFER, 'seller', null);
+  const verkaeuferZwei = await konto(VERKAEUFER_ZWEI, 'seller', null);
   const kaeufer = [];
   for (const p of INTERESSENTEN) kaeufer.push({ ...p, konto: await konto(p, 'buyer', p.typ) });
 
@@ -177,7 +205,8 @@ async function aufsetzen({ db, zuruecksetzen = false, leise = false } = {}) {
                              revenue_band, ebitda_band, deal_type, short_description, highlights,
                              buyer_groups, visibility, sprache, uebersetzung_status)
        VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'public', 'de', 'fehlt') RETURNING id`,
-      [m.codename, m.art, m.status, verkaeufer.id, m.industry, m.region, m.revenue_band,
+      [m.codename, m.art, m.status, m.codename === `${VORSATZ}TALSOHLE` ? verkaeuferZwei.id : verkaeufer.id,
+        m.industry, m.region, m.revenue_band,
         m.ebitda_band, m.deal_type, m.kurz, JSON.stringify(m.highlights),
         JSON.stringify(['strategic', 'financial', 'family_office'])]);
     angelegt.push({ ...m, id });
@@ -265,7 +294,8 @@ async function aufsetzen({ db, zuruecksetzen = false, leise = false } = {}) {
   // ── Bericht ───────────────────────────────────────────────────────────────
   sag('\n🧪 Demowelt der Teststufe steht.\n');
   sag(`   Mandate:        ${angelegt.map((m) => m.codename).join(', ')}`);
-  sag(`   Verkäufer:      ${VERKAEUFER.email}`);
+  sag(`   Verkäufer:      ${VERKAEUFER.email} (drei Mandate)`);
+  sag(`                   ${VERKAEUFER_ZWEI.email} (nur ${VORSATZ}TALSOHLE)`);
   sag('   Interessenten, je mit eigenem Stand:');
   for (const k of kaeufer) sag(`     ${String(k.email).padEnd(42)} ${k.stand}`);
   sag(`\n   Kennwort für alle Demokonten: ${kennwort}`);
@@ -275,7 +305,7 @@ async function aufsetzen({ db, zuruecksetzen = false, leise = false } = {}) {
 
   return {
     mandate: angelegt.map((m) => ({ codename: m.codename, id: m.id, art: m.art, status: m.status })),
-    verkaeufer: VERKAEUFER.email,
+    verkaeufer: [VERKAEUFER.email, VERKAEUFER_ZWEI.email],
     konten: kaeufer.map((k) => ({ email: k.email, stand: k.stand })),
     kennwort,
     entfernt,
