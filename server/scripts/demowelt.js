@@ -130,19 +130,26 @@ const UNTERLAGEN = [
   { ordner: '02 Unterlagen',           name: 'Personalliste.pdf',       stufe: 'dataroom', vertraulich: true },
 ];
 
-async function main() {
+/**
+ * Die Demowelt aufsetzen.
+ *
+ * Wird sowohl vom Befehl unten als auch von der Route
+ * POST /api/admin/teststufe/demowelt aufgerufen. Die Route reicht ihre eigene
+ * Datenbankverbindung herein, weil die Anwendung dort schon laeuft.
+ *
+ * @returns {Promise<{mandate: string[], konten: Array, kennwort: string, entfernt: object|null}>}
+ */
+async function aufsetzen({ db, zuruecksetzen = false, leise = false } = {}) {
   stufen.nurAufDerTeststufe('Die Demowelt');
+  const sag = (...a) => { if (!leise) console.log(...a); };
 
-  const db = require('../db/database');
-  await db.initialize();
-
-  const zuruecksetzen = process.argv.includes('--zuruecksetzen');
-  if (zuruecksetzen) await raeumen(db);
+  let entfernt = null;
+  if (zuruecksetzen) entfernt = await raeumen(db, leise);
 
   const admin = await db.get("SELECT * FROM users WHERE role = 'super_admin' ORDER BY id LIMIT 1");
   if (!admin) throw new Error('Es gibt kein Verwaltungskonto. Die Anwendung muss einmal gestartet worden sein.');
 
-  const bcrypt = require(path.join(__dirname, '..', 'node_modules', 'bcryptjs'));
+  const bcrypt = require('bcryptjs');
   const kennwort = process.env.DEMO_KENNWORT || 'Teststufe!2026';
   const hash = await bcrypt.hash(kennwort, 10);
 
@@ -256,20 +263,27 @@ async function main() {
       nordlicht.id]).catch(() => {});
 
   // ── Bericht ───────────────────────────────────────────────────────────────
-  console.log('\n🧪 Demowelt der Teststufe steht.\n');
-  console.log(`   Mandate:        ${angelegt.map((m) => m.codename).join(', ')}`);
-  console.log(`   Verkäufer:      ${VERKAEUFER.email}`);
-  console.log('   Interessenten, je mit eigenem Stand:');
-  for (const k of kaeufer) console.log(`     ${String(k.email).padEnd(42)} ${k.stand}`);
-  console.log(`\n   Kennwort für alle Demokonten: ${kennwort}`);
-  console.log('   Änderbar über DEMO_KENNWORT.\n');
-  console.log(`   Im Datenraum liegt je Mandat „Personalliste.pdf" als vertraulich.`);
-  console.log('   Daran hing der Fehler aus v0.481: Sie darf auf keinem Weg beim Interessenten landen.\n');
-  process.exit(0);
+  sag('\n🧪 Demowelt der Teststufe steht.\n');
+  sag(`   Mandate:        ${angelegt.map((m) => m.codename).join(', ')}`);
+  sag(`   Verkäufer:      ${VERKAEUFER.email}`);
+  sag('   Interessenten, je mit eigenem Stand:');
+  for (const k of kaeufer) sag(`     ${String(k.email).padEnd(42)} ${k.stand}`);
+  sag(`\n   Kennwort für alle Demokonten: ${kennwort}`);
+  sag('   Änderbar über DEMO_KENNWORT.\n');
+  sag('   Im Datenraum liegt je Mandat „Personalliste.pdf" als vertraulich.');
+  sag('   Daran hing der Fehler aus v0.481: Sie darf auf keinem Weg beim Interessenten landen.\n');
+
+  return {
+    mandate: angelegt.map((m) => ({ codename: m.codename, id: m.id, art: m.art, status: m.status })),
+    verkaeufer: VERKAEUFER.email,
+    konten: kaeufer.map((k) => ({ email: k.email, stand: k.stand })),
+    kennwort,
+    entfernt,
+  };
 }
 
 /** Nur die Demowelt entfernen, nichts sonst. */
-async function raeumen(db) {
+async function raeumen(db, leise = false) {
   const mandate = await db.all('SELECT id, codename FROM projects WHERE codename LIKE ?', [`${VORSATZ}%`]);
   const konten = await db.all('SELECT id, email FROM users WHERE email LIKE ?', [`%${DOMAENE}`]);
   const mids = mandate.map((m) => m.id);
@@ -294,7 +308,19 @@ async function raeumen(db) {
     await db.run('DELETE FROM connections WHERE requester_id = ? OR recipient_id = ?', [id, id]).catch(() => {});
     await db.run('DELETE FROM users WHERE id = ?', [id]).catch(() => {});
   }
-  console.log(`🧹 Demowelt entfernt: ${mandate.length} Mandate, ${konten.length} Konten.`);
+  if (!leise) console.log(`🧹 Demowelt entfernt: ${mandate.length} Mandate, ${konten.length} Konten.`);
+  return { mandate: mandate.length, konten: konten.length };
 }
 
-main().catch((e) => { console.error('\n❌', e.message, '\n'); process.exit(1); });
+module.exports = { aufsetzen, raeumen, VORSATZ, DOMAENE };
+
+// Als Befehl aufgerufen: eigene Verbindung oeffnen und berichten.
+if (require.main === module) {
+  (async () => {
+    stufen.nurAufDerTeststufe('Die Demowelt');
+    const db = require('../db/database');
+    await db.initialize();
+    await aufsetzen({ db, zuruecksetzen: process.argv.includes('--zuruecksetzen') });
+    process.exit(0);
+  })().catch((e) => { console.error('\n❌', e.message, '\n'); process.exit(1); });
+}

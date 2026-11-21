@@ -317,6 +317,27 @@ export default function Admin() {
 
   const [msg, setMsg] = useState({ text: '', type: 'success' });
 
+  // ── Demowelt der Teststufe (v0.486) ──────────────────────────────────────
+  const [istTeststufe, setIstTeststufe] = useState(false);
+  const [demoLaeuft, setDemoLaeuft] = useState(false);
+  useEffect(() => {
+    fetch('/api/stufe').then((r) => (r.ok ? r.json() : null))
+      .then((d) => setIstTeststufe(!!(d && d.data && d.data.ist_teststufe)))
+      .catch(() => setIstTeststufe(false));
+  }, []);
+  async function demoweltAufsetzen() {
+    if (!window.confirm('Demowelt zurücksetzen?\n\nAlle Mandate mit dem Vorsatz DEMO_ und alle Konten auf '
+      + '@demo.capitalmatch.invalid werden gelöscht und neu angelegt. Alles andere bleibt unberührt.')) return;
+    setDemoLaeuft(true);
+    try {
+      const d = await api.post('/admin/teststufe/demowelt', { zuruecksetzen: true });
+      showMsg(`Demowelt steht: ${(d.mandate || []).map((m) => m.codename).join(', ')}. `
+        + `Kennwort der Demokonten: ${d.kennwort}`);
+      loadAll();
+    } catch (e) { showMsg(e.message, 'error'); }
+    finally { setDemoLaeuft(false); }
+  }
+
   async function openUserDetail(id) {
     try {
       const d = await api.get(`/admin/users/${id}`);
@@ -1115,6 +1136,24 @@ export default function Admin() {
         <div>
           <h1 style={{ fontSize: '1.7rem', fontWeight: 700, color: C.text }}>Admin-Dashboard</h1>
           <p style={{ color: C.muted, fontSize: '0.875rem' }}>Plattformverwaltung & Transaktionscontrolling</p>
+          {/* v0.486: Nur auf der Teststufe. Der Knopf setzt die erfundene
+              Demowelt neu auf, damit ein Testdurchgang immer vom selben
+              Zustand startet. Auf der Produktion fragt der Server gar nicht
+              erst, dort gibt es die Route nicht. */}
+          {istTeststufe && (
+            <button
+              onClick={demoweltAufsetzen}
+              disabled={demoLaeuft}
+              title="Alle DEMO_-Mandate und Demokonten löschen und neu anlegen"
+              style={{
+                marginTop: '0.6rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                background: demoLaeuft ? '#f1f5f9' : '#7c2d12', color: demoLaeuft ? C.muted : '#fff',
+                border: 'none', borderRadius: 7, padding: '0.4rem 0.85rem',
+                fontSize: '0.78rem', fontWeight: 700, cursor: demoLaeuft ? 'wait' : 'pointer',
+              }}>
+              {demoLaeuft ? 'Demowelt wird aufgesetzt …' : 'Demowelt zurücksetzen'}
+            </button>
+          )}
         </div>
         <button onClick={() => setShowNewProject(true)} style={{
           display: 'flex', alignItems: 'center', gap: '0.5rem',

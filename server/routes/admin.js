@@ -1301,6 +1301,39 @@ router.post('/projects/:projectId/interests/:userId/grant-dataroom', ...isAdmin,
   res.json({ success: true, data: { stage: 'dataroom_granted', notified: req.body.notify !== false } });
 }));
 
+// ── Die Demowelt der Teststufe aufsetzen (v0.486) ───────────────────────────
+//
+// Anlass: Das Zurücksetzen der Teststufe braucht man nicht einmal, sondern vor
+// jedem Testdurchgang. Über die Railway-CLI oder ein vorübergehend verändertes
+// Start-Kommando ist das jedes Mal eine kleine Bastelei.
+//
+// Drei Sicherungen, und jede davon ist nötig, weil diese Route Daten löscht:
+//
+//   1. Sie läuft nur, wenn CM_STUFE auf „teststufe" steht. Auf der Produktion
+//      wirft `nurAufDerTeststufe` und es passiert nichts.
+//   2. Nur für ein Verwaltungskonto.
+//   3. Sie fasst ausschliesslich an, was sie selbst angelegt hat: Mandate mit
+//      dem Vorsatz „DEMO_" und Konten auf der Domäne @demo.capitalmatch.invalid.
+//      Alles andere bleibt unberührt, auch auf der Teststufe.
+router.post('/teststufe/demowelt', ...isAdmin, wrap(async (req, res) => {
+  const stufen = require('../utils/stufe');
+  if (!stufen.istTeststufe()) {
+    return res.status(403).json({
+      success: false,
+      error: `Die Demowelt gibt es nur auf der Teststufe. Diese Stufe ist „${stufen.stufe()}".`,
+    });
+  }
+  const demowelt = require('../scripts/demowelt');
+  const bericht = await demowelt.aufsetzen({
+    db,
+    zuruecksetzen: req.body.zuruecksetzen !== false,   // Standard: frisch aufsetzen
+    leise: false,
+  });
+  db.auditLog(req.user.id, 'TESTSTUFE_DEMOWELT', 'tenant', 1,
+    `Demowelt aufgesetzt: ${bericht.mandate.length} Mandate`, req.ip);
+  res.json({ success: true, data: bericht });
+}));
+
 // Was ist für diesen Nutzer offen? (v0.481)
 //
 // Der Chat fragt das, bevor er einen Knopf anbietet. Vorher hat der Chat das
