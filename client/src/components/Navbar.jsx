@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n';
-import { User, LogOut, Settings, LayoutDashboard, Shield, Menu, X, MessageSquare, Store } from 'lucide-react';
+import { User, LogOut, Settings, LayoutDashboard, Shield, Menu, X, MessageSquare, Store, Bookmark } from 'lucide-react';
 import CapitalMatchLogo from './CapitalMatchLogo';
 import useIsMobile from '../hooks/useIsMobile';
 import { api } from '../api/client';
@@ -248,6 +248,17 @@ export default function Navbar() {
                       <Store size={14} color={C.navy} /> Verkäufer-Bereich
                     </Link>
                   )}
+                  {/* v0.493: Die Suchauftraege waren ueber kein Menue erreichbar,
+                      obwohl die Begruessung auf dem Dashboard sie ankuendigt.
+                      Wer sie nicht kennt, findet sie nicht. */}
+                  {(!isAdmin && !isSeller) && (
+                    <Link to="/suchprofile" onClick={() => setDropdownOpen(false)} style={{
+                      display: 'flex', alignItems: 'center', gap: '0.6rem',
+                      padding: '0.65rem 1rem', color: C.dark, textDecoration: 'none', fontSize: '0.875rem',
+                    }}>
+                      <Bookmark size={14} color={C.navy} /> {t('nav.suchauftraege', 'Meine Suchaufträge')}
+                    </Link>
+                  )}
                   <Link to="/profil" onClick={() => setDropdownOpen(false)} style={{
                     display: 'flex', alignItems: 'center', gap: '0.6rem',
                     padding: '0.65rem 1rem', color: C.dark, textDecoration: 'none', fontSize: '0.875rem',
@@ -317,6 +328,9 @@ export default function Navbar() {
               <>
                 <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.82rem', padding: '0.3rem 0.25rem' }}>{[user.title, user.first_name, user.last_name].filter(Boolean).join(' ')} · {user.email}</div>
                 <Link to="/profil" onClick={() => setOpen(false)} style={{ color: '#fff', textDecoration: 'none', padding: '0.6rem 0.25rem', fontSize: '0.95rem' }}>{t('nav.profile', 'Mein Profil')}</Link>
+                {(!isAdmin && !isSeller) && (
+                  <Link to="/suchprofile" onClick={() => setOpen(false)} style={{ color: '#fff', textDecoration: 'none', padding: '0.6rem 0.25rem', fontSize: '0.95rem' }}>{t('nav.suchauftraege', 'Meine Suchaufträge')}</Link>
+                )}
                 <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem', cursor: 'pointer', fontSize: '0.9rem', textAlign: 'left' }}>{t('nav.logout', 'Abmelden')}</button>
               </>
             )}

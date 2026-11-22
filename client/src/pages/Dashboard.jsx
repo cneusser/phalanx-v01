@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n';
 import { begruessung, naechsterSchritt } from '../utils/begruessung';
-import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User, Award, Lock, FileCheck, Database, MessageSquare, ArrowRight, Target, Users, ClipboardList } from 'lucide-react';
+import { FileText, Clock, CheckCircle, AlertCircle, Building2, MapPin, ChevronRight, User, Lock, FileCheck, Database, MessageSquare, ArrowRight, Target, Users, ClipboardList } from 'lucide-react';
 
 const C = { navy: '#14314F', steel: '#A5C8E4', bg: '#F3F7FB', lightBg: '#EDF4FA', gray: '#5d6670' };
 
@@ -121,7 +121,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [ndas, setNdas] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [xp, setXp] = useState(null);
+  // v0.493: Statt eines Punktestands die Liste dessen, was noch fehlt.
+  const [startklar, setStartklar] = useState(null);
   const [myDeals, setMyDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [succProfile, setSuccProfile] = useState(null);
@@ -144,7 +145,7 @@ export default function Dashboard() {
       setNdas(ndasData);
       setProjects(projectsData.projects.slice(0, 3));
     }).catch(console.error).finally(() => setLoading(false));
-    api.get('/gamification/me').then(setXp).catch(() => {});
+    api.get('/profile/startklar').then(setStartklar).catch(() => {});
     api.get('/projects/my-deals').then(d => setMyDeals(d || [])).catch(() => {});
     api.get('/crm/my-prepared-mandates').then(d => setPrepared(d || [])).catch(() => {});
     // Nachfolge-Kontext (harmlos auch für Käufer): eigenes Profil + passende Mandate
@@ -379,29 +380,74 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Sprint 17: XP / Level */}
-      {xp && (
-        <div style={{ background: `linear-gradient(135deg, ${C.navy}, #1d4e89)`, color: '#fff', borderRadius: 12, padding: '1.25rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
-          <div style={{ width: 52, height: 52, background: 'rgba(255,255,255,0.15)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Award size={26} color="#fff" />
-          </div>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '1.4rem', fontWeight: 800 }}>{xp.total} XP</span>
-              <span style={{ fontSize: '0.85rem', background: 'rgba(255,255,255,0.18)', padding: '0.15rem 0.6rem', borderRadius: 20, fontWeight: 600 }}>Level {xp.level} · {xp.name}</span>
+      {/* ── Startklar statt Punktestand (v0.493) ───────────────────────────
+          Hier stand ein Punktestand mit Stufe und Fortschrittsbalken. Punkte
+          gab es fuer Schritte, die ohnehin jeder geht, einlösen liess sich
+          nichts, und die Zahl sagte niemandem, was als Naechstes zu tun ist.
+          Christians Frage dazu war genau die richtige: „Was kann ich mit den
+          Punkten machen?"
+
+          Jetzt steht hier, was noch fehlt, damit die Plattform fuer den
+          Nutzer arbeitet, mit Grund und mit einem Verweis, der direkt an die
+          Stelle fuehrt. Ist alles gepflegt, schrumpft der Baustein auf eine
+          Zeile und nimmt keinen Platz mehr weg. */}
+      {startklar && !startklar.fertig && (
+        <div style={{ background: '#fff', border: '1px solid #dce8f2', borderLeft: `4px solid ${C.navy}`, borderRadius: 12, padding: '1.25rem 1.5rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.9rem', flexWrap: 'wrap' }}>
+            <Target size={19} color={C.navy} />
+            <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.98rem' }}>
+              {t('db.startklar', 'Startklar werden')}
             </div>
-            <div style={{ marginTop: '0.5rem' }}>
-              <div style={{ height: 7, background: 'rgba(255,255,255,0.2)', borderRadius: 5, overflow: 'hidden' }}>
-                <div style={{ width: `${xp.progress_pct}%`, height: '100%', background: '#174a6a', borderRadius: 5 }} />
-              </div>
-              <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>
-                {xp.next ? `Noch ${xp.to_next} XP bis „${xp.next}"` : t('db.hoechstes_level', 'Höchstes Level erreicht 🎉')}
-              </div>
+            <div style={{ fontSize: '0.8rem', color: '#777' }}>
+              {startklar.erledigt} {t('db.von', 'von')} {startklar.gesamt} {t('db.erledigt', 'erledigt')}
+            </div>
+            <div style={{ flex: 1, minWidth: 120, height: 6, background: '#eef2f7', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ width: `${Math.round((startklar.erledigt / startklar.gesamt) * 100)}%`, height: '100%', background: C.navy }} />
             </div>
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.75)', maxWidth: 200, lineHeight: 1.5 }}>
-            Punkte sammeln Sie für echte Schritte: NDA, Datenraum, Due Diligence, und den Abschluss über die Plattform.
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {startklar.schritte.map((s) => (
+              <div key={s.kennung} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.7rem', opacity: s.erledigt ? 0.55 : 1 }}>
+                <div style={{
+                  width: 18, height: 18, borderRadius: '50%', flexShrink: 0, marginTop: 2,
+                  background: s.erledigt ? '#10b981' : '#fff',
+                  border: s.erledigt ? 'none' : '2px solid #cbd5e1',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: '0.62rem', fontWeight: 800,
+                }}>{s.erledigt ? '✓' : ''}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, color: C.navy, fontSize: '0.86rem' }}>
+                    {s.titel}
+                    {s.freiwillig && <span style={{ fontSize: '0.68rem', color: '#999', fontWeight: 500, marginLeft: '0.4rem' }}>{t('db.freiwillig', 'freiwillig')}</span>}
+                  </div>
+                  {!s.erledigt && (
+                    <>
+                      <div style={{ fontSize: '0.78rem', color: '#666', lineHeight: 1.55, marginTop: 2 }}>{s.wozu}</div>
+                      {s.fehlt_namen.length > 0 && (
+                        <div style={{ fontSize: '0.76rem', color: '#b45309', marginTop: 2 }}>
+                          {t('db.fehlt_noch', 'Fehlt noch:')} {s.fehlt_namen.join(', ')}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                {!s.erledigt && (
+                  <Link to={s.weiter} style={{ flexShrink: 0, background: '#f1f5f9', color: C.navy, padding: '0.35rem 0.8rem', borderRadius: 7, textDecoration: 'none', fontWeight: 600, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                    {s.weiter_text} →
+                  </Link>
+                )}
+              </div>
+            ))}
           </div>
+        </div>
+      )}
+      {startklar && startklar.fertig && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '0.7rem 1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.84rem', color: '#166534' }}>
+          <CheckCircle size={15} />
+          {t('db.alles_gepflegt', 'Ihr Profil ist vollständig. Sie können Mandate ansehen, Vereinbarungen unterzeichnen und werden bei passenden Mandaten vorgeschlagen.')}
+          <Link to="/suchprofile" style={{ marginLeft: 'auto', color: '#166534', fontWeight: 700, textDecoration: 'none', fontSize: '0.8rem' }}>
+            {t('db.zu_suchauftraegen', 'Suchaufträge')} →
+          </Link>
         </div>
       )}
 

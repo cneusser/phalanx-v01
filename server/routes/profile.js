@@ -30,6 +30,17 @@ router.get('/', authenticate, wrap(async (req, res) => {
   });
 }));
 
+// ─── Startklar: was noch fehlt, Schritt für Schritt (v0.493) ────────────────
+//
+// Ersetzt den Punktestand auf dem Dashboard. Ein Punktestand sagt, wie viel
+// jemand getan hat; diese Liste sagt, was ihm noch fehlt und wohin er dafür
+// muss. Die Antwort ist dieselbe für Dashboard, Profil und spätere Hinweise:
+// eine Quelle, keine zweite Zählweise.
+router.get('/startklar', authenticate, wrap(async (req, res) => {
+  const startklar = require('../utils/startklar');
+  res.json({ success: true, data: await startklar.fuer(req.user.id) });
+}));
+
 router.put('/', authenticate, wrap(async (req, res) => {
   const { first_name, last_name, company, position, buyer_type, mobile, phone, about, website, linkedin_url,
           salutation, title, street, postal_code, city,

@@ -45,11 +45,17 @@ const BESCHRIFTUNG = {
   salutation: 'Anrede', first_name: 'Vorname', last_name: 'Nachname',
   company: 'Unternehmen', position: 'Position', mobile: 'Mobilnummer',
   street: 'Straße', postal_code: 'PLZ', city: 'Ort',
+  // v0.493
+  company_seat: 'Sitz', company_register: 'Register und Nummer',
+  company_representative: 'Vertretungsberechtigte Person',
 };
 const GRUND_TEXT = {
   nda: 'Für die Vertraulichkeitsvereinbarung werden Sie Vertragspartei. Dafür brauchen wir Ihre vollständigen Kontaktdaten.',
   mandat: 'Damit wir wissen, wer das Mandat ansieht, brauchen wir diese Angaben.',
   anlegen: 'Für ein eigenes Mandat treten Sie selbst als Partei auf. Dafür brauchen wir Ihre vollständigen Kontaktdaten.',
+  // v0.493
+  frueh: 'Damit wir wissen, wer das Mandat ansieht, brauchen wir diese Angaben.',
+  vertrag: 'Diese Angaben benennen Ihre Gesellschaft im Kopf der Vertraulichkeitsvereinbarung. Ohne sie lässt sich nicht unterzeichnen.',
 };
 
 export default function Profile() {
@@ -68,7 +74,9 @@ export default function Profile() {
   const [revenueMin, setRevenueMin] = useState(0);
   const [revenueMax, setRevenueMax] = useState(100);
   // Kontaktdaten + Pitchbook-Selbstdarstellung
-  const [contact, setContact] = useState({ salutation: '', title: '', first_name: '', last_name: '', company: '', position: '', mobile: '', phone: '', street: '', postal_code: '', city: '', about: '', website: '', linkedin_url: '' });
+  const [contact, setContact] = useState({ salutation: '', title: '', first_name: '', last_name: '', company: '', position: '', mobile: '', phone: '', street: '', postal_code: '', city: '', about: '', website: '', linkedin_url: '',
+    // v0.493: Die Angaben, mit denen die Vereinbarung die Vertragspartei nennt.
+    company_seat: '', company_register: '', company_representative: '' });
   const [missingFields, setMissingFields] = useState(auftragFelder);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,6 +106,7 @@ export default function Profile() {
         company: d.user?.company || '', position: d.user?.position || '', mobile: d.user?.mobile || '', phone: d.user?.phone || '',
         street: d.user?.street || '', postal_code: d.user?.postal_code || '', city: d.user?.city || '',
         about: d.user?.about || '', website: d.user?.website || '', linkedin_url: d.user?.linkedin_url || '',
+        company_seat: d.user?.company_seat || '', company_register: d.user?.company_register || '', company_representative: d.user?.company_representative || '',
       });
       setMissingFields(d.missing_fields || []);
     }).finally(() => setLoading(false));
@@ -107,7 +116,16 @@ export default function Profile() {
 
   // Zum ersten fehlenden Feld rollen und hineinspringen, sobald die Seite steht.
   useEffect(() => {
-    if (loading || !auftragFelder.length) return;
+    if (loading) return;
+    // v0.493: „Startklar" verweist teils auf einen ganzen Bereich statt auf
+    // ein einzelnes Feld, etwa auf die Suchkriterien.
+    const bereich = suche.get('bereich');
+    if (bereich && !auftragFelder.length) {
+      const b = document.querySelector(`[data-bereich="${bereich}"]`);
+      if (b) b.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (!auftragFelder.length) return;
     const el = document.querySelector(`[data-feld="${auftragFelder[0]}"]`);
     if (!el) return;
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -248,6 +266,28 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* ── Ihre Gesellschaft im Vertrag (v0.493) ────────────────────────
+            Bisher wurden diese drei Angaben nur im Unterschriftsdialog
+            erhoben. Wer sie danach aendern wollte, fand keine Stelle dafuer.
+            Jetzt stehen sie hier, und „Startklar" verweist hierher. */}
+        <div style={card} data-bereich="vertragspartei">
+          <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '0.5rem', fontSize: '1rem' }}>{t('prof.vertragspartei', 'Ihre Gesellschaft im Vertrag')}</h2>
+          <p style={{ color: '#888', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
+            {t('prof.vertragspartei_text', 'Diese Angaben erscheinen im Kopf jeder Vertraulichkeitsvereinbarung, die Sie unterzeichnen.')}
+          </p>
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            {[['company_seat', t('prof.sitz', 'Sitz'), 'Erlangen'],
+              ['company_register', t('prof.register', 'Register und Nummer'), 'Amtsgericht Fürth, HRB 12345'],
+              ['company_representative', t('prof.vertreter', 'Vertretungsberechtigte Person'), 'Dr. Erika Mustermann']].map(([key, label, beispiel]) => (
+              <div key={key}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: '#333', marginBottom: '0.35rem' }}>{label}</label>
+                <input data-feld={key} value={contact[key]} onChange={setC(key)} placeholder={beispiel}
+                  style={{ ...INPUT, borderColor: missingFields.includes(key) ? '#f59e0b' : '#ddd' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Pitchbook-Selbstdarstellung */}
         <div style={card}>
           <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '0.5rem', fontSize: '1rem' }}>{t('prof.pitchbook', 'Ihr Profil (Pitchbook)')}</h2>
@@ -274,7 +314,7 @@ export default function Profile() {
 
         {/* Suchkriterien (nur Investoren) */}
         {isBuyer && (
-          <div style={card}>
+          <div style={card} data-bereich="suchkriterien">
             <h2 style={{ fontWeight: 600, color: C.navy, marginBottom: '1.5rem', fontSize: '1rem' }}>{t('prof.suchkriterien', 'Suchkriterien & Investment-Präferenzen')}</h2>
 
             <MultiSelect label={t('prof.branchen', 'Branchen')} options={auswahl(BRANCHEN, industries, lang)} value={industries} onChange={setIndustries} />
