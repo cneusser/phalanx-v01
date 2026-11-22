@@ -43,8 +43,18 @@ export function begruessung(user, jetzt = new Date()) {
  * Bewusst genau ein nächster Schritt und nicht eine Liste. Wer drei
  * gleichwertige Vorschläge sieht, macht keinen davon.
  */
-export function naechsterSchritt({ rolle, deals = 0, profilGepflegt = true, ndaGezeichnet = true }) {
+export function naechsterSchritt({ rolle, deals = 0, profilGepflegt = true, ndaGezeichnet = true, entwuerfe = 0 }) {
   if (rolle === 'seller') {
+    // v0.494: Ein Entwurf ist nicht eingereicht. Die Zeile sagte bisher „Ihr
+    // Unternehmen ist eingereicht", sobald überhaupt ein Mandat bestand, auch
+    // wenn es unveröffentlicht im Entwurf lag. Damit verschwieg sie genau den
+    // Zustand, an dem jemand hängenbleibt: Das Mandat ist angelegt, aber es
+    // sieht es niemand, und warum, stand nirgends.
+    if (entwuerfe > 0) {
+      return entwuerfe === 1
+        ? 'Ein Mandat liegt noch im Entwurf und ist damit nicht auf dem Marktplatz. Unten können Sie es einreichen.'
+        : `${entwuerfe} Mandate liegen noch im Entwurf und sind damit nicht auf dem Marktplatz. Unten können Sie sie einreichen.`;
+    }
     return deals > 0
       ? 'Ihr Unternehmen ist eingereicht. Unten sehen Sie, wie weit die einzelnen Interessenten sind.'
       : 'Als Nächstes: Reichen Sie Ihr Unternehmen ein. Wir prüfen es und melden uns bei Ihnen.';

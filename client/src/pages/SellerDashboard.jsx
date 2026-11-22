@@ -118,6 +118,25 @@ export default function SellerDashboard() {
       loadMyProjects();
     } catch (e) { showMsg('Fehler: ' + e.message); }
   }
+  // ── Entwurf weiterbringen (v0.494) ──────────────────────────────────────
+  // Zwei Wege, je nach Rolle: Der Verkaeufer reicht ein, die Verwaltung
+  // veroeffentlicht unmittelbar. Beide Routen gab es schon, nur keinen Knopf.
+  async function einreichen(p) {
+    try {
+      const r = await api.post(`/projects/${p.id}/submit`, {});
+      showMsg((r && r.message) || t('vk.eingereicht_kurz', 'Zur Prüfung eingereicht.'));
+      loadMyProjects();
+    } catch (e) { showMsg('Fehler: ' + e.message); }
+  }
+  async function veroeffentlichen(p) {
+    if (!window.confirm(t('vk.publish_frage', 'Mandat jetzt veröffentlichen? Der Teaser geht auf den Marktplatz, und passende Interessenten werden benachrichtigt.'))) return;
+    try {
+      await api.put(`/admin/projects/${p.id}/publish`, {});
+      showMsg(t('vk.veroeffentlicht', 'Veröffentlicht. Der Teaser ist auf dem Marktplatz.'));
+      loadMyProjects();
+    } catch (e) { showMsg('Fehler: ' + e.message); }
+  }
+
   function closeWizard(text) { setWizardEditId(undefined); showMsg(text); loadMyProjects(); }
 
   // Freigabe recherchierter Kandidaten (eigener Funnelschritt)
@@ -156,7 +175,12 @@ export default function SellerDashboard() {
             {begruessung(user)}
           </h1>
           <p style={{ color: C.gray, fontSize: '0.875rem' }}>
-            {naechsterSchritt({ rolle: 'seller', deals: (myProjects || []).length })}
+            {naechsterSchritt({
+              rolle: 'seller',
+              deals: (myProjects || []).length,
+              // v0.494: Entwuerfe sind nicht eingereicht, und das soll hier stehen.
+              entwuerfe: (myProjects || []).filter((x) => x.status === 'draft').length,
+            })}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -319,6 +343,21 @@ export default function SellerDashboard() {
                     {p.short_description}
                   </div>
                 )}
+                {/* ── Ein Entwurf sagt, dass er einer ist (v0.494) ──────────
+                    Anlass: „Ich hab ein neues Projekt LUMEN angelegt. Leider
+                    ist es nicht zu sehen. Was mach ich falsch?" Nichts. Ein
+                    neues Mandat steht auf Entwurf, der Marktplatz zeigt nur
+                    aktive, und das stand an keiner Stelle. Die Karte trug nur
+                    das Woertchen „Entwurf" und einen Knopf „Bearbeiten". */}
+                {p.status === 'draft' && (
+                  <div style={{ fontSize: '0.78rem', color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '0.45rem 0.7rem', marginTop: '0.5rem', maxWidth: 560, lineHeight: 1.55 }}>
+                    {t('vk.entwurf_hinweis', 'Noch nicht auf dem Marktplatz. Entwürfe sind nur für Sie sichtbar.')}
+                    {' '}
+                    {isAdmin
+                      ? t('vk.entwurf_admin', 'Mit „Veröffentlichen" geht der Teaser live und passende Interessenten werden benachrichtigt.')
+                      : t('vk.entwurf_verkaeufer', 'Mit „Zur Prüfung einreichen" sehen wir es uns an und schalten es frei.')}
+                  </div>
+                )}
                 {p.status === 'draft' && p.review_note && (
                   <div style={{ fontSize: '0.78rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '0.4rem 0.6rem', marginTop: '0.5rem', maxWidth: 500 }}>
                     Zurückgewiesen: {p.review_note}
@@ -336,6 +375,19 @@ export default function SellerDashboard() {
                 )}
                 {p.status !== 'closed' && (
                   <button onClick={() => setWizardEditId(p.id)} style={smallBtn}>Bearbeiten</button>
+                )}
+                {/* Der Knopf, der bisher fehlte. Der Server kann beides seit
+                    Langem, die Oberflaeche hat es nie angeboten (v0.494). */}
+                {p.status === 'draft' && (
+                  isAdmin ? (
+                    <button onClick={() => veroeffentlichen(p)} style={{ ...smallBtn, background: '#065f46', color: '#fff', borderColor: '#065f46' }}>
+                      {t('vk.veroeffentlichen', 'Veröffentlichen')}
+                    </button>
+                  ) : (
+                    <button onClick={() => einreichen(p)} style={{ ...smallBtn, background: C.navy, color: '#fff', borderColor: C.navy }}>
+                      {t('vk.einreichen', 'Zur Prüfung einreichen')}
+                    </button>
+                  )
                 )}
                 {p.status === 'active' && (
                   <button onClick={() => lifecycle(p.id, 'paused')} style={smallBtn}>Pausieren</button>
