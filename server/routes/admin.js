@@ -23,6 +23,72 @@ const isAdmin = [authenticate, (req, res, next) => {
 }];
 const canManageUsers = requirePermission('users.manage');
 
+// ── Die Rechte-Matrix gilt jetzt auch beim Schreiben (v0.495) ──────────────
+//
+// Die Wache isAdmin prueft perms.isStaff und laesst damit Assistenz und
+// Analyst durch. Fuer das Lesen ist das gewollt. Beim Schreiben war es ein
+// Versehen mit Ansage: Die Rolle „Analyst (nur lesen)" konnte Mandate
+// loeschen, Datenraeume freigeben und NDAs bewilligen, weil an 39 der 49
+// schreibenden Routen hier ausser isAdmin nichts stand. Die Rechte dafuer
+// gibt es laengst (middleware/permissions.js), sie wurden nur nicht verlangt.
+//
+// Was sich dadurch aendert, in Rollen gesprochen:
+//   super_admin, tenant_owner   unveraendert, sie haben alle Rechte
+//   advisor                     unveraendert, ausser Loeschen von Mandaten
+//                               (projects.delete hat er nicht) und
+//                               Nutzerverwaltung (hatte er auch bisher nicht)
+//   assistant                   darf weiter pflegen, aber nicht mehr
+//                               veroeffentlichen, loeschen, freigeben
+//   analyst                     schreibt gar nicht mehr, wie beschriftet
+const darfMandatePflegen   = requirePermission('projects.write');
+const darfVeroeffentlichen = requirePermission('projects.publish');
+const darfMandateLoeschen  = requirePermission('projects.delete');
+const darfAufgaben         = requirePermission('tasks.write');
+const darfBewerten         = requirePermission('valuation.review');
+const darfCrmPflegen       = requirePermission('crm.write');
+
+// ── Nur am eigenen Mandat (v0.495) ─────────────────────────────────────────
+//
+// Die Rechte-Matrix sagt, WAS jemand darf. Sie sagt nicht, AN WELCHEM MANDAT.
+// Für super_admin und tenant_owner ist das richtig so, für die Beratung nicht:
+// Sie betreut ihre Mandate, nicht alle. Diese Wache stellt die Frage, die
+// bisher niemand stellte.
+//
+// `woher` sagt, wie das Mandat zu finden ist: aus einem Pfadteil oder, bei
+// Vereinbarungen und Fragen, über den Datensatz.
+const { VOLLZUGRIFF_ROLLEN, canManage } = require('../utils/projectAccess');
+
+function amMandat(woher) {
+  return async (req, res, next) => {
+    try {
+      if (!req.user) return res.status(401).json({ success: false, error: 'Nicht authentifiziert' });
+      if (VOLLZUGRIFF_ROLLEN.includes(req.user.role)) return next();
+
+      let projectId = null;
+      if (typeof woher === 'function') projectId = await woher(req);
+      else projectId = req.params[woher];
+      if (!projectId) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+
+      if (await canManage((sql, p) => db.get(sql, p), req.user, Number(projectId))) return next();
+      db.auditLog(req.user.id, 'ZUGRIFF_ABGEWIESEN', 'project', projectId,
+        `Rolle ${req.user.role} ohne Zuordnung zu diesem Mandat`, req.ip);
+      return res.status(403).json({
+        success: false, code: 'NICHT_MEIN_MANDAT',
+        error: 'Dieses Mandat ist Ihnen nicht zugeordnet. Die Verwaltung kann Sie als Mitglied eintragen.',
+      });
+    } catch (e) { return next(e); }
+  };
+}
+
+const mandatAusNda = async (req) => {
+  const r = await db.get('SELECT project_id FROM nda_requests WHERE id = ?', [req.params.id]);
+  return r && r.project_id;
+};
+const mandatAusFrage = async (req) => {
+  const r = await db.get('SELECT project_id FROM qa_threads WHERE id = ?', [req.params.id]);
+  return r && r.project_id;
+};
+
 // ── Wirklich nur Verwaltende (v0.454) ──────────────────────────────────────
 //
 // Die Wache oben heisst isAdmin, prueft aber perms.isStaff und laesst damit
@@ -698,7 +764,7 @@ router.get('/projects', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: projects });
 }));
 
-router.post('/projects', ...isAdmin, wrap(async (req, res) => {
+router.post('/projects', ...isAdmin, darfMandatePflegen, wrap(async (req, res) => {
   const { codename, industry, region, revenue_band, ebitda_band, deal_type, short_description, highlights, status,
           mandate_type, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city } = req.body;
   if (!codename || !industry || !region || !short_description)
@@ -733,7 +799,7 @@ router.post('/projects', ...isAdmin, wrap(async (req, res) => {
 // anderes passiert: Die Nummer wird nicht gepflegt, sie wird uebernommen. Sie
 // stammt aus Phalanx OS, und CapitalMatch vergibt keine. Zwei Systeme, die
 // beide vergeben, vergeben irgendwann dieselbe.
-router.put('/projects/:id/phalanx-nummer', ...isAdmin, wrap(async (req, res) => {
+router.put('/projects/:id/phalanx-nummer', ...isAdmin, darfMandatePflegen, amMandat('id'), wrap(async (req, res) => {
   const pp = require('../utils/phalanxProjekt');
   const gelesen = pp.nummerLesen(req.body.nummer);
   if (gelesen.fehler) return res.status(400).json({ success: false, error: gelesen.fehler });
@@ -772,7 +838,7 @@ router.put('/projects/:id/phalanx-nummer', ...isAdmin, wrap(async (req, res) => 
   } });
 }));
 
-router.put('/projects/:id', ...isAdmin, wrap(async (req, res) => {
+router.put('/projects/:id', ...isAdmin, darfMandatePflegen, amMandat('id'), wrap(async (req, res) => {
   const { codename, industry, region, revenue_band, revenue_class, ebitda_band, deal_type, short_description, highlights, status,
           mandate_type, stage, investment_needed, equity_stake, post_money_valuation, tam_band, sector_emoji, location_city } = req.body;
   // Sprint 18: alten Stand laden, um Änderungen zu erkennen (Follower-Mail / Publish-Kaskade)
@@ -828,7 +894,7 @@ router.put('/projects/:id', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // Publish project (set active): synchronisiert deal_status
-router.put('/projects/:id/publish', ...isAdmin, wrap(async (req, res) => {
+router.put('/projects/:id/publish', ...isAdmin, darfVeroeffentlichen, amMandat('id'), wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename, deal_status FROM projects WHERE id = ?', [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
   await db.run(`UPDATE projects SET status = 'active', deal_status = CASE WHEN deal_status = 'draft' THEN 'teaser_live' ELSE deal_status END, updated_at = now() WHERE id = ?`, [req.params.id]);
@@ -844,7 +910,7 @@ router.put('/projects/:id/publish', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // Unpublish project (set draft): synchronisiert deal_status
-router.put('/projects/:id/unpublish', ...isAdmin, wrap(async (req, res) => {
+router.put('/projects/:id/unpublish', ...isAdmin, darfVeroeffentlichen, amMandat('id'), wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
   await db.run(`UPDATE projects SET status = 'draft', deal_status = 'draft', updated_at = now() WHERE id = ?`, [req.params.id]);
@@ -867,7 +933,7 @@ router.get('/projects/review-queue', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // ── Moderation eines eingereichten Inserats: freigeben oder zurückweisen ────
-router.post('/projects/:id/moderate', ...isAdmin, wrap(async (req, res) => {
+router.post('/projects/:id/moderate', ...isAdmin, darfVeroeffentlichen, amMandat('id'), wrap(async (req, res) => {
   const action = String(req.body.action || '');
   const note = req.body.note ? String(req.body.note).slice(0, 1000) : null;
   const project = await db.get('SELECT id, codename, deal_status, status FROM projects WHERE id = ?', [req.params.id]);
@@ -901,7 +967,7 @@ router.post('/projects/:id/moderate', ...isAdmin, wrap(async (req, res) => {
 // Entfernt das Mandat samt aller abhängigen Daten (Interessen, NDAs, Q&A,
 // Aufgaben, Rechte, Zuordnungen: via FK-Kaskaden) und aller Dateien
 // (Dokumente, Projektbild, signierte NDA-PDFs). Nicht umkehrbar.
-router.delete('/projects/:id', ...isAdmin, wrap(async (req, res) => {
+router.delete('/projects/:id', ...isAdmin, darfMandateLoeschen, amMandat('id'), wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename, image_path FROM projects WHERE id = ?', [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
 
@@ -929,7 +995,7 @@ router.delete('/projects/:id', ...isAdmin, wrap(async (req, res) => {
 // ── Deal-Zustandsautomat (Sprint 2) ───────────────────────────────────────
 // Deal-Status setzen: nur erlaubte Übergänge (State Machine wird serverseitig
 // erzwungen, kein freies Setzen möglich)
-router.put('/projects/:id/deal-status', ...isAdmin, wrap(async (req, res) => {
+router.put('/projects/:id/deal-status', ...isAdmin, darfMandatePflegen, amMandat('id'), wrap(async (req, res) => {
   const { deal_status } = req.body;
   const project = await db.get('SELECT id, codename, deal_status FROM projects WHERE id = ?', [req.params.id]);
   if (!project) return res.status(404).json({ success: false, error: 'Projekt nicht gefunden' });
@@ -1005,7 +1071,7 @@ router.get('/projects/:id/members', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: members });
 }));
 
-router.post('/projects/:id/members', ...isAdmin, wrap(async (req, res) => {
+router.post('/projects/:id/members', ...isAdmin, darfMandatePflegen, amMandat('id'), wrap(async (req, res) => {
   const { user_id } = req.body;
   if (!user_id) return res.status(400).json({ success: false, error: 'user_id fehlt' });
   const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.id]);
@@ -1028,7 +1094,7 @@ router.post('/projects/:id/members', ...isAdmin, wrap(async (req, res) => {
   res.status(201).json({ success: true, data: { message: 'Nutzer zugeordnet' } });
 }));
 
-router.delete('/projects/:id/members/:userId', ...isAdmin, wrap(async (req, res) => {
+router.delete('/projects/:id/members/:userId', ...isAdmin, darfMandatePflegen, amMandat('id'), wrap(async (req, res) => {
   await db.run('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [req.params.id, req.params.userId]);
   db.auditLog(req.user.id, 'PROJECT_MEMBER_REMOVED', 'project', req.params.id, `User #${req.params.userId} entfernt`, req.ip);
   res.json({ success: true, data: { message: 'Zuordnung entfernt' } });
@@ -1232,7 +1298,7 @@ router.get('/ndas', ...isAdmin, wrap(async (req, res) => {
 // Institutionelle Investoren zeichnen in der Regel kein NDA. Statt der
 // Unterschrift entscheidet hier die Beratung ausdrücklich, wer die Unterlagen
 // sehen darf. So bleiben Wettbewerber trotzdem draußen.
-router.post('/projects/:projectId/interests/:userId/grant-documents', ...isAdmin, wrap(async (req, res) => {
+router.post('/projects/:projectId/interests/:userId/grant-documents', ...isAdmin, darfMandatePflegen, amMandat('projectId'), wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename, mandate_type FROM projects WHERE id = ?', [req.params.projectId]);
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
   if (project.mandate_type !== 'fundraising') {
@@ -1263,7 +1329,7 @@ router.post('/projects/:projectId/interests/:userId/grant-documents', ...isAdmin
 }));
 
 // Freigabe wieder entziehen (Interessent zurück auf „angefragt")
-router.post('/projects/:projectId/interests/:userId/revoke-documents', ...isAdmin, wrap(async (req, res) => {
+router.post('/projects/:projectId/interests/:userId/revoke-documents', ...isAdmin, darfMandatePflegen, amMandat('projectId'), wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.projectId]);
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
   await db.run(
@@ -1278,7 +1344,7 @@ router.post('/projects/:projectId/interests/:userId/revoke-documents', ...isAdmi
 // Der Berater entscheidet ausdrücklich, dass ein Käufer den Datenraum sehen darf.
 // Setzt die echte Stage 'dataroom_granted' und damit die Datenraum-Rechte
 // (Lesen + Download + Q&A). Funktioniert für M&A und Finanzierung.
-router.post('/projects/:projectId/interests/:userId/grant-dataroom', ...isAdmin, wrap(async (req, res) => {
+router.post('/projects/:projectId/interests/:userId/grant-dataroom', ...isAdmin, darfMandatePflegen, amMandat('projectId'), wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename FROM projects WHERE id = ?', [req.params.projectId]);
   if (!project) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
   const buyer = await db.get('SELECT id, email, first_name FROM users WHERE id = ?', [req.params.userId]);
@@ -1315,7 +1381,7 @@ router.post('/projects/:projectId/interests/:userId/grant-dataroom', ...isAdmin,
 //   3. Sie fasst ausschliesslich an, was sie selbst angelegt hat: Mandate mit
 //      dem Vorsatz „DEMO_" und Konten auf der Domäne @demo.capitalmatch.invalid.
 //      Alles andere bleibt unberührt, auch auf der Teststufe.
-router.post('/teststufe/demowelt', ...isAdmin, wrap(async (req, res) => {
+router.post('/teststufe/demowelt', ...isAdmin, darfMandateLoeschen, wrap(async (req, res) => {
   const stufen = require('../utils/stufe');
   if (!stufen.istTeststufe()) {
     return res.status(403).json({
@@ -1351,7 +1417,7 @@ router.get('/users/:userId/datenraum-offen', ...isAdmin, wrap(async (req, res) =
 // (z. B. aus dem Chat). Die Regel steht in utils/datenraumFreigabe.js und ist
 // dieselbe wie bei der Mandatsroute: ohne Unterschrift keine Freigabe, einzige
 // Ausnahme sind Startup-Finanzierungen.
-router.post('/projects/:projectId/interests/:userId/approve-nda', ...isAdmin, wrap(async (req, res) => {
+router.post('/projects/:projectId/interests/:userId/approve-nda', ...isAdmin, darfMandatePflegen, amMandat('projectId'), wrap(async (req, res) => {
   const buyer = await db.get('SELECT id, email, first_name FROM users WHERE id = ?', [req.params.userId]);
   if (!buyer) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
 
@@ -1374,7 +1440,7 @@ router.post('/projects/:projectId/interests/:userId/approve-nda', ...isAdmin, wr
 }));
 
 // Datenraum-Zugang wieder entziehen (Rechte löschen, Stage zurücksetzen)
-router.post('/projects/:projectId/interests/:userId/revoke-dataroom', ...isAdmin, wrap(async (req, res) => {
+router.post('/projects/:projectId/interests/:userId/revoke-dataroom', ...isAdmin, darfMandatePflegen, amMandat('projectId'), wrap(async (req, res) => {
   const pid = req.params.projectId; const uid = req.params.userId;
 
   // Zuerst feststellen, ob es überhaupt etwas zu entziehen gibt. Ohne diese
@@ -1433,7 +1499,7 @@ router.get('/projects/:projectId/kontakt-freigaben', ...isAdmin, wrap(async (req
   res.json({ success: true, data: { codename: projekt.codename, gegenseite_user_id: gegenseite, zeilen } });
 }));
 
-router.post('/projects/:projectId/kontakt-freigaben', ...isAdmin, wrap(async (req, res) => {
+router.post('/projects/:projectId/kontakt-freigaben', ...isAdmin, darfMandatePflegen, amMandat('projectId'), wrap(async (req, res) => {
   const kf = require('../utils/kontaktFreigabe');
   const pid = Number(req.params.projectId);
   const interessentId = Number(req.body.interessent_id);
@@ -1453,7 +1519,7 @@ router.post('/projects/:projectId/kontakt-freigaben', ...isAdmin, wrap(async (re
   res.json({ success: true, data: { freigegeben: true } });
 }));
 
-router.delete('/projects/:projectId/kontakt-freigaben/:interessentId', ...isAdmin, wrap(async (req, res) => {
+router.delete('/projects/:projectId/kontakt-freigaben/:interessentId', ...isAdmin, darfMandatePflegen, amMandat('projectId'), wrap(async (req, res) => {
   const kf = require('../utils/kontaktFreigabe');
   const pid = Number(req.params.projectId);
   const projekt = await db.get('SELECT id, created_by FROM projects WHERE id = ?', [pid]);
@@ -1465,7 +1531,7 @@ router.delete('/projects/:projectId/kontakt-freigaben/:interessentId', ...isAdmi
   res.json({ success: true, data: { widerrufen: r.ok, hinweis: r.hinweis || null } });
 }));
 
-router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {
+router.put('/ndas/:id/approve', ...isAdmin, darfMandatePflegen, amMandat(mandatAusNda), wrap(async (req, res) => {
   const nda = await db.get('SELECT * FROM nda_requests WHERE id = ?', [req.params.id]);
   if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });
   // Datenraum-Freigabe setzt eine Unterschrift voraus. Ausnahme: Startup-
@@ -1498,7 +1564,7 @@ router.put('/ndas/:id/approve', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'NDA freigegeben' } });
 }));
 
-router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
+router.put('/ndas/:id/reject', ...isAdmin, darfMandatePflegen, amMandat(mandatAusNda), wrap(async (req, res) => {
   const nda = await db.get('SELECT * FROM nda_requests WHERE id = ?', [req.params.id]);
   if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });
   await db.run(`UPDATE nda_requests SET status='rejected', rejected_at=now() WHERE id=?`, [req.params.id]);
@@ -1524,7 +1590,7 @@ router.put('/ndas/:id/reject', ...isAdmin, wrap(async (req, res) => {
 // Interessent für ein Mandat stummschalten: Zugang bleibt, Benachrichtigungen
 // zu diesem Mandat gehen nicht mehr an ihn hinaus. Für Fälle, in denen jemand
 // ausdrücklich darum bittet.
-router.put('/interests/:projectId/:userId/stumm', ...isAdmin, wrap(async (req, res) => {
+router.put('/interests/:projectId/:userId/stumm', ...isAdmin, darfMandatePflegen, amMandat('projectId'), wrap(async (req, res) => {
   const projectId = parseInt(req.params.projectId, 10);
   const userId = parseInt(req.params.userId, 10);
   const stumm = (req.body || {}).stumm !== false;
@@ -1542,7 +1608,7 @@ router.put('/interests/:projectId/:userId/stumm', ...isAdmin, wrap(async (req, r
 }));
 
 // Erinnerung an eine ausstehende NDA-Unterschrift von Hand auslösen.
-router.put('/ndas/:id/erinnern', ...isAdmin, wrap(async (req, res) => {
+router.put('/ndas/:id/erinnern', ...isAdmin, darfMandatePflegen, amMandat(mandatAusNda), wrap(async (req, res) => {
   const r = await require('../utils/ndaReminders').erinnereEinzeln(parseInt(req.params.id, 10), {
     actorId: req.user.id, ip: req.ip, force: (req.body || {}).force === true,
   });
@@ -1554,7 +1620,7 @@ router.put('/ndas/:id/erinnern', ...isAdmin, wrap(async (req, res) => {
 // fordert die Unterschrift nachträglich an: Status zurück auf 'sent', damit der
 // Käufer online (§10) zeichnen kann. Der bereits gewährte Zugriff (Stage) bleibt
 // unangetastet; das Nachsignieren stuft ihn nicht zurück (siehe ndas.js).
-router.put('/ndas/:id/request-signature', ...isAdmin, wrap(async (req, res) => {
+router.put('/ndas/:id/request-signature', ...isAdmin, darfMandatePflegen, amMandat(mandatAusNda), wrap(async (req, res) => {
   const nda = await db.get('SELECT * FROM nda_requests WHERE id = ?', [req.params.id]);
   if (!nda) return res.status(404).json({ success: false, error: 'NDA nicht gefunden' });
   if (nda.online_consent_at) {
@@ -1590,7 +1656,7 @@ router.get('/phalanx/ping', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: await phalanxPool.ping() });
 }));
 
-router.post('/phalanx/sync', ...isAdmin, wrap(async (req, res) => {
+router.post('/phalanx/sync', ...isAdmin, darfCrmPflegen, wrap(async (req, res) => {
   if (!phalanxPool.isConfigured()) return res.status(503).json({ success: false, error: 'Phalanx OS ist nicht konfiguriert.' });
   // voll=true liest den ganzen Pool, nicht nur das seit dem letzten Lauf Geänderte.
   const voll = req.body && (req.body.voll === true || req.body.voll === 'true');
@@ -1607,7 +1673,7 @@ router.get('/phalanx/reviews', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: rows });
 }));
 
-router.post('/phalanx/reviews/:id/resolve', ...isAdmin, wrap(async (req, res) => {
+router.post('/phalanx/reviews/:id/resolve', ...isAdmin, darfCrmPflegen, wrap(async (req, res) => {
   await db.run(`UPDATE phalanx_pool_review SET resolved_at = now(), resolved_by = ? WHERE id = ?`, [req.user.id, req.params.id]).catch(() => {});
   res.json({ success: true, data: { message: 'Erledigt' } });
 }));
@@ -1886,7 +1952,7 @@ router.get('/questions', ...isAdmin, wrap(async (req, res) => {
 // Es wird nichts versendet und niemand benachrichtigt. Das ist kein Vergessen,
 // sondern der Zweck: Erfasst wird eine Frage, die der Absender bereits kennt,
 // er hat sie ja gestellt.
-router.post('/questions', ...isAdmin, wrap(async (req, res) => {
+router.post('/questions', ...isAdmin, darfMandatePflegen, wrap(async (req, res) => {
   const { istQaStand, QA_STAND_WERTE } = require('../utils/vokabular');
   const fragen = Array.isArray(req.body.fragen) ? req.body.fragen : [req.body];
   if (!fragen.length) return res.status(400).json({ success: false, error: 'Keine Frage übergeben.' });
@@ -1954,7 +2020,7 @@ router.post('/questions', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // ── Q&A: Kategorie, Verantwortlicher, Stand und interne Notiz pflegen ─────
-router.put('/questions/:id', ...isAdmin, wrap(async (req, res) => {
+router.put('/questions/:id', ...isAdmin, darfMandatePflegen, amMandat(mandatAusFrage), wrap(async (req, res) => {
   const { istQaStand } = require('../utils/vokabular');
   const q = await db.get('SELECT * FROM qa_threads WHERE id = ?', [req.params.id]);
   if (!q) return res.status(404).json({ success: false, error: 'Frage nicht gefunden' });
@@ -1984,7 +2050,7 @@ router.put('/questions/:id', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // ── Sprint 4: Q&A beantworten ─────────────────────────────────────────────
-router.put('/questions/:id/answer', ...isAdmin, wrap(async (req, res) => {
+router.put('/questions/:id/answer', ...isAdmin, darfMandatePflegen, amMandat(mandatAusFrage), wrap(async (req, res) => {
   const { answer } = req.body;
   // Standard: Antwort geht per Mail an den Fragesteller und bleibt privat.
   const notify = req.body.notify !== false;
@@ -2020,7 +2086,7 @@ router.put('/questions/:id/answer', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // Sichtbarkeit einer beantworteten Frage umschalten (FAQ im Mandat)
-router.put('/questions/:id/visibility', ...isAdmin, wrap(async (req, res) => {
+router.put('/questions/:id/visibility', ...isAdmin, darfMandatePflegen, amMandat(mandatAusFrage), wrap(async (req, res) => {
   const q = await db.get('SELECT * FROM qa_threads WHERE id = ?', [req.params.id]);
   if (!q) return res.status(404).json({ success: false, error: 'Frage nicht gefunden' });
   if (q.status !== 'answered' && req.body.is_public === true) {
@@ -2034,7 +2100,7 @@ router.put('/questions/:id/visibility', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // Frage löschen (z. B. Test- oder Dublettenfrage)
-router.delete('/questions/:id', ...isAdmin, wrap(async (req, res) => {
+router.delete('/questions/:id', ...isAdmin, darfMandatePflegen, amMandat(mandatAusFrage), wrap(async (req, res) => {
   const q = await db.get('SELECT * FROM qa_threads WHERE id = ?', [req.params.id]);
   if (!q) return res.status(404).json({ success: false, error: 'Frage nicht gefunden' });
   await db.run('DELETE FROM qa_threads WHERE id = ?', [req.params.id]);
@@ -2049,7 +2115,7 @@ router.get('/projects/:id/permissions/:userId', ...isAdmin, wrap(async (req, res
   res.json({ success: true, data: { dataroom: dataroom ? dataroom.level : 'none', qa: rows.some(r => r.resource === 'qa') } });
 }));
 
-router.put('/projects/:id/permissions/:userId', ...isAdmin, wrap(async (req, res) => {
+router.put('/projects/:id/permissions/:userId', ...isAdmin, darfMandatePflegen, amMandat('id'), wrap(async (req, res) => {
   const { dataroom, qa } = req.body; // dataroom: 'download' | 'read' | 'none'; qa: bool
   if (dataroom === 'none') {
     await db.run(`DELETE FROM permissions WHERE project_id = ? AND user_id = ? AND resource = 'dataroom'`, [req.params.id, req.params.userId]);
@@ -2077,7 +2143,7 @@ router.get('/tasks', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: await db.all(sql, params) });
 }));
 
-router.post('/tasks', ...isAdmin, wrap(async (req, res) => {
+router.post('/tasks', ...isAdmin, darfAufgaben, wrap(async (req, res) => {
   const { title, due_date, project_id, owner_id } = req.body;
   if (!title || !title.trim()) return res.status(400).json({ success: false, error: 'Titel fehlt' });
   const id = await db.insert(`INSERT INTO tasks (title, due_date, project_id, owner_id) VALUES (?, ?, ?, ?)`,
@@ -2085,7 +2151,7 @@ router.post('/tasks', ...isAdmin, wrap(async (req, res) => {
   res.status(201).json({ success: true, data: { id } });
 }));
 
-router.put('/tasks/:id', ...isAdmin, wrap(async (req, res) => {
+router.put('/tasks/:id', ...isAdmin, darfAufgaben, wrap(async (req, res) => {
   const { status, title, due_date } = req.body;
   await db.run(`UPDATE tasks SET
       status = COALESCE(?, status),
@@ -2097,7 +2163,7 @@ router.put('/tasks/:id', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { message: 'Aufgabe aktualisiert' } });
 }));
 
-router.delete('/tasks/:id', ...isAdmin, wrap(async (req, res) => {
+router.delete('/tasks/:id', ...isAdmin, darfAufgaben, wrap(async (req, res) => {
   await db.run(`DELETE FROM tasks WHERE id = ?`, [req.params.id]);
   res.json({ success: true, data: { message: 'Aufgabe gelöscht' } });
 }));
@@ -2223,7 +2289,7 @@ router.get('/berichte/adressen', ...isAdmin, wrap(async (req, res) => {
 // Übernahme, ausschließlich der sicheren Fälle und nur auf ausdrückliche
 // Anforderung. Die einzeilige Adresse bleibt stehen: Sie ist der Rückweg,
 // falls eine Zerlegung doch danebenging.
-router.post('/berichte/adressen/anwenden', ...isAdmin, wrap(async (req, res) => {
+router.post('/berichte/adressen/anwenden', ...isAdmin, darfCrmPflegen, wrap(async (req, res) => {
   const adr = require('../utils/adressfelder');
   const nurIds = Array.isArray(req.body.ids) && req.body.ids.length
     ? req.body.ids.map(Number).filter(Number.isFinite) : null;
@@ -2335,7 +2401,7 @@ router.get('/berichte/multiples', ...isAdmin, wrap(async (req, res) => {
 
 // Einen Stand aktiv schalten. Bewusst eine eigene Handlung: Welche Multiples
 // gelten, ist eine fachliche Entscheidung und kein Nebeneffekt einer Pflege.
-router.post('/berichte/multiples/aktivieren', ...isAdmin, wrap(async (req, res) => {
+router.post('/berichte/multiples/aktivieren', ...isAdmin, darfBewerten, wrap(async (req, res) => {
   const stand = String(req.body.stand || '').trim();
   if (!stand) return res.status(400).json({ success: false, error: 'Bitte den Stand angeben.' });
   const da = await db.get('SELECT COUNT(*)::int AS n FROM valuation_multiples WHERE stand = ?', [stand]);
@@ -2587,7 +2653,7 @@ router.get('/berichte/datenraum/:projectId', ...isAdmin, wrap(async (req, res) =
  * falschen Stufe ist ein Datenschutzvorfall. Die Stufe „offen" setzt die Route
  * grundsätzlich nicht, darüber entscheidet die Freigabe im Datenraum.
  */
-router.post('/berichte/datenraum/:projectId/anwenden', ...isAdmin, wrap(async (req, res) => {
+router.post('/berichte/datenraum/:projectId/anwenden', ...isAdmin, darfMandatePflegen, amMandat('projectId'), wrap(async (req, res) => {
   const { planen, ORDNER } = require('../utils/datenraumPlan');
   const pid = parseInt(req.params.projectId, 10);
   const was = String((req.body || {}).was || '');
@@ -2653,7 +2719,7 @@ router.get('/berichte/fehler', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: rows });
 }));
 
-router.post('/berichte/fehler/:id/erledigt', ...isAdmin, wrap(async (req, res) => {
+router.post('/berichte/fehler/:id/erledigt', ...isAdmin, darfMandatePflegen, wrap(async (req, res) => {
   const id = parseInt(req.params.id, 10);
   // Umschalten statt nur setzen: Ein zu früh abgehakter Fehler lässt sich so
   // wieder öffnen, ohne dass man in die Datenbank muss.
@@ -2785,7 +2851,7 @@ router.get('/valuation-multiples', ...isAdmin, wrap(async (req, res) => {
 }));
 
 // Pflegbare Multiples-Zeile aktualisieren (Branche × Größenklasse, DUB-Struktur).
-router.put('/valuation-multiples/:id', ...isAdmin, wrap(async (req, res) => {
+router.put('/valuation-multiples/:id', ...isAdmin, darfBewerten, wrap(async (req, res) => {
   const FIELDS = [
     'label', 'source',
     'micro_ebit_min', 'micro_ebit_max',

@@ -81,8 +81,10 @@ async function streamDocument(res, doc, user, projectId, via) {
   // gewasserzeichnet: Name, E-Mail und Datum. So trägt jedes Exemplar seinen Empfänger.
   const needsWatermark = isPdf;
 
-  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.filename)}"`);
-  res.setHeader('Content-Type', doc.file_type || 'application/octet-stream');
+  // v0.495: Typ aus der Endung, Anhang statt Anzeige, nosniff. Hier war die
+  // Auslieferung schon richtig (immer attachment); die gemeinsame Funktion
+  // haelt es so und ergaenzt die Kopfzeilen.
+  dateitypen.kopfzeilen(res, doc.filename, doc.file_type, false);
 
   const ablage = require('../utils/dateiAblage');
   const inhalt = await ablage.holen(doc);
@@ -106,7 +108,28 @@ const { mitFehlermeldung } = require('../utils/hochladen');
 const router = express.Router();
 const isAdmin = [authenticate, requireRole('super_admin', 'advisor')];
 
+// ── Nur am eigenen Mandat (v0.495) ─────────────────────────────────────────
+// Dieselbe Begrenzung wie in admin.js: Die Rolle sagt, was jemand kann, nicht
+// an welchem Mandat. Fuer die Beratung entscheidet ab hier die Zuordnung.
+const { VOLLZUGRIFF_ROLLEN, canManage } = require('../utils/projectAccess');
+const amMandat = async (req, res, next) => {
+  try {
+    if (!req.user) return res.status(401).json({ success: false, error: 'Nicht authentifiziert' });
+    if (VOLLZUGRIFF_ROLLEN.includes(req.user.role)) return next();
+    const pid = Number(req.params.projectId);
+    if (pid && await canManage((sql, p) => db.get(sql, p), req.user, pid)) return next();
+    db.auditLog(req.user.id, 'ZUGRIFF_ABGEWIESEN', 'project', pid || null,
+      `Rolle ${req.user.role} ohne Zuordnung zu diesem Mandat`, req.ip);
+    return res.status(403).json({
+      success: false, code: 'NICHT_MEIN_MANDAT',
+      error: 'Dieses Mandat ist Ihnen nicht zugeordnet. Die Verwaltung kann Sie als Mitglied eintragen.',
+    });
+  } catch (e) { return next(e); }
+};
+
 // ── Upload-Verzeichnis (persistent: Railway-Volume bevorzugt) ──────────────
+const dateitypen = require('../utils/dateitypen');
+
 const UPLOAD_DIR = process.env.UPLOAD_DIR
   || (process.env.RAILWAY_VOLUME_MOUNT_PATH
         ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads')
@@ -140,21 +163,13 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
-  fileFilter: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    // UND, nicht ODER (v0.473): Den Mimetype bestimmt der Absender frei. Mit
-    // ODER genuegte die Behauptung „application/pdf", und eine .html-Datei
-    // landete im Bestand.
-    if (ALLOWED_TYPES.has(file.mimetype) && ALLOWED_EXT.has(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Dateityp nicht erlaubt: ${file.mimetype}`), false);
-    }
-  },
+  // v0.495: Dieselbe Liste wie der Datenraum (utils/dateitypen.js). Die
+  // Prueflogik ist unveraendert streng, sie steht nur nicht mehr zweimal da.
+  fileFilter: dateitypen.multerFilter,
 });
 
 // ── POST /api/documents/:projectId  (Admin only) ───────────
-router.post('/:projectId', ...isAdmin, mitFehlermeldung(upload.single('file'), 52428800), wrap(async (req, res) => {
+router.post('/:projectId', ...isAdmin, amMandat, mitFehlermeldung(upload.single('file'), 52428800), wrap(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen' });
 
   const { projectId } = req.params;
@@ -500,7 +515,7 @@ router.get('/:projectId/:docId/download', authenticate, wrap(async (req, res) =>
 }));
 
 // ── DELETE /api/documents/:projectId/:docId  (Admin only) ──
-router.delete('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
+router.delete('/:projectId/:docId', ...isAdmin, amMandat, wrap(async (req, res) => {
   const { projectId, docId } = req.params;
   const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
   if (!doc) return res.status(404).json({ success: false, error: 'Dokument nicht gefunden' });
@@ -517,7 +532,7 @@ router.delete('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
 // ── PATCH /api/documents/:projectId/:docId  (Admin: Einordnung ändern) ─────
 // Zugangslevel (public/nda/approved) und/oder Bezeichnung nachträglich anpassen.
 // Kategorie (teaser/im/dataroom) wird passend zum access_level mitgeführt.
-router.patch('/:projectId/:docId', ...isAdmin, wrap(async (req, res) => {
+router.patch('/:projectId/:docId', ...isAdmin, amMandat, wrap(async (req, res) => {
   const { projectId, docId } = req.params;
   const { access_level, description } = req.body;
   const doc = await db.get('SELECT * FROM documents WHERE id = ? AND project_id = ?', [docId, projectId]);
@@ -605,7 +620,7 @@ router.get('/:projectId/:docId/grants', ...isAdmin, wrap(async (req, res) => {
   res.json({ success: true, data: { restricted: doc.restricted === 1, grants, recipients, buyer_groups: BUYER_GROUPS.map(([k, l]) => ({ key: k, label: l })), groups: ownGroups } });
 }));
 
-router.post('/:projectId/:docId/grants', ...isAdmin, wrap(async (req, res) => {
+router.post('/:projectId/:docId/grants', ...isAdmin, amMandat, wrap(async (req, res) => {
   const { projectId, docId } = req.params;
   const subjectType = SUBJECT_TYPES.includes(req.body.subject_type) ? req.body.subject_type : 'user';
   const level = ['read', 'download'].includes(req.body.level) ? req.body.level : 'read';
@@ -639,7 +654,7 @@ router.post('/:projectId/:docId/grants', ...isAdmin, wrap(async (req, res) => {
   res.status(201).json({ success: true, data: { subject_type: subjectType, subject_ref: subjectRef, level } });
 }));
 
-router.delete('/:projectId/:docId/grants/:grantId', ...isAdmin, wrap(async (req, res) => {
+router.delete('/:projectId/:docId/grants/:grantId', ...isAdmin, amMandat, wrap(async (req, res) => {
   await db.run('DELETE FROM document_grants WHERE id = ? AND document_id = ?', [req.params.grantId, req.params.docId]);
   db.auditLog(req.user.id, 'DOC_GRANT_REMOVED', 'document', req.params.docId, `grant ${req.params.grantId}`, req.ip);
   res.json({ success: true, data: { message: 'Freigabe entfernt' } });
@@ -649,7 +664,7 @@ router.delete('/:projectId/:docId/grants/:grantId', ...isAdmin, wrap(async (req,
 // Hängt eine echte Datei an eine BESTEHENDE Dokumentzeile (z. B. vorbereitete
 // Teaser-/IM-Einträge ohne Datei). Bezeichnung, Beschreibung und Zugangslevel
 // bleiben erhalten; Dateityp/-größe werden aktualisiert, alte Datei entfernt.
-router.post('/:projectId/:docId/file', ...isAdmin, mitFehlermeldung(upload.single('file'), 52428800), wrap(async (req, res) => {
+router.post('/:projectId/:docId/file', ...isAdmin, amMandat, mitFehlermeldung(upload.single('file'), 52428800), wrap(async (req, res) => {
   const { projectId, docId } = req.params;
   if (!req.file) return res.status(400).json({ success: false, error: 'Keine Datei hochgeladen' });
 

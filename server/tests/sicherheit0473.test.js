@@ -61,9 +61,17 @@ console.log('\n── Eine Route, eine Wache ──');
 }
 
 console.log('\n── Der Dateityp wird wirklich geprüft ──');
-ok('Mimetype UND Endung müssen stimmen',
-  /ALLOWED_TYPES\.has\(file\.mimetype\) && ALLOWED_EXT\.has\(ext\)/.test(docs));
-ok('das ODER ist weg', !/ALLOWED_TYPES\.has\(file\.mimetype\) \|\| ALLOWED_EXT\.has\(ext\)/.test(docs));
+// v0.495: Die Prüfung steht nicht mehr hier, sondern in utils/dateitypen.js,
+// und der Datenraum benutzt dieselbe. Geprüft wird jetzt die Sache selbst
+// statt der Schreibweise an dieser einen Stelle.
+ok('die Unterlagen benutzen die gemeinsame Prüfung', /fileFilter: dateitypen\.multerFilter/.test(docs));
+{
+  const dateitypen = require('../utils/dateitypen');
+  ok('Mimetype UND Endung müssen stimmen',
+    dateitypen.pruefen('tarnung.html', 'application/pdf').ok === false
+    && dateitypen.pruefen('echt.pdf', 'text/html').ok === false
+    && dateitypen.pruefen('echt.pdf', 'application/pdf').ok === true);
+}
 
 console.log('\n── Ein abgelaufener Link löscht nichts mehr ──');
 {

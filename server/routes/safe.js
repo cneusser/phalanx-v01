@@ -99,7 +99,17 @@ async function logSafeAccess(req, projectId, itemId, action) {
     [req.tenantId || 1, projectId, itemId, req.user.id, action])).catch(() => {});
 }
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024, files: 500 } });
+// ── Was hereindarf (v0.495) ────────────────────────────────────────────────
+// Bis hierher stand hier kein `fileFilter`: Der Datenraum nahm jede Datei und
+// jeden behaupteten Mimetype. routes/documents.js prueft seit v0.473 richtig,
+// und beide Wege schreiben in denselben Baum. Jetzt pruefen beide gleich, aus
+// derselben Liste (utils/dateitypen.js).
+const dateitypen = require('../utils/dateitypen');
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024, files: 500 },
+  fileFilter: dateitypen.multerFilter,
+});
 
 function rowOut(r) {
   return { id: r.id, name: r.name, is_folder: !!r.is_folder, parent_id: r.parent_id,
@@ -288,15 +298,19 @@ router.post('/:projectId/upload', authenticate, mitFehlermeldung(upload.array('f
     const checksum = crypto.createHash('sha256').update(file.buffer).digest('hex');
     const ext = path.extname(fileName).toLowerCase();
     const key = `project_${projectId}/${uuidv4()}${ext}`;
-    await storage.put(key, file.buffer, file.mimetype);
+    // v0.495: Gespeichert wird der Typ, der sich aus der Endung ergibt, nicht
+    // die Behauptung des Absenders. Der Filter laesst nur Paare durch, die
+    // zueinander passen; hier wird daraus der eine geltende Wert.
+    const mime = file.geprueftMime || (dateitypen.pruefen(fileName, file.mimetype).mime) || 'application/octet-stream';
+    await storage.put(key, file.buffer, mime);
     // Volltext für die Suche extrahieren (nur PDF, Fehler stören den Upload nicht)
-    const contentText = await require('../utils/pdfText').extractIfPdf(file.buffer, file.mimetype, fileName);
+    const contentText = await require('../utils/pdfText').extractIfPdf(file.buffer, mime, fileName);
 
     const pos = await nextPosition(req, projectId, parentId);
     const id = await scoped(req, (t) => t.insert(
       `INSERT INTO safe_items (tenant_id, project_id, parent_id, name, is_folder, position, storage_key, size, mime, checksum_sha256, version, uploaded_by, content_text)
        VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.tenantId || 1, projectId, parentId, fileName, pos, key, file.size, file.mimetype, checksum, version, req.user.id, contentText || null]));
+      [req.tenantId || 1, projectId, parentId, fileName, pos, key, file.size, mime, checksum, version, req.user.id, contentText || null]));
     created.push({ id, name: fileName, version });
   }
   // Mandat im Log mit Codenamen (nicht mit der Projekt-Id) benennen und als
@@ -463,8 +477,10 @@ router.get('/:projectId/item/:id/download', authenticate, wrap(async (req, res) 
   const buf = await getStorage().get(item.storage_key);
   db.activityLog(req.user.id, inline ? 'SAFE_VIEW' : 'SAFE_DOWNLOAD', 'safe_item', item.id, req.ip);
   await logSafeAccess(req, Number(req.params.projectId), item.id, inline ? 'view' : 'download');
-  res.setHeader('Content-Type', item.mime || 'application/octet-stream');
-  res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${encodeURIComponent(item.name)}"`);
+  // v0.495: Typ aus der Endung, `inline` nur fuer Typen, in denen ein Browser
+  // nichts ausfuehren kann. Vorher ging der vom Hochladenden behauptete Typ
+  // unveraendert zurueck, auf Wunsch sogar inline.
+  dateitypen.kopfzeilen(res, item.name, item.mime, inline);
   res.send(buf);
 }));
 
@@ -488,8 +504,9 @@ router.get('/:projectId/item/:id/preview', authenticate, wrap(async (req, res) =
   }
   db.activityLog(req.user.id, 'SAFE_VIEW', 'safe_item', item.id, req.ip);
   await logSafeAccess(req, Number(req.params.projectId), item.id, 'view');
-  res.setHeader('Content-Type', item.mime || 'application/octet-stream');
-  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(item.name)}"`);
+  // v0.495: Dieselbe Regel wie beim Download. Was nicht inline darf, wird
+  // heruntergeladen statt im Ursprung der Plattform geoeffnet.
+  dateitypen.kopfzeilen(res, item.name, item.mime, true);
   res.send(buf);
 }));
 
