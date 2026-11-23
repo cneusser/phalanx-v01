@@ -85,26 +85,95 @@ pgTypes.setTypeParser(1700, (v) => parseFloat(v));   // NUMERIC
 const ownerKnex = require('knex')(knexConfig);
 let appKnex = ownerKnex; // bis initialize() die RLS-Rolle eingerichtet hat
 
-async function get(sql, params = []) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Der Mandant wird je Anfrage mitgeführt (v0.496)
+//
+// Bis hierher galt: Wer in einem anderen Mandanten arbeiten wollte, musste das
+// an jeder einzelnen Abfrage sagen, über scoped(req, …) beziehungsweise
+// withTenant(). Sechs Dateien tun das, zehn nicht. Allein admin.js und
+// documents.js sprechen an 231 Stellen an der Mandantensicht vorbei.
+//
+// Das ist heute kein Datenabfluss, denn es gibt einen Mandanten, und die
+// Standardverbindung steht auf genau diesem. Es ist aber ein Fehler, der
+// darauf wartet, dass ein zweiter dazukommt: Lesen fände dann nichts (die
+// Richtlinie ist fail closed), und Schreiben landete beim Plattformmandanten,
+// also im falschen.
+//
+// 231 Aufrufe einzeln anzufassen wäre die Art Änderung, bei der einer
+// übersehen wird. Deshalb liegt die Zuständigkeit jetzt dort, wo sie hingehört:
+// im Datenzugriff selbst. Eine Middleware legt den Mandanten der Anfrage in
+// einen Ablagekontext (AsyncLocalStorage), und jede Abfrage von hier aus
+// nimmt ihn, ohne dass die Route etwas davon wissen muss.
+//
+// Zwei Festlegungen:
+//
+//   1. Mandant 1 läuft wie bisher über die Standardverbindung, ohne
+//      Transaktion. Der häufigste Fall bleibt damit der schnellste, und das
+//      Verhalten des Bestands ändert sich nicht.
+//   2. Läuft bereits eine Mandantentransaktion, wird sie weiterbenutzt statt
+//      eine zweite zu öffnen. Sonst sähe eine Abfrage innerhalb von
+//      withTenant() ihre eigenen, noch nicht geschriebenen Zeilen nicht.
+// ─────────────────────────────────────────────────────────────────────────────
+const { AsyncLocalStorage } = require('async_hooks');
+const mandantSpeicher = new AsyncLocalStorage();
+
+/** Der Mandant dieser Anfrage, oder 1. */
+function aktuellerMandant() {
+  const k = mandantSpeicher.getStore();
+  return (k && k.tenantId) || 1;
+}
+
+/** Die laufende Mandantentransaktion, falls es eine gibt. */
+function laufendeSicht() {
+  const k = mandantSpeicher.getStore();
+  return (k && k.sicht) || null;
+}
+
+/**
+ * Alles in `fn` läuft im Mandanten `tenantId`.
+ * Wird von der Middleware um jede Anfrage gelegt.
+ */
+function imMandanten(tenantId, fn) {
+  const vorher = mandantSpeicher.getStore();
+  return mandantSpeicher.run({ ...(vorher || {}), tenantId: Number(tenantId) || 1, sicht: null }, fn);
+}
+
+/** Die Abfrage ausführen, im Mandanten der Anfrage. */
+async function imKontext(art, sql, params) {
+  const sicht = laufendeSicht();
+  if (sicht) return sicht[art](sql, params);
+  const mandant = aktuellerMandant();
+  if (mandant === 1) return ohneKontext(art, sql, params);
+  return withTenant(mandant, (t) => t[art](sql, params));
+}
+
+async function ohneKontext(art, sql, params = []) {
+  if (art === 'insert') {
+    const withReturning = /returning\s/i.test(sql) ? sql : `${sql} RETURNING id`;
+    const result = await appKnex.raw(withReturning, params);
+    return result.rows[0] ? result.rows[0].id : null;
+  }
   const result = await appKnex.raw(sql, params);
-  return result.rows[0];
+  if (art === 'get') return result.rows[0];
+  if (art === 'all') return result.rows;
+  return { rowCount: result.rowCount };
+}
+
+async function get(sql, params = []) {
+  return imKontext('get', sql, params);
 }
 
 async function all(sql, params = []) {
-  const result = await appKnex.raw(sql, params);
-  return result.rows;
+  return imKontext('all', sql, params);
 }
 
 async function run(sql, params = []) {
-  const result = await appKnex.raw(sql, params);
-  return { rowCount: result.rowCount };
+  return imKontext('run', sql, params);
 }
 
 // INSERT mit automatischem RETURNING id
 async function insert(sql, params = []) {
-  const withReturning = /returning\s/i.test(sql) ? sql : `${sql} RETURNING id`;
-  const result = await appKnex.raw(withReturning, params);
-  return result.rows[0] ? result.rows[0].id : null;
+  return imKontext('insert', sql, params);
 }
 
 // App-Rolle ohne Superuser-/BYPASSRLS-Rechte einrichten (idempotent) und
@@ -160,7 +229,10 @@ async function withTenant(tenantId, fn) {
       },
       trx,
     };
-    return fn(t);
+    // v0.496: Innerhalb dieser Transaktion sollen auch db.get/db.run sie
+    // benutzen, nicht nebenher eine zweite Verbindung aufmachen.
+    const vorher = mandantSpeicher.getStore();
+    return mandantSpeicher.run({ ...(vorher || {}), tenantId: Number(tenantId) || 1, sicht: t }, () => fn(t));
   });
 }
 
@@ -331,4 +403,4 @@ async function initialize() {
   console.log('✅ Database initialized (PostgreSQL)');
 }
 
-module.exports = { initialize, get, all, run, insert, auditLog, activityLog, knex: appKnex, ownerKnex, startupSeed, withTenant };
+module.exports = { initialize, get, all, run, insert, auditLog, activityLog, knex: appKnex, ownerKnex, startupSeed, withTenant, imMandanten, aktuellerMandant };

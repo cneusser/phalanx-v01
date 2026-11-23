@@ -35,7 +35,17 @@ async function resolveTenant(req, _res, next) {
         req.tenantId = tenant.id;
       }
     }
-    next();
+    // ── Ab hier läuft die ganze Anfrage im Mandanten (v0.496) ──────────────
+    //
+    // Vorher musste jede einzelne Abfrage sagen, in welchem Mandanten sie
+    // läuft. Sechs Dateien taten das, zehn nicht, und allein admin.js und
+    // documents.js sprachen an 231 Stellen daran vorbei. Jetzt trägt die
+    // Anfrage ihren Mandanten mit sich, und der Datenzugriff nimmt ihn von
+    // dort. Eine Route kann ihn damit nicht mehr vergessen.
+    //
+    // Für Mandant 1 ändert sich nichts: Dort läuft alles wie bisher über die
+    // Standardverbindung.
+    return db.imMandanten(req.tenantId, () => next());
   } catch (e) { next(e); }
 }
 
