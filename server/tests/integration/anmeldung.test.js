@@ -95,12 +95,18 @@ const { hochfahren, zaehler } = require('./lauf');
     ok('eine gescheiterte Auskunft liefert das Ersatz-Token',
       /\.catch\(\(\) => \{[\s\S]*?onToken\(UNAVAILABLE\)/.test(widget));
     ok('das Widget meldet seinen Zustand nach aussen', /onStatus/.test(widget));
+    ok('ohne Schlüssel meldet es „aus"', /setStatus\('aus'\)/.test(widget));
 
     for (const datei of ['Login.jsx', 'Register.jsx']) {
       const quelle = require('fs').readFileSync(`${__dirname}/../../../client/src/pages/${datei}`, 'utf8');
       ok(`${datei} wartet auf den Test`, /await warteAufTest\(\)/.test(quelle));
       ok(`${datei} kennt den Zustand des Tests`, /onStatus=\{setTsStatus\}/.test(quelle));
       ok(`${datei} gibt nach einer Wartezeit auf`, /for \(let i = 0; i < 40; i \+= 1\)/.test(quelle));
+      // v0.498: Ohne eingerichteten Test wartete das Formular zehn Sekunden
+      // ins Leere. Aufgefallen erst im Browser auf der Teststufe, nicht hier.
+      ok(`${datei} wartet nicht, wenn gar kein Test eingerichtet ist`,
+        (quelle.match(/status === 'aus'/g) || []).length === 2,
+        String((quelle.match(/status === 'aus'/g) || []).length));
     }
   }
 

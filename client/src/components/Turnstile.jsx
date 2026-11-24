@@ -68,7 +68,14 @@ export default function Turnstile({ onToken, resetKey = 0, onStatus }) {
     // Kein Schluessel hinterlegt: Der Server prueft dann auch nicht, und ein
     // leeres Token ist richtig. Scheiterte dagegen die Auskunft, steht oben
     // bereits das Ersatz-Token.
-    if (!siteKey) { if (siteKey === null && onToken) onToken(''); return; }
+    //
+    // v0.498: Der Zustand muss hier ausdruecklich auf „aus" gehen. Sonst bleibt
+    // er auf „laedt", und das Formular wartet seit v0.497 zehn Sekunden auf
+    // einen Test, den es gar nicht gibt.
+    if (!siteKey) {
+      if (siteKey === null) { setStatus('aus'); if (onToken) onToken(''); }
+      return;
+    }
     let cancelled = false;
 
     // Sicherheitsnetz: Kommt binnen einiger Sekunden kein Token, gilt der Test als

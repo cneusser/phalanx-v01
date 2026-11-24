@@ -72,10 +72,14 @@ export default function Register() {
   const tsRef = useRef({ token: '', status: 'loading' });
   tsRef.current = { token: tsToken, status: tsStatus };
   const warteAufTest = async () => {
+    // v0.498: Ist gar kein Test eingerichtet, gibt es nichts, worauf zu warten
+    // waere. Ohne diesen Fall wartete das Formular zehn Sekunden ins Leere.
+    if (tsRef.current.status === 'aus') return '';
     if (tsRef.current.token) return tsRef.current.token;
     if (tsRef.current.status === 'unavailable') return '__unavailable__';
     for (let i = 0; i < 40; i += 1) {            // bis zu zehn Sekunden
       await new Promise((r) => setTimeout(r, 250));
+      if (tsRef.current.status === 'aus') return '';
       if (tsRef.current.token) return tsRef.current.token;
       if (tsRef.current.status === 'unavailable') return '__unavailable__';
     }
