@@ -893,6 +893,56 @@ router.put('/projects/:id', ...isAdmin, darfMandatePflegen, amMandat('id'), wrap
   res.json({ success: true, data: { message: 'Aktualisiert' } });
 }));
 
+// ── Mitzählen, was benutzt wird (v0.503) ───────────────────────────────────
+//
+// Anlass: „Vereinfachung der Oberfläche", einundzwanzig Reiter, und mein
+// Vorschlag, eine Woche mitzuzählen statt zu raten. Ohne Zahlen würde die
+// Entscheidung, welche fünf bleiben, aus dem Bauch getroffen, und wer sich
+// täglich mit der Plattform beschäftigt, hat ein anderes Bauchgefühl als
+// jemand, der sie zweimal im Monat öffnet.
+//
+// Gezählt wird so wenig wie möglich: wer, welcher Reiter, welcher Tag, wie
+// oft. Keine Suchbegriffe, keine Mandate, keine Inhalte. Eine Zeile je
+// Person, Reiter und Tag.
+const BEREICHE = new Set(['overview', 'pipeline', 'projects', 'ndas', 'users', 'succession',
+  'roles', 'contacts', 'phalanx', 'tasks', 'qa', 'templates', 'mails', 'leads', 'detvals',
+  'multiples', 'feedback', 'berichte', 'changelog', 'activity', 'audit']);
+
+router.post('/nutzung', ...isAdmin, wrap(async (req, res) => {
+  const bereich = String(req.body.bereich || '').trim();
+  // Nur bekannte Reiter. Sonst wäre die Tabelle ein offenes Textfeld.
+  if (!BEREICHE.has(bereich)) return res.status(400).json({ success: false, error: 'Unbekannter Bereich' });
+  await db.run(
+    `INSERT INTO nutzung_bereiche (user_id, bereich, tag, anzahl, zuletzt)
+     VALUES (?, ?, CURRENT_DATE, 1, now())
+     ON CONFLICT (tenant_id, user_id, bereich, tag)
+     DO UPDATE SET anzahl = nutzung_bereiche.anzahl + 1, zuletzt = now()`,
+    [req.user.id, bereich]).catch((e) => console.warn('[nutzung]', e.message));
+  res.json({ success: true, data: { gezaehlt: true } });
+}));
+
+// Die Auswertung: je Reiter die Aufrufe, die Tage mit Nutzung und wann
+// zuletzt. Sortiert nach Aufrufen, damit oben steht, was zählt.
+router.get('/nutzung', ...isAdmin, requirePermission('analytics.read'), wrap(async (req, res) => {
+  const tage = Math.min(Math.max(parseInt(req.query.tage, 10) || 30, 1), 365);
+  const zeilen = await db.all(
+    `SELECT bereich,
+            SUM(anzahl)::int            AS aufrufe,
+            COUNT(DISTINCT tag)::int    AS tage_mit_nutzung,
+            COUNT(DISTINCT user_id)::int AS personen,
+            MAX(zuletzt)                AS zuletzt
+       FROM nutzung_bereiche
+      WHERE tag >= CURRENT_DATE - ?::int
+   GROUP BY bereich
+   ORDER BY aufrufe DESC`, [tage]);
+  const seit = await db.get('SELECT MIN(tag) AS seit FROM nutzung_bereiche');
+  // Reiter, die im Zeitraum gar nicht vorkamen. Die sind die eigentliche
+  // Nachricht: Was nie geöffnet wurde, braucht oben keinen Platz.
+  const benutzt = new Set(zeilen.map((z) => z.bereich));
+  const nie = [...BEREICHE].filter((b) => !benutzt.has(b));
+  res.json({ success: true, data: { tage, seit: seit && seit.seit, zeilen, nie } });
+}));
+
 // Publish project (set active): synchronisiert deal_status
 router.put('/projects/:id/publish', ...isAdmin, darfVeroeffentlichen, amMandat('id'), wrap(async (req, res) => {
   const project = await db.get('SELECT id, codename, deal_status FROM projects WHERE id = ?', [req.params.id]);
@@ -2820,10 +2870,20 @@ router.get('/berichte/klarnamen{/:projectId}', ...isAdmin, wrap(async (req, res)
       if (q.answer) felder.push({ bereich: 'Q&A', feld: 'Antwort', text: q.answer });
     }
 
+    // v0.503: Auch die Pruefung selbst kann scheitern. Vorher riss sie dann
+    // den ganzen Bericht mit, mit einem Serverfehler und ohne Hinweis, an
+    // welchem Mandat es lag. Jetzt steht es unter „Probleme" und die
+    // uebrigen Mandate werden fertig geprueft.
+    let funde = [];
+    try {
+      funde = pruefeMandat(felder, bekannt);
+    } catch (e) {
+      probleme.push(`Pruefung ${p.codename}: ${e.message}`);
+    }
     raus.push({
       project_id: p.id, codename: p.codename,
       geprueft: felder.length, bekannte_namen: bekannt.length,
-      funde: pruefeMandat(felder, bekannt),
+      funde,
     });
   }
 

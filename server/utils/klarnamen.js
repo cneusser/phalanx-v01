@@ -73,6 +73,18 @@ function namensteile(namen) {
   return [...raus];
 }
 
+/**
+ * Sonderzeichen für einen regulären Ausdruck entschärfen (v0.503).
+ *
+ * Eine Zeile, die es verdient hat, eine eigene Funktion zu sein: In einer
+ * Zeichenkette geschrieben, verdoppeln sich die Rückstriche so lange, bis
+ * niemand mehr sagen kann, welcher wohin gehört. Genau daran ist die
+ * vorherige Fassung gescheitert.
+ */
+function escapeRegex(wert) {
+  return String(wert == null ? '' : wert).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /** Ein Stück Text um die Fundstelle, damit man es einordnen kann. */
 function umgebung(text, index, laenge) {
   const von = Math.max(0, index - 45);
@@ -95,7 +107,28 @@ function pruefeText(text, bekannt = []) {
 
   // 1. Bekannte Namen: kein Raten, sondern ein Vergleich.
   for (const name of namensteile(bekannt)) {
-    const re = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&').replace(/\\s+/g, '\\\\s+')}\\b`, 'gi');
+    // ── Der Name wird für die Suche entschärft (v0.503) ───────────────────
+    //
+    // Hier stand eine Maskierung, die nichts maskierte: Durch eine Ebene
+    // Umschreibung zu viel suchte sie nach Backslashes statt nach Punkten und
+    // Klammern und setzte Backslashes ein, wo keine hingehörten. Zwei Folgen,
+    // beide im Bericht sichtbar:
+    //
+    //   · „Meier GmbH & Co. KG)" ergab einen ungültigen Ausdruck. Die ganze
+    //     Prüfung brach mit einem Serverfehler ab, für das ganze Mandat.
+    //     Betroffen war jeder Kontakt mit einer einzelnen Klammer im Namen.
+    //   · Ein Punkt im Namen blieb der Platzhalter „ein beliebiges Zeichen".
+    //     „Dr. Ing" traf damit auch „Dr: Ing", und solche Treffer sind genau
+    //     die Falschmeldungen, die einen Bericht unbrauchbar machen.
+    const gesucht = escapeRegex(name).replace(/\\?\s+/g, '\\s+');
+    let re;
+    try {
+      re = new RegExp(`\\b${gesucht}\\b`, 'gi');
+    } catch {
+      // Ein Name, aus dem sich kein Ausdruck bauen lässt, überspringt seinen
+      // Vergleich. Er darf nicht die Prüfung des ganzen Mandats verhindern.
+      continue;
+    }
     let m;
     while ((m = re.exec(inhalt)) !== null) {
       const schluessel = `bekannt:${m[0].toLowerCase()}:${m.index}`;
@@ -139,4 +172,4 @@ function pruefeMandat(felder, bekannt = []) {
   return raus;
 }
 
-module.exports = { pruefeText, pruefeMandat, namensteile, normal, MUSTER, KEINE_NAMEN };
+module.exports = { pruefeText, pruefeMandat, namensteile, normal, escapeRegex, MUSTER, KEINE_NAMEN };

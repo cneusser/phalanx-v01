@@ -230,6 +230,8 @@ export default function Admin() {
   const [contactSearch, setContactSearch] = useState('');
   const [drawerContact, setDrawerContact] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  // v0.503: Auswertung, welche Reiter benutzt werden.
+  const [nutzung, setNutzung] = useState(null);
   const [loading, setLoading] = useState(true);
   // Sprint 16: Analytics-Cockpit
   const [analytics, setAnalytics] = useState(null);
@@ -630,6 +632,17 @@ export default function Admin() {
     } catch { /* CRM ggf. leer */ }
   }
 
+  // ── Mitzählen, welcher Reiter geöffnet wird (v0.503) ──────────────────────
+  //
+  // Vorbereitung der Vereinfachung: Einundzwanzig Reiter, und welche fünf
+  // täglich gebraucht werden, weiss niemand. Eine Woche zählen ist ehrlicher
+  // als raten. Gezählt wird nur der Name des Reiters, nichts vom Inhalt, und
+  // ein Fehlschlag stört die Arbeit nicht.
+  useEffect(() => {
+    if (!activeTab) return;
+    api.post('/admin/nutzung', { bereich: activeTab }).catch(() => {});
+  }, [activeTab]);
+
   useEffect(() => {
     if (activeTab === 'activity') loadActivity();
     if (activeTab === 'audit') loadAuditLogs(1);
@@ -637,6 +650,7 @@ export default function Admin() {
     if (activeTab === 'multiples') loadValMultiples();
     if (activeTab === 'detvals') loadDetVals();
     if (activeTab === 'berichte' && !suchbericht) ladeSuchbericht();
+    if (activeTab === 'berichte' && !nutzung) api.get('/admin/nutzung?tage=30').then(setNutzung).catch(() => {});
     if (activeTab === 'berichte' && !fehlerliste) ladeFehler();
     if (activeTab === 'changelog') loadChangelog();
     if (activeTab === 'feedback') loadFeedback();
@@ -2691,6 +2705,56 @@ export default function Admin() {
               {berichtMsg}
             </div>
           )}
+
+          {/* ── Was hier tatsächlich benutzt wird (v0.503) ────────────────
+              Vorbereitung der Vereinfachung: einundzwanzig Reiter, und welche
+              fünf täglich gebraucht werden, wusste bisher niemand. Hier steht
+              es, sobald eine Woche gezählt wurde. */}
+          <div style={CARD}>
+            <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.95rem', marginBottom: '0.3rem' }}>Benutzte Bereiche</div>
+            <p style={{ fontSize: '0.8rem', color: '#777', marginBottom: '0.9rem', lineHeight: 1.6 }}>
+              Gezählt wird, welcher Reiter geöffnet wird, von wem und an welchem Tag. Keine Inhalte, keine Suchbegriffe.
+              Grundlage für die Entscheidung, welche Bereiche oben bleiben.
+            </p>
+            {!nutzung && <div style={{ fontSize: '0.82rem', color: '#999' }}>Wird geladen …</div>}
+            {nutzung && !(nutzung.zeilen || []).length && (
+              <div style={{ fontSize: '0.82rem', color: '#999' }}>Noch nichts gezählt. Die Zählung beginnt mit dieser Fassung.</div>
+            )}
+            {nutzung && (nutzung.zeilen || []).length > 0 && (
+              <>
+                <div style={{ fontSize: '0.76rem', color: '#999', marginBottom: '0.5rem' }}>
+                  Letzte {nutzung.tage} Tage{nutzung.seit ? `, gezählt seit ${new Date(nutzung.seit).toLocaleDateString('de-DE')}` : ''}
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', color: '#888', fontSize: '0.72rem' }}>
+                      <th style={{ padding: '0.3rem 0.4rem' }}>BEREICH</th>
+                      <th style={{ padding: '0.3rem 0.4rem' }}>AUFRUFE</th>
+                      <th style={{ padding: '0.3rem 0.4rem' }}>TAGE</th>
+                      <th style={{ padding: '0.3rem 0.4rem' }}>PERSONEN</th>
+                      <th style={{ padding: '0.3rem 0.4rem' }}>ZULETZT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {nutzung.zeilen.map(z => (
+                      <tr key={z.bereich} style={{ borderTop: '1px solid #eef2f7' }}>
+                        <td style={{ padding: '0.35rem 0.4rem', fontWeight: 600, color: C.navy }}>{tabLabels[z.bereich] || z.bereich}</td>
+                        <td style={{ padding: '0.35rem 0.4rem' }}>{z.aufrufe}</td>
+                        <td style={{ padding: '0.35rem 0.4rem' }}>{z.tage_mit_nutzung}</td>
+                        <td style={{ padding: '0.35rem 0.4rem' }}>{z.personen}</td>
+                        <td style={{ padding: '0.35rem 0.4rem', color: '#888' }}>{z.zuletzt ? new Date(z.zuletzt).toLocaleDateString('de-DE') : ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {(nutzung.nie || []).length > 0 && (
+                  <div style={{ marginTop: '0.8rem', fontSize: '0.78rem', color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '0.5rem 0.75rem', lineHeight: 1.6 }}>
+                    In diesem Zeitraum nie geöffnet: {nutzung.nie.map(b => tabLabels[b] || b).join(', ')}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
           {/* ── Klarnamen in Unterlagen ─────────────────────────────────── */}
           <div style={CARD}>
