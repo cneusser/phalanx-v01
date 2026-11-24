@@ -32,7 +32,13 @@ async function verifyTurnstile(token, ip) {
     console.warn(`[turnstile] Widget nicht verfügbar, Anfrage ohne Bot-Test durchgelassen (IP ${ip || 'unbekannt'})`);
     return true;
   }
-  if (!token) return false;
+  // v0.497: Kein Token heisst fast immer „der Test war noch nicht fertig",
+  // nicht „Roboter". Abgewiesen wird weiterhin, aber der Fall wird sichtbar,
+  // damit man ihn zaehlen kann statt ihn zu erraten.
+  if (!token) {
+    console.warn(`[turnstile] Anfrage ohne Token abgewiesen (IP ${ip || 'unbekannt'})`);
+    return false;
+  }
   try {
     const body = new URLSearchParams();
     body.append('secret', process.env.TURNSTILE_SECRET);
@@ -40,7 +46,13 @@ async function verifyTurnstile(token, ip) {
     if (ip) body.append('remoteip', String(ip));
     const res = await fetch(VERIFY_URL, { method: 'POST', body });
     const data = await res.json().catch(() => ({}));
-    return data && data.success === true;
+    if (!data || data.success !== true) {
+      // Cloudflare nennt den Grund. Ohne ihn raet man zwischen abgelaufenem
+      // Token, falscher Domain und verbrauchtem Token.
+      console.warn(`[turnstile] abgelehnt (IP ${ip || 'unbekannt'}): ${JSON.stringify((data && data['error-codes']) || [])}`);
+      return false;
+    }
+    return true;
   } catch {
     // Netzwerkfehler bei Cloudflare sollen legitime Nutzer nicht aussperren.
     return true;

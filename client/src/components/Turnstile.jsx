@@ -27,12 +27,15 @@ function loadScript() {
   return scriptLoading;
 }
 
-export default function Turnstile({ onToken, resetKey = 0 }) {
+export default function Turnstile({ onToken, resetKey = 0, onStatus }) {
   const ref = useRef(null);
   const widgetId = useRef(null);
   const solved = useRef(false);
   const [siteKey, setSiteKey] = useState(undefined);   // undefined = noch laden
   const [status, setStatus] = useState('loading');     // loading | ready | unavailable
+  // v0.497: Das Formular soll wissen, ob der Test noch laeuft, statt den
+  // Nutzer in eine Abweisung laufen zu lassen.
+  useEffect(() => { if (onStatus) onStatus(status); }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Nach einem Fehlversuch (resetKey ändert sich) ein frisches Token holen.
   // Turnstile-Token sind einmalig gültig und laufen ab: ohne Reset schickt der
@@ -49,11 +52,22 @@ export default function Turnstile({ onToken, resetKey = 0 }) {
     let alive = true;
     api.get('/auth/config')
       .then(cfg => { if (alive) setSiteKey(cfg.turnstile_site_key || null); })
-      .catch(() => { if (alive) setSiteKey(null); });
+      .catch(() => {
+        // v0.497: Die Auskunft selbst war nicht erreichbar. Vorher hiess das
+        // „kein Schluessel", und das Formular schickte ein leeres Token. Der
+        // Server hat genau dafuer abgewiesen, mit der Bitte, den
+        // Sicherheitscheck zu bestaetigen, den es auf der Seite gar nicht gab.
+        if (!alive) return;
+        setSiteKey(null);
+        if (onToken) onToken(UNAVAILABLE);
+      });
     return () => { alive = false; };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    // Kein Schluessel hinterlegt: Der Server prueft dann auch nicht, und ein
+    // leeres Token ist richtig. Scheiterte dagegen die Auskunft, steht oben
+    // bereits das Ersatz-Token.
     if (!siteKey) { if (siteKey === null && onToken) onToken(''); return; }
     let cancelled = false;
 

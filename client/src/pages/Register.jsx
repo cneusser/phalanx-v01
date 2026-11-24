@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Search, Building2 } from 'lucide-react';
@@ -62,6 +62,26 @@ export default function Register() {
   const [success, setSuccess] = useState(false);
   const [tsToken, setTsToken] = useState('');
   const [tsReset, setTsReset] = useState(0);   // frisches Turnstile-Token nach Fehlversuch
+  const [tsStatus, setTsStatus] = useState('loading');
+  // ── Auf den Roboter-Test warten, statt leer abzuschicken (v0.497) ────────
+  //
+  // Bisher ging das Formular sofort los. War der Test noch nicht fertig, ging
+  // ein leeres Token hinaus, und der Server antwortete „Bitte bestaetigen Sie
+  // den Sicherheitscheck". Auf der Seite war dann nichts zu bestaetigen, und
+  // es sah aus, als funktioniere die Pruefung nicht.
+  const tsRef = useRef({ token: '', status: 'loading' });
+  tsRef.current = { token: tsToken, status: tsStatus };
+  const warteAufTest = async () => {
+    if (tsRef.current.token) return tsRef.current.token;
+    if (tsRef.current.status === 'unavailable') return '__unavailable__';
+    for (let i = 0; i < 40; i += 1) {            // bis zu zehn Sekunden
+      await new Promise((r) => setTimeout(r, 250));
+      if (tsRef.current.token) return tsRef.current.token;
+      if (tsRef.current.status === 'unavailable') return '__unavailable__';
+    }
+    return '';
+  };
+
 
   const set = (k) => (e) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
@@ -75,7 +95,7 @@ export default function Register() {
     setLoading(true);
     setError('');
     try {
-      const result = await register({ ...form, role: roleType, privacy_consent: agreed, turnstile_token: tsToken, signup_source: signupSource });
+      const result = await register({ ...form, role: roleType, privacy_consent: agreed, turnstile_token: await warteAufTest(), signup_source: signupSource });
       if (result.pending) {
         setSuccess(true);
       }
@@ -329,7 +349,7 @@ export default function Register() {
           </div>
 
           {/* Roboter-Test (nur sichtbar, wenn Cloudflare Turnstile konfiguriert ist) */}
-          <Turnstile onToken={setTsToken} resetKey={tsReset} />
+          <Turnstile onToken={setTsToken} resetKey={tsReset} onStatus={setTsStatus} />
 
           <button
             type="submit"

@@ -33,7 +33,12 @@ router.post('/register', wrap(async (req, res) => {
   const signupSource = String(signup_source || 'direct').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 40) || 'direct';
   // Bot-Test (Cloudflare Turnstile), sofern konfiguriert
   if (!(await require('../utils/turnstile').verifyTurnstile(turnstile_token, req.ip))) {
-    return res.status(400).json({ success: false, error: 'Bitte bestätigen Sie den Sicherheitscheck (kein Roboter).' });
+    return res.status(400).json({
+      success: false, code: 'SICHERHEITSPRUEFUNG',
+      error: 'Die Sicherheitsprüfung ist noch nicht abgeschlossen. Bitte warten Sie einen Moment, '
+        + 'bestätigen Sie das Kästchen, falls eines angezeigt wird, und versuchen Sie es erneut. '
+        + 'Bleibt es dabei, laden Sie die Seite neu oder schreiben Sie uns an info@phalanx.de.',
+    });
   }
   if (!email || !password || !first_name || !last_name)
     return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen (Vorname, Nachname, E-Mail, Passwort)' });
@@ -161,21 +166,39 @@ router.post('/login', wrap(async (req, res) => {
   if (!email || !password) return res.status(400).json({ success: false, error: 'E-Mail und Passwort erforderlich' });
   // Bot-Test (Cloudflare Turnstile), sofern konfiguriert, gegen automatisiertes Ausprobieren
   if (!(await require('../utils/turnstile').verifyTurnstile(turnstile_token, req.ip))) {
-    return res.status(400).json({ success: false, error: 'Bitte bestätigen Sie den Sicherheitscheck (kein Roboter).' });
+    return res.status(400).json({
+      success: false, code: 'SICHERHEITSPRUEFUNG',
+      error: 'Die Sicherheitsprüfung ist noch nicht abgeschlossen. Bitte warten Sie einen Moment, '
+        + 'bestätigen Sie das Kästchen, falls eines angezeigt wird, und versuchen Sie es erneut. '
+        + 'Bleibt es dabei, laden Sie die Seite neu oder schreiben Sie uns an info@phalanx.de.',
+    });
   }
 
   // Sprint 5 (RLS): Lookup im Tenant-Kontext der Subdomain (Default: 1)
   const user = await db.withTenant(req.tenantId || 1, (t) =>
     t.get('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]));
 
-  if (!user || !user.is_active) {
-    return res.status(401).json({ success: false, error: 'Ungültige Anmeldedaten' });
+  // ── Eine Meldung, die weiterhilft, ohne etwas zu verraten (v0.497) ──────
+  //
+  // Anlass: „Ich kann mich auf der Plattform weder anmelden (kennt meine Email
+  // nicht) noch registrieren." Die Meldung lautete „Ungültige Anmeldedaten",
+  // und der Empfänger las daraus, seine Adresse sei unbekannt. Sie ist es
+  // nicht: Jeder, der den Newsletter bekommt, hat ein Konto. Was fehlte, war
+  // das Passwort.
+  //
+  // Welche von beiden Angaben falsch ist, bleibt ungesagt; sonst liesse sich
+  // über die Anmeldemaske herausfinden, wer hier ein Konto hat. Der Hinweis
+  // auf „Passwort vergessen" verrät nichts und löst den häufigsten Fall.
+  const ABWEISUNG = 'E-Mail-Adresse oder Passwort stimmt nicht. '
+    + 'Wenn Sie noch nie ein Passwort vergeben haben, setzen Sie es bitte über „Passwort vergessen" neu.';
+  if (!user || !user.is_active || !user.password_hash) {
+    return res.status(401).json({ success: false, error: ABWEISUNG });
   }
 
   const valid = bcrypt.compareSync(password, user.password_hash);
   if (!valid) {
     db.auditLog(user.id, 'LOGIN_FAILED', 'user', user.id, null, req.ip);
-    return res.status(401).json({ success: false, error: 'Ungültige Anmeldedaten' });
+    return res.status(401).json({ success: false, error: ABWEISUNG });
   }
 
   const isAdmin = ['super_admin', 'advisor'].includes(user.role);
