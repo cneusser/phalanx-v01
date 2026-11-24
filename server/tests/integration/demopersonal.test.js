@@ -146,6 +146,57 @@ const { hochfahren, zaehler } = require('./lauf');
     else process.env.CM_STUFE = vorherigeStufe;
   }
 
+  console.log('\n══ Die Assistenz ist ebenfalls an ihre Mandate gebunden ══');
+  {
+    // Aufgefallen auf der Teststufe: v0.495 bindet jede Rolle ausser
+    // Verwaltung und Eigentuemer an ihre Mandate, also auch die Assistenz.
+    // Das ist so gewollt, stand aber nirgends. Hier steht es.
+    process.env.CM_STUFE = 'teststufe';
+    await demowelt.aufsetzen({ db, zuruecksetzen: true, leise: true });
+    if (vorherigeStufe === undefined) delete process.env.CM_STUFE;
+    else process.env.CM_STUFE = vorherigeStufe;
+
+    const assistenz = await db.get('SELECT * FROM users WHERE email = ?', ['assistenz@demo.capitalmatch.invalid']);
+    const nl = await db.get('SELECT id FROM projects WHERE codename = ?', ['DEMO_NORDLICHT']);
+    const tAs = alsNutzer(assistenz);
+
+    const ohne = await ruf(`/api/admin/projects/${nl.id}`, {
+      token: tAs, methode: 'PUT', koerper: { short_description: 'Assistenz ohne Zuordnung' },
+    });
+    ok('ohne Zuordnung geht nichts', ohne.status === 403 && ohne.json.code === 'NICHT_MEIN_MANDAT',
+      `${ohne.status} ${(ohne.json && ohne.json.code) || ''}`);
+
+    await db.run(
+      `INSERT INTO project_members (tenant_id, project_id, user_id, member_role)
+       VALUES (1, ?, ?, 'editor') ON CONFLICT DO NOTHING`, [nl.id, assistenz.id]);
+    const mit = await ruf(`/api/admin/projects/${nl.id}`, {
+      token: tAs, methode: 'PUT', koerper: { short_description: 'Assistenz mit Zuordnung' },
+    });
+    ok('mit Zuordnung pflegt sie', mit.status === 200, String(mit.status));
+
+    const pub = await ruf(`/api/admin/projects/${nl.id}/publish`, { token: tAs, methode: 'PUT' });
+    ok('veroeffentlichen bleibt ihr verwehrt', pub.status === 403, String(pub.status));
+  }
+
+  console.log('\n══ Das Zuruecksetzen nimmt auch die CRM-Spuren mit ══');
+  {
+    const kaeufer = await db.get('SELECT * FROM users WHERE email = ?', ['anfrage@demo.capitalmatch.invalid']);
+    await db.run(
+      `INSERT INTO crm_contacts (tenant_id, first_name, last_name, email, user_id, lead_source)
+       VALUES (1, 'Ada', 'Anfrage', ?, ?, 'account')`, [kaeufer.email, kaeufer.id]);
+    const vorher = await db.get("SELECT COUNT(*)::int AS c FROM crm_contacts WHERE email LIKE '%@demo.capitalmatch.invalid'");
+    ok('ein Demokontakt besteht', vorher.c > 0, String(vorher.c));
+
+    process.env.CM_STUFE = 'teststufe';
+    const r = await demowelt.raeumen(db, true);
+    if (vorherigeStufe === undefined) delete process.env.CM_STUFE;
+    else process.env.CM_STUFE = vorherigeStufe;
+
+    const nachher = await db.get("SELECT COUNT(*)::int AS c FROM crm_contacts WHERE email LIKE '%@demo.capitalmatch.invalid'");
+    ok('nach dem Zuruecksetzen ist er weg', nachher.c === 0, String(nachher.c));
+    ok('und das Aufraeumen sagt, wie viele es waren', typeof r.kontakte === 'number' && r.kontakte > 0, String(r.kontakte));
+  }
+
   console.log('\n══ Aufraeumen: das Personal verschwindet mit der Demowelt ══');
   {
     process.env.CM_STUFE = 'teststufe';

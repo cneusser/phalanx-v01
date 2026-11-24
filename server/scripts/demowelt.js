@@ -379,8 +379,19 @@ async function raeumen(db, leise = false) {
     await db.run('DELETE FROM connections WHERE requester_id = ? OR recipient_id = ?', [id, id]).catch(() => {});
     await db.run('DELETE FROM users WHERE id = ?', [id]).catch(() => {});
   }
-  if (!leise) console.log(`🧹 Demowelt entfernt: ${mandate.length} Mandate, ${konten.length} Konten.`);
-  return { mandate: mandate.length, konten: konten.length };
+  // v0.502: Auch die Spuren im CRM. Wurde ein Demokonto einmal als Kontakt
+  // uebernommen, blieb der Kontakt nach dem Zuruecksetzen stehen. Beim
+  // naechsten Durchgang galt dieselbe Person dann als „schon im CRM", und
+  // genau der Weg, den man pruefen wollte, war nicht mehr begehbar.
+  const kontakte = await db.all('SELECT id FROM crm_contacts WHERE email LIKE ?', [`%${DOMAENE}`]);
+  for (const k of kontakte) {
+    for (const tabelle of ['crm_company_contacts', 'crm_deal_parties', 'crm_messages', 'crm_notes']) {
+      await db.run(`DELETE FROM ${tabelle} WHERE contact_id = ?`, [k.id]).catch(() => {});
+    }
+    await db.run('DELETE FROM crm_contacts WHERE id = ?', [k.id]).catch(() => {});
+  }
+  if (!leise) console.log(`🧹 Demowelt entfernt: ${mandate.length} Mandate, ${konten.length} Konten, ${kontakte.length} CRM-Kontakte.`);
+  return { mandate: mandate.length, konten: konten.length, kontakte: kontakte.length };
 }
 
 module.exports = { aufsetzen, raeumen, VORSATZ, DOMAENE };
