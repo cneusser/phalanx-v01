@@ -135,7 +135,30 @@ router.get('/:projectId/status', authenticate, wrap(async (req, res) => {
   const order = { requested: 1, signed: 2, approved: 3 };
   let status = nda ? nda.status : null;
   if (fromStage && (order[fromStage] || 0) > (order[status] || 0)) status = fromStage;
-  res.json({ success: true, data: { ...(nda || {}), id: nda ? nda.id : null, status } });
+
+  // ── Zugang und Unterschrift sind zweierlei (v0.506) ────────────────────────
+  //
+  // Bis hierher endete die Abfrage eine Zeile früher, und `status` war beides
+  // zugleich: Es trug den Vorgang und, wenn die Stufe weiter war, auch sie.
+  // Ein Interessent, dessen Datenraum von Hand geöffnet wurde, las daraufhin
+  // „Zugang freigeschaltet" und schloss daraus, er habe unterschrieben. Genau
+  // das ist bei FARADAY passiert, und die Rückfrage dazu kam per Mail.
+  //
+  // `status` bleibt, damit nichts bricht, was daran hängt. Daneben stehen
+  // jetzt zwei Angaben, die sich nicht vermischen lassen: was offen ist, und
+  // ob es dafür einen Nachweis gibt.
+  const { nachweisFuer } = require('../utils/ndaNachweis');
+  const nachweis = await nachweisFuer(db, { userId: req.user.id, projectId: Number(req.params.projectId) });
+  const zugang = (stage === 'dataroom_granted' || stage === 'loi') ? 'datenraum'
+    : (stage === 'nda_signed' || stage === 'im_granted') ? 'unterlagen'
+      : null;
+
+  res.json({ success: true, data: {
+    ...(nda || {}), id: nda ? nda.id : null, status,
+    vorgang: nda ? nda.status : null,   // der reine Stand des NDA-Vorgangs
+    zugang,                              // was tatsächlich offen ist
+    nachweis,                            // ob es dafür eine Unterschrift gibt
+  } });
 }));
 
 // ─── NDA Dokument als PDF abrufen (Preview zum Lesen) ────────────────────────
@@ -474,9 +497,23 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
     // Die Beratung bekommt dieselbe Urkunde, damit sie nicht in der Plattform
     // gesucht werden muss. Adresse ueber NDA_ARCHIV_MAIL aenderbar.
     {
+      // ── An die Beratung des Mandats, nicht nur ins Archiv (v0.506) ───────
+      //
+      // Bis hierher ging die Kopie an eine einzige, feste Adresse. Wer das
+      // Mandat betreut, bekam nichts, und als eine Vereinbarung fehlte, war
+      // „ich habe auch nichts in Kopie bekommen" kein Hinweis, sondern der
+      // Normalfall. Jetzt bekommt sie, wer das Mandat angelegt hat oder ihm
+      // zugeordnet ist, und das Archiv zusätzlich.
       const archiv = process.env.NDA_ARCHIV_MAIL || 'info@phalanx.de';
+      const beratung = await db.all(
+        `SELECT DISTINCT u.email FROM users u
+          WHERE u.email IS NOT NULL
+            AND (u.id = (SELECT created_by FROM projects WHERE id = ?)
+                 OR u.id IN (SELECT user_id FROM project_members WHERE project_id = ?))`,
+        [project.id, project.id]).catch(() => []);
+      const empfaenger = [...new Set([archiv, ...(beratung || []).map((b) => b.email)].filter(Boolean))];
       sendMail({
-        to: archiv,
+        to: empfaenger.join(', '),
         subject: `Unterzeichnet: Vertraulichkeitsvereinbarung ${project.codename}, ${user.first_name} ${user.last_name}`,
         html: `<p>Eine Vertraulichkeitsvereinbarung wurde online unterzeichnet.</p>
 <table cellpadding="4" style="font-size:14px">

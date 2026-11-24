@@ -1400,9 +1400,44 @@ router.post('/projects/:projectId/interests/:userId/grant-dataroom', ...isAdmin,
   const buyer = await db.get('SELECT id, email, first_name FROM users WHERE id = ?', [req.params.userId]);
   if (!buyer) return res.status(404).json({ success: false, error: 'Käufer hat kein Nutzerkonto, Zugang ist nur für registrierte Nutzer möglich' });
 
+  // ── Der Zugang haengt am Nachweis (v0.506) ─────────────────────────────────
+  //
+  // Diese Route hat bis hierher ohne jede Pruefung freigegeben. Sie ist der
+  // Knopf „Datenraum freigeben" im Kontakt, also der bequemste Weg, und genau
+  // daran haengt der Fall FARADAY: Zugang erteilt, Vereinbarung nie
+  // unterschrieben, und die Ansicht des Interessenten meldete ihm daraufhin
+  // „Zugang freigeschaltet".
+  //
+  // Abgewiesen wird nur das Neue. Bestehende Freigaben bleiben, wo sie sind;
+  // welche davon bleibt, entscheidet der Bericht und ein Mensch.
+  //
+  // Die Ausnahme bleibt moeglich, aber sie muss ausgesprochen werden: mit
+  // `ohne_nachweis` und einer Begruendung, die im Protokoll steht.
+  const { darfGeoeffnetWerden } = require('../utils/ndaNachweis');
+  const pruefung = await darfGeoeffnetWerden(db, { userId: buyer.id, projectId: project.id });
+  const ausnahme = req.body.ohne_nachweis === true;
+  const grund = String(req.body.grund || '').trim();
+  if (!pruefung.erlaubt && !ausnahme) {
+    return res.status(409).json({
+      success: false, code: 'NACHWEIS_FEHLT', error: pruefung.grund,
+      hinweis: 'Wenn Sie trotzdem freigeben wollen, geht das mit einer Begründung; sie steht dann im Protokoll.',
+    });
+  }
+  if (!pruefung.erlaubt && ausnahme && grund.length < 10) {
+    return res.status(400).json({
+      success: false, code: 'GRUND_FEHLT',
+      error: 'Eine Freigabe ohne unterschriebene Vereinbarung braucht eine Begründung in einem Satz.',
+    });
+  }
+
   const { setStage } = require('../middleware/gates');
   await setStage(buyer.id, project.id, 'dataroom_granted', req.user.id, req.ip);
-  db.auditLog(req.user.id, 'DATAROOM_GRANTED_DIRECT', 'project', project.id, `Datenraum freigegeben für ${buyer.email}`, req.ip);
+  db.auditLog(req.user.id, pruefung.erlaubt ? 'DATAROOM_GRANTED_DIRECT' : 'DATAROOM_GRANTED_OHNE_NACHWEIS',
+    'project', project.id,
+    pruefung.erlaubt
+      ? `Datenraum freigegeben für ${buyer.email} (${pruefung.ausnahme === 'finanzierung' ? 'Finanzierungsmandat' : pruefung.nachweis && pruefung.nachweis.hinweis})`
+      : `Datenraum OHNE unterschriebene Vereinbarung freigegeben für ${buyer.email}. Begründung: ${grund}`,
+    req.ip);
   require('../utils/xp').award(buyer.id, 'DATAROOM_GRANTED', { refType: 'project', refId: project.id }).catch(() => {});
 
   if (req.body.notify !== false) {
@@ -2794,6 +2829,35 @@ router.post('/berichte/fehler/:id/erledigt', ...isAdmin, darfMandatePflegen, wra
  *
  * Ohne :projectId werden alle Mandate geprüft.
  */
+/**
+ * Bericht: Wer hat Datenraum-Zugang, ohne dass eine unterschriebene
+ * Vertraulichkeitsvereinbarung vorliegt? (v0.506)
+ *
+ * Anlass war der Interessent Alexander Schmidler bei FARADAY, der nachfragte,
+ * ob noch etwas fehle, weil seine Ansicht „Zugang freigeschaltet" meldete. Es
+ * fehlte die Unterschrift. Die Frage danach war: Bei wie vielen noch?
+ *
+ * Dieser Bericht beantwortet sie und sonst nichts. Er entzieht keine Freigabe
+ * und ändert keine Stufe. Welche Freigabe bleibt und welche nicht, entscheidet
+ * ein Mensch je Fall, und bei einem Zugang, der seit Wochen besteht, ist das
+ * auch die einzige vertretbare Reihenfolge.
+ */
+router.get('/berichte/zugang-ohne-nachweis{/:projectId}', ...isAdmin, wrap(async (req, res) => {
+  const { zugangOhneNachweis } = require('../utils/ndaNachweis');
+  const nur = req.params.projectId ? parseInt(req.params.projectId, 10) : null;
+  const zeilen = await zugangOhneNachweis(db, nur);
+
+  // Je Mandat gebündelt, damit die Zahl neben dem Namen steht und nicht erst
+  // gezählt werden muss.
+  const mandate = [];
+  for (const z of zeilen) {
+    let m = mandate.find((x) => x.project_id === z.project_id);
+    if (!m) { m = { project_id: z.project_id, codename: z.codename, personen: [] }; mandate.push(m); }
+    m.personen.push(z);
+  }
+  res.json({ success: true, data: { mandate, gesamt: zeilen.length } });
+}));
+
 // Express 5: Ein wahlfreier Parameter heisst jetzt '{/:projectId}' und nicht
 // mehr ':projectId?'. Gemeint ist dasselbe: mit und ohne Mandat.
 router.get('/berichte/klarnamen{/:projectId}', ...isAdmin, wrap(async (req, res) => {

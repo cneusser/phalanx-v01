@@ -154,6 +154,8 @@ export default function ProjectDetail() {
   // Beratung hinterlegt wurde. Er taucht im Online-Status nicht auf, und ohne
   // diese Abfrage sähe der Unterzeichner seinen eigenen Vertrag nirgends.
   const [externerNda, setExternerNda] = useState(null);
+  // v0.506: Der Nachweis, getrennt vom Zugang. Siehe utils/ndaNachweis.js.
+  const [nachweis, setNachweis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [contacting, setContacting] = useState(false);
@@ -232,6 +234,7 @@ export default function ProjectDetail() {
         } else {
           const ndaData = await api.get(`/ndas/${id}/status`);
           setNdaStatus(ndaData.status);
+          setNachweis(ndaData.nachweis || null);
           if (ndaData.id) setNdaId(ndaData.id);
           if (ndaData.status === 'approved') {
             try { const full = await api.get(`/projects/${id}`); setFullData(full); } catch { /* ignore */ }
@@ -1164,7 +1167,39 @@ export default function ProjectDetail() {
                       ansehen und unterzeichnen", waehrend zwei Handbreit
                       darunter „ein NDA ist dafuer nicht noetig" stand. Beides
                       auf derselben Seite. */}
-                  {!isStartup && (ndaStatus === 'sent' || ndaStatus === 'requested') && (
+                  {/* v0.506: Zugang und Unterschrift stehen getrennt.
+                      Vorher verschwand der Knopf zum Unterzeichnen, sobald der
+                      Datenraum offen war, und die Seite meldete nur noch
+                      „Zugang freigeschaltet". Ein Interessent hat daraus
+                      geschlossen, er habe unterzeichnet, und per Mail
+                      nachgefragt, ob noch etwas fehle. Es fehlte die
+                      Unterschrift. */}
+                  {!isStartup && nachweis && !nachweis.belegt && (
+                    <div style={{ background: '#FFFBEB', border: '1px solid #fcd34d', borderRadius: 6, padding: '0.8rem', marginBottom: '0.75rem' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 700, marginBottom: 4 }}>
+                        Die Vertraulichkeitsvereinbarung fehlt noch
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#92400e', lineHeight: 1.55 }}>
+                        Uns liegt von Ihnen keine unterschriebene Vereinbarung vor, weder online
+                        unterzeichnet noch zurückgeschickt. Sie können sie hier in zwei Minuten
+                        unterzeichnen.
+                      </div>
+                      <button onClick={() => setShowNDAModal(true)} style={{
+                        marginTop: 9, width: '100%', background: '#b45309', color: '#fff', border: 'none',
+                        padding: '0.6rem', borderRadius: 6, fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
+                      }}>
+                        <PenLine size={14} /> Jetzt unterzeichnen
+                      </button>
+                    </div>
+                  )}
+                  {!isStartup && nachweis && nachweis.belegt && nachweis.art === 'datei' && (
+                    <div style={{ fontSize: '0.75rem', color: '#065f46', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+                      Ihre unterschriebene Vereinbarung liegt uns vor
+                      {nachweis.zeitpunkt ? ` (vom ${new Date(nachweis.zeitpunkt).toLocaleDateString('de-DE')})` : ''}.
+                    </div>
+                  )}
+                  {!isStartup && (ndaStatus === 'sent' || ndaStatus === 'requested') && !(nachweis && !nachweis.belegt) && (
                     <button onClick={() => setShowNDAModal(true)} style={{
                       width: '100%', background: ndaStatus === 'sent' ? '#3b82f6' : '#f59e0b',
                       color: '#fff', border: 'none', padding: '0.75rem', borderRadius: 6,
@@ -1252,7 +1287,7 @@ export default function ProjectDetail() {
           projectId={id}
           projectName={teaser.codename}
           onClose={() => setShowNDAModal(false)}
-          onSigned={() => { setNdaStatus('signed'); setShowNDAModal(false); }}
+          onSigned={() => { setNdaStatus('signed'); setNachweis({ belegt: true, art: 'online', zeitpunkt: new Date().toISOString() }); setShowNDAModal(false); }}
         />
       )}
 

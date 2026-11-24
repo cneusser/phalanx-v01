@@ -201,7 +201,26 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
       if (on) show('Datenraum freigegeben ✓');
       else show(d && d.hinweis ? d.hinweis : 'Datenraum-Zugang entzogen ✓');
       await load(); onChanged && onChanged();
-    } catch (e) { show('Fehler: ' + e.message); }
+    } catch (e) {
+      // v0.506: Ohne unterschriebene Vereinbarung geht der Datenraum nicht
+      // mehr nebenbei auf. Die Ausnahme bleibt möglich, aber sie muss
+      // ausgesprochen und begründet werden, und sie steht dann im Protokoll.
+      if (e.code === 'NACHWEIS_FEHLT') {
+        const grund = window.prompt(
+          `${e.message}\n\nWenn Sie trotzdem freigeben wollen, nennen Sie bitte den Grund. `
+          + 'Er wird im Protokoll festgehalten.', '');
+        if (grund === null) return;
+        if (String(grund).trim().length < 10) { show('Ohne Begründung wird nicht freigegeben.'); return; }
+        try {
+          await api.post(`/admin/projects/${projectId}/interests/${uid}/grant-dataroom`,
+            { ohne_nachweis: true, grund: String(grund).trim() });
+          show('Ohne Nachweis freigegeben, mit Vermerk im Protokoll ✓');
+          await load(); onChanged && onChanged();
+        } catch (e2) { show('Fehler: ' + e2.message); }
+        return;
+      }
+      show('Fehler: ' + e.message);
+    }
   }
 
   // Auf „nicht kontaktieren" setzen (Widerspruch) bzw. wieder freigeben. Ein

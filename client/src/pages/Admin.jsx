@@ -232,6 +232,12 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState('overview');
   // v0.503: Auswertung, welche Reiter benutzt werden.
   const [nutzung, setNutzung] = useState(null);
+  // v0.506: Wer hat Zugang, ohne dass ein Nachweis vorliegt?
+  const [ohneNachweis, setOhneNachweis] = useState(null);
+  const ladeOhneNachweis = async () => {
+    try { setOhneNachweis(await api.get('/admin/berichte/zugang-ohne-nachweis')); }
+    catch (e) { setBerichtMsg('Der Bericht konnte nicht erstellt werden: ' + e.message); }
+  };
   const [loading, setLoading] = useState(true);
   // Sprint 16: Analytics-Cockpit
   const [analytics, setAnalytics] = useState(null);
@@ -2705,6 +2711,52 @@ export default function Admin() {
               {berichtMsg}
             </div>
           )}
+
+          {/* ── Zugang ohne Nachweis (v0.506) ─────────────────────────────
+              Anlass war ein Interessent, dessen Ansicht „Zugang
+              freigeschaltet" meldete und der daraufhin fragte, ob noch etwas
+              fehle. Es fehlte die Unterschrift. Hier steht, bei wem noch. */}
+          <div style={CARD}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: '0.3rem' }}>
+              <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.95rem' }}>Zugang ohne Nachweis</div>
+              <button onClick={ladeOhneNachweis}
+                style={{ background: '#fff', border: '1px solid #ddd', borderRadius: 7, padding: '0.35rem 0.8rem', fontSize: '0.78rem', fontWeight: 700, color: C.navy, cursor: 'pointer' }}>
+                Prüfen
+              </button>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#777', marginBottom: '0.9rem', lineHeight: 1.6 }}>
+              Wer hat Datenraum-Zugang, ohne dass eine unterschriebene Vertraulichkeitsvereinbarung vorliegt,
+              weder online unterzeichnet noch als hinterlegtes Dokument? Es wird nur gemeldet. Was mit einer
+              Freigabe geschieht, entscheiden Sie je Fall.
+            </p>
+            {!ohneNachweis && <div style={{ fontSize: '0.82rem', color: '#999' }}>Noch nicht geprüft.</div>}
+            {ohneNachweis && ohneNachweis.gesamt === 0 && (
+              <div style={{ fontSize: '0.82rem', color: '#065f46' }}>
+                Zu jedem offenen Datenraum liegt eine unterschriebene Vereinbarung vor.
+              </div>
+            )}
+            {ohneNachweis && ohneNachweis.gesamt > 0 && (
+              <>
+                <div style={{ fontSize: '0.82rem', color: '#92400e', fontWeight: 700, marginBottom: '0.6rem' }}>
+                  {ohneNachweis.gesamt} Person(en) in {(ohneNachweis.mandate || []).length} Mandat(en).
+                </div>
+                {(ohneNachweis.mandate || []).map((m) => (
+                  <div key={m.project_id} style={{ marginBottom: '0.9rem' }}>
+                    <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.85rem', marginBottom: 4 }}>
+                      {m.codename} · {m.personen.length}
+                    </div>
+                    {m.personen.map((p) => (
+                      <div key={`${m.project_id}-${p.user_id}`}
+                        style={{ fontSize: '0.8rem', color: '#444', padding: '0.4rem 0.6rem', background: '#FFFBEB', border: '1px solid #fcd34d', borderRadius: 6, marginBottom: 4, lineHeight: 1.5 }}>
+                        <strong>{p.name || p.email}</strong> · {p.email}<br />
+                        <span style={{ color: '#92400e' }}>{p.hinweis}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
 
           {/* ── Was hier tatsächlich benutzt wird (v0.503) ────────────────
               Vorbereitung der Vereinfachung: einundzwanzig Reiter, und welche
