@@ -29,6 +29,15 @@ nicht stimmt.
 | `wartet@demo.capitalmatch.invalid` | Vereinbarung liegt zum Unterschreiben |
 | `gezeichnet@demo.capitalmatch.invalid` | hat unterschrieben, Datenraum fehlt |
 | `datenraum@demo.capitalmatch.invalid` | im Datenraum |
+| `verwaltung@demo.capitalmatch.invalid` | Verwaltung, sieht und darf alles |
+| `beratung@demo.capitalmatch.invalid` | Beratung, betreut nur DEMO_NORDLICHT |
+| `assistenz@demo.capitalmatch.invalid` | Assistenz, pflegt, veröffentlicht nicht |
+| `analyse@demo.capitalmatch.invalid` | Analyse, liest nur |
+
+Das erfundene Personal (v0.500) gibt es nur hier. Damit lassen sich die
+Rollensperren aus v0.495 anfassen: Die Beratung darf an DEMO_NORDLICHT alles
+und an DEMO_TALSOHLE nichts, die Analyse liest und schreibt nie, die Assistenz
+pflegt, veröffentlicht aber nicht.
 
 Mandate: `DEMO_NORDLICHT` (M&A), `DEMO_TALSOHLE` (Sondersituation),
 `DEMO_SETZLING` (Finanzierung, Ausnahme ohne Unterschrift), `DEMO_ENTWURF`

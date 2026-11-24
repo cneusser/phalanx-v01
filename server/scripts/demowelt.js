@@ -124,6 +124,25 @@ const INTERESSENTEN = [
 // derselben Person, und dann laesst sich die wichtigste Frage der
 // Verkaeufersicht gar nicht stellen: Kommt jemand an ein fremdes Mandat?
 // Aufgefallen beim ersten Durchgang des Drehbuchs auf der Teststufe, Punkt 1.5.
+// ── Erfundenes Personal (v0.500) ───────────────────────────────────────────
+//
+// Anlass: Zweimal hintereinander endete eine Pruefung an derselben Stelle.
+// Die Rechte-Matrix aus v0.495 liess sich von aussen nicht anfassen, weil es
+// auf der Teststufe kein Konto mit interner Rolle gibt, und die Uebernahme
+// eines Nutzers ins CRM (v0.499) ebenso wenig. Beides musste ich Christian
+// zum Klicken geben, statt es selbst zu pruefen.
+//
+// Diese vier Konten schliessen die Luecke. Sie sind erfunden, tragen dasselbe
+// Demokennwort und entstehen nur auf der Teststufe; das Skript weigert sich
+// anderswo zu laufen (nurAufDerTeststufe). Die Verwaltung ist bewusst dabei:
+// Ohne sie laesst sich keine Freigabe und keine Mandatszuordnung pruefen.
+const PERSONAL = [
+  { email: `verwaltung${DOMAENE}`, vorname: 'Vera', nachname: 'Verwaltung', firma: 'Phalanx GmbH', rolle: 'super_admin' },
+  { email: `beratung${DOMAENE}`,   vorname: 'Bernd', nachname: 'Beratung',  firma: 'Phalanx GmbH', rolle: 'advisor' },
+  { email: `assistenz${DOMAENE}`,  vorname: 'Anna', nachname: 'Assistenz',  firma: 'Phalanx GmbH', rolle: 'assistant' },
+  { email: `analyse${DOMAENE}`,    vorname: 'Ada',  nachname: 'Analyse',    firma: 'Phalanx GmbH', rolle: 'analyst' },
+];
+
 const VERKAEUFER = { email: `verkaeufer${DOMAENE}`, vorname: 'Elke', nachname: 'Verkauf', firma: 'Nordlicht Holding' };
 const VERKAEUFER_ZWEI = { email: `verkaeufer2${DOMAENE}`, vorname: 'Falk', nachname: 'Zweitverkauf', firma: 'Talsohle Beteiligungen' };
 
@@ -183,6 +202,9 @@ async function aufsetzen({ db, zuruecksetzen = false, leise = false } = {}) {
        VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, 'de')
        ON CONFLICT (email) DO UPDATE SET is_approved = 1, is_active = 1, email_verified = 1,
                                          password_hash = EXCLUDED.password_hash,
+                                         -- v0.500: Auch die Rolle nachziehen. Sonst bliebe ein
+                                         -- Demokonto nach einer Umbenennung auf der alten Rolle.
+                                         role = EXCLUDED.role,
                                          salutation = EXCLUDED.salutation, position = EXCLUDED.position,
                                          mobile = EXCLUDED.mobile, street = EXCLUDED.street,
                                          postal_code = EXCLUDED.postal_code, city = EXCLUDED.city`,
@@ -191,6 +213,12 @@ async function aufsetzen({ db, zuruecksetzen = false, leise = false } = {}) {
         ANSCHRIFT.street, ANSCHRIFT.postal_code, ANSCHRIFT.city]);
     return db.get('SELECT * FROM users WHERE email = ?', [p.email]);
   };
+
+  // Das Personal zuerst: Die Beratung soll den Mandaten zugeordnet werden
+  // koennen, sobald sie angelegt sind (v0.495 bindet sie daran).
+  const personal = [];
+  for (const p of PERSONAL) personal.push({ ...p, konto: await konto(p, p.rolle, null) });
+  const beratung = personal.find((p) => p.rolle === 'advisor');
 
   const verkaeufer = await konto(VERKAEUFER, 'seller', null);
   const verkaeuferZwei = await konto(VERKAEUFER_ZWEI, 'seller', null);
@@ -212,6 +240,15 @@ async function aufsetzen({ db, zuruecksetzen = false, leise = false } = {}) {
     angelegt.push({ ...m, id });
   }
   const nordlicht = angelegt.find((m) => m.codename === `${VORSATZ}NORDLICHT`);
+  // v0.500: Die Beratung betreut NORDLICHT, TALSOHLE nicht. Damit laesst sich
+  // die Mandatsbindung aus v0.495 an echten Daten pruefen, in beide
+  // Richtungen: eigenes Mandat geht, fremdes nicht.
+  if (beratung && nordlicht) {
+    await db.run(
+      `INSERT INTO project_members (tenant_id, project_id, user_id, member_role)
+       VALUES (1, ?, ?, 'editor') ON CONFLICT DO NOTHING`,
+      [nordlicht.id, beratung.konto.id]).catch(() => {});
+  }
   const setzling = angelegt.find((m) => m.codename === `${VORSATZ}SETZLING`);
 
   // ── Datenraum: Ordner, Dateien, eine davon vertraulich ───────────────────
@@ -296,6 +333,9 @@ async function aufsetzen({ db, zuruecksetzen = false, leise = false } = {}) {
   sag(`   Mandate:        ${angelegt.map((m) => m.codename).join(', ')}`);
   sag(`   Verkäufer:      ${VERKAEUFER.email} (drei Mandate)`);
   sag(`                   ${VERKAEUFER_ZWEI.email} (nur ${VORSATZ}TALSOHLE)`);
+  sag('   Personal (erfunden, nur hier):');
+  for (const p of personal) sag(`     ${String(p.email).padEnd(42)} ${p.rolle}`);
+  sag(`                   Beratung betreut ${VORSATZ}NORDLICHT, ${VORSATZ}TALSOHLE nicht.`);
   sag('   Interessenten, je mit eigenem Stand:');
   for (const k of kaeufer) sag(`     ${String(k.email).padEnd(42)} ${k.stand}`);
   sag(`\n   Kennwort für alle Demokonten: ${kennwort}`);
@@ -307,6 +347,7 @@ async function aufsetzen({ db, zuruecksetzen = false, leise = false } = {}) {
     mandate: angelegt.map((m) => ({ codename: m.codename, id: m.id, art: m.art, status: m.status })),
     verkaeufer: [VERKAEUFER.email, VERKAEUFER_ZWEI.email],
     konten: kaeufer.map((k) => ({ email: k.email, stand: k.stand })),
+    personal: personal.map((p) => ({ email: p.email, rolle: p.rolle })),
     kennwort,
     entfernt,
   };

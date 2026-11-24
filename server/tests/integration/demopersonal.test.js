@@ -1,0 +1,130 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Erfundenes Personal auf der Teststufe (v0.500)
+//
+// Anlass: Zweimal endete eine Prüfung an derselben Stelle. Die Rechte-Matrix
+// aus v0.495 liess sich auf der Teststufe nicht anfassen, weil es dort kein
+// Konto mit interner Rolle gibt, und die Übernahme eines Nutzers ins CRM aus
+// v0.499 ebenso wenig. Beides musste zum Klicken weitergereicht werden, statt
+// geprüft zu werden.
+//
+// Vier erfundene Konten schliessen die Lücke: Verwaltung, Beratung, Assistenz,
+// Analyse. Sie entstehen nur auf der Teststufe.
+//
+// Geprüft wird hier, dass die Demowelt sie anlegt, dass die Beratung genau
+// einem Mandat zugeordnet ist, und dass sich damit die Sperren aus v0.495 und
+// der Weg aus v0.499 wirklich durchspielen lassen. Sonst wäre es ein Vorrat an
+// Konten ohne Nutzen.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const { hochfahren, zaehler } = require('./lauf');
+
+(async () => {
+  const { db, ruf, alsNutzer } = await hochfahren({ port: 5604 });
+  const { ok, schluss } = zaehler();
+
+  // Die Demowelt laeuft nur auf der Teststufe. Die Stufe gilt hier nur fuer
+  // den Aufbau: Bleibt sie stehen, stellt das Einladungstor jede weitere
+  // Anfrage ab, und die Pruefung liefe gegen eine verschlossene Tuer.
+  const vorherigeStufe = process.env.CM_STUFE;
+  process.env.CM_STUFE = 'teststufe';
+  const demowelt = require(`${__dirname}/../../scripts/demowelt`);
+  const ergebnis = await demowelt.aufsetzen({ db, zuruecksetzen: true, leise: true });
+  if (vorherigeStufe === undefined) delete process.env.CM_STUFE;
+  else process.env.CM_STUFE = vorherigeStufe;
+
+  console.log('\n══ Die Demowelt legt Personal an ══');
+  {
+    ok('sie nennt es in ihrer Antwort', Array.isArray(ergebnis.personal) && ergebnis.personal.length === 4,
+      JSON.stringify(ergebnis.personal));
+    const rollen = (ergebnis.personal || []).map((p) => p.rolle).sort();
+    ok('vier Rollen, von Verwaltung bis Analyse',
+      JSON.stringify(rollen) === JSON.stringify(['advisor', 'analyst', 'assistant', 'super_admin']),
+      JSON.stringify(rollen));
+
+    for (const p of ergebnis.personal) {
+      const u = await db.get('SELECT role, is_active, is_approved, email_verified FROM users WHERE email = ?', [p.email]);
+      ok(`${p.email} ist angelegt und freigeschaltet`,
+        !!u && u.role === p.rolle && Number(u.is_active) === 1 && Number(u.is_approved) === 1,
+        JSON.stringify(u));
+    }
+    ok('alle tragen die erfundene Hausadresse', (ergebnis.personal || []).every((p) => /@demo\.capitalmatch\.invalid$/.test(p.email)));
+  }
+
+  console.log('\n══ Die Beratung betreut ein Mandat, nicht alle ══');
+  const beratung = await db.get('SELECT * FROM users WHERE email = ?', ['beratung@demo.capitalmatch.invalid']);
+  const nordlicht = await db.get('SELECT id FROM projects WHERE codename = ?', ['DEMO_NORDLICHT']);
+  const talsohle = await db.get('SELECT id FROM projects WHERE codename = ?', ['DEMO_TALSOHLE']);
+  {
+    const zu = await db.get('SELECT * FROM project_members WHERE project_id = ? AND user_id = ?', [nordlicht.id, beratung.id]);
+    ok('sie ist NORDLICHT zugeordnet', !!zu, zu ? zu.member_role : 'keine Zuordnung');
+    const nicht = await db.get('SELECT * FROM project_members WHERE project_id = ? AND user_id = ?', [talsohle.id, beratung.id]);
+    ok('und TALSOHLE nicht', !nicht);
+  }
+
+  console.log('\n══ Damit lassen sich die Sperren wirklich pruefen ══');
+  {
+    const tB = alsNutzer(beratung);
+    const eigen = await ruf(`/api/admin/projects/${nordlicht.id}`, {
+      token: tB, methode: 'PUT', koerper: { short_description: 'von der zustaendigen Beratung' },
+    });
+    ok('am eigenen Mandat geht es', eigen.status === 200, String(eigen.status));
+
+    const fremd = await ruf(`/api/admin/projects/${talsohle.id}`, {
+      token: tB, methode: 'PUT', koerper: { short_description: 'am fremden Mandat' },
+    });
+    ok('am fremden nicht', fremd.status === 403 && fremd.json.code === 'NICHT_MEIN_MANDAT',
+      `${fremd.status} ${(fremd.json && fremd.json.code) || ''}`);
+
+    const analyse = await db.get('SELECT * FROM users WHERE email = ?', ['analyse@demo.capitalmatch.invalid']);
+    const tA = alsNutzer(analyse);
+    const lesen = await ruf('/api/admin/projects', { token: tA });
+    ok('die Analyse darf lesen', lesen.status === 200, String(lesen.status));
+    const schreiben = await ruf(`/api/admin/projects/${nordlicht.id}`, {
+      token: tA, methode: 'PUT', koerper: { short_description: 'von der Analyse' },
+    });
+    ok('aber nicht schreiben', schreiben.status === 403, String(schreiben.status));
+  }
+
+  console.log('\n══ Und der Weg aus v0.499 ist begehbar ══');
+  {
+    const verwaltung = await db.get('SELECT * FROM users WHERE email = ?', ['verwaltung@demo.capitalmatch.invalid']);
+    const tV = alsNutzer(verwaltung);
+    const kaeufer = await db.get('SELECT * FROM users WHERE email = ?', ['anfrage@demo.capitalmatch.invalid']);
+    // Aus frueheren Laeufen koennte schon ein Kontakt zu dieser Adresse
+    // bestehen. Dann pruefte der Abschnitt nichts mehr.
+    const alt = await db.get('SELECT id FROM crm_contacts WHERE lower(email) = lower(?)', [kaeufer.email]);
+    if (alt) {
+      await db.run('DELETE FROM crm_company_contacts WHERE contact_id = ?', [alt.id]).catch(() => {});
+      await db.run('DELETE FROM crm_contacts WHERE id = ?', [alt.id]).catch(() => {});
+    }
+
+    const offen = await ruf('/api/crm/konten-ohne-kontakt', { token: tV });
+    ok('die Verwaltung sieht die Konten ohne Kontakt', offen.status === 200, String(offen.status));
+    ok('die Demo-Interessenten sind darunter',
+      (offen.daten || []).some((u) => u.email === 'anfrage@demo.capitalmatch.invalid'),
+      JSON.stringify((offen.daten || []).map((u) => u.email)).slice(0, 200));
+
+    const r = await ruf(`/api/crm/contacts/from-user/${kaeufer.id}`, { token: tV, methode: 'POST' });
+    ok('die Uebernahme geht durch', r.status === 200 && !!r.daten.id, `${r.status} ${JSON.stringify(r.daten)}`);
+
+    const kontakt = await db.get('SELECT * FROM crm_contacts WHERE id = ?', [r.daten.id]);
+    ok('der Kontakt zeigt auf das Konto', !!kontakt && Number(kontakt.user_id) === Number(kaeufer.id),
+      kontakt ? String(kontakt.user_id) : 'kein Kontakt');
+    const firma = await db.get(
+      `SELECT c.name FROM crm_company_contacts cc JOIN crm_companies c ON c.id = cc.company_id
+        WHERE cc.contact_id = ? LIMIT 1`, [r.daten.id]);
+    ok('und das Unternehmen ist verknuepft', !!firma, firma ? firma.name : 'keines');
+  }
+
+  console.log('\n══ Aufraeumen: das Personal verschwindet mit der Demowelt ══');
+  {
+    process.env.CM_STUFE = 'teststufe';
+    await demowelt.raeumen(db, true);
+    if (vorherigeStufe === undefined) delete process.env.CM_STUFE;
+    else process.env.CM_STUFE = vorherigeStufe;
+    const rest = await db.all("SELECT email FROM users WHERE email LIKE '%@demo.capitalmatch.invalid'");
+    ok('keine Demokonten mehr da', rest.length === 0, JSON.stringify(rest.map((r) => r.email)));
+  }
+
+  schluss();
+})().catch((e) => { console.error('ABBRUCH:', e.message, '\n', (e.stack || '').split('\n').slice(0, 5).join('\n')); process.exit(1); });
