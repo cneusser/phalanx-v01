@@ -559,10 +559,22 @@ export default function Admin() {
     catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
 
+  // ── Ein Klick auf den Namen oeffnet den Kontakt (v0.499) ─────────────────
+  //
+  // Anlass, woertlich: „Ich kann nicht auf Wiedemeyer tippen und wenn ich ihm
+  // im CRM Suche finde ich ihn nicht?"
+  //
+  // Der Klick lief ins Leere, und zwar an einem Buchstaben: Die Route gibt
+  // { id, created } zurueck, gelesen wurde r.contact_id. Das ist undefined,
+  // die Schublade bekam nichts zu zeigen, und es sah aus, als sei der Name
+  // gar nicht anklickbar. Sichtbar war nichts davon, auch keine Fehlermeldung.
   async function openContactForUser(u) {
     try {
       const r = await api.post(`/crm/contacts/from-user/${u.id}`, {});
-      setDrawerContact(r.contact_id);
+      const id = r && (r.id || r.contact_id);
+      if (!id) { showMsg('Kontakt konnte nicht geoeffnet werden.', 'error'); return; }
+      setDrawerContact(id);
+      if (r.created) showMsg('Kontakt aus dem Nutzerkonto angelegt.');
     } catch (e) { showMsg('Fehler: ' + e.message, 'error'); }
   }
 

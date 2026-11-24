@@ -3640,17 +3640,73 @@ router.post('/reconcile-accounts/link/:contactId', ...isStaff, canWrite, wrap(as
 }));
 
 // Aus einem registrierten Nutzer einen CRM-Kontakt anlegen (idempotent, verknüpft).
+// ── Nutzerkonten, zu denen es keinen Kontakt gibt (v0.499) ─────────────────
+//
+// Anlass, woertlich: „wenn ich ihm im CRM Suche finde ich ihn nicht? Wie kann
+// das sein?"
+//
+// So: Wer sich selbst registriert, wird ein Nutzerkonto, kein CRM-Kontakt.
+// Beides sind getrennte Welten, und das ist richtig so, denn ein Kontakt im
+// CRM traegt Einwilligung, Herkunft und Ansprachehistorie. Nur merkte man es
+// erst, wenn man jemanden suchte und nicht fand.
+//
+// Diese Route nennt die Konten, die noch keinen Kontakt haben. Sie legt nichts
+// an: Uebernommen wird einzeln und auf Klick, ueber /contacts/from-user/:id.
+// Das bleibt so, weil niemand ungefragt in einem Verteiler landen soll.
+router.get('/konten-ohne-kontakt', ...isStaff, wrap(async (req, res) => {
+  const { q } = req.query;
+  const where = [NON_STAFF, 'u.id NOT IN (SELECT user_id FROM crm_contacts WHERE user_id IS NOT NULL)',
+    'lower(u.email) NOT IN (SELECT lower(email) FROM crm_contacts WHERE email IS NOT NULL)'];
+  const params = [];
+  if (q) {
+    const b = suchBedingung(q, ['u.last_name', 'u.first_name', 'u.email', 'u.company']);
+    if (b) { where.push(`(${b.bedingung})`); params.push(...b.werte); }
+  }
+  const rows = await scoped(req, (t) => t.all(`
+    SELECT u.id, u.first_name, u.last_name, u.email, u.company, u.role, u.buyer_type, u.created_at
+      FROM users u
+     WHERE ${where.join(' AND ')}
+     ORDER BY u.created_at DESC
+     LIMIT 50`, params));
+  res.json({ success: true, data: rows });
+}));
+
 router.post('/contacts/from-user/:userId', ...isStaff, canWrite, wrap(async (req, res) => {
   const u = await db.get(`SELECT * FROM users WHERE id = ? AND ${NON_STAFF}`, [req.params.userId]);
   if (!u) return res.status(404).json({ success: false, error: 'Nutzer nicht gefunden' });
   const dup = await db.get(`SELECT id FROM crm_contacts WHERE user_id = ? OR lower(email) = lower(?) LIMIT 1`, [u.id, u.email || '']);
   if (dup) return res.json({ success: true, data: { id: dup.id, created: false } });
+  // v0.499: Hier stand eine Spalte „company", die es in crm_contacts nicht
+  // gibt. Die Uebernahme scheiterte damit immer mit einem Fehler 500, und in
+  // der Nutzerliste sah es aus, als sei der Name schlicht nicht anklickbar.
+  // Das Unternehmen gehoert nicht an den Kontakt, sondern als Verknuepfung an
+  // ein Unternehmen; genau so wird es jetzt gemacht.
   const id = await db.insert(`
-    INSERT INTO crm_contacts (tenant_id, first_name, last_name, email, company, buyer_type,
+    INSERT INTO crm_contacts (tenant_id, first_name, last_name, email, buyer_type,
                               consent_status, consent_at, contact_status, user_id, lead_source, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, 'opt_in', now(), 'active', ?, 'account', ?)`,
+    VALUES (?, ?, ?, ?, ?, 'opt_in', now(), 'active', ?, 'account', ?)`,
     [u.tenant_id || 1, u.first_name || '', (u.last_name && u.last_name.trim()) || u.email || 'Kontakt',
-     (u.email || '').toLowerCase(), u.company || null, u.buyer_type || null, u.id, req.user.id]);
+     (u.email || '').toLowerCase(), u.buyer_type || null, u.id, req.user.id]);
+
+  // Unternehmen aus dem Konto uebernehmen: vorhandenes suchen, sonst anlegen,
+  // dann verknuepfen. Scheitert das, bleibt der Kontakt trotzdem bestehen.
+  const firma = (u.company || '').trim();
+  if (firma) {
+    try {
+      let c = await db.get('SELECT id FROM crm_companies WHERE lower(name) = lower(?) LIMIT 1', [firma]);
+      if (!c) {
+        const neu = await db.insert(
+          'INSERT INTO crm_companies (tenant_id, name, created_by) VALUES (?, ?, ?)',
+          [u.tenant_id || 1, firma, req.user.id]);
+        c = { id: neu };
+      }
+      await db.run(
+        `INSERT INTO crm_company_contacts (tenant_id, company_id, contact_id, position, is_primary)
+         VALUES (?, ?, ?, ?, 1)`,
+        [u.tenant_id || 1, c.id, id, u.position || null]);
+    } catch (e) { console.warn('[crm] Unternehmen zum Konto nicht verknuepft:', e.message); }
+  }
+
   db.auditLog(req.user.id, 'CRM_CONTACT_FROM_USER', 'crm_contact', id, u.email, req.ip);
   res.json({ success: true, data: { id, created: true } });
 }));

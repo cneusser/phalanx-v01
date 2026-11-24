@@ -231,17 +231,31 @@ export default function Crm() {
     </div>
   );
 
+  // v0.499: Nutzerkonten ohne CRM-Kontakt, und die Uebernahme auf Klick.
+  const [kontenOhneKontakt, setKontenOhneKontakt] = useState([]);
+
   const load = useCallback(async () => {
     try {
-      const [s, c, k] = await Promise.all([
+      const [s, c, k, ko] = await Promise.all([
         api.get('/crm/stats'),
         api.get(`/crm/companies${q ? `?q=${encodeURIComponent(q)}` : ''}`),
         api.get(`/crm/contacts${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+        // v0.499: Konten, zu denen es noch keinen Kontakt gibt. Sonst sucht
+        // man jemanden, der sich selbst registriert hat, und findet nichts.
+        api.get(`/crm/konten-ohne-kontakt${q ? `?q=${encodeURIComponent(q)}` : ''}`).catch(() => []),
       ]);
-      setStats(s); setCompanies(c); setContacts(k);
+      setStats(s); setCompanies(c); setContacts(k); setKontenOhneKontakt(ko || []);
     } catch (e) { setMsg('Fehler: ' + e.message); }
   }, [q]);
   useEffect(() => { load(); }, [load]);
+
+  async function uebernehmen(u) {
+    try {
+      const r = await api.post(`/crm/contacts/from-user/${u.id}`, {});
+      setMsg(r && r.created ? 'Kontakt aus dem Nutzerkonto angelegt.' : 'Kontakt bestand bereits.');
+      await load();
+    } catch (e) { setMsg('Fehler: ' + e.message); }
+  }
 
   // Für Zuordnungen brauchen wir ALLE Kontakte und Unternehmen, nicht die
   // gefilterte Trefferliste. Sonst steht im Zuordnen-Feld nichts zur Auswahl,
@@ -607,6 +621,40 @@ export default function Crm() {
             </tbody>
           </table>
         </div>
+
+        {/* ── Konten ohne Kontakt (v0.499) ────────────────────────────────────
+            Wer sich selbst registriert, wird ein Nutzerkonto, kein
+            CRM-Kontakt. Das ist richtig so, war aber unsichtbar: Man suchte
+            jemanden und fand nichts. Jetzt steht er hier, mit einem Knopf.
+            Angelegt wird nur auf Klick, niemand landet ungefragt im CRM. */}
+        {kontenOhneKontakt.length > 0 && (
+          <div style={{ marginTop: '1rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '0.9rem 1.1rem' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#92400e', marginBottom: '0.2rem' }}>
+              {kontenOhneKontakt.length === 1
+                ? 'Ein Nutzerkonto ohne Kontakt im CRM'
+                : `${kontenOhneKontakt.length} Nutzerkonten ohne Kontakt im CRM`}
+            </div>
+            <div style={{ fontSize: '0.76rem', color: '#7c5e10', marginBottom: '0.7rem', lineHeight: 1.55 }}>
+              Diese Personen haben sich selbst auf der Plattform registriert. Sie erscheinen erst im CRM, wenn Sie sie übernehmen.
+            </div>
+            {kontenOhneKontakt.slice(0, 10).map(u => (
+              <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.4rem 0', borderTop: '1px solid #FDE68A', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.85rem' }}>{[u.first_name, u.last_name].filter(Boolean).join(' ') || u.email}</div>
+                  <div style={{ fontSize: '0.74rem', color: C.muted }}>{[u.email, u.company].filter(Boolean).join(' · ')}</div>
+                </div>
+                <button onClick={() => uebernehmen(u)} style={{ background: C.navy, color: '#fff', border: 'none', borderRadius: 7, padding: '0.4rem 0.9rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                  Als Kontakt übernehmen
+                </button>
+              </div>
+            ))}
+            {kontenOhneKontakt.length > 10 && (
+              <div style={{ fontSize: '0.74rem', color: '#7c5e10', marginTop: '0.5rem' }}>
+                … und {kontenOhneKontakt.length - 10} weitere. Suchen Sie nach Name oder Adresse, um sie einzeln zu finden.
+              </div>
+            )}
+          </div>
+        )}
         {Pager({ total: totalPages, count: contactsByLetter.length, word: 'Kontakt(e)' })}
         </>
       )}
