@@ -106,6 +106,20 @@ const VOLL = {
     ok('die Ampel steht danach auf unterschrieben', partei && partei.nda_status === 'signed', String(partei && partei.nda_status));
   }
 
+  console.log('\n══ Der Kontakt zeigt sein Mandat samt Nachweis ══');
+  {
+    // Diese Prüfung gab es nicht, und deshalb fiel erst auf der Teststufe auf,
+    // dass die ganze Mandatsliste leer zurückkam: Ein Fragezeichen in einem
+    // SQL-Kommentar zählte als vierter Platzhalter bei drei Werten. Ein
+    // stummes `catch` machte daraus „keinem Mandat zugeordnet".
+    const detail = await ruf(`/api/crm/contacts/${kid}/detail`, { token: tAdmin });
+    ok('die Kontaktakte antwortet', detail.status === 200, String(detail.status));
+    const zeile = ((detail.daten || {}).deals || []).find((x) => Number(x.project_id) === Number(pid));
+    ok('das Mandat steht in der Liste', !!zeile, JSON.stringify(((detail.daten || {}).deals || []).map((x) => x.codename)));
+    ok('die Ampel ist dort unterschrieben', zeile && zeile.nda_status === 'signed', JSON.stringify(zeile && zeile.nda_status));
+    ok('und der Nachweis wird mitgezaehlt', zeile && Number(zeile.nda_dateien) >= 1, JSON.stringify(zeile && zeile.nda_dateien));
+  }
+
   console.log('\n══ Die Datei liegt nicht im Datenraum ══');
   {
     const imBaum = await db.get(

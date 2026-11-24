@@ -704,14 +704,22 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
            (SELECT i.stage FROM interests i
              WHERE i.project_id = dp.project_id AND i.buyer_id = ?
              LIMIT 1) AS interest_stage,
-           -- v0.504: Liegt zu diesem Mandat ein unterschriebener NDA als Datei?
-           -- Das Kennzeichen nda_status behauptet „liegt vor"; diese Spalte
-           -- sagt, ob es dafür auch einen Nachweis gibt.
+           -- v0.504: Anzahl hinterlegter NDA-Dateien zu diesem Mandat. Das
+           -- Kennzeichen nda_status behauptet „liegt vor"; diese Spalte sagt,
+           -- ob es dafür auch einen Nachweis gibt.
+           -- ACHTUNG: In dieser Zeichenkette ist jedes Fragezeichen ein
+           -- Platzhalter, auch eines in einem Kommentar. Genau daran ist die
+           -- erste Fassung gescheitert: vier Platzhalter, drei Werte, und die
+           -- ganze Mandatsliste kam leer zurück.
            (SELECT count(*) FROM nda_dokumente nd
              WHERE nd.project_id = dp.project_id AND nd.contact_id = dp.contact_id
                AND nd.ersetzt_am IS NULL) AS nda_dateien
     FROM crm_deal_parties dp JOIN projects p ON p.id = dp.project_id
-    WHERE dp.contact_id = ? ORDER BY dp.funnel_stage DESC`, [contact.user_id || 0, contact.user_id || 0, req.params.id])).catch(() => []);
+    WHERE dp.contact_id = ? ORDER BY dp.funnel_stage DESC`, [contact.user_id || 0, contact.user_id || 0, req.params.id]))
+    // Ein stummes `catch` hat diesen Fehler einen Tag lang als „dieser Kontakt
+    // ist keinem Mandat zugeordnet" ausgegeben. Eine leere Liste, die nach
+    // einer Antwort aussieht, ist schlimmer als eine Fehlermeldung.
+    .catch((e) => { console.error('CRM-Detail: Mandatsliste fehlgeschlagen:', e.message); return []; });
 
   // Aktivitäten-Timeline: Einladungen, Mailings, Reminder, Pflege-Links, Selbstpflege
   const activity = await contactActivity(req, req.params.id, contact);
