@@ -116,6 +116,36 @@ const { hochfahren, zaehler } = require('./lauf');
     ok('und das Unternehmen ist verknuepft', !!firma, firma ? firma.name : 'keines');
   }
 
+  console.log('\n══ Die Teststufe richtet sich beim Start selbst ein (v0.501) ══');
+  {
+    // Erst leeren, dann den Startvorgang nachspielen. Ohne Stufe darf nichts
+    // entstehen, mit Stufe genau einmal.
+    process.env.CM_STUFE = 'teststufe';
+    await demowelt.raeumen(db, true);
+    delete process.env.CM_STUFE;
+
+    await db.demoweltBeimStart();
+    const ohne = await db.get("SELECT COUNT(*)::int AS c FROM projects WHERE codename LIKE 'DEMO_%'");
+    ok('ohne Teststufe entsteht nichts', ohne.c === 0, String(ohne.c));
+
+    process.env.CM_STUFE = 'teststufe';
+    await db.demoweltBeimStart();
+    const mit = await db.get("SELECT COUNT(*)::int AS c FROM projects WHERE codename LIKE 'DEMO_%'");
+    ok('auf der Teststufe entsteht die Demowelt', mit.c === 4, String(mit.c));
+    const konten = await db.get("SELECT COUNT(*)::int AS c FROM users WHERE email LIKE '%@demo.capitalmatch.invalid'");
+    ok('samt Konten und Personal', konten.c === 10, String(konten.c));
+
+    await db.demoweltBeimStart();
+    const nochmal = await db.get("SELECT COUNT(*)::int AS c FROM projects WHERE codename LIKE 'DEMO_%'");
+    ok('ein zweiter Start legt nichts doppelt an', nochmal.c === 4, String(nochmal.c));
+
+    const quelle = require('fs').readFileSync(`${__dirname}/../../db/database.js`, 'utf8');
+    ok('der Start ruft sie auf', /await demoweltBeimStart\(\);/.test(quelle));
+    ok('und sie prueft die Stufe zuerst', /if \(!stufen\.istTeststufe\(\)\) return;/.test(quelle));
+    if (vorherigeStufe === undefined) delete process.env.CM_STUFE;
+    else process.env.CM_STUFE = vorherigeStufe;
+  }
+
   console.log('\n══ Aufraeumen: das Personal verschwindet mit der Demowelt ══');
   {
     process.env.CM_STUFE = 'teststufe';

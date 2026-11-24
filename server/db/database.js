@@ -400,7 +400,47 @@ async function initialize() {
   await setupRlsRole();
 
   await startupSeed();
+  await demoweltBeimStart();
   console.log('✅ Database initialized (PostgreSQL)');
 }
 
-module.exports = { initialize, get, all, run, insert, auditLog, activityLog, knex: appKnex, ownerKnex, startupSeed, withTenant, imMandanten, aktuellerMandant };
+// ─────────────────────────────────────────────────────────────────────────────
+// Die Teststufe richtet sich selbst ein (v0.501)
+//
+// Anlass, wörtlich: „Wie komme ich auf die Verwaltung, wenn ich nicht
+// eingeloggt bin?" Die Demowelt liess sich nur über einen Knopf im
+// Verwaltungsbereich anlegen, und der setzt ein Konto voraus, das dort
+// vielleicht noch gar nicht brauchbar ist. Ein Henne-Ei-Problem, und zwar
+// eines, das bei jedem Neuaufsetzen der Teststufe wiederkommt.
+//
+// Drei Bedingungen, alle drei müssen erfüllt sein:
+//
+//   1. CM_STUFE steht auf „teststufe". In der Produktion passiert hier
+//      nichts, und demowelt.js weigert sich zusätzlich selbst.
+//   2. Es gibt noch kein einziges Demomandat. Wer die Demowelt bewusst
+//      geleert hat, bekommt sie nicht beim nächsten Start zurück.
+//   3. Es klappt oder es klappt nicht. Scheitert der Aufbau, startet die
+//      Plattform trotzdem; eine Teststufe ohne Demodaten ist unbequem, eine
+//      Teststufe, die nicht hochkommt, ist unbrauchbar.
+// ─────────────────────────────────────────────────────────────────────────────
+async function demoweltBeimStart() {
+  try {
+    const stufen = require('../utils/stufe');
+    if (!stufen.istTeststufe()) return;
+
+    const { VORSATZ } = require('../scripts/demowelt');
+    const da = await get(`SELECT id FROM projects WHERE codename LIKE ? LIMIT 1`, [`${VORSATZ}%`]);
+    if (da) return;
+
+    console.log('🧪 Teststufe ohne Demowelt: lege sie an.');
+    const { aufsetzen } = require('../scripts/demowelt');
+    const r = await aufsetzen({ db: module.exports, zuruecksetzen: false, leise: true });
+    console.log(`🧪 Demowelt steht: ${(r.mandate || []).length} Mandate, `
+      + `${(r.konten || []).length} Interessenten, ${(r.personal || []).length} Personalkonten. `
+      + `Kennwort: ${r.kennwort}`);
+  } catch (e) {
+    console.warn('🧪 Demowelt beim Start nicht angelegt:', e.message);
+  }
+}
+
+module.exports = { initialize, get, all, run, insert, auditLog, activityLog, knex: appKnex, ownerKnex, startupSeed, withTenant, imMandanten, aktuellerMandant, demoweltBeimStart };
