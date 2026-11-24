@@ -703,7 +703,13 @@ router.get('/contacts/:id/detail', ...isStaff, wrap(async (req, res) => {
            -- tatsaechlich in den Datenraum kommt.
            (SELECT i.stage FROM interests i
              WHERE i.project_id = dp.project_id AND i.buyer_id = ?
-             LIMIT 1) AS interest_stage
+             LIMIT 1) AS interest_stage,
+           -- v0.504: Liegt zu diesem Mandat ein unterschriebener NDA als Datei?
+           -- Das Kennzeichen nda_status behauptet „liegt vor"; diese Spalte
+           -- sagt, ob es dafür auch einen Nachweis gibt.
+           (SELECT count(*) FROM nda_dokumente nd
+             WHERE nd.project_id = dp.project_id AND nd.contact_id = dp.contact_id
+               AND nd.ersetzt_am IS NULL) AS nda_dateien
     FROM crm_deal_parties dp JOIN projects p ON p.id = dp.project_id
     WHERE dp.contact_id = ? ORDER BY dp.funnel_stage DESC`, [contact.user_id || 0, contact.user_id || 0, req.params.id])).catch(() => []);
 

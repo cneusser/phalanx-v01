@@ -11,6 +11,7 @@ import { api, getToken } from '../api/client';
 import { X, Mail, Send, ShieldCheck, ShieldOff, Star, Save, ExternalLink, FileText, Inbox, Check, Plus, Eye } from 'lucide-react';
 import TemplateSendModal from './TemplateSendModal';
 import ZugriffPruefen from './ZugriffPruefen';
+import NdaHochlegen from './NdaHochlegen';
 import { useAuth } from '../context/AuthContext';
 
 const C = { navy: '#111820', accent: '#1D4E89', bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#0F172A', muted: '#64748B' };
@@ -984,6 +985,18 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
                               online: {d.nda_online === 'signed' ? 'unterzeichnet' : 'angefragt'}
                             </div>
                           )}
+                          {/* v0.504: Ob das Kennzeichen belegt ist, gehört
+                              direkt daneben. „liegt vor" ohne Datei ist eine
+                              Behauptung, und man soll sehen, dass sie eine ist. */}
+                          {Number(d.nda_dateien || 0) > 0 ? (
+                            <div style={{ fontSize: '0.66rem', color: '#059669', marginTop: 2 }}>
+                              Datei hinterlegt
+                            </div>
+                          ) : d.nda_status === 'signed' && d.nda_online !== 'signed' ? (
+                            <div style={{ fontSize: '0.66rem', color: '#92400e', marginTop: 2 }}>
+                              ohne Datei, nur vermerkt
+                            </div>
+                          ) : null}
                         </div>
                         <div>
                           <div style={LBL}>Eigener Vermerk (nur Notiz)</div>
@@ -1056,6 +1069,18 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
                         </div>
 
                       </div>
+                      {/* v0.504: Der per Mail unterschriebene NDA bekommt einen Platz.
+                          Er steht direkt unter der Ampel, weil er genau den ersten
+                          Schritt erfüllt, an dem sie sonst stehen bleibt. */}
+                      <NdaHochlegen
+                        projectId={d.project_id}
+                        partyId={d.party_id}
+                        contactId={contactId}
+                        kontakt={k}
+                        firma={((data.current || [])[0] || {}).name || ''}
+                        onFertig={load}
+                        show={show} />
+
                       {/* Namensnennung (Demasking): Klarname bewusst freigeben */}
                       <div style={{ marginTop: '0.6rem' }}>
                         <div style={LBL}>Namensnennung</div>

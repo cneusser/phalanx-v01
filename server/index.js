@@ -184,6 +184,7 @@ app.use('/api/share', require('./routes/share'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/ndas', require('./routes/ndas'));
+app.use('/api/nda-dokumente', require('./routes/ndaDokumente'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/documents', require('./routes/documents'));

@@ -150,6 +150,10 @@ export default function ProjectDetail() {
   const [fullData, setFullData] = useState(null);
   const [ndaStatus, setNdaStatus] = useState(null);
   const [ndaId, setNdaId] = useState(null);
+  // v0.504: Ein NDA, der ausserhalb der Plattform unterschrieben und von der
+  // Beratung hinterlegt wurde. Er taucht im Online-Status nicht auf, und ohne
+  // diese Abfrage sähe der Unterzeichner seinen eigenen Vertrag nirgends.
+  const [externerNda, setExternerNda] = useState(null);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [contacting, setContacting] = useState(false);
@@ -238,6 +242,13 @@ export default function ProjectDetail() {
           if (['signed', 'approved'].includes(ndaData.status)) {
             try { setQuestions(await api.get(`/projects/${id}/questions`)); } catch { /* ignore */ }
           }
+          // v0.504: Wurde der NDA per Mail unterschrieben und von der Beratung
+          // hinterlegt, steht er in keiner dieser Abfragen. Er gehört dem
+          // Unterzeichner trotzdem.
+          try {
+            const meine = await api.get('/nda-dokumente/meine/uebersicht');
+            setExternerNda((meine || []).find((m) => String(m.project_id) === String(id)) || null);
+          } catch { /* ignore */ }
         }
       }
     } catch (e) {
@@ -1178,6 +1189,22 @@ export default function ProjectDetail() {
                       } catch { /* ignore */ }
                     }} style={{ width: '100%', background: 'transparent', border: `1px solid ${C.navy}`, color: C.navy, padding: '0.6rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
                       <Download size={13} /> Unterzeichnetes NDA herunterladen
+                    </button>
+                  )}
+                  {externerNda && (
+                    <button onClick={async () => {
+                      try {
+                        const token = localStorage.getItem('phalanx_token');
+                        const res = await fetch(`/api/nda-dokumente/datei/${externerNda.id}`, { headers: { Authorization: `Bearer ${token}` } });
+                        if (res.ok) {
+                          const blob = await res.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a'); a.href = url; a.download = externerNda.dateiname; a.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      } catch { /* ignore */ }
+                    }} style={{ width: '100%', background: 'transparent', border: `1px solid ${C.navy}`, color: C.navy, padding: '0.6rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+                      <Download size={13} /> Ihre Vertraulichkeitsvereinbarung herunterladen
                     </button>
                   )}
                 </>
