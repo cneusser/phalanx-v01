@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Folder, FileText, ChevronRight, Search, CornerLeftUp } from 'lucide-react';
+import { trefferAusschnitt } from '../utils/trefferAusschnitt';
 import { useT } from '../i18n';
 
 // Ordner-navigierbarer Käufer-Datenraum. Baut den Baum aus dem Feld doc.folder
@@ -77,7 +78,7 @@ export default function DataRoomBrowser({ docs, C, renderDownload, onSearch }) {
           </div>
           {d.snippet && (
             <div style={{ fontSize: '0.72rem', color: C.text, marginTop: 3, lineHeight: 1.4 }}>
-              {renderSnippet(d.snippet, C)}
+              {trefferAusschnitt(d.snippet, C.text)}
             </div>
           )}
         </div>
@@ -156,11 +157,3 @@ export default function DataRoomBrowser({ docs, C, renderDownload, onSearch }) {
 
 const crumbBtn = (C) => ({ background: 'none', border: 'none', color: C.navy, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, padding: '0.1rem 0.2rem' });
 
-// Trefferausschnitt: der Server markiert Fundstellen mit « … », hier hervorgehoben.
-// React escaped Textknoten automatisch, daher kein HTML-Injection-Risiko.
-function renderSnippet(s, C) {
-  const parts = String(s).split(/[«»]/);
-  return parts.map((p, i) => (i % 2 === 1
-    ? <mark key={i} style={{ background: '#fde68a', color: C.text, padding: '0 1px', borderRadius: 2 }}>{p}</mark>
-    : <span key={i}>{p}</span>));
-}

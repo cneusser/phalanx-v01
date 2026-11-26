@@ -6,7 +6,7 @@
 //   · Verkäufer (Mandant):  der reduzierte Prozessstand seiner eigenen Mandate,
 //     mit Klarname und Firma, aber ohne jede Kontaktdatei.
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -20,7 +20,10 @@ export default function Funnel() {
   const navigate = useNavigate();
   const [myProjects, setMyProjects] = useState([]);
   const [msg, setMsg] = useState('');
-  const show = (t) => { setMsg(t); setTimeout(() => setMsg(''), 4000); };
+  // Stabil halten (v0.507): Kinder haben show in ihren Effekt-Abhängigkeiten.
+  // Eine neue Funktion je Render lud Board, Aufgaben und Kontaktakte bei jedem
+  // Tastendruck neu und überschrieb ungespeicherte Eingaben im Drawer.
+  const show = useCallback((t) => { setMsg(t); setTimeout(() => setMsg(''), 4000); }, []);
 
   useEffect(() => {
     if (user && !isAdmin && !isSeller) navigate('/dashboard', { replace: true });

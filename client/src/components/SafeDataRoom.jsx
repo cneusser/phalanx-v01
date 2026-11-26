@@ -12,6 +12,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Folder, FileText, Lock, Download, Eye, Search, ChevronRight, ChevronUp, ChevronDown, Package, CornerLeftUp } from 'lucide-react';
 import { api } from '../api/client';
 import { useT } from '../i18n';
+import { trefferAusschnitt } from '../utils/trefferAusschnitt';
 
 const kb = (n) => {
   if (!n) return '';
@@ -282,7 +283,7 @@ export default function SafeDataRoom({ projectId, C, dokId }) {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: '0.83rem', color: C.text, overflowWrap: 'break-word' }}>{t.name}</div>
                   <div style={{ fontSize: '0.72rem', color: C.muted }}>{t.folder || 'Hauptordner'}</div>
-                  {t.snippet && <div style={{ fontSize: '0.74rem', color: C.muted, marginTop: 3 }} dangerouslySetInnerHTML={{ __html: t.snippet.replace(/«/g, '<mark>').replace(/»/g, '</mark>') }} />}
+                  {t.snippet && <div style={{ fontSize: '0.74rem', color: C.muted, marginTop: 3 }}>{trefferAusschnitt(t.snippet, C.text)}</div>}
                 </div>
                 {t.darf_download && (
                   <Knopf onClick={() => hole(`/api/safe/${projectId}/item/${t.id}/download`, t.name, setFehler, null, fehlertext)}>

@@ -11,7 +11,9 @@ export const CM = {
   dark:  '#1A4D8A',  // "Match"  : deep navy
 };
 
-const FONT = "'Nunito', 'Poppins', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+// Nunito wird seit v0.507 nicht mehr von Google geladen; wer sie installiert hat,
+// sieht sie, alle anderen eine gerundete Systemschrift.
+const FONT = "'Nunito', 'Arial Rounded MT Bold', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
 
 /**
  * CapitalMatch Logo: offizielle Bildmarke.

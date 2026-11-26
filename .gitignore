@@ -14,3 +14,9 @@ server/.env
 #
 # Im Betrieb liegen diese Dateien auf dem Railway-Volume oder in R2, nie hier.
 uploads/
+
+# Build-Ergebnis und Vite-Zwischendateien (v0.507). Railway baut die Oberfläche
+# bei jedem Deploy selbst (nixpacks.toml, Dockerfile); eine eingecheckte Fassung
+# veraltet sofort und bläht jeden Diff auf.
+client/dist/
+*.timestamp-*.mjs

@@ -4,7 +4,10 @@
 // Einrichtung: Beim Mailprovider (Brevo Inbound Parsing, Mailgun Routes, Postmark
 // Inbound) eine Adresse wie inbox@capitalmatch.de auf diesen Endpoint routen:
 //
-//     POST https://www.capitalmatch.de/api/inbound/email?secret=<INBOUND_SECRET>
+//     POST https://inbound:<INBOUND_SECRET>@www.capitalmatch.de/api/inbound/email
+//
+// oder mit Kopfzeile x-inbound-secret. Die Angabe ?secret=… in der Adresse gilt
+// nur noch übergangsweise (siehe utils/inboundGeheimnis.js).
 //
 // Sie setzen diese Adresse ins BCC Ihrer Mails an Kontakte, Antworten (Reply-All)
 // landen dann automatisch in der Kontakt-Historie.
@@ -14,22 +17,14 @@
 // angelegt, sondern nur protokolliert.
 // ─────────────────────────────────────────────────────────────────────────────
 const express = require('express');
-const crypto = require('crypto');
 const wrap = require('../utils/asyncHandler');
 const { ingestMail } = require('../utils/inbound');
 const db = require('../db/database');
 const { parseLead } = require('../utils/leadParser');
 
-// Zeitsicherer Vergleich, damit sich das Secret nicht über Laufzeitunterschiede
-// erraten lässt. Header wird bevorzugt (Query-Parameter landen in Proxy-Logs).
-function secretOk(req) {
-  const expected = process.env.INBOUND_SECRET;
-  if (!expected) return false;
-  const given = req.get('x-inbound-secret') || req.query.secret || '';
-  const a = Buffer.from(String(given));
-  const b = Buffer.from(String(expected));
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
+// Zeitsicherer Vergleich; Kopfzeile oder Basic Auth, die Adresszeile nur
+// noch übergangsweise (v0.507, utils/inboundGeheimnis.js).
+const { geheimnisOk: secretOk } = require('../utils/inboundGeheimnis');
 const { ingestLead } = require('../utils/leadIngest');
 const router = express.Router();
 

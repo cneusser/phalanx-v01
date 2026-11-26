@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -703,10 +703,13 @@ export default function Admin() {
     if (activeTab === 'audit') loadAuditLogs(auditPage);
   }, [auditPage, auditActionFilter]);
 
-  const showMsg = (text, type = 'success') => {
+  // Stabil halten (v0.507): Kinder haben show in ihren Effekt-Abhängigkeiten.
+  // Eine neue Funktion je Render lud Board, Aufgaben und Kontaktakte bei jedem
+  // Tastendruck neu und überschrieb ungespeicherte Eingaben im Drawer.
+  const showMsg = useCallback((text, type = 'success') => {
     setMsg({ text, type });
     setTimeout(() => setMsg({ text: '', type: 'success' }), 3500);
-  };
+  }, []);
 
   // Freigeben, auf Wunsch gleich mit der offenen Vertraulichkeits-
   // vereinbarung (v0.480). Wer ein Mandat anfragt und sich dabei

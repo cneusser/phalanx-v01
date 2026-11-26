@@ -314,7 +314,10 @@ export default function Crm() {
     } catch (e) { show('Fehler: ' + e.message); }
   }
 
-  const show = (m) => { setMsg(m); setTimeout(() => setMsg(''), 3500); };
+  // Stabil halten (v0.507): Kinder haben show in ihren Effekt-Abhängigkeiten.
+  // Eine neue Funktion je Render lud Board, Aufgaben und Kontaktakte bei jedem
+  // Tastendruck neu und überschrieb ungespeicherte Eingaben im Drawer.
+  const show = useCallback((m) => { setMsg(m); setTimeout(() => setMsg(''), 3500); }, []);
 
   async function openCompany(id) {
     try { setDetail(await api.get(`/crm/companies/${id}/detail`)); }
