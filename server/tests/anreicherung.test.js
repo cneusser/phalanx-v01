@@ -55,6 +55,9 @@ console.log('\n══ Jeder Anbieter bekommt, was er versteht ══');
   ok('der Auftrag steht im system-Feld', /Stammdaten/.test(anth.koerper.system || ''));
   ok('und nicht als Nachricht', (anth.koerper.messages || []).every((m) => m.role !== 'system'), JSON.stringify((anth.koerper.messages || []).map((m) => m.role)));
   ok('max_tokens ist gesetzt, sonst antwortet Anthropic nicht', Number(anth.koerper.max_tokens) > 0, String(anth.koerper.max_tokens));
+  // v0.511: Die neueren Modelle weisen die Anfrage mit `temperature` ab.
+  // Gefunden auf der Teststufe, bei der ersten echten Anfrage, Fehler 400.
+  ok('und temperature wird nicht mitgeschickt', anth.koerper.temperature === undefined, String(anth.koerper.temperature));
   ok('die gesuchten Felder stehen in der Nachricht', /sektor, region/.test(anth.koerper.messages[0].content));
 
   process.env.ANREICHERUNG_SCHLUESSEL = 'sk-proj-beispiel';

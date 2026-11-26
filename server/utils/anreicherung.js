@@ -106,7 +106,11 @@ function anfrage(beschreibung, gesucht) {
       koerper: {
         model: MODELL(),
         max_tokens: 1024,
-        temperature: 0,
+        // Kein `temperature` (v0.511). Die neueren Modelle von Anthropic
+        // weisen die Anfrage damit rundweg ab: „temperature is deprecated for
+        // this model". Auf der Teststufe war das die erste echte Anfrage und
+        // sofort ein Fehler 400. Für diese Aufgabe ist das ohne Verlust: Es
+        // wird nach Tatsachen gefragt, nicht nach Formulierungen.
         system: AUFTRAG,
         messages: [{ role: 'user', content: nutzertext }],
       },
