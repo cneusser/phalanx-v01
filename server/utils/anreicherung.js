@@ -16,8 +16,10 @@
 //
 // Eingerichtet wird über:
 //   ANREICHERUNG_SCHLUESSEL   ohne ihn passiert nichts
-//   ANREICHERUNG_URL          Standard: OpenAI-kompatibler Endpunkt
-//   ANREICHERUNG_MODELL
+//   ANREICHERUNG_ART          openai oder anthropic; ohne Angabe erkannt am
+//                             Schlüssel (sk-ant- heisst Anthropic)
+//   ANREICHERUNG_MODELL       Standard: gpt-4o-mini oder claude-haiku-5-5
+//   ANREICHERUNG_URL          nur bei einem abweichenden Endpunkt
 //
 // Eine vierte Regel, die hier besonders zählt: Das Modell darf sagen, dass es
 // etwas nicht weiss. Ein Feld ohne Antwort ist ein gutes Ergebnis, und die
@@ -26,8 +28,26 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SCHLUESSEL = () => process.env.ANREICHERUNG_SCHLUESSEL || '';
-const MODELL = () => process.env.ANREICHERUNG_MODELL || 'gpt-4o-mini';
-const ADRESSE = () => process.env.ANREICHERUNG_URL || 'https://api.openai.com/v1/chat/completions';
+
+/**
+ * Welcher Anbieter? (v0.510)
+ *
+ * Wird nichts gesetzt, entscheidet der Schlüssel. Die Schlüssel von Anthropic
+ * beginnen mit `sk-ant-`, und daran lässt sich der Anbieter ohne eine zweite
+ * Variable erkennen. Eine Einstellung, die man vergessen kann, ist eine
+ * Fehlerquelle; eine, die sich von selbst ergibt, nicht.
+ */
+function ART() {
+  const gesetzt = String(process.env.ANREICHERUNG_ART || '').toLowerCase();
+  if (gesetzt) return gesetzt;
+  return SCHLUESSEL().startsWith('sk-ant-') ? 'anthropic' : 'openai';
+}
+
+const MODELL = () => process.env.ANREICHERUNG_MODELL
+  || (ART() === 'anthropic' ? 'claude-haiku-5-5' : 'gpt-4o-mini');
+
+const ADRESSE = () => process.env.ANREICHERUNG_URL
+  || (ART() === 'anthropic' ? 'https://api.anthropic.com/v1/messages' : 'https://api.openai.com/v1/chat/completions');
 
 /** Ist ein Dienst eingerichtet? Wird auch in der Oberfläche angezeigt. */
 const eingerichtet = () => !!SCHLUESSEL();
@@ -65,23 +85,79 @@ Keine Vorbemerkung, kein Text außerhalb des JSON.`;
  *
  * @returns {{felder: object, fehler: string|null}}
  */
+/**
+ * Was an den Anbieter geht. Zwei Formate, eine Absicht (v0.510).
+ *
+ * Die beiden Häuser sprechen verschieden: OpenAI nimmt den Auftrag als erste
+ * Nachricht und kann ein JSON-Format erzwingen, Anthropic hat ein eigenes
+ * Feld für den Auftrag und erzwingt nichts. Deshalb unten das Abschälen von
+ * Code-Zäunen: Ein Modell, das um JSON gebeten wird, legt gern noch drei
+ * Rückstriche darum.
+ */
+function anfrage(beschreibung, gesucht) {
+  const nutzertext = `${beschreibung}\n\nGesucht: ${gesucht.join(', ')}`;
+  if (ART() === 'anthropic') {
+    return {
+      kopf: {
+        'x-api-key': SCHLUESSEL(),
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      koerper: {
+        model: MODELL(),
+        max_tokens: 1024,
+        temperature: 0,
+        system: AUFTRAG,
+        messages: [{ role: 'user', content: nutzertext }],
+      },
+    };
+  }
+  return {
+    kopf: { Authorization: `Bearer ${SCHLUESSEL()}`, 'Content-Type': 'application/json' },
+    koerper: {
+      model: MODELL(),
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: AUFTRAG },
+        { role: 'user', content: nutzertext },
+      ],
+    },
+  };
+}
+
+/** Den Text aus der Antwort holen, egal von welchem Anbieter sie kommt. */
+function textAus(j) {
+  if (!j) return null;
+  // OpenAI und alles, was dessen Format spricht.
+  const openai = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+  if (openai) return String(openai);
+  // Anthropic: eine Liste von Blöcken, der erste mit Text zählt.
+  if (Array.isArray(j.content)) {
+    const block = j.content.find((b) => b && b.type === 'text' && b.text);
+    if (block) return String(block.text);
+  }
+  return null;
+}
+
+/** Drei Rückstriche und ein „json" davor sind kein JSON, aber umschliessen es. */
+function ohneZaun(text) {
+  const t = String(text || '').trim();
+  const m = t.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return m ? m[1].trim() : t;
+}
+
+/**
+ * Das Modell fragen.
+ *
+ * @returns {{felder: object, fehler: string|null}}
+ */
 async function frage(beschreibung, gesucht) {
   if (!eingerichtet()) return { felder: {}, fehler: 'Es ist kein Dienst für Vorschläge eingerichtet.' };
+  const { kopf, koerper } = anfrage(beschreibung, gesucht);
   let res;
   try {
-    res = await fetch(ADRESSE(), {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${SCHLUESSEL()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: MODELL(),
-        temperature: 0,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: AUFTRAG },
-          { role: 'user', content: `${beschreibung}\n\nGesucht: ${gesucht.join(', ')}` },
-        ],
-      }),
-    });
+    res = await fetch(ADRESSE(), { method: 'POST', headers: kopf, body: JSON.stringify(koerper) });
   } catch (e) {
     return { felder: {}, fehler: `Der Dienst war nicht erreichbar: ${e.message}` };
   }
@@ -90,10 +166,10 @@ async function frage(beschreibung, gesucht) {
     return { felder: {}, fehler: `Der Dienst antwortete mit ${res.status}: ${txt.slice(0, 120)}` };
   }
   const j = await res.json().catch(() => null);
-  const roh = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+  const roh = textAus(j);
   if (!roh) return { felder: {}, fehler: 'Der Dienst hat nichts zurückgegeben.' };
   let geparst;
-  try { geparst = JSON.parse(roh); } catch { return { felder: {}, fehler: 'Die Antwort war kein lesbares JSON.' }; }
+  try { geparst = JSON.parse(ohneZaun(roh)); } catch { return { felder: {}, fehler: 'Die Antwort war kein lesbares JSON.' }; }
   return { felder: (geparst && geparst.felder) || {}, fehler: null };
 }
 
@@ -203,4 +279,4 @@ async function ablehnen(db, vorschlagId, actorId) {
   return { ok: true };
 }
 
-module.exports = { eingerichtet, FELDER, fuerFirma, uebernehmen, ablehnen, frage };
+module.exports = { eingerichtet, FELDER, fuerFirma, uebernehmen, ablehnen, frage, anfrage, textAus, ohneZaun, ART, MODELL, ADRESSE };
