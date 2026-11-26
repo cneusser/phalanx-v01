@@ -1195,12 +1195,17 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
     return () => { weg = true; };
   }, [company.id]);
 
+  // v0.512: Was zurückkam, wird gemerkt. Eine leere Liste kann zweierlei
+  // heissen, und der Unterschied ist für die Beurteilung alles: Das Modell
+  // wusste nichts, oder seine Antwort war unbrauchbar.
+  const [vorschlagLage, setVorschlagLage] = useState(null);
   async function ladeVorschlaege() {
     setVorschlagLaeuft(true);
     try {
-      await api.post(`/crm/companies/${company.id}/vorschlaege`, {});
+      const lage = await api.post(`/crm/companies/${company.id}/vorschlaege`, {});
+      setVorschlagLage(lage);
       setVorschlaege(await api.get(`/crm/companies/${company.id}/vorschlaege`));
-    } catch (e) { show && show('Fehler: ' + e.message); }
+    } catch (e) { setVorschlagLage(null); show && show('Fehler: ' + e.message); }
     setVorschlagLaeuft(false);
   }
 
@@ -1307,6 +1312,17 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
           )}
           {vorschlaege && (vorschlaege.vorschlaege || []).filter(v => v.stand === 'offen').length === 0 && vorschlaege.dienst_eingerichtet && (
             <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: 5 }}>Kein offener Vorschlag.</div>
+          )}
+          {vorschlagLage && vorschlagLage.schweigen && (
+            <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
+              Das Modell kennt diese Firma nicht und hat zu keinem der gesuchten Felder etwas gesagt.
+              Das ist die richtige Antwort, wenn es nichts weiß.
+            </div>
+          )}
+          {vorschlagLage && (vorschlagLage.verworfen || []).length > 0 && (
+            <div style={{ fontSize: '0.74rem', color: '#92400E', marginTop: 5, lineHeight: 1.5 }}>
+              Verworfen: {vorschlagLage.verworfen.map(v => `${v.feld} „${v.wert}" (${v.grund})`).join('; ')}
+            </div>
           )}
           {vorschlaege && (vorschlaege.vorschlaege || []).filter(v => v.stand === 'offen').map(v => (
             <div key={v.id} style={{ fontSize: '0.78rem', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.5rem 0.6rem', marginTop: 6, lineHeight: 1.5 }}>

@@ -56,10 +56,19 @@ const eingerichtet = () => !!SCHLUESSEL();
 // Alles, was hier nicht steht, wird verworfen, auch wenn das Modell es liefert.
 const FELDER = {
   sektor: { label: 'Branche oder Sektor', pruefe: (v) => String(v).length >= 3 && String(v).length <= 80 },
-  revenue_band: { label: 'Umsatzgrößenordnung', pruefe: (v) => /^[\d<>~\s.,-]*(mio|mrd|million|tsd|eur|€)/i.test(String(v)) || /^\d/.test(String(v)) },
+  // v0.512: Grosszuegiger geprueft. Die erste Fassung verwarf „unter 5 Mio.
+  // EUR" und „ca. 12 Mio. EUR", also genau die vorsichtigen Formulierungen,
+  // die bei einer Groessenordnung die ehrlichsten sind. Verlangt wird jetzt
+  // eine Zahl und eine Einheit, mehr nicht.
+  revenue_band: { label: 'Umsatzgrößenordnung',
+    pruefe: (v) => String(v).length <= 60 && /\d/.test(String(v)) && /(mio|mrd|million|milliarde|tsd|eur|€)/i.test(String(v)) },
   employees: { label: 'Mitarbeiterzahl', pruefe: (v) => Number.isFinite(Number(v)) && Number(v) > 0 && Number(v) < 2000000 },
   region: { label: 'Region', pruefe: (v) => String(v).length >= 2 && String(v).length <= 60 },
-  website: { label: 'Webseite', pruefe: (v) => /^https?:\/\/[^\s]+\.[^\s]+$/.test(String(v)) },
+  // Eine Adresse ohne Vorsatz ist keine falsche Adresse. Sie wird ergaenzt,
+  // statt den Vorschlag wegzuwerfen.
+  website: { label: 'Webseite',
+    pruefe: (v) => /^(https?:\/\/)?[^\s/]+\.[^\s/]{2,}/.test(String(v)),
+    normal: (v) => (/^https?:\/\//i.test(String(v)) ? String(v) : `https://${String(v).replace(/^\/+/, '')}`) },
 };
 
 const AUFTRAG = `Du ergänzt Stammdaten in einer Datenbank für Unternehmensnachfolge und M&A.
@@ -73,6 +82,9 @@ in der Datenbank später nicht mehr von einer recherchierten zu unterscheiden is
 
 Antworte als JSON-Objekt mit genau dieser Form:
 {"felder": {"<feldname>": {"wert": "...", "begruendung": "woran du es festmachst", "sicherheit": 0-100}}}
+
+Halte die Begründung kurz, höchstens fünfzehn Wörter. Die Antwort muss vollständig in das
+Antwortfenster passen; lieber weniger Felder als eine abgeschnittene Antwort.
 
 Zulässige Feldnamen: sektor, revenue_band, employees, region, website.
 Werte: sektor als kurze Branchenbezeichnung auf Deutsch. revenue_band als Spanne mit Einheit,
@@ -105,7 +117,7 @@ function anfrage(beschreibung, gesucht) {
       },
       koerper: {
         model: MODELL(),
-        max_tokens: 1024,
+        max_tokens: 2048,
         // Kein `temperature` (v0.511). Die neueren Modelle von Anthropic
         // weisen die Anfrage damit rundweg ab: „temperature is deprecated for
         // this model". Auf der Teststufe war das die erste echte Anfrage und
@@ -173,7 +185,24 @@ async function frage(beschreibung, gesucht) {
   const roh = textAus(j);
   if (!roh) return { felder: {}, fehler: 'Der Dienst hat nichts zurückgegeben.' };
   let geparst;
-  try { geparst = JSON.parse(ohneZaun(roh)); } catch { return { felder: {}, fehler: 'Die Antwort war kein lesbares JSON.' }; }
+  try {
+    geparst = JSON.parse(ohneZaun(roh));
+  } catch {
+    // v0.512: „kein lesbares JSON" allein ist keine Auskunft. Der häufigste
+    // Grund ist eine abgeschnittene Antwort, und das steht in der Antwort
+    // selbst. Bei Philip Morris International ist genau das passiert: Das
+    // Modell weiss viel, schreibt lange Begründungen und läuft in die
+    // Obergrenze.
+    const abgeschnitten = j && (j.stop_reason === 'max_tokens'
+      || (j.choices && j.choices[0] && j.choices[0].finish_reason === 'length'));
+    console.warn('Anreicherung: unlesbare Antwort', { abgeschnitten: !!abgeschnitten, anfang: String(roh).slice(0, 160) });
+    return {
+      felder: {},
+      fehler: abgeschnitten
+        ? 'Die Antwort des Modells war abgeschnitten. Ein kürzeres Modell oder weniger gesuchte Felder helfen.'
+        : 'Die Antwort war kein lesbares JSON.',
+    };
+  }
   return { felder: (geparst && geparst.felder) || {}, fehler: null };
 }
 
@@ -187,7 +216,7 @@ async function frage(beschreibung, gesucht) {
  */
 async function fuerFirma(db, companyId, { actorId = null } = {}) {
   const f = await db.get('SELECT * FROM crm_companies WHERE id = ?', [companyId]).catch(() => null);
-  if (!f) return { vorschlaege: [], gefragt: [], fehler: 'Diese Firma gibt es nicht.' };
+  if (!f) return { vorschlaege: [], gefragt: [], beantwortet: 0, verworfen: [], schweigen: false, fehler: 'Diese Firma gibt es nicht.' };
 
   const fehltWert = (k) => {
     if (k === 'employees') return !(Number(f.employees) > 0);
@@ -195,7 +224,7 @@ async function fuerFirma(db, companyId, { actorId = null } = {}) {
     return !f[k] || !String(f[k]).trim();
   };
   const gesucht = Object.keys(FELDER).filter(fehltWert);
-  if (!gesucht.length) return { vorschlaege: [], gefragt: [], fehler: null };
+  if (!gesucht.length) return { vorschlaege: [], gefragt: [], beantwortet: 0, verworfen: [], schweigen: false, fehler: null };
 
   const bekannt = [
     `Firma: ${f.name}`,
@@ -207,35 +236,52 @@ async function fuerFirma(db, companyId, { actorId = null } = {}) {
   ].filter(Boolean).join('\n');
 
   const { felder, fehler } = await frage(bekannt, gesucht);
-  if (fehler) return { vorschlaege: [], gefragt: gesucht, fehler };
+  if (fehler) return { vorschlaege: [], gefragt: gesucht, beantwortet: 0, verworfen: [], schweigen: false, fehler };
 
   const abgelegt = [];
+  // v0.512: Was das Modell geantwortet hat und was davon verworfen wurde,
+  // steht jetzt in der Antwort. Vorher kam bei einer verworfenen Angabe eine
+  // leere Liste zurück, ununterscheidbar von „das Modell wusste nichts".
+  const verworfen = [];
+  let beantwortet = 0;
   for (const [feld, angabe] of Object.entries(felder)) {
-    if (!FELDER[feld] || !gesucht.includes(feld)) continue;
     const wert = angabe && angabe.wert;
+    if (wert != null && String(wert).trim() !== '') beantwortet += 1;
+    if (!FELDER[feld] || !gesucht.includes(feld)) {
+      if (wert) verworfen.push({ feld, wert: String(wert).slice(0, 60), grund: 'Dieses Feld wird nicht ergänzt.' });
+      continue;
+    }
     if (wert == null || String(wert).trim() === '') continue;
-    if (!FELDER[feld].pruefe(wert)) continue;      // unbrauchbares Format, stillschweigend verworfen
+    if (!FELDER[feld].pruefe(wert)) {
+      verworfen.push({ feld, wert: String(wert).slice(0, 60), grund: 'Das Format passt nicht zum Feld.' });
+      continue;
+    }
     const sicherheit = Number.isFinite(Number(angabe.sicherheit)) ? Math.max(0, Math.min(100, Number(angabe.sicherheit))) : null;
+    // Eine Adresse ohne Vorsatz wird ergänzt statt verworfen.
+    const sauber = FELDER[feld].normal ? FELDER[feld].normal(wert) : wert;
 
     // Ein einmal abgelehnter Vorschlag kommt nicht wieder. Sonst steht morgen
     // dasselbe da, und die Liste verliert ihren Wert.
     const alt = await db.get(
       'SELECT id, stand FROM anreicherung_vorschlaege WHERE objekt = ? AND objekt_id = ? AND feld = ?',
       ['firma', companyId, feld]).catch(() => null);
-    if (alt && alt.stand !== 'offen') continue;
+    if (alt && alt.stand !== 'offen') {
+      verworfen.push({ feld, wert: String(sauber).slice(0, 60), grund: `Zu diesem Feld wurde bereits entschieden (${alt.stand}).` });
+      continue;
+    }
 
     if (alt) {
       await db.run(
         `UPDATE anreicherung_vorschlaege SET wert = ?, begruendung = ?, quelle = ?, sicherheit = ?, erstellt_am = now()
           WHERE id = ?`,
-        [String(wert), String(angabe.begruendung || '').slice(0, 500) || null, MODELL(), sicherheit, alt.id]).catch(() => {});
-      abgelegt.push({ id: alt.id, feld, wert: String(wert), sicherheit });
+        [String(sauber), String(angabe.begruendung || '').slice(0, 500) || null, MODELL(), sicherheit, alt.id]).catch(() => {});
+      abgelegt.push({ id: alt.id, feld, wert: String(sauber), sicherheit });
     } else {
       const id = await db.insert(
         `INSERT INTO anreicherung_vorschlaege (objekt, objekt_id, feld, wert, begruendung, quelle, sicherheit)
          VALUES ('firma', ?, ?, ?, ?, ?, ?) RETURNING id`,
-        [companyId, feld, String(wert), String(angabe.begruendung || '').slice(0, 500) || null, MODELL(), sicherheit]).catch(() => null);
-      if (id) abgelegt.push({ id, feld, wert: String(wert), sicherheit });
+        [companyId, feld, String(sauber), String(angabe.begruendung || '').slice(0, 500) || null, MODELL(), sicherheit]).catch(() => null);
+      if (id) abgelegt.push({ id, feld, wert: String(sauber), sicherheit });
     }
   }
 
@@ -243,7 +289,16 @@ async function fuerFirma(db, companyId, { actorId = null } = {}) {
     require('../db/database').auditLog(actorId, 'ANREICHERUNG_GEFRAGT', 'crm_company', companyId,
       `${abgelegt.length} Vorschlag/Vorschläge für ${gesucht.join(', ')} (${MODELL()})`, null);
   }
-  return { vorschlaege: abgelegt, gefragt: gesucht, fehler: null };
+  return {
+    vorschlaege: abgelegt,
+    gefragt: gesucht,
+    beantwortet,
+    verworfen,
+    // Das Modell hat geantwortet, aber zu nichts Brauchbarem. Das ist eine
+    // Auskunft und kein Nichts, und sie gehört in die Oberfläche.
+    schweigen: beantwortet === 0,
+    fehler: null,
+  };
 }
 
 /**
