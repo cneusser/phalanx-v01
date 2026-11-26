@@ -459,6 +459,8 @@ router.post('/:projectId/sign-online', authenticate, wrap(async (req, res) => {
     }).catch(() => {});
     // Sprint 17: XP für NDA-Unterzeichnung
     require('../utils/xp').award(req.user.id, 'NDA_SIGNED', { refType: 'project', refId: project.id }).catch(() => {});
+    // v0.509: Phalanx OS erfährt, dass hier eine Urkunde vorliegt.
+    require('../sync/phalanxpool').merkeStand({ userId: req.user.id }).catch(() => {});
 
     console.log(`NDA für ${project.codename} online unterzeichnet von ${user.email} (${consent_name.trim()})`);
 

@@ -321,6 +321,21 @@ function httpClient() {
       }
       return res.json().catch(() => ({}));
     },
+    // Der Stand aus Sicht dieses Satelliten (v0.509): Rolle, Stufe, Mandate,
+    // Notiz. Phalanx OS führt das je Client getrennt und überschreibt damit
+    // nichts, was dort gepflegt wird.
+    async putStand(poolContactId, bodyObj) {
+      const res = await authed(`/api/pool/v1/contacts/${encodeURIComponent(poolContactId)}/stand`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyObj),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`Standmeldung fehlgeschlagen (${res.status}): ${txt.slice(0, 200)}`);
+      }
+      return res.json().catch(() => ({}));
+    },
     // Welche Segmentnamen kennt der Pool? Seit Phalanx OS v6.47.0 verfügbar.
     // Ältere Stände antworten mit 404, dann bleibt die Liste eben leer.
     async tags() {
@@ -440,14 +455,42 @@ async function syncNow(trigger = 'manual', { voll = false } = {}) {
 }
 
 // ── A3: Rückmeldung an den Pool (Upsert, Warteschlange mit Wiederholung) ──────
-async function enqueueWriteback(contactId) {
+async function enqueueWriteback(contactId, art = 'kontakt') {
   if (!contactId) return;
   await db.run(
-    `INSERT INTO phalanx_pool_outbox (tenant_id, contact_id, source_id, status, updated_at)
-     VALUES (?, ?, ?, 'pending', now())
-     ON CONFLICT (tenant_id, contact_id) DO UPDATE SET status='pending', updated_at=now()`,
-    [1, contactId, `crm-${contactId}`]
+    `INSERT INTO phalanx_pool_outbox (tenant_id, contact_id, source_id, art, status, updated_at)
+     VALUES (?, ?, ?, ?, 'pending', now())
+     ON CONFLICT (tenant_id, contact_id, art) DO UPDATE SET status='pending', attempts=0, updated_at=now()`,
+    [1, contactId, `crm-${contactId}`, art]
   ).catch(() => {});
+}
+
+/**
+ * Den Stand eines Kontakts zur Meldung vormerken (v0.509).
+ *
+ * Aufgerufen wird das dort, wo sich am Stand etwas ändert: Unterschrift,
+ * hinterlegte Urkunde, Freigabe des Datenraums, Wechsel der Funnel-Stufe.
+ * Gesendet wird nicht hier, sondern im Ausgangskorb; eine Unterschrift darf
+ * nicht daran scheitern, dass das andere Haus gerade neu startet.
+ *
+ * Nimmt wahlweise eine Kontakt-Kennung oder ein Nutzerkonto entgegen, weil die
+ * Auslöser mal das eine und mal das andere zur Hand haben.
+ */
+async function merkeStand({ contactId = null, userId = null } = {}) {
+  try {
+    let id = contactId;
+    if (!id && userId) {
+      const k = await db.get('SELECT id FROM crm_contacts WHERE user_id = ? AND anonymized_at IS NULL LIMIT 1', [userId])
+        .catch(() => null);
+      id = k ? k.id : null;
+    }
+    if (!id) return;
+    // Kontakte ohne Gegenstück im Pool haben dort nichts, woran die Meldung
+    // hängen könnte. Sie werden übersprungen, nicht gesammelt.
+    const k = await db.get('SELECT pool_contact_id FROM crm_contacts WHERE id = ?', [id]).catch(() => null);
+    if (!k || !k.pool_contact_id) return;
+    await enqueueWriteback(id, 'stand');
+  } catch { /* Eine Meldung darf den Vorgang nie aufhalten */ }
 }
 
 function buildWritebackBody(contact, user, company) {
@@ -473,6 +516,21 @@ async function drainOutbox(limit = 25) {
     try {
       const contact = await db.get('SELECT * FROM crm_contacts WHERE id = ?', [row.contact_id]).catch(() => null);
       if (!contact) { await db.run(`UPDATE phalanx_pool_outbox SET status='done', updated_at=now() WHERE id=?`, [row.id]).catch(() => {}); continue; }
+
+      // ── Zweite Art von Meldung: der Stand (v0.509) ──────────────────────
+      if (row.art === 'stand') {
+        const { standFuer } = require('./standMeldung');
+        const s = await standFuer(db, row.contact_id);
+        if (!s || !s.pool_contact_id) {
+          await db.run(`UPDATE phalanx_pool_outbox SET status='done', updated_at=now() WHERE id=?`, [row.id]).catch(() => {});
+          continue;
+        }
+        await client.putStand(s.pool_contact_id, s.stand);
+        await db.run(`UPDATE phalanx_pool_outbox SET status='done', updated_at=now() WHERE id=?`, [row.id]).catch(() => {});
+        sent++;
+        continue;
+      }
+
       const user = contact.user_id ? await db.get('SELECT * FROM users WHERE id = ?', [contact.user_id]).catch(() => null) : null;
       const company = await db.get(
         `SELECT co.id, co.name FROM crm_companies co JOIN crm_company_contacts cc ON cc.company_id = co.id WHERE cc.contact_id = ? LIMIT 1`,
@@ -584,7 +642,7 @@ function startScheduler() {
 
 module.exports = {
   // Produktion
-  startScheduler, syncNow, drainOutbox, enqueueWriteback, status, ping, discovery, getPoolToken, config, isConfigured,
+  startScheduler, syncNow, drainOutbox, enqueueWriteback, merkeStand, status, ping, discovery, getPoolToken, config, isConfigured,
   // Kern (für Tests und Wiederverwendung)
   runSync, reconcileOne, buildCreateFields, buildEnrichPatch, buildWritebackBody, zeilenAus,
   segmentBuyerType, segmentShort, prioFromTags, pickEmails, linkedinUrl, reviewEntry,

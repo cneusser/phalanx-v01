@@ -80,7 +80,8 @@ export default function Stammdaten() {
     try {
       const d = await hole(`/${token}`, 'GET', null, t('st.fehler', 'Es hat nicht funktioniert.'));
       setDaten(d);
-      setForm({ ...d.firma, ansprechperson_rolle: d.kontakt.responsibility || '', ansprechperson_email: d.kontakt.email || '' });
+      setForm({ ...d.firma, ansprechperson_rolle: d.kontakt.responsibility || '', ansprechperson_email: d.kontakt.email || '',
+        ansprechperson_telefon: d.kontakt.phone || '' });
     } catch (e) { setFehler(e.message); }
     setLaden(false);
   }, [token]);
@@ -102,7 +103,7 @@ export default function Stammdaten() {
           sektor: form.sektor, schwerpunkt: form.schwerpunkt, region: form.region, employees: form.employees,
           street: form.street, postal_code: form.postal_code, city: form.city, country: form.country,
         },
-        kontakt: { responsibility: form.ansprechperson_rolle, email: form.ansprechperson_email },
+        kontakt: { responsibility: form.ansprechperson_rolle, email: form.ansprechperson_email, phone: form.ansprechperson_telefon },
       }, t('st.fehler', 'Es hat nicht funktioniert.'));
       setErfolg(t('st.danke', 'Vielen Dank, Ihre Angaben sind gespeichert. Sie können dieses Fenster schließen.'));
       setDaten((d) => ({ ...d, fertig: true }));
@@ -266,6 +267,17 @@ export default function Stammdaten() {
           <label style={LABEL}>{t('bw.ph_mail_kurz', 'Ihre E-Mail-Adresse')}</label>
           <input type="email" style={INPUT} value={form.ansprechperson_email || ''}
             onChange={(e) => setzen('ansprechperson_email', e.target.value)} />
+        </div>
+      )}
+
+      {/* v0.509: Die Telefonnummer fehlt in der Praxis am häufigsten und ist
+          die eine Angabe, die sich nicht recherchieren lässt. */}
+      {zeigt('ansprechperson_telefon') && (
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={LABEL}>{t('st.telefon', 'Ihre Telefonnummer')}</label>
+          <input type="tel" style={INPUT} value={form.ansprechperson_telefon || ''}
+            onChange={(e) => setzen('ansprechperson_telefon', e.target.value)}
+            placeholder={t('st.ph_telefon', 'zum Beispiel +49 911 1234567')} />
         </div>
       )}
 

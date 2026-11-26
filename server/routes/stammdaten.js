@@ -52,7 +52,7 @@ publicRouter.get('/:token', pflegeLimiter, wrap(async (req, res) => {
   if (fehler) return res.status(404).json({ success: false, error: fehler });
 
   const firma = await db.get('SELECT * FROM crm_companies WHERE id = ?', [einladung.company_id]);
-  const kontakt = await db.get('SELECT id, first_name, last_name, salutation, email, responsibility FROM crm_contacts WHERE id = ?', [einladung.contact_id]);
+  const kontakt = await db.get('SELECT id, first_name, last_name, salutation, email, responsibility, phone, mobile FROM crm_contacts WHERE id = ?', [einladung.contact_id]);
   if (!firma || !kontakt) return res.status(404).json({ success: false, error: 'Der Datensatz ist nicht mehr vorhanden.' });
 
   if (!einladung.geoeffnet_am) {
@@ -67,7 +67,8 @@ publicRouter.get('/:token', pflegeLimiter, wrap(async (req, res) => {
       street: firma.street || '', postal_code: firma.postal_code || '',
       city: firma.city || '', country: firma.country || '',
     },
-    kontakt: { name: [kontakt.first_name, kontakt.last_name].filter(Boolean).join(' '), email: kontakt.email || '', responsibility: kontakt.responsibility || '' },
+    kontakt: { name: [kontakt.first_name, kontakt.last_name].filter(Boolean).join(' '), email: kontakt.email || '',
+      responsibility: kontakt.responsibility || '', phone: kontakt.phone || kontakt.mobile || '' },
     // Nur die Felder, die eine Person selbst beantworten kann.
     fehlend: voll.selbstPflegbar(fehlend),
     labels: Object.fromEntries(voll.FELDER.map((f) => [f.schluessel, f.label])),
@@ -113,6 +114,11 @@ publicRouter.post('/:token', pflegeLimiter, wrap(async (req, res) => {
   const kPatch = {};
   if (person.responsibility && String(person.responsibility).trim()) kPatch.responsibility = String(person.responsibility).trim().slice(0, 200);
   if (person.email && String(person.email).includes('@')) kPatch.email = String(person.email).trim().toLowerCase();
+  // v0.509: Eine Telefonnummer, aber nur eine, die nach einer aussieht. Was
+  // hier hereinkommt, hat niemand geprüft.
+  if (person.phone && /[\d][\d\s/()+.-]{5,}/.test(String(person.phone))) {
+    kPatch.phone = String(person.phone).trim().slice(0, 50);
+  }
   if (Object.keys(kPatch).length) {
     await db.run(
       `UPDATE crm_contacts SET ${Object.keys(kPatch).map((k) => `${k} = ?`).join(', ')} WHERE id = ?`,

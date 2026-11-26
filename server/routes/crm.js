@@ -43,6 +43,75 @@ const safeJson = (s, d) => { try { return JSON.parse(s || ''); } catch { return 
 const { normalizeName, LEGAL_FORMS } = require('../utils/firmenname');
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Vorschläge (v0.509): zwei Arten, beide nur auf Klick wirksam
+//
+// Anlass waren zwei Sätze aus der Praxis. Zum einen die Fabri-Gruppe: Zwei
+// Personen gehören offensichtlich zur selben Firma, und niemand sagt es.
+// Zum anderen die Bitte um maschinell ergänzte Branche und Grösse.
+//
+// Beides endet hier als Vorschlag mit Begründung, nie als stille Änderung.
+// „Nichts raten, nichts löschen, nichts zusammenführen" gilt auch dann, wenn
+// die Maschine recht hätte.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Zu welcher Firma gehört dieser Kontakt vermutlich?
+router.get('/contacts/:id/firmenvorschlag', ...isStaff, wrap(async (req, res) => {
+  const { fuerKontakt } = require('../utils/firmenvorschlag');
+  const vorschlaege = await fuerKontakt({
+    get: (sql, p) => scoped(req, (t) => t.get(sql, p)),
+    all: (sql, p) => scoped(req, (t) => t.all(sql, p)),
+  }, Number(req.params.id));
+  res.json({ success: true, data: { vorschlaege } });
+}));
+
+// Maschinelle Vorschläge zu einer Firma: lesen, holen, übernehmen, ablehnen.
+router.get('/companies/:id/vorschlaege', ...isStaff, wrap(async (req, res) => {
+  const anr = require('../utils/anreicherung');
+  const zeilen = await scoped(req, (t) => t.all(
+    `SELECT * FROM anreicherung_vorschlaege WHERE objekt = 'firma' AND objekt_id = ? ORDER BY id DESC`,
+    [Number(req.params.id)])).catch(() => []);
+  res.json({ success: true, data: { vorschlaege: zeilen, dienst_eingerichtet: anr.eingerichtet() } });
+}));
+
+router.post('/companies/:id/vorschlaege', ...isStaff, canWrite, wrap(async (req, res) => {
+  const anr = require('../utils/anreicherung');
+  if (!anr.eingerichtet()) {
+    return res.status(503).json({
+      success: false, code: 'KEIN_DIENST',
+      error: 'Es ist kein Dienst für Vorschläge eingerichtet. Ohne ihn wird nichts geraten.',
+    });
+  }
+  const r = await anr.fuerFirma({
+    get: (sql, p) => scoped(req, (t) => t.get(sql, p)),
+    all: (sql, p) => scoped(req, (t) => t.all(sql, p)),
+    run: (sql, p) => scoped(req, (t) => t.run(sql, p)),
+    insert: (sql, p) => scoped(req, (t) => t.insert(sql, p)),
+  }, Number(req.params.id), { actorId: req.user.id });
+  if (r.fehler) return res.status(502).json({ success: false, error: r.fehler });
+  res.json({ success: true, data: r });
+}));
+
+router.post('/vorschlaege/:id/uebernehmen', ...isStaff, canWrite, wrap(async (req, res) => {
+  const anr = require('../utils/anreicherung');
+  const r = await anr.uebernehmen({
+    get: (sql, p) => scoped(req, (t) => t.get(sql, p)),
+    run: (sql, p) => scoped(req, (t) => t.run(sql, p)),
+  }, Number(req.params.id), req.user.id);
+  if (!r.ok) return res.status(400).json({ success: false, error: r.grund });
+  res.json({ success: true, data: r });
+}));
+
+router.post('/vorschlaege/:id/ablehnen', ...isStaff, canWrite, wrap(async (req, res) => {
+  const anr = require('../utils/anreicherung');
+  const r = await anr.ablehnen({
+    get: (sql, p) => scoped(req, (t) => t.get(sql, p)),
+    run: (sql, p) => scoped(req, (t) => t.run(sql, p)),
+  }, Number(req.params.id), req.user.id);
+  if (!r.ok) return res.status(400).json({ success: false, error: r.grund });
+  res.json({ success: true, data: r });
+}));
+
 // ── Unternehmen: Liste (Suche + Filter) ─────────────────────────────────────
 router.get('/companies', ...isStaff, wrap(async (req, res) => {
   const { q, industry, region, company_type, tag, sektor, rolle } = req.query;
@@ -1906,6 +1975,11 @@ router.put('/parties/:id', ...isStaff, canWrite, wrap(async (req, res) => {
   params.push(req.params.id);
   await scoped(req, (t) => t.run(`UPDATE crm_deal_parties SET ${sets.join(', ')} WHERE id = ?`, params));
   db.auditLog(req.user.id, 'CRM_PARTY_UPDATED', 'project', party.project_id, `Eintrag #${req.params.id}`, req.ip);
+  // v0.509: Stufe, Status oder NDA haben sich geändert, also hat sich der
+  // Stand geändert, den Phalanx OS zu dieser Person führt.
+  if (party.contact_id) {
+    require('../sync/phalanxpool').merkeStand({ contactId: party.contact_id }).catch(() => {});
+  }
   if (identityChange) {
     db.auditLog(req.user.id, 'CRM_IDENTITY_REVEALED', 'project', party.project_id, `Namensnennung ${identityChange} (Eintrag #${req.params.id})`, req.ip);
   }

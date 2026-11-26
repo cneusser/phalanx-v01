@@ -268,6 +268,8 @@ const EN = {
   'bw.ph_mail_kurz': 'Your email address',
   'st.ph_zahl': 'for example 45',
   'st.ph_rolle': 'for example managing director',
+  'st.telefon': 'Your telephone number',
+  'st.ph_telefon': 'for example +49 911 1234567',
   'st.fehler': 'It did not work.',
   'st.danke': 'Thank you, your details are saved. You can close this window.',
   'st.danke_bestaetigt': 'Thank you for confirming. I will not come back to you about this.',

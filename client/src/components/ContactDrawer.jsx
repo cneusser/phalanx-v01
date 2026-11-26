@@ -338,6 +338,29 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
     } catch (e) { show('Fehler: ' + e.message); }
   }
 
+  // ── Vorschlag, zu welcher Firma dieser Kontakt gehört (v0.509) ───────────
+  //
+  // Geholt wird er still im Hintergrund. Scheitert es, bleibt die Liste leer
+  // und niemand erfährt davon, denn ein fehlender Vorschlag ist kein Fehler.
+  const [firmenvorschlag, setFirmenvorschlag] = useState([]);
+  useEffect(() => {
+    if (!contactId) return;
+    let abgebrochen = false;
+    api.get(`/crm/contacts/${contactId}/firmenvorschlag`)
+      .then(r => { if (!abgebrochen) setFirmenvorschlag((r && r.vorschlaege) || []); })
+      .catch(() => {});
+    return () => { abgebrochen = true; };
+  }, [contactId, data]);
+
+  async function uebernehmeFirma(v) {
+    try {
+      await api.post(`/crm/companies/${v.company_id}/contacts`, { contact_id: contactId, position: null });
+      show(`${v.name} zugeordnet ✓`);
+      setFirmenvorschlag([]);
+      await load(); onChanged && onChanged();
+    } catch (e) { show('Fehler: ' + e.message); }
+  }
+
   // ── Unternehmen zuordnen: bestehendes wählen oder neu anlegen ─────────────
   async function assignCompany() {
     const name = coNew.trim();
@@ -759,6 +782,20 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
                     ) : (
                       <div style={{ fontSize: '0.82rem', color: C.muted, marginBottom: 6 }}>Noch keinem Unternehmen zugeordnet.</div>
                     )}
+                    {/* v0.509: Der Hinweis, den es bisher nicht gab. Anlass war
+                        die Fabri-Gruppe: Zwei Personen gehören offensichtlich
+                        zusammen, und niemand sagt es. Zugeordnet wird nichts
+                        von selbst, der Grund steht dabei. */}
+                    {(firmenvorschlag || []).map(v => (
+                      <div key={v.company_id} style={{ fontSize: '0.78rem', background: '#FFFBEB', border: '1px solid #fcd34d', borderRadius: 7, padding: '0.5rem 0.6rem', marginBottom: 5, lineHeight: 1.5 }}>
+                        <strong style={{ color: '#92400e' }}>{v.name}</strong>
+                        <div style={{ color: '#92400e' }}>{v.grund}</div>
+                        <button onClick={() => uebernehmeFirma(v)}
+                          style={{ marginTop: 5, background: '#b45309', color: '#fff', border: 'none', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                          Dieser Firma zuordnen
+                        </button>
+                      </div>
+                    ))}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginTop: 6 }}>
                       <select value={coPick} onChange={e => { setCoPick(e.target.value); if (e.target.value) setCoNew(''); }} style={IN}>
                         <option value="">Bestehendes Unternehmen wählen…</option>

@@ -1439,6 +1439,8 @@ router.post('/projects/:projectId/interests/:userId/grant-dataroom', ...isAdmin,
       : `Datenraum OHNE unterschriebene Vereinbarung freigegeben für ${buyer.email}. Begründung: ${grund}`,
     req.ip);
   require('../utils/xp').award(buyer.id, 'DATAROOM_GRANTED', { refType: 'project', refId: project.id }).catch(() => {});
+  // v0.509: Ein offener Datenraum gehört in die Historie des anderen Hauses.
+  require('../sync/phalanxpool').merkeStand({ userId: buyer.id }).catch(() => {});
 
   if (req.body.notify !== false) {
     require('../utils/email').sendProcessUpdateEmail({
@@ -2829,6 +2831,23 @@ router.post('/berichte/fehler/:id/erledigt', ...isAdmin, darfMandatePflegen, wra
  *
  * Ohne :projectId werden alle Mandate geprüft.
  */
+/**
+ * Bericht: Wo fehlen Angaben? (v0.509)
+ *
+ * Anlass, wörtlich: „Gut wäre natürlich dann auch eine Funktion zu haben, wo
+ * ich jederzeit sehe, wo Daten eventuell noch nachgepflegt werden müssen."
+ *
+ * Gemeldet wird, nicht geändert. Die Liste sagt zusätzlich, wen man überhaupt
+ * fragen kann: eingewilligt, Adresse bekannt, und es fehlt etwas, das die
+ * Person selbst weiss. Alles andere ist unsere Arbeit und gehört in keine
+ * Erinnerungsmail.
+ */
+router.get('/berichte/datenluecken', ...isAdmin, wrap(async (req, res) => {
+  const { uebersicht } = require('../utils/datenluecken');
+  const grenze = Math.min(500, Math.max(10, Number(req.query.grenze) || 200));
+  res.json({ success: true, data: await uebersicht(db, grenze, req.query.suche || '') });
+}));
+
 /**
  * Bericht: Wer hat Datenraum-Zugang, ohne dass eine unterschriebene
  * Vertraulichkeitsvereinbarung vorliegt? (v0.506)

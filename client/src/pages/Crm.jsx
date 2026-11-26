@@ -1182,6 +1182,36 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
     setVerlaufLaeuft(false);
   }
 
+  // ── Maschinelle Vorschläge (v0.509) ───────────────────────────────────────
+  // Geholt wird erst auf Anforderung: Jede Anfrage kostet, und beim blossen
+  // Öffnen einer Firma braucht sie niemand.
+  const [vorschlaege, setVorschlaege] = useState(null);
+  const [vorschlagLaeuft, setVorschlagLaeuft] = useState(false);
+  useEffect(() => {
+    let weg = false;
+    api.get(`/crm/companies/${company.id}/vorschlaege`)
+      .then((r) => { if (!weg) setVorschlaege(r); })
+      .catch(() => {});
+    return () => { weg = true; };
+  }, [company.id]);
+
+  async function ladeVorschlaege() {
+    setVorschlagLaeuft(true);
+    try {
+      await api.post(`/crm/companies/${company.id}/vorschlaege`, {});
+      setVorschlaege(await api.get(`/crm/companies/${company.id}/vorschlaege`));
+    } catch (e) { show && show('Fehler: ' + e.message); }
+    setVorschlagLaeuft(false);
+  }
+
+  async function entscheide(id, was) {
+    try {
+      await api.post(`/crm/vorschlaege/${id}/${was}`, {});
+      setVorschlaege(await api.get(`/crm/companies/${company.id}/vorschlaege`));
+      if (was === 'uebernehmen') { show && show('Übernommen ✓'); onChanged(); }
+    } catch (e) { show && show('Fehler: ' + e.message); }
+  }
+
   async function link() {
     if (!addId) return;
     try {
@@ -1250,6 +1280,53 @@ function CompanyDetail({ data, companies, onClose, onChanged, onMerged, onEdit, 
             </div>
           )
         )}
+
+        {/* ── Maschinelle Vorschläge (v0.509) ──────────────────────────────
+            Vorschlag mit Quelle, Übernahme auf Klick, und nie in ein Feld,
+            in dem schon etwas steht. Eine erfundene Umsatzgrösse sieht im
+            Datensatz genauso aus wie eine recherchierte, und zwei Jahre
+            später weiss niemand mehr, welche von beiden es war. */}
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.7rem 0.9rem', margin: '0.75rem 0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <strong style={{ fontSize: '0.82rem', color: C.navy }}>Vorschläge für fehlende Angaben</strong>
+            <button onClick={ladeVorschlaege} disabled={vorschlagLaeuft}
+              style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.3rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, color: C.navy, cursor: vorschlagLaeuft ? 'default' : 'pointer' }}>
+              {vorschlagLaeuft ? 'Wird gefragt…' : 'Vorschläge holen'}
+            </button>
+          </div>
+          {!vorschlaege && (
+            <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
+              Ein Dienst schlägt Branche, Größenordnung und Region vor. Übernommen wird nichts von selbst,
+              und was bereits gepflegt ist, wird nicht angefasst.
+            </div>
+          )}
+          {vorschlaege && !vorschlaege.dienst_eingerichtet && (
+            <div style={{ fontSize: '0.76rem', color: '#92400E', marginTop: 5, lineHeight: 1.5 }}>
+              Es ist kein Dienst eingerichtet. Ohne ihn wird nichts geraten.
+            </div>
+          )}
+          {vorschlaege && (vorschlaege.vorschlaege || []).filter(v => v.stand === 'offen').length === 0 && vorschlaege.dienst_eingerichtet && (
+            <div style={{ fontSize: '0.76rem', color: C.muted, marginTop: 5 }}>Kein offener Vorschlag.</div>
+          )}
+          {vorschlaege && (vorschlaege.vorschlaege || []).filter(v => v.stand === 'offen').map(v => (
+            <div key={v.id} style={{ fontSize: '0.78rem', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 7, padding: '0.5rem 0.6rem', marginTop: 6, lineHeight: 1.5 }}>
+              <strong style={{ color: C.navy }}>{v.feld}</strong>: {v.wert}
+              {v.sicherheit != null && <span style={{ color: C.muted }}> · Sicherheit {v.sicherheit}</span>}
+              {v.begruendung && <div style={{ color: C.muted, fontSize: '0.74rem' }}>{v.begruendung}</div>}
+              <div style={{ color: C.muted, fontSize: '0.72rem' }}>Quelle: {v.quelle}</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 5 }}>
+                <button onClick={() => entscheide(v.id, 'uebernehmen')}
+                  style={{ background: '#065f46', color: '#fff', border: 'none', borderRadius: 6, padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                  Übernehmen
+                </button>
+                <button onClick={() => entscheide(v.id, 'ablehnen')}
+                  style={{ background: '#fff', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 6, padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                  Verwerfen
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
 
         {/* Kontaktdaten des Unternehmens */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '0.8rem 1rem', margin: '0.75rem 0' }}>

@@ -72,19 +72,29 @@ ok('ein unbekannter Wert hat keine Regel und bleibt damit leer', !regelFuer('Irg
 
 // ── Vollständigkeit ─────────────────────────────────────────────────────────
 const leer = voll.pruefe({}, []);
-gleich('leere Firma: alle elf Felder fehlen', leer.fehlend.length, 11);
+gleich('leere Firma: alle zwoelf Felder fehlen', leer.fehlend.length, 12);
 ok('zurück kommen Namen, keine Prozentzahl', leer.labels.includes('Sektor') && leer.labels.includes('Ort'));
 
 const halb = voll.pruefe(
   { name: 'Muster GmbH', sektor: 'Handel', region: 'Bayern', employees: 42, street: 'Weg 1', postal_code: '91056', city: 'Erlangen', country: 'Deutschland' },
-  [{ last_name: 'Berg', email: 'berg@muster.de', responsibility: '' }]);
+  [{ last_name: 'Berg', email: 'berg@muster.de', responsibility: '', phone: '+49 911 1234567' }]);
 gleich('nur die Rolle der Ansprechperson fehlt', halb.fehlend.join('|'), 'ansprechperson_rolle');
 ok('damit nicht vollständig', !halb.vollstaendig);
 
 const ganz = voll.pruefe(
   { name: 'Muster GmbH', sektor: 'Handel', region: 'Bayern', employees: 42, street: 'Weg 1', postal_code: '91056', city: 'Erlangen', country: 'Deutschland' },
-  [{ last_name: 'Berg', email: 'berg@muster.de', responsibility: 'Geschäftsführung' }]);
+  [{ last_name: 'Berg', email: 'berg@muster.de', responsibility: 'Geschäftsführung', phone: '+49 911 1234567' }]);
 ok('vollständige Firma wird als vollständig erkannt', ganz.vollstaendig);
+
+// v0.509: Die Telefonnummer gehört dazu, und sie ist selbst nachtragbar.
+const ohneNummer = voll.pruefe(
+  { name: 'Muster GmbH', sektor: 'Handel', region: 'Bayern', employees: 42, street: 'Weg 1', postal_code: '91056', city: 'Erlangen', country: 'Deutschland' },
+  [{ last_name: 'Berg', email: 'berg@muster.de', responsibility: 'Geschäftsführung' }]);
+gleich('ohne Telefonnummer fehlt genau sie', ohneNummer.fehlend.join('|'), 'ansprechperson_telefon');
+ok('und sie ist selbst pflegbar', voll.selbstPflegbar(ohneNummer.fehlend).includes('ansprechperson_telefon'));
+ok('eine Mobilnummer genügt auch', voll.pruefe(
+  { name: 'M', sektor: 'Handel', region: 'Bayern', employees: 42, street: 'Weg 1', postal_code: '91056', city: 'Erlangen', country: 'Deutschland' },
+  [{ last_name: 'Berg', email: 'b@m.de', responsibility: 'GF', mobile: '+49 160 1234567' }]).vollstaendig);
 
 ok('Mitarbeiterzahl null gilt als fehlend', voll.fehlt(0, 'employees'));
 ok('Mitarbeiterzahl als Text gilt als fehlend', voll.fehlt('keine Angabe', 'employees'));

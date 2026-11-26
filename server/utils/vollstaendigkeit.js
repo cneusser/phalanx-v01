@@ -24,6 +24,10 @@ const FELDER = [
   { schluessel: 'ansprechperson', label: 'Ansprechperson', an: 'kontakt' },
   { schluessel: 'ansprechperson_rolle', label: 'Rolle der Ansprechperson', an: 'kontakt' },
   { schluessel: 'ansprechperson_email', label: 'E-Mail der Ansprechperson', an: 'kontakt' },
+  // v0.509: Eine Telefonnummer fehlt in der Praxis am häufigsten, und sie ist
+  // genau die Angabe, die niemand recherchieren kann und die Person in fünf
+  // Sekunden nachträgt.
+  { schluessel: 'ansprechperson_telefon', label: 'Telefon der Ansprechperson', an: 'kontakt' },
 ];
 
 const SCHLUESSEL = FELDER.map((f) => f.schluessel);
@@ -62,6 +66,8 @@ function pruefe(firma = {}, kontakte = []) {
   if (!hatNamen) fehlend.push('ansprechperson');
   if (!hatRolle) fehlend.push('ansprechperson_rolle');
   if (!hatMail) fehlend.push('ansprechperson_email');
+  const hatTelefon = liste.some((k) => !fehlt(k.last_name) && (!fehlt(k.phone) || !fehlt(k.mobile)));
+  if (!hatTelefon) fehlend.push('ansprechperson_telefon');
 
   return { fehlend, labels: fehlend.map(labelVon), vollstaendig: fehlend.length === 0 };
 }
@@ -79,7 +85,7 @@ function alsSatz(labels) {
 
 /** Nur die Felder, die eine Person selbst beantworten kann. */
 const SELBST_PFLEGBAR = ['sektor', 'region', 'employees', 'street', 'postal_code', 'city', 'country',
-  'ansprechperson_rolle', 'ansprechperson_email'];
+  'ansprechperson_rolle', 'ansprechperson_email', 'ansprechperson_telefon'];
 
 function selbstPflegbar(fehlend) {
   return (fehlend || []).filter((f) => SELBST_PFLEGBAR.includes(f));

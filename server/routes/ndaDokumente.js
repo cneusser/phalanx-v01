@@ -262,6 +262,10 @@ router.post('/:projectId', authenticate, mitFehlermeldung(upload.single('datei')
       `UPDATE crm_deal_parties SET nda_status = 'signed' WHERE id = ?`, [partyId]));
   }
 
+  // v0.509: Auch die per Mail zurückgeschickte Urkunde gehört in die Historie
+  // des anderen Hauses.
+  require('../sync/phalanxpool').merkeStand({ contactId: kid }).catch(() => {});
+
   db.auditLog(req.user.id, 'NDA_DOKUMENT_HOCHGELEGT', 'project', projectId,
     `${req.file.originalname} (${w.firma}, unterzeichnet ${w.datum}, ${HERKUNFT[w.herkunft]})`, req.ip);
 

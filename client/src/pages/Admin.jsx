@@ -238,6 +238,15 @@ export default function Admin() {
     try { setOhneNachweis(await api.get('/admin/berichte/zugang-ohne-nachweis')); }
     catch (e) { setBerichtMsg('Der Bericht konnte nicht erstellt werden: ' + e.message); }
   };
+  // v0.509: Wo fehlen Angaben, und wen kann man danach fragen?
+  const [luecken, setLuecken] = useState(null);
+  const [lueckenSuche, setLueckenSuche] = useState('');
+  const ladeLuecken = async (suche = '') => {
+    // Der Pfad steht als Zeichenkette da, damit die Routenprüfung ihn liest.
+    const frage = suche ? `?suche=${encodeURIComponent(suche)}` : '';
+    try { setLuecken(await api.get('/admin/berichte/datenluecken' + frage)); }
+    catch (e) { setBerichtMsg('Der Bericht konnte nicht erstellt werden: ' + e.message); }
+  };
   const [loading, setLoading] = useState(true);
   // Sprint 16: Analytics-Cockpit
   const [analytics, setAnalytics] = useState(null);
@@ -2714,6 +2723,76 @@ export default function Admin() {
               {berichtMsg}
             </div>
           )}
+
+          {/* ── Wo fehlen Angaben (v0.509) ────────────────────────────────
+              Eine Liste mit Namen statt einer Prozentzahl. Und daneben die
+              Zahl derer, die man überhaupt fragen kann: eingewilligt,
+              Adresse bekannt, und es fehlt etwas, das sie selbst wissen. */}
+          <div style={CARD}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: '0.3rem' }}>
+              <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.95rem' }}>Wo Angaben fehlen</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input value={lueckenSuche} onChange={(e) => setLueckenSuche(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') ladeLuecken(lueckenSuche); }}
+                  placeholder="Name oder Adresse"
+                  style={{ border: '1px solid #ddd', borderRadius: 7, padding: '0.3rem 0.6rem', fontSize: '0.78rem', width: 160 }} />
+                <button onClick={() => ladeLuecken(lueckenSuche)}
+                  style={{ background: '#fff', border: '1px solid #ddd', borderRadius: 7, padding: '0.35rem 0.8rem', fontSize: '0.78rem', fontWeight: 700, color: C.navy, cursor: 'pointer' }}>
+                  Prüfen
+                </button>
+              </div>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#777', marginBottom: '0.9rem', lineHeight: 1.6 }}>
+              Keine Prozentzahl, sondern die fehlenden Felder beim Namen. „Fragbar" heißt: Die Person hat
+              eingewilligt, eine Adresse ist bekannt, und es fehlt etwas, das sie selbst weiß. Alles andere
+              ist unsere Arbeit.
+            </p>
+            {!luecken && <div style={{ fontSize: '0.82rem', color: '#999' }}>Noch nicht geprüft.</div>}
+            {luecken && (
+              <>
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+                  {[['Kontakte mit Lücken', luecken.kontakte_gesamt], ['Firmen mit Lücken', luecken.firmen_gesamt], ['davon fragbar', luecken.fragbar]].map(([l, n]) => (
+                    <div key={l}>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: C.navy }}>{n}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#777' }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+                {(luecken.haeufig || []).length > 0 && (
+                  <div style={{ marginBottom: '0.9rem' }}>
+                    <div style={{ fontSize: '0.76rem', color: '#777', marginBottom: 4 }}>Am häufigsten fehlt</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {luecken.haeufig.slice(0, 8).map((h) => (
+                        <span key={h.label} style={{ fontSize: '0.74rem', background: '#f4f6f7', border: '1px solid #e2e8f0', borderRadius: 20, padding: '2px 9px' }}>
+                          {h.label} · <strong>{h.anzahl}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: C.navy, marginBottom: 5 }}>Kontakte</div>
+                    {(luecken.kontakte || []).slice(0, 25).map((k) => (
+                      <div key={k.id} style={{ fontSize: '0.76rem', color: '#444', padding: '0.35rem 0', borderBottom: '1px solid #f1f1f1', lineHeight: 1.5 }}>
+                        <strong>{k.name}</strong>{k.mandate ? ` · ${k.mandate} Mandat(e)` : ''}<br />
+                        <span style={{ color: '#92400e' }}>{k.fehlt.join(', ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: C.navy, marginBottom: 5 }}>Firmen</div>
+                    {(luecken.firmen || []).slice(0, 25).map((f) => (
+                      <div key={f.id} style={{ fontSize: '0.76rem', color: '#444', padding: '0.35rem 0', borderBottom: '1px solid #f1f1f1', lineHeight: 1.5 }}>
+                        <strong>{f.name}</strong>{f.kontakte ? ` · ${f.kontakte} Kontakt(e)` : ''}<br />
+                        <span style={{ color: '#92400e' }}>{f.fehlt.join(', ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* ── Zugang ohne Nachweis (v0.506) ─────────────────────────────
               Anlass war ein Interessent, dessen Ansicht „Zugang
