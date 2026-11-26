@@ -545,12 +545,26 @@ async function sendWelcomeSteps({ to, firstName, person }) {
   });
 }
 
-async function sendProcessUpdateEmail({ to, firstName, person, title, message, ctaLabel, ctaPath, meta }) {
+// ── Prozessmail, mit Anhang (v0.507) ────────────────────────────────────────
+//
+// Hier fehlte `attachments`. Die Aufrufer in routes/ndas.js übergaben die
+// unterzeichnete Urkunde, und diese Funktion nahm sie nicht entgegen: Die
+// Eigenschaft stand nicht in der Zerlegung des Parameters und fiel damit
+// stillschweigend weg. Gemerkt hat es niemand, weil die Mail ankam, nur eben
+// ohne das PDF.
+//
+// Der Changelog zu v0.489 sagt „Das unterzeichnete Dokument geht an beide
+// Seiten". Das stimmte für die Beratung, die über sendMail bedient wird, und
+// seit damals nicht für den Unterzeichner. Betroffen waren die Unterschrift
+// und „Erneut senden", also genau die beiden Wege, auf denen eine Urkunde
+// ankommen soll.
+async function sendProcessUpdateEmail({ to, firstName, person, title, message, ctaLabel, ctaPath, meta, attachments }) {
   const url = `${process.env.FRONTEND_URL || 'https://www.capitalmatch.de'}${ctaPath || ''}`;
   const greet = greetingLine(await resolvePerson(person || { first_name: firstName }, to));
   return sendMail({
     to,
     subject: `[CapitalMatch] ${title}`,
+    attachments,
     meta: { type: 'process', ...(meta || {}) },
     html: mailShell(title, `
       <p>${greet}</p>
