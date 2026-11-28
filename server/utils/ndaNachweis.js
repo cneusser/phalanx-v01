@@ -125,7 +125,15 @@ async function zugangOhneNachweis(db, projectId = null) {
             (SELECT count(*) FROM nda_dokumente nd
               WHERE nd.project_id = i.project_id AND nd.user_id = i.buyer_id AND nd.ersetzt_am IS NULL) AS dateien,
             (SELECT max(nr.status) FROM nda_requests nr
-              WHERE nr.project_id = i.project_id AND nr.user_id = i.buyer_id) AS vorgang
+              WHERE nr.project_id = i.project_id AND nr.user_id = i.buyer_id) AS vorgang,
+            -- v0.513: Damit aus dem Bericht heraus gehandelt werden kann, braucht
+            -- die Zeile zwei Kennungen mehr: den Vorgang, falls es einen gibt, und
+            -- den CRM-Kontakt, an dem die Urkunde hinterlegt wird.
+            (SELECT max(nr.id) FROM nda_requests nr
+              WHERE nr.project_id = i.project_id AND nr.user_id = i.buyer_id) AS nda_id,
+            (SELECT max(k.id) FROM crm_contacts k
+              WHERE k.anonymized_at IS NULL
+                AND (k.user_id = i.buyer_id OR lower(k.email) = lower(u.email))) AS contact_id
        FROM interests i
        JOIN projects p ON p.id = i.project_id
        JOIN users u ON u.id = i.buyer_id
@@ -144,6 +152,8 @@ async function zugangOhneNachweis(db, projectId = null) {
       stage: z.stage,
       seit: z.updated_at || null,
       vorgang: z.vorgang || null,
+      nda_id: z.nda_id || null,
+      contact_id: z.contact_id || null,
       hinweis: z.vorgang
         ? `Ein Vorgang besteht (Stand „${z.vorgang}"), aber ohne Unterschrift und ohne hinterlegtes Dokument.`
         : 'Es gibt zu dieser Person gar keinen NDA-Vorgang an diesem Mandat.',

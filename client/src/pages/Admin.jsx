@@ -238,6 +238,67 @@ export default function Admin() {
     try { setOhneNachweis(await api.get('/admin/berichte/zugang-ohne-nachweis')); }
     catch (e) { setBerichtMsg('Der Bericht konnte nicht erstellt werden: ' + e.message); }
   };
+  // v0.513: Sammelbearbeitung im Lueckenbericht. Gesetzt wird nur, was leer ist;
+  // das sichert der Server, nicht die Oberflaeche.
+  const [stapel, setStapel] = useState({ kontakt: [], firma: [] });
+  const [stapelFeld, setStapelFeld] = useState({ kontakt: 'buyer_type', firma: 'region' });
+  const [stapelWert, setStapelWert] = useState({ kontakt: '', firma: '' });
+  const STAPEL_FELDER = {
+    kontakt: { buyer_type: 'Art des Interessenten', city: 'Ort', country: 'Land', responsibility: 'Funktion im Unternehmen' },
+    firma: { sektor: 'Sektor', region: 'Region', revenue_band: 'Umsatzgrößenordnung', city: 'Ort', country: 'Land' },
+  };
+  const stapelUm = (art, id) => setStapel((s) => ({
+    ...s, [art]: s[art].includes(id) ? s[art].filter((x) => x !== id) : [...s[art], id],
+  }));
+  const stapelSetzen = async (art) => {
+    const ids = stapel[art];
+    if (!ids.length) return setBerichtMsg('Es ist keine Zeile ausgewählt.');
+    try {
+      const r = await api.post('/admin/berichte/datenluecken/stapel',
+        { art, feld: stapelFeld[art], wert: stapelWert[art], ids });
+      setBerichtMsg(`${r.gesetzt} Zeile(n) gesetzt.${r.hinweis ? ' ' + r.hinweis : ''}`);
+      setStapel((s) => ({ ...s, [art]: [] }));
+      setStapelWert((w) => ({ ...w, [art]: '' }));
+      await ladeLuecken(lueckenSuche);
+    } catch (e) { setBerichtMsg('Fehler: ' + e.message); }
+  };
+
+  const stapelLeiste = (art) => (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 8, paddingTop: 8, borderTop: '1px solid #e2e8f0' }}>
+      <span style={{ fontSize: '0.74rem', color: '#777' }}>{stapel[art].length} ausgewählt</span>
+      <select value={stapelFeld[art]} onChange={(e) => setStapelFeld((f) => ({ ...f, [art]: e.target.value }))}
+        style={{ border: '1px solid #ddd', borderRadius: 6, padding: '0.25rem 0.4rem', fontSize: '0.74rem' }}>
+        {Object.entries(STAPEL_FELDER[art]).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+      </select>
+      <input value={stapelWert[art]} onChange={(e) => setStapelWert((w) => ({ ...w, [art]: e.target.value }))}
+        placeholder="Wert" style={{ border: '1px solid #ddd', borderRadius: 6, padding: '0.25rem 0.4rem', fontSize: '0.74rem', width: 130 }} />
+      <button onClick={() => stapelSetzen(art)} disabled={!stapel[art].length || !stapelWert[art].trim()}
+        style={{ background: stapel[art].length && stapelWert[art].trim() ? '#065f46' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: 6, padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, cursor: stapel[art].length ? 'pointer' : 'default' }}>
+        Setzen
+      </button>
+      <span style={{ fontSize: '0.7rem', color: '#999' }}>Nur leere Felder</span>
+    </div>
+  );
+
+  // v0.513: Die beiden Handlungen, die sich aus dem Bericht heraus erledigen lassen.
+  // Das Hochlegen der Urkunde braucht die Kontaktakte und führt deshalb dorthin.
+  const nachweisHandeln = async (p, was) => {
+    const wer = p.name || p.email;
+    if (was === 'entziehen' && !window.confirm(
+      `Datenraum-Zugang für ${wer} entziehen?\n\nDer Zugriff endet sofort. Bereits `
+      + 'heruntergeladene Unterlagen bleiben davon unberührt.')) return;
+    try {
+      if (was === 'anfordern') {
+        const r = await api.post('/admin/berichte/zugang-ohne-nachweis/anfordern',
+          { project_id: p.project_id, user_id: p.user_id });
+        setBerichtMsg(`Aufforderung an ${wer} versendet${r && r.neu ? ', Vorgang neu angelegt' : ''}.`);
+      } else {
+        await api.post(`/admin/projects/${p.project_id}/interests/${p.user_id}/revoke-dataroom`, {});
+        setBerichtMsg(`Zugang für ${wer} entzogen.`);
+      }
+      await ladeOhneNachweis();
+    } catch (e) { setBerichtMsg('Fehler: ' + e.message); }
+  };
   // v0.509: Wo fehlen Angaben, und wen kann man danach fragen?
   const [luecken, setLuecken] = useState(null);
   const [lueckenSuche, setLueckenSuche] = useState('');
@@ -2774,20 +2835,28 @@ export default function Admin() {
                   <div>
                     <div style={{ fontSize: '0.8rem', fontWeight: 700, color: C.navy, marginBottom: 5 }}>Kontakte</div>
                     {(luecken.kontakte || []).slice(0, 25).map((k) => (
-                      <div key={k.id} style={{ fontSize: '0.76rem', color: '#444', padding: '0.35rem 0', borderBottom: '1px solid #f1f1f1', lineHeight: 1.5 }}>
-                        <strong>{k.name}</strong>{k.mandate ? ` · ${k.mandate} Mandat(e)` : ''}<br />
-                        <span style={{ color: '#92400e' }}>{k.fehlt.join(', ')}</span>
-                      </div>
+                      <label key={k.id} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: '0.76rem', color: '#444', padding: '0.35rem 0', borderBottom: '1px solid #f1f1f1', lineHeight: 1.5, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={stapel.kontakt.includes(k.id)} onChange={() => stapelUm('kontakt', k.id)} style={{ marginTop: 3 }} />
+                        <span>
+                          <strong>{k.name}</strong>{k.mandate ? ` · ${k.mandate} Mandat(e)` : ''}<br />
+                          <span style={{ color: '#92400e' }}>{k.fehlt.join(', ')}</span>
+                        </span>
+                      </label>
                     ))}
+                    {(luecken.kontakte || []).length > 0 && stapelLeiste('kontakt')}
                   </div>
                   <div>
                     <div style={{ fontSize: '0.8rem', fontWeight: 700, color: C.navy, marginBottom: 5 }}>Firmen</div>
                     {(luecken.firmen || []).slice(0, 25).map((f) => (
-                      <div key={f.id} style={{ fontSize: '0.76rem', color: '#444', padding: '0.35rem 0', borderBottom: '1px solid #f1f1f1', lineHeight: 1.5 }}>
-                        <strong>{f.name}</strong>{f.kontakte ? ` · ${f.kontakte} Kontakt(e)` : ''}<br />
-                        <span style={{ color: '#92400e' }}>{f.fehlt.join(', ')}</span>
-                      </div>
+                      <label key={f.id} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: '0.76rem', color: '#444', padding: '0.35rem 0', borderBottom: '1px solid #f1f1f1', lineHeight: 1.5, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={stapel.firma.includes(f.id)} onChange={() => stapelUm('firma', f.id)} style={{ marginTop: 3 }} />
+                        <span>
+                          <strong>{f.name}</strong>{f.kontakte ? ` · ${f.kontakte} Kontakt(e)` : ''}<br />
+                          <span style={{ color: '#92400e' }}>{f.fehlt.join(', ')}</span>
+                        </span>
+                      </label>
                     ))}
+                    {(luecken.firmen || []).length > 0 && stapelLeiste('firma')}
                   </div>
                 </div>
               </>
@@ -2832,6 +2901,25 @@ export default function Admin() {
                         style={{ fontSize: '0.8rem', color: '#444', padding: '0.4rem 0.6rem', background: '#FFFBEB', border: '1px solid #fcd34d', borderRadius: 6, marginBottom: 4, lineHeight: 1.5 }}>
                         <strong>{p.name || p.email}</strong> · {p.email}<br />
                         <span style={{ color: '#92400e' }}>{p.hinweis}</span>
+                        {/* v0.513: Aus dem Bericht heraus handeln. Vorher war jede
+                            Zeile eine Sackgasse: Sie nannte den Fall und liess den
+                            Leser damit allein. */}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                          <button onClick={() => nachweisHandeln(p, 'anfordern')}
+                            style={{ background: '#b45309', color: '#fff', border: 'none', borderRadius: 6, padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                            Vereinbarung anfordern
+                          </button>
+                          {p.contact_id && (
+                            <a href={`/crm?contact=${p.contact_id}&tab=mandate`} target="_blank" rel="noreferrer"
+                              style={{ background: '#fff', color: C.navy, border: '1px solid #ddd', borderRadius: 6, padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, textDecoration: 'none' }}>
+                              Dokument hochlegen
+                            </a>
+                          )}
+                          <button onClick={() => nachweisHandeln(p, 'entziehen')}
+                            style={{ background: '#fff', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 6, padding: '0.25rem 0.7rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                            Zugang entziehen
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

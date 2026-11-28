@@ -2832,6 +2832,126 @@ router.post('/berichte/fehler/:id/erledigt', ...isAdmin, darfMandatePflegen, wra
  * Ohne :projectId werden alle Mandate geprüft.
  */
 /**
+ * Lücken im Stapel schliessen (v0.513)
+ *
+ * Der Lückenbericht nennt 996 Kontakte und 656 Firmen. Jede einzeln zu öffnen ist
+ * keine Arbeit, die jemand zweimal macht. Häufig ist der Wert für viele Zeilen
+ * derselbe: dieselbe Region, dieselbe Art des Interessenten, dasselbe Land.
+ *
+ * Gesetzt wird nur, was leer ist. Was jemand gepflegt hat, bleibt stehen, auch wenn
+ * es im Stapel anders lautet. Wer überschreiben will, tut das weiterhin einzeln und
+ * mit Blick auf den alten Wert.
+ */
+const STAPEL_FELDER = {
+  kontakt: {
+    tabelle: 'crm_contacts',
+    felder: { buyer_type: 'Art des Interessenten', city: 'Ort', country: 'Land', responsibility: 'Funktion im Unternehmen' },
+  },
+  firma: {
+    tabelle: 'crm_companies',
+    felder: { sektor: 'Sektor', region: 'Region', revenue_band: 'Umsatzgrößenordnung', city: 'Ort', country: 'Land' },
+  },
+};
+
+router.post('/berichte/datenluecken/stapel', ...isAdmin, darfCrmPflegen, wrap(async (req, res) => {
+  const art = String((req.body && req.body.art) || '');
+  const feld = String((req.body && req.body.feld) || '');
+  const wert = String((req.body && req.body.wert) || '').trim();
+  const ids = Array.isArray(req.body && req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+
+  const regel = STAPEL_FELDER[art];
+  if (!regel) return res.status(400).json({ success: false, error: 'Unbekannte Art. Zulässig sind kontakt und firma.' });
+  if (!regel.felder[feld]) {
+    return res.status(400).json({ success: false, error: `Dieses Feld lässt sich nicht im Stapel setzen: ${feld}` });
+  }
+  if (!wert) return res.status(400).json({ success: false, error: 'Ohne Wert wird nichts gesetzt. Leeren geht nur einzeln.' });
+  if (!ids.length) return res.status(400).json({ success: false, error: 'Es ist keine Zeile ausgewählt.' });
+  if (ids.length > 500) return res.status(400).json({ success: false, error: 'Höchstens 500 Zeilen auf einmal.' });
+
+  // Nur Leerstellen. Das ist die ganze Sicherung, und sie steht im SQL, nicht in
+  // einer Schleife, damit sie nicht versehentlich umgangen wird.
+  const platzhalter = ids.map(() => '?').join(', ');
+  const r = await db.run(
+    `UPDATE ${regel.tabelle} SET ${feld} = ?
+      WHERE id IN (${platzhalter}) AND (${feld} IS NULL OR trim(${feld}) = '')`,
+    [wert, ...ids]);
+  const gesetzt = (r && r.rowCount) || 0;
+
+  db.auditLog(req.user.id, 'DATENLUECKEN_STAPEL', art === 'firma' ? 'crm_company' : 'crm_contact', null,
+    `${feld} = ${wert.slice(0, 60)} für ${gesetzt} von ${ids.length} ausgewählten Zeilen`, req.ip);
+
+  res.json({
+    success: true,
+    data: {
+      gesetzt,
+      uebersprungen: ids.length - gesetzt,
+      hinweis: ids.length - gesetzt > 0
+        ? `${ids.length - gesetzt} Zeile(n) hatten bereits einen Wert und wurden nicht angefasst.`
+        : null,
+    },
+  });
+}));
+
+/**
+ * Aus dem Bericht heraus handeln: Vereinbarung anfordern (v0.513)
+ *
+ * Der Bericht „Zugang ohne Nachweis" war eine Sackgasse. Er nannte vier Fälle und
+ * liess den Leser allein damit; wer etwas tun wollte, musste den Kontakt suchen, das
+ * Mandat finden und dort weitersehen. Ein Bericht, aus dem man nicht handeln kann,
+ * wird nach dem zweiten Mal nicht mehr geöffnet.
+ *
+ * Die bestehende Route `PUT /ndas/:id/request-signature` half hier nicht: Drei der
+ * vier Fälle haben überhaupt keinen Vorgang, und sie setzt einen voraus. Diese Route
+ * legt ihn an, wenn er fehlt, und verschickt dieselbe Aufforderung.
+ */
+router.post('/berichte/zugang-ohne-nachweis/anfordern', ...isAdmin, darfMandatePflegen, wrap(async (req, res) => {
+  const projectId = Number(req.body && req.body.project_id);
+  const userId = Number(req.body && req.body.user_id);
+  if (!projectId || !userId) return res.status(400).json({ success: false, error: 'Mandat und Person sind nötig.' });
+
+  const projekt = await db.get('SELECT id, codename, mandate_type FROM projects WHERE id = ?', [projectId]);
+  if (!projekt) return res.status(404).json({ success: false, error: 'Mandat nicht gefunden' });
+  if (projekt.mandate_type === 'fundraising') {
+    return res.status(400).json({ success: false, error: 'Bei Finanzierungsmandaten ist keine Unterschrift vorgesehen.' });
+  }
+  const kaeufer = await db.get('SELECT id, email, first_name FROM users WHERE id = ?', [userId]);
+  if (!kaeufer) return res.status(404).json({ success: false, error: 'Person nicht gefunden' });
+
+  const vorhanden = await db.get(
+    'SELECT * FROM nda_requests WHERE project_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1',
+    [projectId, userId]).catch(() => null);
+  if (vorhanden && (vorhanden.online_consent_at || vorhanden.signed_at)) {
+    return res.status(400).json({ success: false, error: 'Diese Vereinbarung ist bereits unterschrieben.' });
+  }
+
+  let ndaId = vorhanden ? vorhanden.id : null;
+  if (ndaId) {
+    await db.run("UPDATE nda_requests SET status = 'sent', sent_at = now() WHERE id = ?", [ndaId]);
+  } else {
+    ndaId = await db.insert(
+      `INSERT INTO nda_requests (tenant_id, project_id, user_id, status, requested_at, sent_at)
+       VALUES (?, ?, ?, 'sent', now(), now()) RETURNING id`,
+      [req.tenantId || 1, projectId, userId]);
+  }
+
+  db.auditLog(req.user.id, 'NDA_SIGNATURE_REQUESTED', 'nda_request', ndaId,
+    `Aus dem Bericht angefordert für ${kaeufer.email}, Mandat ${projekt.codename}${vorhanden ? '' : ' (Vorgang neu angelegt)'}`,
+    req.ip);
+
+  require('../utils/email').sendProcessUpdateEmail({
+    to: kaeufer.email, firstName: kaeufer.first_name, person: kaeufer,
+    title: `Unterschrift erforderlich: ${projekt.codename}`,
+    message: `Für das Mandat <strong>${projekt.codename}</strong> liegt uns Ihre unterschriebene `
+      + 'Vertraulichkeitsvereinbarung noch nicht vor. Bitte zeichnen Sie sie online, das dauert '
+      + 'etwa zwei Minuten. Ihr bestehender Zugang bleibt davon unberührt.',
+    ctaLabel: 'Jetzt unterzeichnen', ctaPath: `/projekte/${projectId}`,
+    meta: { type: 'process', projectId, userId },
+  }).catch(() => {});
+
+  res.json({ success: true, data: { nda_id: ndaId, neu: !vorhanden } });
+}));
+
+/**
  * Bericht: Wo fehlen Angaben? (v0.509)
  *
  * Anlass, wörtlich: „Gut wäre natürlich dann auch eine Funktion zu haben, wo
