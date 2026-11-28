@@ -26,6 +26,46 @@ function getToken() {
   return localStorage.getItem('phalanx_token');
 }
 
+// ── Eine abgelaufene Sitzung führt zur Anmeldung (v0.515) ───────────────────
+//
+// Anlass: „wenn ich NDA freigeben möchte kommt diese Fehlermeldung."
+// Auf dem Dashboard stand „Fehler: Ungültiges Token", darunter die Kennzahlen
+// einer Sitzung, die es nicht mehr gab. Ein Fenster bleibt tagelang offen, die
+// Sitzung läuft nach sieben Tagen ab, und von da an scheitert jeder Klick, ohne
+// dass irgendetwas auf die Ursache hinweist. Zahlen, die noch dastehen, sehen
+// dabei aus wie der aktuelle Stand, und das ist der gefährlichere Teil.
+//
+// Drei Dinge sind hier bewusst eng gefasst:
+//
+//   · Nur mit Token. Wer ohne Anmeldung den Marktplatz ansieht, bekommt
+//     ebenfalls 401 und soll davon nichts merken.
+//   · Nicht auf der Anmeldeseite selbst, sonst entsteht eine Schleife.
+//   · Liegt ein eigenes Admin-Token daneben, war es ein Birdview-Token. Dann
+//     wird das eigene wiederhergestellt statt abgemeldet (wie in v0.459).
+const SITZUNG_ENDE = new Set(['SITZUNG_ABGELAUFEN', 'TOKEN_UNGUELTIG', 'KONTO_NICHT_AKTIV']);
+
+function sitzungBeenden(code, angefragt) {
+  if (typeof window === 'undefined') return;
+  const pfad = window.location.pathname || '';
+  if (pfad.startsWith('/login') || pfad.startsWith('/sso')) return;
+
+  // Die Prüfung beim Laden bleibt unberührt. Sie läuft auch auf öffentlichen
+  // Seiten, und wer dort mit einem alten Token vorbeikommt, soll weiterlesen
+  // können statt auf die Anmeldung geworfen zu werden. Den Fall regelt der
+  // Anmeldezusammenhang seit v0.465 selbst.
+  if (angefragt === '/auth/me') return;
+
+  const eigenes = localStorage.getItem('phalanx_admin_token');
+  if (eigenes) {
+    localStorage.setItem('phalanx_token', eigenes);
+    localStorage.removeItem('phalanx_admin_token');
+    window.location.href = '/admin';
+    return;
+  }
+  localStorage.removeItem('phalanx_token');
+  window.location.href = `/login?grund=${code === 'SITZUNG_ABGELAUFEN' ? 'abgelaufen' : 'anmeldung'}`;
+}
+
 async function request(method, path, body = null) {
   const headers = { 'Content-Type': 'application/json' };
   const token = getToken();
@@ -41,6 +81,10 @@ async function request(method, path, body = null) {
     const err = new Error(data.error || 'Ein Fehler ist aufgetreten');
     err.status = res.status;
     err.code = data.code || null;   // z. B. IMPERSONATION_READONLY, EMAIL_UNVERIFIED
+    // v0.515: Die Sitzung ist zu Ende. Der Fehler wird trotzdem geworfen,
+    // damit kein Aufrufer mit undefined weiterrechnet, während der Browser
+    // die Seite wechselt.
+    if (res.status === 401 && token && SITZUNG_ENDE.has(err.code)) sitzungBeenden(err.code, path);
     // v0.488: Bei PROFILE_INCOMPLETE reicht die Meldung nicht. Der Aufrufer
     // soll den Nutzer auf die Profilseite fuehren koennen, und dafuer braucht
     // er die fehlenden Felder, nicht nur den Satz darueber.

@@ -80,6 +80,9 @@ export default function Login() {
 
   const [ssoEnabled, setSsoEnabled] = useState(false);
   const ssoError = params.get('sso_error');
+  // v0.515: Wer hier landet, weil die Sitzung endete, soll das lesen können.
+  // Ohne diesen Satz sieht eine abgelaufene Sitzung aus wie ein Rauswurf.
+  const grund = params.get('grund');
 
   useEffect(() => {
     api.get('/auth/config').then((c) => setSsoEnabled(!!c.phalanx_sso_enabled)).catch(() => {});
@@ -171,6 +174,14 @@ export default function Login() {
             <span style={{ display: 'block', marginTop: 3 }}>
               {t('auth.sso_fallback', 'Bitte melden Sie sich mit E-Mail und Passwort an.')}
             </span>
+          </div>
+        )}
+
+        {grund && !ssoError && (
+          <div style={{ background: '#fffbeb', color: '#92400e', borderRadius: 8, padding: '0.6rem 0.85rem', fontSize: '0.8rem', marginBottom: '0.9rem', lineHeight: 1.55 }}>
+            {grund === 'abgelaufen'
+              ? 'Ihre Sitzung ist abgelaufen. Aus Sicherheitsgründen endet eine Anmeldung nach sieben Tagen. Bitte melden Sie sich erneut an, danach geht es dort weiter, wo Sie waren.'
+              : 'Ihre Anmeldung liess sich nicht prüfen. Bitte melden Sie sich erneut an.'}
           </div>
         )}
 

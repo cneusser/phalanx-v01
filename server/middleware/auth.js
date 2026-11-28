@@ -95,7 +95,26 @@ async function authenticate(req, res, next) {
   try {
     decoded = jwt.verify(token, JWT_SECRET);
   } catch (err) {
-    return res.status(401).json({ success: false, error: 'Ungültiges Token' });
+    // ── Abgelaufen ist nicht dasselbe wie gefälscht (v0.515) ──────────────
+    //
+    // Anlass: „wenn ich NDA freigeben möchte kommt diese Fehlermeldung."
+    // Oben auf dem Dashboard stand „Fehler: Ungültiges Token", darunter
+    // lagen die Kennzahlen einer Sitzung, die es nicht mehr gab. Ein Fenster
+    // bleibt tagelang offen, die Sitzung läuft nach sieben Tagen ab, und von
+    // da an scheitert jeder Klick mit einem Satz, der nichts erklärt und
+    // nichts anbietet.
+    //
+    // Hier wird deshalb unterschieden. Abgelaufen ist der Normalfall und
+    // verlangt nur eine neue Anmeldung. Alles andere ist ein Token, das so
+    // nie ausgegeben wurde, und das sagt die Meldung auch.
+    const abgelaufen = err && err.name === 'TokenExpiredError';
+    return res.status(401).json({
+      success: false,
+      code: abgelaufen ? 'SITZUNG_ABGELAUFEN' : 'TOKEN_UNGUELTIG',
+      error: abgelaufen
+        ? 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.'
+        : 'Diese Anmeldung lässt sich nicht prüfen. Bitte melden Sie sich erneut an.',
+    });
   }
   if (istZwischenschein(decoded)) {
     return res.status(401).json({
@@ -125,10 +144,13 @@ async function authenticate(req, res, next) {
     });
   }
   if (!user || !user.is_active) {
-    return res.status(401).json({ success: false, error: 'Benutzer nicht gefunden' });
+    return res.status(401).json({ success: false, code: 'KONTO_NICHT_AKTIV', error: 'Benutzer nicht gefunden' });
   }
   if (!tokenVersionOk(decoded, user)) {
-    return res.status(401).json({ success: false, error: 'Sitzung abgelaufen, bitte erneut anmelden.' });
+    return res.status(401).json({
+      success: false, code: 'SITZUNG_ABGELAUFEN',
+      error: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.',
+    });
   }
   req.user = user;
   await attachImpersonation(req, decoded);
