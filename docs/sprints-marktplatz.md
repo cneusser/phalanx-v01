@@ -87,6 +87,19 @@ Fall sagt, was zuletzt geschah.
 **Messgrösse** Anteil der Kontakte ohne Bewegung seit mehr als 30 Tagen. Heute bei
 FARADAY geschätzt über 60 Prozent.
 
+**Geliefert in v0.514, mit zwei Abweichungen vom Plan.**
+
+Erstens zählt die Quote über die letzten zwanzig Ansprachen, nicht über hundert. Bei
+hundert bräuchte eine Person Jahre, bis die Zahl aussagekräftig wird, und bis dahin
+wäre sie eine Mischung aus zwei verschiedenen Mandatslagen. Zwanzig ist auch das, was
+Axial seit dem Umbau 2023 ausweist.
+
+Zweitens hängt der Bericht nicht am Stufendatum allein. Als Bewegung zählt jetzt auch
+eine Antwort, eine Ansprache, eine Unterschrift und ein Blick in den Datenraum. Sonst
+hätten 201 Kontakte als hängend gegolten, von denen einige vorgestern geschrieben
+haben, und ein Bericht, der das nicht unterscheidet, wird nach dem zweiten Mal nicht
+mehr geöffnet.
+
 ---
 
 ## Sprint 3, v0.515: Die Longlist lebt auf der Plattform

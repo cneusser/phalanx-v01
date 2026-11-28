@@ -110,6 +110,7 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
   const [replySubject, setReplySubject] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDue, setTaskDue] = useState('');
+  const [reaktion, setReaktion] = useState(null); // v0.514
 
   const load = useCallback(async () => {
     try {
@@ -127,6 +128,17 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
     } catch (e) { show('Fehler: ' + e.message); }
   }, [contactId, show]);
   useEffect(() => { load(); }, [load]);
+
+  // v0.514: Die Reaktionsquote dieser Person, über alle Mandate. Eine Zahl,
+  // keine Note. Wer selten antwortet, kann der richtige Käufer sein, und wer
+  // schnell antwortet, der falsche.
+  useEffect(() => {
+    let gilt = true;
+    api.get(`/admin/kontakte/${contactId}/reaktion`)
+      .then((r) => { if (gilt) setReaktion(r); })
+      .catch(() => {});
+    return () => { gilt = false; };
+  }, [contactId]);
   // Auswahllisten für Zuordnungen einmalig laden
   useEffect(() => {
     api.get('/crm/companies').then(r => setCompanies(r || [])).catch(() => {});
@@ -709,6 +721,16 @@ export default function ContactDrawer({ contactId, onClose, onChanged, show: sho
                 <div style={{ fontSize: '0.72rem', color: '#047857', marginTop: 6, lineHeight: 1.5 }}>
                   Antworten gehen direkt an Ihre Adresse. Die Nachricht erscheint sofort unter „Aktivitäten".
                 </div>
+              </div>
+            )}
+
+            {/* Reaktionsquote (v0.514): schlicht als Satz, nicht als Bewertung.
+                Ohne Ansprachen gibt es keine Quote, und dann steht hier auch
+                keine, denn null Prozent wäre in diesem Fall falsch. */}
+            {reaktion && reaktion.quote !== null && (
+              <div style={{ margin: '0 1.3rem 0.6rem', fontSize: '0.74rem', color: C.muted }}>
+                Reaktionsquote <strong style={{ color: C.navy }}>{reaktion.quote} Prozent</strong>
+                {' '}· auf {reaktion.reaktionen} von {reaktion.ansprachen} Ansprachen kam binnen sieben Tagen etwas zurück
               </div>
             )}
 

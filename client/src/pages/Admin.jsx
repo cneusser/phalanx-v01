@@ -299,6 +299,16 @@ export default function Admin() {
       await ladeOhneNachweis();
     } catch (e) { setBerichtMsg('Fehler: ' + e.message); }
   };
+  // v0.514: Was hängt, über alle Mandate, nach Dauer sortiert. Die Schwelle ist
+  // einstellbar, weil 21 Tage für ein Erstgespräch viel und für eine Due
+  // Diligence wenig sind.
+  const [haengt, setHaengt] = useState(null);
+  const [haengtTage, setHaengtTage] = useState(21);
+  const ladeHaengt = async (tage = haengtTage) => {
+    try { setHaengt(await api.get(`/admin/berichte/was-haengt?tage=${tage}`)); }
+    catch (e) { setBerichtMsg('Der Bericht konnte nicht erstellt werden: ' + e.message); }
+  };
+
   // v0.509: Wo fehlen Angaben, und wen kann man danach fragen?
   const [luecken, setLuecken] = useState(null);
   const [lueckenSuche, setLueckenSuche] = useState('');
@@ -2784,6 +2794,77 @@ export default function Admin() {
               {berichtMsg}
             </div>
           )}
+
+          {/* ── Was hängt (v0.514) ────────────────────────────────────────
+              Der Bericht steht bewusst oben. Bei FARADAY warten 201 Kontakte
+              auf der Stufe Ansprache, der älteste seit 162 Tagen. Das ist die
+              Zahl, die zuerst gesehen werden muss, und nicht die letzte. */}
+          <div style={CARD}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: '0.3rem' }}>
+              <div style={{ fontWeight: 700, color: C.navy, fontSize: '0.95rem' }}>Was hängt</div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <span style={{ fontSize: '0.74rem', color: '#777' }}>ohne Bewegung seit</span>
+                <select value={haengtTage} onChange={(e) => { setHaengtTage(Number(e.target.value)); ladeHaengt(Number(e.target.value)); }}
+                  style={{ border: '1px solid #ddd', borderRadius: 7, padding: '0.3rem 0.5rem', fontSize: '0.78rem' }}>
+                  {[7, 14, 21, 30, 60, 90].map((t) => <option key={t} value={t}>{t} Tagen</option>)}
+                </select>
+                <button onClick={() => ladeHaengt()}
+                  style={{ background: '#fff', border: '1px solid #ddd', borderRadius: 7, padding: '0.35rem 0.8rem', fontSize: '0.78rem', fontWeight: 700, color: C.navy, cursor: 'pointer' }}>
+                  Prüfen
+                </button>
+              </div>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#777', marginBottom: '0.9rem', lineHeight: 1.6 }}>
+              Als Bewegung zählt alles, was an einem Vorgang geschehen ist: ein Stufenwechsel, eine Ansprache,
+              eine Antwort, eine Unterschrift, ein Blick in den Datenraum. Wer abgesagt hat und wer noch auf die
+              Freigabe des Inhabers wartet, steht nicht in der Liste.
+            </p>
+            {!haengt && <div style={{ fontSize: '0.82rem', color: '#999' }}>Noch nicht geprüft.</div>}
+            {haengt && (
+              <>
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+                  {[['hängen', haengt.gesamt], ['von Vorgängen', haengt.beobachtet],
+                    ['Anteil in Prozent', haengt.anteil], ['davon ohne jede Antwort', haengt.nie_geantwortet]].map(([l, n]) => (
+                    <div key={l}>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: C.navy }}>{n}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#777' }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+                {(haengt.mandate || []).length === 0 && (
+                  <div style={{ fontSize: '0.82rem', color: '#065f46' }}>Nichts hängt länger als {haengt.schwelle} Tage.</div>
+                )}
+                {(haengt.mandate || []).map((m) => (
+                  <div key={m.project_id} style={{ marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: C.navy, marginBottom: 5 }}>
+                      {m.codename} · {m.personen.length}
+                    </div>
+                    {m.personen.slice(0, 40).map((p) => (
+                      <div key={p.party_id} style={{ display: 'flex', gap: 10, alignItems: 'baseline', fontSize: '0.76rem', color: '#444', padding: '0.35rem 0', borderBottom: '1px solid #f1f1f1', lineHeight: 1.5 }}>
+                        <span style={{ fontWeight: 700, color: '#92400e', minWidth: 62 }}>{p.tage_ohne_bewegung} Tage</span>
+                        <span>
+                          <strong>{p.name}</strong>
+                          {p.contact_id ? (
+                            <button onClick={() => { setActiveTab('crm'); setDrawerContact(p.contact_id); }}
+                              style={{ background: 'none', border: 'none', color: '#1e3a5f', fontSize: '0.72rem', textDecoration: 'underline', cursor: 'pointer', padding: '0 0 0 6px' }}>
+                              Akte
+                            </button>
+                          ) : null}
+                          <br />
+                          <span style={{ color: '#777' }}>zuletzt: {p.letztes_ereignis}</span>
+                        </span>
+                      </div>
+                    ))}
+                    {m.personen.length > 40 && (
+                      <div style={{ fontSize: '0.72rem', color: '#999', paddingTop: 5 }}>
+                        und {m.personen.length - 40} weitere
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
 
           {/* ── Wo fehlen Angaben (v0.509) ────────────────────────────────
               Eine Liste mit Namen statt einer Prozentzahl. Und daneben die

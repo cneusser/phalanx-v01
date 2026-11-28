@@ -2952,6 +2952,42 @@ router.post('/berichte/zugang-ohne-nachweis/anfordern', ...isAdmin, darfMandateP
 }));
 
 /**
+ * Bericht: Was hängt? (v0.514)
+ *
+ * Die unbequemste Zahl der Plattform steht bei FARADAY: 201 von 240 Kontakten
+ * auf der Stufe Ansprache, der älteste seit 162 Tagen, und null LOI. Bisher war
+ * das nur je Mandat und nur als graue Nebenbemerkung auf einer Karte zu sehen.
+ *
+ * Dieser Bericht dreht die Blickrichtung. Nicht „wie viele habe ich erreicht",
+ * sondern „wo wartet gerade jemand auf mich, und seit wann". Sortiert nach
+ * Dauer, denn die längste Wartezeit ist der teuerste Posten im Prozess.
+ *
+ * Gemeldet wird, nicht gehandelt. Was mit einem Fall geschieht, entscheidet
+ * ein Mensch, und zwar derselbe, der ihn angeschrieben hat.
+ */
+router.get('/berichte/was-haengt{/:projectId}', ...isAdmin, wrap(async (req, res) => {
+  const { wasHaengt } = require('../utils/bewegung');
+  const nur = req.params.projectId ? parseInt(req.params.projectId, 10) : null;
+  const tage = Math.min(365, Math.max(1, Number(req.query.tage) || 21));
+  res.json({ success: true, data: await wasHaengt(db, { tage, projectId: nur }) });
+}));
+
+/**
+ * Die Reaktionsquote einer Person, über alle Mandate (v0.514).
+ *
+ * Eine schlichte Zahl: Auf wie viele der letzten zwanzig Ansprachen kam binnen
+ * sieben Tagen etwas zurück. Keine Note, keine Ampel, keine Empfehlung. Wer
+ * selten antwortet, kann der richtige Käufer sein, und wer schnell antwortet,
+ * der falsche.
+ */
+router.get('/kontakte/:id/reaktion', ...isAdmin, wrap(async (req, res) => {
+  const { quoteFuer } = require('../utils/bewegung');
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: 'Kontakt fehlt.' });
+  return res.json({ success: true, data: await quoteFuer(db, id) });
+}));
+
+/**
  * Bericht: Wo fehlen Angaben? (v0.509)
  *
  * Anlass, wörtlich: „Gut wäre natürlich dann auch eine Funktion zu haben, wo
